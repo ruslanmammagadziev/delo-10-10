@@ -1498,7 +1498,10 @@
           });
         },
         simulate(angle, power, from) { const st = { x: from ? from[0] : ball.position.x, z: from ? from[1] : ball.position.z, vx: Math.sin(angle) * v0Of(power), vz: Math.cos(angle) * v0Of(power) }; for (let i = 0; i < 120 * 30; i++) { const r = ballStep(st); if (r === 'holed') return { holed: true, x: holeAt[0], z: holeAt[1], t: i * DTG }; if (r === 'stop') break; } return { holed: false, x: +st.x.toFixed(2), z: +st.z.toFixed(2), dist: +Math.hypot(st.x - holeAt[0], st.z - holeAt[1]).toFixed(2) }; },
-        stop() { g.active = false; arrow.visible = false; putter.visible = false; g.rolling = false; g.swingT = -1; ball.position.set(G.tee[0], yG + 0.06, G.tee[1]); },
+        // W5: «Встать» посреди замаха — мяч не покатится после выхода, обещание удара разрешится (раньше висело)
+        stop() { g.active = false; arrow.visible = false; putter.visible = false; g.rolling = false; g.swingT = -1; g.launchIn = 0;
+          if (g.res) { const r = g.res; g.res = null; try { r(Object.assign({ ok: false, stopped: true }, g.state ? g.state() : {})); } catch (e) { /* ok */ } }
+          ball.position.set(G.tee[0], yG + 0.06, G.tee[1]); },
         tick(dt) {
           if (g.swingT >= 0) { g.swingT += dt; const u = g.swingT; g.swing = u < 0.32 ? lerp(-g.power * 0.55, 0.12, sst(0, 0.32, u)) : lerp(0.12 + g.power * 0.3, 0, sst(0.32, 1.1, u)); if (u > 1.2) g.swingT = -1; }
           if (g.launchIn > 0) { g.launchIn -= dt; if (g.launchIn <= 0) { g.rolling = true; ev.push({ type: 'golf', what: 'hit' }); } }

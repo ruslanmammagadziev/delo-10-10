@@ -313,6 +313,9 @@
       const toHotel = inp.road === 'hotel' && road.branch;
       let Q, P;
       if (toHotel && (S.rid === 1 || S.s > road.branch.sF - 9)) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(Math.max(0, P.s) + la, 0, road.branch.len)); }
+      // W5: на ветке без road:'hotel' — сперва по ветке к развилке (вход теперь почти поперёк основной дороги: ближайшая точка
+      // основной дороги — за склоном, «по основной» пилот прижимался бы к краю ветки); у самой развилки — на основную
+      else if (road.branch && S.rid === 1 && S.sb > 7) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(P.s - la, 0, road.branch.len)); }
       else { P = road.project(S.x, S.z, S.s); const al = Math.cos(angDiff(S.ry, P.th)) >= 0 ? 1 : -1; Q = road.sample(clamp(P.s + al * (back ? -la : la), 0, road.len)); }
       const lane = inp.lane || 0, ax = Q.x + Q.lx * lane, az = Q.z + Q.lz * lane;
       let al2 = angDiff(Math.atan2(ax - S.x, az - S.z), S.ry); if (back) al2 = angDiff(al2 + PI, 0);

@@ -15,6 +15,9 @@
    Волна 4: настоящие руки (js/interact.js — один слой на героиню: взять, съесть, отпить, погладить), день и ночь по часам
    телефона (js/daynight.js; кнопка «Вернуться в утро» / «Как на часах» и чип ☀️/🌙 справа сверху), выбор машины
    «Ретро-купе» / «Красный седан» (js/vehicles/sedan.js; у гаража «Круглые фары», st.world.car, WORLD.carChoice()).
+   Волна 5: бег и прыжок (js/move.js — один контроллер на сессию игры: «Бег»/«Прыжок», запрыгнуть на скамейки, бортик фонтана,
+   ящики рынка, капот и крышу машины; машины и велосипед — твёрдые коробки), «Бум!» понарошку (js/playfight.js: серия
+   «Толк!-Бамс!-Хлоп!», «Бупнуть» зверят, «Листья», пищащий молоточек из «Юлы»). Кнопки справа — одним столбиком (CSS).
    ===================================================================== */
 (function () {
   'use strict';
@@ -209,6 +212,43 @@
     }
     // сетка 8 × 8 м для столкновений и «штанги» камеры: не перебирать все коробки каждый кадр
     w.grid = makeGrid(MAP.colliders);
+    // волна 5: бег, прыжок, «запрыгнуть, если достаёт» (js/move.js) — один контроллер на сессию игры; данные кадра — у прогулки (S)
+    w.mv = null; w.mvUi = null;
+    if (window.Move && QS.get('move') !== 'off') {
+      try {
+        w.mvCols = mvColliders(MAP.colliders);
+        w.mv = Move.create({
+          THREE: T, hero, anim: hero.rig ? hero.rig.anim : null, ground: (x, z) => gy(w.L, x, z), colliders: w.mvCols,
+          dynColliders: () => (S && S.mvDyn ? S.mvDyn() : NO_DYN), edges: 'soft', bounds: w.L.bounds, scene, camera, host: root,
+          say: t => { if (S && S.mvSay) S.mvSay(t); }, onFall: (k, i) => { if (S && S.mvFall) S.mvFall(k, i); }, on: (n, d) => { if (S && S.mvOn) S.mvOn(n, d); },
+        });
+        if (w.mv) { w.mvUi = Move.mountButtons(ui.ui, { move: w.mv, onJump: () => { if (S && S.mvJumpBtn) S.mvJumpBtn(); } }); if (w.mvUi) w.mvUi.setVisible(false); }
+      } catch (e) { console.warn('world move', e); w.mv = null; }
+    }
+    // волна 5: «Бум!» понарошку (js/playfight.js) — жители города и зверята (только «Бупнуть»); один слой на сессию игры
+    w.pf = null;
+    if (window.PlayFight && hero.rig && w.life && QS.get('pf') !== 'off') {
+      try {
+        const pfList = [];
+        // кот-помощник (идёт рядом с героиней) — тоже зверёк: «Бупнуть»; координаты — у прогулки (S.catX/catZ)
+        const catN = w.catN = { id: 'cat', pet: true, small: true, headY: 0.42, r: 0.2, root: w.cat.root,
+          get x() { return S ? S.catX : 0; }, set x(v) { if (S) S.catX = v; }, get z() { return S ? S.catZ : 0; }, set z(v) { if (S) S.catZ = v; } };
+        w.pf = PlayFight.create({
+          THREE: T, scene, camera, hero: hero.root, anim: hero.rig.anim, interact: w.ia, gradientMap: H.GRAD,
+          getNpcs: () => { pfList.length = 0; const L2 = w.life.npcs; for (let i = 0; i < L2.length; i++) pfList.push(L2[i]); const cp = w.life.companion; if (cp && cp.active() && cp.n && pfList.indexOf(cp.n) < 0) pfList.push(cp.n); if (S && S.catOn && !S.catSit && !S.catInBasket) pfList.push(catN); return pfList; },
+          canTarget: n => !!(S && S.pfCan && S.pfCan(n)),
+          moveNpc: (n, dx, dz) => { const q = w.life.collide(n.x + dx, n.z + dz, n.r || 0.3); n.x = q[0]; n.z = q[1]; },
+          setYaw: y => { if (S && S.pfYaw) S.pfYaw(y); },
+          moveHero: (dx, dz) => { if (S && S.pfMove) S.pfMove(dx, dz); },
+          ground: (x, z) => gy(w.L, x, z),
+          season: () => 'autumn',          // город осенний: бросок — «Листья» (снежки — в горах зимой)
+          say: (n, text, who) => { const was = n.voice; n.voice = who || was; try { w.life.say(n, text, 2200); } catch (e) { /* без облачка */ } n.voice = was; },
+          buttonsHost: ui.ui,
+          on: (name, d) => { if (S && S.pfOn) S.pfOn(name, d); },
+        });
+        if (w.pf) w.pf.enable(false);
+      } catch (e) { console.warn('world playfight', e); w.pf = null; }
+    }
     w.DETAIL = []; MAP.zones.forEach(g => g.children.forEach(m => { if (m.userData.detail) { m.geometry.computeBoundingBox(); w.DETAIL.push(m); } }));
     // день и ночь по часам телефона (волна 4, js/daynight.js): до первого кадра — иначе шейдеры перекомпилируются
     w.dn = null;
@@ -301,6 +341,17 @@
     return true;
   }
 
+  // волна 5: коллайдеры для Move. Всё, что было стеной, — стена во всю высоту (дома, перила набережной и мостика, стенки холма,
+  // заборы, прилавки): перепрыгнуть нельзя, в реку не упасть. Запрыгнуть — только на то, что отмечено в map.js (colliders.tops:
+  // скамейки, бортик фонтана, ящики рынка); их прежние круги (move:'skip') Move не видит. Коробки «только для камеры» — нет.
+  const NO_DYN = [];
+  function mvColliders(C) {
+    const out = [];
+    C.boxes.forEach(b => { if (b.cam === true || b.noWalk === false || b.move === 'skip') return; out.push(b.move ? b : { x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1, id: 'wall' }); });
+    C.circles.forEach(c => { if (c.move !== 'skip') out.push(c); });
+    (C.tops || []).forEach(t => out.push(t));
+    return out;
+  }
   // сетка коллайдеров: круги и коробки по клеткам 8 м
   function makeGrid(C) {
     const CELL = 8, cells = new Map(), key = (i, j) => i * 4096 + j;
@@ -528,6 +579,7 @@
       yaw: PI, dist: 9.5, manualT: 0, tx: 0, tz: 0, camInit: false, pitchK: 0, camOverride: null, camFocus: null,
       greeted: new Set(), autoGreeted: new Set(), waveN: 0, farT: 0, nudgeT: -1e9, pkBusy: false, spotBusy: false, puddleIn: false,
       fpsT: 0, fpsSamples: [], fpsDone: !!qFixed(), fpsWait: 2, lamps: 0, kioskI: 0, weatherI: 0, coverI: 0, benchRec: null,
+      py: 0, floor: 0, mvX: NaN, mvZ: NaN, air: false,   // волна 5 (Move): высота ног (скамейка, ящик, крыша машины), пол под ней, в воздухе
     };
     s.LI = LI;
     const isLit = k => (FREE ? true : typeof o.isLit === 'function' ? !!o.isLit(k) : false);
@@ -609,11 +661,19 @@
       const cur = IA.holding('L'); if (!cur) return;
       const it = cur.userData && cur.userData.it;
       if (keepBouquet && it && it.name === 'bouquet') return;
-      const x = IA.drop('L'); if (x && x.userData && x.userData.it && x.userData.it.def && x.userData.it.def.parts) x.userData.it.dispose(); else if (x && x.parent) x.parent.remove(x);
+      const x = IA.drop('L'); if (x && x.userData && x.userData.it && x.userData.it.def && (x.userData.it.def.parts || x.userData.pfHammer)) x.userData.it.dispose(); else if (x && x.userData && x.userData.pfDispose) x.userData.pfDispose(); else if (x && x.parent) x.parent.remove(x);
     }
     function setHeld(kind, data) {
       if (s.heldG) { if (s.heldG.parent) s.heldG.parent.remove(s.heldG); disposeTree(s.heldG); s.heldG = null; }
       s.held = kind || null; s.nibbleT = 6 + Math.random() * 3;
+      // волна 5: пищащий молоточек из «Юлы» — игрушка (не еда): в руке через слой «Бум!» (PlayFight.giveHammer); запомнить в сохранении
+      if (kind === 'squeaky_hammer') {
+        const cur = IA && IA.holding('L'), isH = cur && cur.userData && (cur.userData.pfHammer || (cur.userData.it && cur.userData.it.name === 'squeaky_hammer'));
+        if (cur && !isH) iaDrop(false);
+        if (!isH && w.pf) { if (IA && IA.busy()) s.hammerLater = true; else w.pf.giveHammer(); }
+        try { if (!wState().hammer) saveWorld({ hammer: 1 }); } catch (e) { /* без сохранения */ }
+        return;
+      }
       if (IA) {
         const want = kind ? IA_ITEM[kind] : null, cur = IA.holding('L'), curN = cur && cur.userData.it ? cur.userData.it.name : null;
         if (want && curN === want) return;                  // уже в руке: взяла сама (takeFrom / take)
@@ -647,7 +707,7 @@
     s.iaRoot = (p, yaw) => {   // слой двигает корень (подойти, присесть, сесть) — пишем в переменные прогулки, иначе кадр вернёт старое
       if (s.mode !== 'walk' || s.finished) return;
       s.px = p.x; s.pz = p.z; s.ang = yaw; s.faceT = yaw; s.vx = s.vz = 0;
-      const d = p.y - gy(L, p.x, p.z); s.iaDy = Math.abs(d) < 0.004 ? 0 : d;
+      const d = p.y - (w.mv ? s.py : gy(L, p.x, p.z)); s.iaDy = Math.abs(d) < 0.004 ? 0 : d;   // на скамейке/ящике — от их верха
     };
     s.iaOn = (n) => {
       const k = { take: 'pop', give: 'pop', bite: 'tap', crunch: 'tap', lick: 'tap', sip: 'pop', pat: 'tap', clap: 'pop', clink: 'chime' }[n];
@@ -663,6 +723,7 @@
       iaDrop(true); s.held = null;
       try { const g = G_(), st = g && g.state && g.state(); if (st && st.town && st.town.h === kind) { st.town.h = null; g.save(); } } catch (e) { /* ignore */ }
       const b = bouquetNow(); if (b) { s.heldData = b; setHeld('bouquet', b); }   // как в прогулке: руки опустели — снова букет
+      else { try { if (w.pf && wState().hammer) setHeld('squeaky_hammer'); } catch (e) { /* без молоточка */ } }   // волна 5: или молоточек
       if (line) toast(line, 2800);
     }
     // откусить / отпить один раз (кнопка не нужна: стоя на месте, героиня сама иногда ест, что держит)
@@ -697,7 +758,7 @@
 
     /* ---------- облачка и голоса ---------- */
     const tmpV = new T.Vector3();
-    const heroObj = { getPos: v => v.set(s.px, 2.15 + (hero.body.position.y || 0), s.pz) };
+    const heroObj = { getPos: v => v.set(s.px, 2.15 + (w.mv ? s.py : 0) + (hero.body.position.y || 0), s.pz) };
     const catObj = { getPos: v => v.set(s.catX, 0.85, s.catZ) };
     const carObj = { getPos: v => v.set(car.S.x, 2.2, car.S.z) };
     const bikeObj = { getPos: v => (w.bike ? v.set(w.bike.pos.x, 1.9, w.bike.pos.z) : v.set(s.px, 1.9, s.pz)) };
@@ -764,16 +825,19 @@
     const onKeyDown = e => {
       if (s.finished || blocked()) return;
       if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); if (s.moveTo && !s.moveTo.script) s.moveTo = null; return; }
+      // волна 5: пробел — прыжок, когда рядом нет действия (у двери, жителя, места — по-прежнему действие); Shift — бег, пока держишь
+      if (e.code === 'Space' && w.mv && s.mode === 'walk' && !s.sitting && !s.actLbl && canInput()) { if (e.defaultPrevented) return; e.preventDefault(); if (!e.repeat) { if (iaBusy()) iaFree() || IA.cancel(); w.mv.jump(); } return; }
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && w.mv && s.mode === 'walk') { w.mv.holdRun(true); return; }
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyF') { if (e.defaultPrevented) return; e.preventDefault(); if (!e.repeat) doAction(); }
       if (e.code === 'KeyH') { if (s.mode === 'drive') doHorn(); else if (s.mode === 'ride') { if (w.bike) w.bike.ring(); } else doWave(); }
     };
-    const onKeyUp = e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; };
-    const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joy.id = null; ui.show(ui.joy, false); };
+    const onKeyUp = e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && w.mv) w.mv.holdRun(false); };
+    const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joy.id = null; ui.show(ui.joy, false); if (w.mv) w.mv.holdRun(false); };
     const onDown = e => {
       if (isUI(e.target) || s.finished || s.benching) return;
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
       if (x < r.width * 0.5 && joy.id === null && e.pointerType !== 'mouse') {
-        joy.id = e.pointerId; joy.cx = clamp(x, 70, r.width * 0.5 - 20); joy.cy = clamp(y, 80, r.height - 60); joy.x = joy.y = 0;
+        joy.id = e.pointerId; joy.cx = clamp(x, 70, r.width * 0.5 - 60); joy.cy = clamp(y, 80, r.height - 60); joy.x = joy.y = 0;   // волна 5: круг не заходит на «Бег» справа
         joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
         if (canInput()) { ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; ui.show(ui.joy, true); ui.show(ui.ghost, false); ui.knob.style.transform = ''; }
       } else {
@@ -840,6 +904,7 @@
       // на велосипеде: тап по двери — слезть и войти
       if (canInput() && s.mode === 'ride' && w.bike) { const r = w.root.getBoundingClientRect(); ndc.set(x / r.width * 2 - 1, -(y / r.height) * 2 + 1); ray.setFromCamera(ndc, cam); const dh = doors.hit(ray.ray, T); if (dh) w.bike.dismount().then(() => { if (!s.finished && s.mode === 'walk') goDoor(dh.door); }); return; }
       if (!canInput() || s.mode !== 'walk' || !iaFree()) return;
+      if (w.mv && (s.air || w.mv.busy())) return;   // волна 5: в прыжке/кувырке тап не считается
       const r = w.root.getBoundingClientRect();
       ndc.set(x / r.width * 2 - 1, -(y / r.height) * 2 + 1); ray.setFromCamera(ndc, cam);
       const R = ray.ray, cands = [];
@@ -859,7 +924,7 @@
       const dh = doors.hit(R, T);
       if (c && (!dh || c.t < dh.dist + 0.5)) { tapThing(c, x, y); return; }
       if (dh) { goDoor(dh.door); return; }
-      plane0.constant = -(s.ty || 0);   // на террасе холма — плоскость на её высоте
+      plane0.constant = -gy(L, s.px, s.pz);   // на террасе холма — плоскость на высоте террасы (со скамейки/ящика — земля)
       if (R.intersectPlane(plane0, hit)) { s.moveTo = { x: hit.x, z: hit.z, stop: 0.2 }; s.blockT = 0; spark(x, y, 4); }
     }
     function spark(x, y, n) { const g = G_(); if (!g) return; const appR = g.app.getBoundingClientRect(), rr = w.root.getBoundingClientRect(); g.sparkle(x + rr.left - appR.left, y + rr.top - appR.top, { kind: 'heart', n: n || 5, dist: 30 }); }
@@ -942,7 +1007,7 @@
     // боковой визит: город на паузе, ждёт промис, потом героиня выходит из той же двери
     async function sideVisit(d, fn, after) {
       const t0 = performance.now();
-      s.paused = true; loopStop(); bindInput(false); ui.sayClear();
+      s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off();
       // слабый телефон: на время комнаты отпустить видеокарту (§5.3), при возврате сцена загрузится сама
       try { if (window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()) release(); } catch (e) { /* ignore */ }
       let r = null;
@@ -965,6 +1030,8 @@
       s.px = x; s.pz = z; s.vx = s.vz = 0; s.ang = ang; s.faceT = ang; s.yaw = yaw; s.tx = x; s.tz = z; s.camInit = false; s.manualT = 0;
       s.catX = x - Math.sin(ang) * 0.9 + Math.cos(ang) * 0.6; s.catZ = z - Math.cos(ang) * 0.9 - Math.sin(ang) * 0.6;
       hero.root.position.set(x, gy(L, x, z), z); hero.root.rotation.y = ang; s.ty = gy(L, x, z);
+      s.py = s.floor = gy(L, x, z); s.air = false;
+      if (w.mv) { w.mv.teleport({ x, z }, ang); s.mvX = x; s.mvZ = z; s.py = s.floor = w.mv.state.pos.y; }
       if (hero.rig) hero.rig.prev = null;
       s.detForce = true; s.distDirty = true;   // мелочь фасадов и расстояние в карточке — сразу, а не через 5 кадров
     }
@@ -1063,7 +1130,8 @@
       if (w.bike) w.bike.setHidden(bikeMode === 'none');
       if (w.bikeStand) w.bikeStand.visible = bikeMode !== 'none';
     }
-    const nearCar = () => s.mode === 'walk' && car.root.visible && (!w.carCtl || w.carCtl.mode === 'parked') && Math.hypot(car.S.x - s.px, car.S.z - s.pz) < (car.kind === 'sedan' ? 3.4 : 2.9) && Math.abs(car.S.v) < 0.3;
+    const onGround = () => !w.mv || (!s.air && s.py - gy(L, s.px, s.pz) < 0.25);   // волна 5: не со скамейки и не с крыши машины
+    const nearCar = () => s.mode === 'walk' && onGround() && car.root.visible && (!w.carCtl || w.carCtl.mode === 'parked') && Math.hypot(car.S.x - s.px, car.S.z - s.pz) < (car.kind === 'sedan' ? 3.4 : 2.9) && Math.abs(car.S.v) < 0.3;
     /* ---------- выбор машины (волна 4): у гаража «Круглые фары» — «Выбрать машину», у стоящей дома машины — «Другая машина» ---------- */
     const carOpenNow = () => vehicles === 'drive' && !(w.carCtl && w.carCtl.locked);
     const canPickCar = () => sedanOk() && carOpenNow() && (STAND || unlock('sedan').ok);
@@ -1101,7 +1169,7 @@
       else if (picked && picked === w.carKind) toast((w.carKind === 'sedan' ? 'Красный седан' : 'Ретро-купе') + ' уже ждёт у гаража.', 2000);
       return picked;
     }
-    const nearBike = () => s.mode === 'walk' && bikeMode !== 'none' && w.bike && !w.bike.mounted && !w.bike.busy && w.bike.near(s.px, s.pz, 1.7);
+    const nearBike = () => s.mode === 'walk' && onGround() && bikeMode !== 'none' && w.bike && !w.bike.mounted && !w.bike.busy && w.bike.near(s.px, s.pz, 1.7);
     function rideOn() {
       if (!w.bike || s.anim || w.bike.busy || s.mode !== 'walk') return;
       if (bikeMode !== 'ride') { toast(bikeLock.ok ? 'Велосипед подождёт прогулки.' : bikeLock.text, 2600); return; }
@@ -1206,7 +1274,7 @@
       s.inTrip = true; s.moveTo = null;
       if (s.mode === 'ride' && w.bike) { try { await w.bike.dismount({ instant: true }); } catch (x) { /* уже слезла */ } }
       const t0 = performance.now();
-      s.paused = true; loopStop(); bindInput(false); ui.sayClear();
+      s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off();
       if (w.minimap) w.minimap.close(true);
       // слабый телефон: видеокарту города отпустить, регион рисует на своём рендерере; назад — город загрузится сам
       const low = !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem());
@@ -1214,7 +1282,7 @@
       let ret = null;
       // руки: действие — отменить; покупку города — «в сумку» (в горах свои), после поездки — снова в руке
       const hiT = IA && IA.holding('L'), dT = hiT && hiT.userData.it;
-      const tripHeld = hiT && s.held && IA_ITEM[s.held] ? { kind: s.held, data: Object.assign(s.heldData && typeof s.heldData === 'object' ? s.heldData : {}, dT ? { _bites: dT.bites || 0, _level: dT.level } : {}) } : null;   // те же данные (прогулка видит недоеденное)
+      const tripHeld = hiT && s.held && (IA_ITEM[s.held] || s.held === 'squeaky_hammer') ? { kind: s.held, data: Object.assign(s.heldData && typeof s.heldData === 'object' ? s.heldData : {}, dT ? { _bites: dT.bites || 0, _level: dT.level } : {}) } : null;   // те же данные (прогулка видит недоеденное)
       if (IA) { IA.cancel(); if (tripHeld) iaDrop(true); }
       try {
         // car — выбранная машина города (купе или седан: car.kind, у седана car.driveCfg); carKind — то же словом (WORLD.carChoice())
@@ -1262,6 +1330,7 @@
       if (s.mode === 'drive') { if (w.carCtl) { if (w.carCtl.mode === 'drive') exitCar(); return; } if (Math.abs(car.S.v) > 0.8) { s.braking = true; return; } exitCar(); return; }
       if (s.mode === 'ride') { if (w.bike && !w.bike.busy) w.bike.dismount(); return; }
       if (s.sitting) { standUp(); return; }
+      if (w.mv && (s.air || w.mv.busy())) return;   // в прыжке и в кувырке — сначала приземлиться
       const d = nearDoor(), sp = nearSpot();
       if (sp && (!d || Math.hypot(s.px - sp.x, s.pz - sp.z) < Math.hypot(s.px - d.ax, s.pz - d.az))) { useSpot(sp); return; }
       if (d) { tryDoor(d); return; }
@@ -1398,6 +1467,7 @@
       ui.sayClear(); ui.setAct(null); ui.setCase(null); ui.setEdge(false); ui.setTag(false); ui.setNear(false); ui.hintOff();
       [ui.wave, ui.horn, ui.bell, ui.color, ui.reset, ui.ghost, ui.swap].forEach(el => ui.show(el, false));
       ui.setDayNight(false);
+      w5Off(); if (w.mv) w.mv.setRun(false);
       if (IA) { try { IA.cancel(); } catch (e) { /* ignore */ } }
       w.root.classList.remove('busy');
       spotMarks.forEach(m => { scene.remove(m); m.material.dispose(); });
@@ -1465,6 +1535,38 @@
       }
       return [clamp(x, B0.x0, B0.x1), clamp(z, B0.z0, B0.z1)];
     }
+    /* ---------- волна 5: Move (бег, прыжок, верхи, твёрдые машины) и «Бум!» — данные этой прогулки ---------- */
+    const mvPool = [], mvArr = [], mvLife = [], mvCar = { type: 'car', src: null, kind: 'coupe' }, mvBike = { type: 'bike', src: null };
+    s.mvDyn = () => {
+      mvArr.length = 0; let k = 0;
+      mvLife.length = 0;
+      if (w.life) w.life.circles(mvLife); else w.npcs.forEach(n => { if (n.root.visible) mvLife.push({ x: n.x, z: n.z, r: n.id === 'pigeon' ? 0.22 : 0.42 }); });
+      for (let i = 0; i < mvLife.length; i++) { const c = mvLife[i], r = mvPool[k] || (mvPool[k] = { type: 'circle', x: 0, z: 0, r: 0.3, id: 'npc' }); k++; r.x = c.x; r.z = c.z; r.r = c.r; mvArr.push(r); }
+      // машина — коробками по своей модели (капот, крыша седана, палуба купе): не пройти насквозь, можно запрыгнуть
+      if (s.mode === 'walk' && car.root.visible && (!w.carCtl || w.carCtl.mode === 'parked')) { mvCar.src = car; mvCar.kind = car.kind === 'sedan' ? 'sedan' : 'coupe'; mvArr.push(mvCar); }
+      if (w.bike && bikeMode !== 'none' && !w.bike.mounted && !w.bike.busy) { mvBike.src = w.bike; mvArr.push(mvBike); }
+      return mvArr;
+    };
+    s.mvSay = t => { if (!s.finished && s.active) speak('hero', t, 1400); };
+    s.mvFall = k => { if (k === 'back') { s.camInit = false; if (hero.rig) hero.rig.prev = null; } };
+    s.mvOn = (n, d) => {
+      if (n === 'jump') { sfx('tap'); haptic('light'); }
+      else if (n === 'land') { sfx('step', { surface: 'stone' }); if (d && d.kind === 'squash') haptic('medium'); }
+      else if (n === 'tumble') { sfx('flutter'); haptic('medium'); }
+      else if (n === 'bump') sfx('tap');
+      emit('world:move', Object.assign({ ev: n }, d || {}));
+    };
+    s.mvJumpBtn = () => { if (iaBusy() && !iaFree()) IA.cancel(); };   // прыжок отменяет «сама ест»/действие рук, как джойстик
+    // «Бум!»: кого можно трогать — только когда она гуляет свободно (не диалог, не место задания, не лавка, не сидит, не в прыжке)
+    s.pfCan = n => (n !== w.catN || (s.catOn && !s.catSit && !s.catInBasket && !s.catPin)) && s.mode === 'walk' && s.active && !s.finished && !s.busy && !s.spotBusy && !s.pkBusy && !s.anim && !s.sitting && !s.inTrip && !blocked()
+      && !s.benching && !n.bench && !n.perch && n.act !== 'chat' && n.act !== 'sleep' && n.act !== 'pet' && !(w.mv && (s.air || w.mv.busy()));
+    s.pfYaw = y => { s.ang = y; s.faceT = y; s.faceLock = y; s.faceLockT = 0.6; };
+    s.pfMove = (dx, dz) => { if (s.mode === 'walk' && !s.finished) { s.px += dx; s.pz += dz; } };
+    s.pfOn = (name, d) => {
+      if (name === 'hit' || name === 'boop') haptic('light');
+      emit('world:pf', Object.assign({ ev: name }, d && typeof d === 'object' ? { npc: d.npc && d.npc.id ? d.npc.id : d.npc, act: d.act, kind: d.kind, combo: d.combo, react: d.react } : {}));
+    };
+    function w5Off() { if (w.mvUi) w.mvUi.setVisible(false); if (w.pf) w.pf.enable(false); if (w.mv) w.mv.holdRun(false); }
     const dynCircles = () => {
       const out = [];
       if (w.life) w.life.circles(out); else w.npcs.forEach(n => { if (n.root.visible) out.push({ x: n.x, z: n.z, r: n.id === 'pigeon' ? 0.22 : 0.42 }); });
@@ -1494,6 +1596,22 @@
       else if (m.door) tryDoor(m.door);
       else if (m.spot) useSpot(m.spot);
     }
+    // волна 5: шаг через Move. Игра могла сама поставить героиню (место, руки, лавка, «Бум!») — принять без сброса: рядом — на тот
+    // же пол (скамейка, ящик), далеко — на землю. Пока «Бум!» держит позу — джойстик не двигает, но падение/приземление идут.
+    function stepMove(dt, inDir, dir, speed) {
+      const mv = w.mv;
+      if (!(Math.abs(s.px - s.mvX) < 1e-4 && Math.abs(s.pz - s.mvZ) < 1e-4)) {
+        const far = !isFinite(s.mvX) || Math.hypot(s.px - s.mvX, s.pz - s.mvZ) > 1.2;
+        mv.sync(s.px, far ? undefined : mv.supportAt(s.px, s.pz, s.py), s.pz);
+      }
+      const lock = !!(w.pf && w.pf.locked());
+      const mag = dir && !lock ? (inDir ? dir[2] : 1) : 0;
+      let sp = dir && !inDir ? speed : undefined;
+      if (sp !== undefined && mv.run) sp = Math.max(sp, HS.run || 3.4);   // «Бег» горит — к двери/жителю тоже бегом
+      const st = mv.update(dt, { x: mag ? dir[0] * mag : 0, z: mag ? dir[1] * mag : 0, speed: mag ? sp : undefined });
+      s.px = st.pos.x; s.pz = st.pos.z; s.py = st.pos.y; s.floor = st.floor; s.vx = st.vx; s.vz = st.vz; s.air = !st.grounded;
+      s.mvX = s.px; s.mvZ = s.pz;
+    }
     function stepWalk(dt) {
       if (s.anim) { s.anim.t += dt; const k = Math.min(1, s.anim.t / s.anim.dur); s.anim.tick(k); if (k >= 1 && s.anim) s.anim.done(); return; }
       // волна 4: руки заняты (взять, съесть, погладить) — стоим, корень ведёт слой; палец на джойстике — один мягкий cancel
@@ -1508,7 +1626,7 @@
       if (inDir && s.moveTo && !s.moveTo.script) s.moveTo = null;
       if (dir && s.sitting && !s.sitting.car) standUp();
       if (s.sitting && !s.sitting.car && s.moveTo && s.moveTo.door && !s.spotBusy && !s.pkBusy && !blocked()) standUp();   // отложенная дверь
-      if (s.sitting) { s.vx = s.vz = 0; s.walking = false; return; }
+      if (s.sitting) { s.vx = s.vz = 0; s.walking = false; s.py = s.floor = gy(L, s.px, s.pz); s.air = false; return; }
       if (dir) speed = joySpeed(dir[2]);
       else if (s.moveTo && !s.moveTo.script && (blocked() || s.pkBusy || s.spotBusy)) { /* реплика или находка: стоим, потом идём дальше */ }
       else if (s.moveTo) {
@@ -1521,12 +1639,15 @@
         if (fd < (m.stop || 0.2) && !m.wp.length) arrive(true);
         else { dir = [dx / d, dz / d, 1]; speed = m.script ? Math.min(HS.walk, 1.0 + rest * 1.2) : rest > 8 ? HS.jog : Math.min(HS.walk, 1.0 + rest * 0.6); }
       }
-      const tvx = dir ? dir[0] * speed : 0, tvz = dir ? dir[1] * speed : 0;
-      const k = Math.min(1, dt * 10); s.vx += (tvx - s.vx) * k; s.vz += (tvz - s.vz) * k;
       const ox = s.px, oz = s.pz;
-      const [nx, nz] = collide(s.px + s.vx * dt, s.pz + s.vz * dt, HR, dynCircles());
-      s.px = nx; s.pz = nz;
-      const moved = Math.hypot(nx - ox, nz - oz), want = Math.hypot(s.vx, s.vz) * dt;
+      if (w.mv) stepMove(dt, inDir, dir, speed);   // волна 5: бег, прыжок, верхи скамеек/ящиков/машин, твёрдые машины и велосипед
+      else {
+        const tvx = dir ? dir[0] * speed : 0, tvz = dir ? dir[1] * speed : 0;
+        const k = Math.min(1, dt * 10); s.vx += (tvx - s.vx) * k; s.vz += (tvz - s.vz) * k;
+        const [nx, nz] = collide(s.px + s.vx * dt, s.pz + s.vz * dt, HR, dynCircles());
+        s.px = nx; s.pz = nz;
+      }
+      const moved = Math.hypot(s.px - ox, s.pz - oz), want = Math.hypot(s.vx, s.vz) * dt;
       if (s.moveTo && !inDir) { s.blockT = moved < want * 0.3 ? s.blockT + dt : 0; if (s.blockT > 0.6) { s.blockT = 0; arrive(Math.hypot(s.moveTo.x - s.px, s.moveTo.z - s.pz) < 1.2); } }
       const sp = Math.hypot(s.vx, s.vz);
       s.walking = sp > 0.25 || s.forceWalk;
@@ -1563,9 +1684,11 @@
       // транспорт: корень героини внутри машины (car.body) или на седле (bike.seat) — позицию не трогаем, позу даёт транспорт
       const veh = s.mode === 'ride' && w.bike ? w.bike : s.mode === 'drive' && w.carCtl ? w.carCtl : null;
       const drive = (s.mode === 'drive' || s.mode === 'ride') && !s.anim;
-      const hy = gy(L, s.px, s.pz);
-      if (!drive) { hero.root.position.set(s.px, hy + (s.iaDy || 0), s.pz); hero.root.rotation.y = s.ang; }
-      w.heroBlob.position.set(s.px, 0.02 + hy, s.pz);
+      const hy = gy(L, s.px, s.pz), mvOn = !!w.mv && s.mode === 'walk' && !s.anim && !s.sitting;
+      const fy = mvOn ? s.py : hy;   // волна 5: ноги — на скамейке, ящике, крыше машины или в прыжке (Move)
+      if (!drive) { hero.root.position.set(s.px, fy + (s.iaDy || 0), s.pz); hero.root.rotation.y = s.ang; }
+      { const fl = mvOn ? s.floor : hy, k = mvOn ? Math.max(0.55, 1 - Math.max(0, s.py - fl) * 0.18) : 1;   // тень на полу, в прыжке — меньше
+        w.heroBlob.position.set(s.px, 0.02 + fl, s.pz); w.heroBlob.scale.set(0.8 * k, 0.5 * k, 1); }
       let hop = 0; if (s.hopT >= 0) { s.hopT += dt; hop = Math.sin(Math.min(1, s.hopT / 0.4) * PI) * 0.16; if (s.hopT > 0.4) s.hopT = -1; }
       if (s.waveT >= 0) { s.waveT += dt; if (s.waveT > 1.5) s.waveT = -1; }
       if (hero.rig) {
@@ -1586,8 +1709,11 @@
           waving: s.waveT >= 0, turnRate: drive ? 0 : tr, celebrate: s.hopT >= 0, idle: !s.walking && !s.sitting && s.active && !blocked(),
           carry: s.held ? (s.held === 'bouquet' ? 'bouquet' : 'item') : false, sniff,
         }, vst, vst && (vst.ride || vst.drive) ? { carry: false } : null);
-        // настоящие руки: на время действия слой подменяет скорость/поворот/позу; в машине и на велосипеде слоя нет
-        R.anim.update(dt, IA && !drive ? IA.animState(ast) : ast);
+        // настоящие руки: на время действия слой подменяет скорость/поворот/позу; в машине и на велосипеде слоя нет.
+        // Волна 5: прыжок/кувырок (Move) — до рук; «Бум!» (PlayFight) — поверх рук
+        let ast2 = ast;
+        if (!drive) { if (mvOn) ast2 = w.mv.animState(ast2); if (IA) ast2 = IA.animState(ast2); if (w.pf) ast2 = w.pf.animState(ast2); }
+        R.anim.update(dt, ast2);
         if (vst && vst.ride && WORLD.Bike) WORLD.Bike.applyRidePose(R.anim, hero.root, vst.ride);    // запас для HeroAnim без opt.ride (иначе ничего не делает)
         if (vst && vst.drive && WORLD.Car) WORLD.Car.applyDrivePose(R.anim, hero.root, vst.drive);
         if (R.anim.step !== R.step) { R.step = R.anim.step; if (!s.sitting && R.spd > 0.3) sfx('step', { surface: 'stone' }); }
@@ -1596,6 +1722,7 @@
           if (s.sitting) R.seatY = seatY;
           hero.body.position.y = seatY * sitE;
           hero.body.rotation.x = -Math.max(0, ((s.sitting && s.sitting.recline) || 0) - 0.24) * sitE;
+          if (mvOn) w.mv.pose(dt);   // волна 5: поза прыжка, приземления, кувырка — после тела, до рук
         } else { hero.body.position.y = 0; hero.body.rotation.x = 0; }
         const inner = hero.arms[0].inner;
         if (inner.children.length) {
@@ -1608,6 +1735,7 @@
           if (!drive) IA.update(dt);                                           // ПОСЛЕ anim.update и корня: руки, присед, предмет
           if (!iaBusy()) {
             if (s.iaGiveLater) { const nm = s.iaGiveLater; s.iaGiveLater = null; if (!IA.holding('L')) IA.give(nm, 'L'); }
+            if (s.hammerLater) { s.hammerLater = false; if (s.held === 'squeaky_hammer' && w.pf) w.pf.giveHammer(); }
             if (s.celebrateAfter) { s.celebrateAfter = false; s.hopT = 0; R.anim.celebrate(); }
             // стоит (или сидит) с покупкой — иногда ест или отпивает сама
             if (s.held && IA_ITEM[s.held] && s.mode === 'walk' && !drive && !s.walking && s.active && !s.busy && !s.spotBusy && !blocked()) { s.nibbleT = (s.nibbleT || 6) - dt; if (s.nibbleT <= 0) { s.nibbleT = 7 + Math.random() * 4; iaNibble(true); } }
@@ -1700,7 +1828,8 @@
       const drv = s.mode === 'drive', rd = s.mode === 'ride' && !!w.bike;
       const fx = drv ? car.S.x : s.px, fz = drv ? car.S.z : s.pz;
       const kT = s.camInit ? 1 - Math.exp(-dt * 9) : 1; s.tx += (fx - s.tx) * kT; s.tz += (fz - s.tz) * kT;
-      s.ty = (s.ty || 0) + (gy(L, fx, fz) - (s.ty || 0)) * kT;
+      const tyT = !drv && !rd && w.mv && s.mode === 'walk' && !s.anim ? s.py : gy(L, fx, fz), kY = s.camInit ? 1 - Math.exp(-dt * (s.air ? 2.5 : 9)) : 1;   // волна 5: в прыжке камера не скачет
+      s.ty = (s.ty || 0) + (tyT - (s.ty || 0)) * kY;
       if (keys.q) { s.yaw += dt * 1.8; s.manualT = 3; } if (keys.e) { s.yaw -= dt * 1.8; s.manualT = 3; }
       s.manualT = Math.max(0, s.manualT - dt);
       if (drv || rd) { if (s.manualT <= 0) s.yaw += angDiff(drv ? car.S.ry : w.bike.ry, s.yaw) * (1 - Math.exp(-dt / (drv ? 0.35 : 0.5))); }
@@ -1867,7 +1996,11 @@
           }
         }
       }
-      ui.setAct(lbl, soft);
+      ui.setAct(lbl, soft); s.actLbl = lbl;
+      // волна 5: «Бег»/«Прыжок» и «Бум!» — только пешком, вне диалогов, мест, лавок и посадки (в машине и на велосипеде — нет)
+      { const walkFree = !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting && !s.pickBusy;
+        if (w.mvUi) w.mvUi.setVisible(walkFree);
+        if (w.pf) w.pf.enable(walkFree && !s.spotBusy && !s.pkBusy && !s.inTrip); }
       if (nearTxt && nearPos) { tmpV.set(nearPos[0], nearPos[1], nearPos[2]).project(cam); ui.setNear(tmpV.z < 1, (tmpV.x + 1) / 2 * Wd, (1 - tmpV.y) / 2 * Ht, nearTxt); } else ui.setNear(false);
       const drv = s.mode === 'drive' && !s.anim && !busy && (!w.carCtl || w.carCtl.mode === 'drive');
       ui.show(ui.horn, drv); ui.show(ui.color, drv && car.kind !== 'sedan');   // седан — красный: перекрашивать не даём
@@ -1892,6 +2025,7 @@
           const ex = Wd / 2 + vx * k, ey = Ht / 2 + vy * k;
           const side = Math.abs(ex - Wd / 2) > Wd / 2 - 75 ? (ex < Wd / 2 ? 'l' : 'r') : (ey < Ht / 2 ? 't' : 'b');
           let ey2 = clamp(ey, 120, Ht - 150);
+          if (ex > Wd - 150 && ey2 > Ht - 450) ey2 = Ht - 450;   // волна 5: стрелка справа — над столбиком кнопок (действие, 👋, «Прыжок»/«Бег», «Бум!», «Листья»)
           const mr = hudRects().mm;   // радар (мини-карта): стрелка не ложится на него, где бы он ни стоял
           if (mr && ex > mr.x0 - 80 && ex < mr.x1 + 80 && ey2 > mr.y0 - 26 && ey2 < mr.y1 + 26) ey2 = mr.y0 > Ht / 2 ? mr.y0 - 28 : mr.y1 + 28;
           ui.setEdge(true, ex, ey2, side, Math.atan2(vy, vx) * 180 / PI, `${name} · ${dm} м`);
@@ -1948,6 +2082,7 @@
       if (w.bike && s.mode !== 'ride') w.bike.update(dt, null);            // подножка, LOD, высадка
       animHero(dt, t); animCat(dt, t); animNpcs(dt, t);
       if (w.life) w.life.update(dt, t, lifeCtx());
+      if (w.pf) w.pf.update(dt);           // волна 5: «Бум!» — после рук и после того, как жизнь поставила жителей
       animWorld(dt, t);
       if (w.bikeRack) w.bikeRack.lod(cam);
       w.markers.update(cam, dt);
@@ -1963,6 +2098,8 @@
       spawn();
       if (o.held) { if (typeof o.held === 'string') setHeld(o.held); else { s.heldData = o.held.data; setHeld(o.held.kind, o.held.data); } }
       else setHeld(null);   // волна 4: недоеденное с прошлого отрезка — только если прогулка всё ещё считает, что оно в руке
+      // волна 5: молоточек из «Юлы» (st.world.hammer) — снова в руке, если рука свободна (покупки и букет — главнее)
+      if (!o.held && w.pf && IA && !bouquetNow()) { try { if (wState().hammer && !IA.holding('L')) setHeld('squeaky_hammer'); } catch (e) { /* без молоточка */ } }
       if (o.catSweater) addCatSweater();
       s.catOn = false; s.catSit = null; cat.root.visible = false; w.catBlob.visible = false;
       if (o.catHelper) spawnCat();
@@ -2150,6 +2287,19 @@
       bike: { mount: () => !!(S && W.bike && S.mode === 'walk' && (S.dbg.rideOn(), true)), dismount: () => W && W.bike && W.bike.dismount(), ring: () => W && W.bike && W.bike.ring(), state: () => (W && W.bike ? Object.assign({ mounted: W.bike.mounted, busy: W.bike.busy, v: W.bike.speed, ry: W.bike.ry, mode: S ? S.mode : null }, W.bike.pos) : null), ride: (ms, dir) => new Promise(res => { if (!S) return res(null); S.autopilot = () => dir; setTimeout(() => { if (S) S.autopilot = null; res(W.bike ? W.bike.pos : null); }, ms); }) },
       life: () => (W ? W.life : null),
       minimap: () => (W ? W.minimap : null),
+      // волна 5: бег и прыжок (Move), «Бум!» (PlayFight)
+      move: {
+        on: () => !!(W && W.mv),
+        state: () => { if (!W || !W.mv || !S) return null; const m = W.mv.state; return { x: S.px, z: S.pz, py: S.py, floor: S.floor, air: S.air, grounded: m.grounded, onId: m.onId, mode: m.mode, speed: m.speed, run: W.mv.run, drop: m.drop, busy: W.mv.busy(), btns: !!(W.mvUi && !W.mvUi.el.classList.contains('hide')) }; },
+        jump: () => { if (W && W.mv) W.mv.jump(); }, run: b => { if (W && W.mv) W.mv.setRun(b === undefined ? true : !!b); }, hold: b => { if (W && W.mv) W.mv.holdRun(!!b); },
+        stats: () => (W && W.mv ? W.mv.stats() : null), support: (x, z, y) => (W && W.mv ? W.mv.supportAt(x, z, y) : null),
+      },
+      pf: {
+        on: () => !!(W && W.pf), state: () => (W && W.pf ? W.pf.state() : null), enabled: () => !!(W && W.pf && W.pf.enabled()),
+        target: () => { const n = W && W.pf ? W.pf.target() : null; return n ? n.id : null; }, bonk: () => (W && W.pf ? W.pf.bonk() : null), toss: () => (W && W.pf ? W.pf.toss() : null),
+        reaction: id => { const n = W && W.life ? W.life.npcs.concat(W.life.companion && W.life.companion.n ? [W.life.companion.n] : []).find(q => q.id === id) : null; return n && W.pf ? W.pf.reaction(n) : null; },
+        hammer: () => !!(W && W.pf && W.pf.hasHammer()), give: () => (S ? (S.api.setHeld('squeaky_hammer'), true) : false),
+      },
       unlocks: () => ['companion', 'bike', 'car', 'trip', 'minimap'].reduce((o, k) => { o[k] = unlock(k); return o; }, {}),
       calls: () => lastInfo.calls,
       S: () => S, W: () => W,

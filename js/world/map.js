@@ -345,8 +345,16 @@
     const R = rng(1010);
     const K = H.makeKitLit();
     const colliders = { boxes: [], circles: [] };
+    const CRATES = [[98.5, 39.02, 1, 0.08], [99.36, 39.06, 2, -0.05], [100.22, 38.98, 1, 0.16]];   // [x, z, ящиков в стопке, поворот]
     const addBox = (x0, x1, z0, z1, h = 5) => colliders.boxes.push({ x0, x1, z0, z1, h });
     const addCircle = (x, z, r) => colliders.circles.push({ x, z, r });
+    // волна 5 (js/move.js): на что можно запрыгнуть — коробки в формате регионов { type:'box', x,z,w,d,ry,y0,y1,id } (их видит
+    // только Move; прежние круги/коробки тех же вещей помечены move:'skip' — для Move их нет, остальной город их видит как раньше)
+    colliders.tops = [];
+    const addTop = (x, z, w, d, ry, y0, y1, id, mode) => colliders.tops.push({ type: 'box', x, z, w, d, ry: ry || 0, y0, y1, id, move: mode || 'solid' });
+    // скамейка (benchG): сиденье 1,42 × 0,42 на высоте 0,5; спинка — тонкая стенка 0,92 (перепрыгнуть можно, встать — нет)
+    const benchTop = (x, z, ry, y = 0) => { addTop(x, z, 1.46, 0.44, ry, y - 0.05, y + 0.5, 'bench'); addTop(x - Math.sin(ry) * 0.25, z - Math.cos(ry) * 0.25, 1.46, 0.1, ry, y - 0.05, y + 0.93, 'benchBack', 'wall'); };
+    const addCircleSkip = (x, z, r) => colliders.circles.push({ x, z, r, move: 'skip' });
 
     /* --- куски 32 × 32 м: вся статика кладётся в кусок по своей точке --- */
     const ZS = 32, zones = new Map();
@@ -629,7 +637,10 @@
       put(g, bowl, stone, [0, 2.0, 0], [0.48, 0.8, 0.48]); sph(g, gold, 0, 2.42, 0, 0.13);
       // восемь рыбок-брызгалок по бортику
       for (let i = 0; i < 8; i++) { const a = i / 8 * PI * 2; sph(g, K.m(i % 2 ? '#F7B267' : '#F08FA8'), Math.cos(a) * 2.88, 0.72, Math.sin(a) * 2.88, 0.09, 0.07, 0.12); }
-      addCircle(F.x, F.z, F.r + 0.25);
+      addCircleSkip(F.x, F.z, F.r + 0.25);
+      // волна 5: бортик — низкая стенка по кругу (0,68 м): запрыгнуть и пройтись; внутрь (в воду) — нельзя
+      colliders.tops.push({ type: 'circle', x: F.x, z: F.z, r: F.r - 0.62, id: 'fountainWater', move: 'tall' });
+      for (let i = 0; i < 28; i++) { const a = i / 28 * PI * 2, rr = F.r - 0.09; addTop(F.x + Math.cos(a) * rr, F.z + Math.sin(a) * rr, 2 * PI * rr / 28 + 0.06, 0.4, PI / 2 - a, -0.05, 0.68, 'rim'); }
     }
     // брызги фонтана: одна пачка точек
     { const N = 90, pos = new Float32Array(N * 3), seeds = [];
@@ -744,7 +755,7 @@
       [-0.62, 0.62].forEach(dx => put(g, curve, iron, [dx, 0, 0])); return H.geoOf(g); };
     kind('benchA', benchG('#9FC2A8'), H.VC.front); kind('benchB', benchG('#E7A6B6'), H.VC.front);
     const SEATS = [];
-    const bench = (x, z, ry, b = 0) => { inst(b ? 'benchB' : 'benchA', x, z, ry); const ax = Math.cos(ry) * 0.42, az = -Math.sin(ry) * 0.42; addCircle(x + ax, z + az, 0.36); addCircle(x - ax, z - az, 0.36); SEATS.push({ x, z, ry }); };
+    const bench = (x, z, ry, b = 0) => { inst(b ? 'benchB' : 'benchA', x, z, ry); const ax = Math.cos(ry) * 0.42, az = -Math.sin(ry) * 0.42; addCircleSkip(x + ax, z + az, 0.36); addCircleSkip(x - ax, z - az, 0.36); benchTop(x, z, ry); SEATS.push({ x, z, ry }); };
     bench(4.4, -1.15, 0, 0); bench(20.4, -1.15, 0, 1);
     for (let i = 0; i < 8; i++) { const a = i / 8 * PI * 2 + PI / 8, x = F.x + Math.cos(a) * 7.2, z = F.z + Math.sin(a) * 7.2; bench(x, z, Math.atan2(F.x - x, F.z - z), i % 2); }
     [-20, 0, 22, 42].forEach((x, i) => bench(x + 4, 64.6, 0, i % 2));
@@ -775,7 +786,7 @@
     };
     const halosN = [];
     const lampN = (x, z, ry = 0, y = 0) => { inst('lamp', x, z, ry, 1, null, y); halosN.push(x - Math.sin(ry) * 0.5, 2.79 + y, z - Math.cos(ry) * 0.5); addCircle(x, z, 0.16); };
-    const benchN = (x, z, ry, b = 0, y = 0) => { inst(b ? 'benchB' : 'benchA', x, z, ry, 1, null, y); const ax = Math.cos(ry) * 0.42, az = -Math.sin(ry) * 0.42; addCircle(x + ax, z + az, 0.36); addCircle(x - ax, z - az, 0.36); SEATS.push({ x, z, ry, y }); };
+    const benchN = (x, z, ry, b = 0, y = 0) => { inst(b ? 'benchB' : 'benchA', x, z, ry, 1, null, y); const ax = Math.cos(ry) * 0.42, az = -Math.sin(ry) * 0.42; addCircleSkip(x + ax, z + az, 0.36); addCircleSkip(x - ax, z - az, 0.36); benchTop(x, z, ry, y); SEATS.push({ x, z, ry, y }); };
     const bushN = (x, z, s, col, collide = false, y = 0) => { inst('bush', x, z, RN() * 6, s, col, (y || 0) + s * 0.55, s * 0.82); if (collide) addCircle(x, z, s * 0.75); };
     const FLOW = ['#EFA3B5', '#F3CF73', '#C7A8DD', '#F7C9D4', '#E99A6E', '#FFFDF9', '#D9774F'];
     const pick = (arr, i) => arr[((Math.round(i) % arr.length) + arr.length) % arr.length];   // индекс цвета и для отрицательных x
@@ -859,13 +870,15 @@
       addBox(px0 - 0.2, px0, 66.5, zE, 0.9); addBox(px1, px1 + 0.2, 66.5, zE, 0.9);
       addBox(px0 - 1.1, px0, zE - 0.1, zE + 0.05, 0.9); addBox(px1, px1 + 1.1, zE - 0.1, zE + 0.05, 0.9);
       addBox(px0 - 1.1, px0 - 0.9, zE, zE + 2.45, 0.9); addBox(px1 + 0.9, px1 + 1.1, zE, zE + 2.45, 0.9); addBox(px0 - 1.1, px1 + 1.1, zE + 2.3, zE + 2.5, 0.9);
-      inst('benchB', PR.x, zE + 1.9, 0, 1, null, 0.03); SEATS.push({ x: PR.x, z: zE + 1.9, ry: 0, y: 0.03 }); addCircle(PR.x - 0.42, zE + 1.9, 0.36); addCircle(PR.x + 0.42, zE + 1.9, 0.36);
+      inst('benchB', PR.x, zE + 1.9, 0, 1, null, 0.03); SEATS.push({ x: PR.x, z: zE + 1.9, ry: 0, y: 0.03 }); addCircleSkip(PR.x - 0.42, zE + 1.9, 0.36); addCircleSkip(PR.x + 0.42, zE + 1.9, 0.36); benchTop(PR.x, zE + 1.9, 0, 0.03);
       lampN(px0 - 0.65, zE + 0.3, PI / 2, 0.03); lampN(px1 + 0.65, zE + 0.3, -PI / 2, 0.03);
       for (let x = -120; x <= -50; x += 10) if (Math.abs(x - PR.x) > 3) lampN(x, 60.9, PI);
       for (let x = 72; x <= 120; x += 12) lampN(x, 59.1, PI);
       [-114, -100, -76, -66, -52, 62, 74, 86, 104, 116].forEach((x, i) => benchN(x, 64.6, 0, i % 2));
       [-118, -106, -94, -70, -58, -46, 56, 68, 80, 100, 110, 119].forEach((x, i) => treeN(x, 63.4, 0.9, i + 2, i % 3 === 1));
       addBox(90.8, 93.2, 64.1, 66.2, 2.6);   // велопрокат
+      // волна 5: ряд велосипедов проката (bike.js makeRack: два велосипеда поперёк ряда) — твёрдые, сквозь них не пройти
+      { const rk = L.spots.rental && L.spots.rental.rack; if (rk) addBox(rk.x - 0.68, rk.x + 0.68, rk.z - 0.92, rk.z + 0.92, 1.05); }
     }
 
     /* --- восток: рынок, гаражи, кварталы --- */
@@ -876,6 +889,9 @@
       addBox(73.4, 100.8, M0.z1 + 2.0, L.garages.zf - 5, 2);     // двор за прилавками
       addBox(73.9, 100.7, L.garages.zf - 5, L.garages.zf, 3.4);  // гаражи
       addCircle(99.6, 34.0, 0.9);                                 // тележка с тыквами
+      // волна 5: ящики у края рынка — ступеньками 0,45 → 0,9 (запрыгнуть, перепрыгнуть с ящика на ящик); город обходит их одной коробкой
+      colliders.boxes.push({ x0: 98.05, x1: 100.65, z0: 38.6, z1: 39.5, h: 0.9, move: 'skip' });
+      CRATES.forEach(c => addTop(c[0], c[1], 0.78, 0.78, c[3], -0.05, 0.45 * c[2], 'crate'));
       [-1, 1].forEach(sd => addCircle(73.1, 35.9 + sd * 2.35, 0.25));   // арка рынка
       // двор: деревья; Загородная: деревья, фонари; задний проезд и гаражный — фонари
       [[77, 22.5], [83.5, 26.8], [90, 22], [95.6, 27.2], [87, 29.2]].forEach(([x, z], i) => treeN(x, z, 1.05, i + 1, i === 2));
@@ -1123,6 +1139,13 @@
           sphS(zg, bulbs[(i + j) % 3], x + 1.0, y0 - 0.09, z0, 0.065, 0.085, 0.065); }
       });
       { const g = P.parkArch(K, { span: 4.7, cv: CV.market }); g.position.set(73.1, 0, 35.9); g.rotation.y = PI / 2; zoneN(73.1, 35.9).add(g); }
+      // волна 5: деревянные ящики ступеньками (на них можно запрыгнуть — коробки Move в colliders.tops)
+      { const woodD = K.m('#9A7052'), woodL = K.m('#D2A77E');
+        CRATES.forEach(([x, z, n, ry]) => { const g = new T.Group(); g.position.set(x, 0, z); g.rotation.y = ry; zoneN(x, z).add(g);
+          for (let k = 0; k < n; k++) { const y = k * 0.45;
+            rbox(g, wood, 0, y + 0.225, 0, 0.76, 0.43, 0.76, 0.03);
+            [0.11, 0.33].forEach(h => [-1, 1].forEach(sd => { box(g, woodL, 0, y + h, sd * 0.383, 0.7, 0.07, 0.012); box(g, woodL, sd * 0.383, y + h, 0, 0.012, 0.07, 0.7); }));
+            [-1, 1].forEach(a => [-1, 1].forEach(b => box(g, woodD, a * 0.36, y + 0.225, b * 0.36, 0.05, 0.44, 0.05))); } }); }
       // тележка с тыквами у выхода к Горной
       { const zg = zoneN(99.6, 34), x = 99.6, z = 34.0, wd = K.m('#C99A6E');
         rbox(zg, wd, x, 0.62, z, 1.6, 0.35, 0.9, 0.05); [-1, 1].forEach(sd => put(zg, H.ringG(0.32, 0.07), K.m('#8A6A55'), [x - 0.3, 0.34, z + sd * 0.5], null, [0, 0, 0]));

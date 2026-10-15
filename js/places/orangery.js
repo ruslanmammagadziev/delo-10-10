@@ -13,6 +13,7 @@
   const P = 'orangery';
   const wk = () => { try { return Math.max(0, Math.min(6, Town.week())); } catch (e) { return 0; } };
   const POTS = [{ x: 1.2, z: -1.2 }, { x: 1.8, z: -1.2 }, { x: 2.4, z: -1.2 }];
+  const CAN_YAW = -Math.PI / 2;   // лейка на полу — носиком к залу (+z): рука берёт лейку, не поворачивая в воздухе
 
   /* ---------------------------- 3D-комната ---------------------------- */
   if (window.City3D && City3D.registerRoom) City3D.registerRoom(P, {
@@ -234,8 +235,8 @@
       const drops = new T.Points(dgeo, R.keep(new T.PointsMaterial({ color: 0x9FD4F0, size: 0.05, transparent: true, opacity: 0.9, depthWrite: false })));
       drops.visible = false; drops.frustumCulled = false; g.add(drops);
       let dropT = -1;
-      // лейка на полу
-      const can = grp(g, 0.62, 0, -0.5, 0.6);
+      // лейка на полу (волна 5: носиком к залу — так лейку и берут рукой, без доворота в воздухе)
+      const can = grp(g, 0.62, 0, -0.5, CAN_YAW);
       cyl(can, M.mint, 0, 0.12, 0, 0.1, 0.22); cyl(can, M.mint, 0.13, 0.17, 0, 0.016, 0.24, [0, 0, -0.95]); put(can, GEO.cone, M.mint, [0.23, 0.26, 0], [0.035, 0.05, 0.035], [0, 0, -0.95]);
       put(can, R.keep(new T.TorusGeometry(0.07, 0.014, 6, 14, PI)), M.mint, [-0.03, 0.24, 0], null, [0, 0, 0.2]);
       R.bake(can, null, { cast: true }); can.traverse(m => { if (m.isMesh) m.raycast = () => {}; });
@@ -316,6 +317,31 @@
         faceDot(hx, hz) { const a = head.rotation.y, dx = hx - SFX, dz = hz - SFZ, l = Math.hypot(dx, dz) || 1; return (Math.sin(a) * dx + Math.cos(a) * dz) / l; },
         waggle() { if (zMode === 'hover') { zMode = 'go'; zT = 0; zFrom = zPos.clone(); } },
         canOnFloor(on) { can.visible = !!on; },
+        // волна 5: лейка для настоящих рук (js/interact.js) — та же мятная лейка, в осях хвата: начало — кулак на верхней ручке,
+        // +y — носик (вперёд), +z — вниз (так она висит в опущенной руке). canAt — где стоит лейка на полу (верх ручки)
+        canAt: [0.62, 0.31, -0.5],
+        // где встать, чтобы взять левой рукой: за лейкой, лицом к залу (носик смотрит туда же), лейка — перед левым плечом
+        canStand: { pos: [0.54, 0, -0.82], yaw: 0 },
+        canItem() {
+          const it = new T.Group(); it.name = 'can'; it.userData.roomItem = true;
+          const body = new T.Mesh(R.keep(new T.CylinderGeometry(0.1, 0.1, 0.22, 16)), M.mint); body.rotation.x = PI / 2; body.position.set(0, 0, 0.18); it.add(body);
+          const lid = new T.Mesh(R.keep(new T.CylinderGeometry(0.075, 0.1, 0.04, 16)), M.mint); lid.rotation.x = PI / 2; lid.position.set(0, 0, 0.055); it.add(lid);
+          const arc = new T.CatmullRomCurve3([[0, -0.07, 0.06], [0, -0.05, 0.012], [0, 0, -0.006], [0, 0.05, 0.012], [0, 0.07, 0.06]].map(q => new T.Vector3(q[0], q[1], q[2])));
+          it.add(new T.Mesh(R.keep(new T.TubeGeometry(arc, 12, 0.014, 6)), M.mint));
+          const a0 = new T.Vector3(0, 0.07, 0.2), a1 = new T.Vector3(0, 0.24, 0.1), sp = new T.Mesh(R.keep(new T.CylinderGeometry(0.014, 0.018, a0.distanceTo(a1), 8)), M.mint);
+          sp.position.copy(a0).add(a1).multiplyScalar(0.5); sp.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), a1.clone().sub(a0).normalize()); it.add(sp);
+          const rose = new T.Mesh(R.keep(new T.ConeGeometry(0.035, 0.05, 10)), M.mint); rose.position.copy(a1); rose.quaternion.copy(sp.quaternion); it.add(rose);
+          it.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; m.raycast = () => {}; } });
+          // как стоит на полу: тело вниз, носик — туда же, куда у лейки на полу (поворот CAN_YAW)
+          const dirS = new T.Vector3(Math.cos(CAN_YAW), 0, -Math.sin(CAN_YAW)), dn = new T.Vector3(0, -1, 0), ax = new T.Vector3().crossVectors(dirS, dn);
+          it.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(ax, dirS, dn));
+          if (window.Interact && Interact.items && Interact.items.wrap) {
+            Interact.items.wrap(it, { in: 0, up: 0, fwd: 0 });
+            const d = it.userData.it; d.name = 'can'; d.def.reachRot = { itemY: [0, 0, 1], itemZ: [0, -1, 0] }; d.def.pour = { key: [0, 0.25, 0.1] };
+            d.dispose = () => { if (it.parent) it.parent.remove(it); };   // геометрии — комнаты (R.keep), материал — общий
+          }
+          return it;
+        },
         water(i) { const pt = POTS[i]; dropT = 0; drops.visible = true; for (let k = 0; k < DN; k++) { dpos.set([pt.x - 0.12 + Math.random() * 0.06, 1.12 + Math.random() * 0.06, pt.z + (Math.random() - 0.5) * 0.06], k * 3); dvel.set([0.25 + Math.random() * 0.2, 0.3 + Math.random() * 0.4, (Math.random() - 0.5) * 0.2], k * 3); } budTgt = [1.18, 1.36, 1.55][i] || 1.55; },
         bloom(on) { bloom = on ? 1 : 0; flower.visible = !!on; bud.visible = !on; budHalo.visible = !!on; if (on) { flower.scale.setScalar(0.2); budHalo.material.opacity = 0; } },
         tick(t, dt, ctx) {
@@ -366,12 +392,24 @@
     if (ctx.flag('bud')) { await ctx.play('Цветок светится. Дежурство идёт по плану.'); return true; }
     if (water === 0) {
       water = 1;
-      if (room) { room.canOnFloor(false); ctx.api.setHeld('can'); }
+      // волна 5: лейку берёт настоящая рука (наклонилась, взяла за верхнюю ручку); без слоя рук — как раньше
+      if (room) {
+        const hands = ctx.api.hands && ctx.api.hands() && ctx.api.takeItem && room.canItem && window.Interact;
+        room.canOnFloor(false);
+        let ok = false;
+        if (hands) { try { ok = await ctx.api.takeItem({ kind: 'can', obj: room.canItem(), at: room.canAt, stand: room.canStand, pose: { crouch: 1.25, bend: 0.9 } }); } catch (e) { ok = false; } }
+        if (!ok) ctx.api.setHeld('can');
+      }
       await ctx.play('Лейка у следствия. Цветы — под наблюдением.');
       return true;
     }
     const i = water - 1; water++;
-    if (room) { const pt = room.pots[i]; await ctx.api.walkTo(pt.x, -1.85); room.water(i); }
+    if (room) {
+      const pt = room.pots[i]; await ctx.api.walkTo(pt.x, -1.85);
+      // волна 5: настоящая рука наклоняет лейку носиком к горшку — вода идёт, когда носик опустился
+      if (ctx.api.pour && ctx.api.heldItem && ctx.api.heldItem()) { let went = false; await ctx.api.pour([pt.x - 0.1, 1.08, pt.z], () => { went = true; room.water(i); }); if (!went) room.water(i); }
+      else room.water(i);
+    }
     ctx.haptic('light');
     if (i < 2) { await ctx.play(i === 0 ? 'Первый горшок полит. Росток выпрямился.' : 'Второй — тоже. Бутон в третьем прислушивается.'); return true; }
     await ctx.wait(room ? 900 : 200);

@@ -34,6 +34,12 @@
          (качнулась, встала на настил, отпустила ручку). Руки — свой IK двух костей по костям HeroAnim (upperarm → forearm →
          hand), локти наружу; тело качается маятником от разгона/торможения, лёгкий боковой ветер; ветер-штрихи у камеры.
          Предметы в руках: перед поездкой игре — IA.cancel(); лупу можно убрать IA.play('pocket') (вернуть — 'unpocket').
+         W5 «держись крепче» (желание автора): o.hold: true — на скольжении игрок держит палец/кнопку мыши (игра зовёт
+         .hold(true) на pointerdown и .hold(false) на pointerup/cancel/blur). Отпустила дольше o.holdGrace (3 с) — фаза 'drop':
+         руки разжимаются, героиня мультяшно «парит» вниз (1,3 с, ничего страшного), промис → { ok:false, dropped:true,
+         restart:{x,y,z,ry} (старт на башне, оси route), spawn:'zipline_start' } — игра под шторкой ставит её на старт.
+         События: 'holdHint' (подготовка), 'grip' {held} (смена), 'slip' {line} (отпустила > o.holdWarn 0,7 с), 'drop' {line},
+         'fade' (за 0,45 с до конца падения — шторка). .state().grip = { on, held, free, left, grace }. Без o.hold — как раньше.
      VILLAGE.zipline.ik.arm(anim, side 'L'|'R', grip:Vector3, pole:Vector3, w?) — IK руки (кисть хватом в точку).
      VILLAGE.zipline.LINES — короткие строки героини (без имени, не озвучиваются): start, go, land.
    ===================================================================== */
@@ -55,7 +61,8 @@
   const toMacro = (x, y, z) => { const F = GEO.frame, c = Math.cos(F.ry), s = Math.sin(F.ry); return { x: F.x + x * c + z * s, y: F.y + y, z: F.z - x * s + z * c }; };
   const toLocal = (X, Y, Z) => { const F = GEO.frame, c = Math.cos(F.ry), s = Math.sin(F.ry), dx = X - F.x, dz = Z - F.z; return { x: dx * c - dz * s, y: Y - F.y, z: dx * s + dz * c }; };
 
-  const LINES = { start: 'Ух, как высоко!', go: 'Вжу-у-ух!', land: 'Ещё хочу!', skip: 'Уже внизу!' };
+  const LINES = { start: 'Ух, как высоко!', go: 'Вжу-у-ух!', land: 'Ещё хочу!', skip: 'Уже внизу!',
+    hold: 'Держусь крепко-крепко!', slip: 'Ой! Держись!', drop: 'Ой-ой!', again: 'Ух! Ещё разок — держусь крепче!' };
 
   /* ---------- трос: парабола провиса (горизонталь — прямая) ---------- */
   function cable(from, to, sag) {
@@ -275,6 +282,9 @@
 
     /* --- состояние --- */
     const S = { t: 0, phase: 'prep', s: s0, v: 0, a: 0, phi: 0, phiV: 0, psi: 0, ik: 0, sit: false, hang: 0, done: false, skipped: false, events: {}, camMode: 'prep', camW: 0, k: 0 };   // camMode: prep → chase → front → chase → land
+    // W5 «держись крепче»: held — палец/кнопка мыши зажаты; free — сколько уже не держит на скольжении; drop — падение
+    const HOLD = !!o.hold, GRACE = clamp(o.holdGrace || 3, 0.5, 10), WARN = clamp(o.holdWarn || 0.7, 0.1, GRACE - 0.1), DROP_T = 1.3;
+    const G = { held: !!o.held, free: 0, warned: false, dropped: false, tDrop: 0, p: null, q: null, vy: 0, fy: 0, drift: 0, roll: 0, camP: null };
     const tmp = { p: {}, tg: {} }, axle = new T.Vector3(), barC = new T.Vector3(), q = new T.Quaternion(), e = new T.Euler(0, 0, 0, 'YXZ');
     const rootStand = new T.Vector3(launch.x, launch.y, launch.z), rootHang = new T.Vector3(), camPos = new T.Vector3(), camLook = new T.Vector3(), camWant = new T.Vector3(), lookWant = new T.Vector3();
     let camInit = false, rafId = 0, lastT = 0, resolveFn = null;
@@ -297,6 +307,16 @@
     function heroPose(dt) {
       if (!hero) return;
       const root = hero.root;
+      if (S.phase === 'drop') {   // W5: отпустила ручку — мягко «парит» вниз, чуть кувыркаясь, руки вверх-в стороны (машет)
+        e.set(G.roll * 0.6, heading, Math.sin(S.t * 5) * 0.08 * G.roll, 'YXZ'); root.quaternion.setFromEuler(e);
+        root.position.set(G.p.x + DIR.x * G.drift, G.p.y - G.fy, G.p.z + DIR.z * G.drift);
+        root.updateMatrixWorld(true);
+        if (anim) anim.update(dt, { speed: 0, sitting: false, idle: false, turnRate: 0, waving: true, celebrate: false });
+        if (anim && B && B.upperarm_L && B.upperarm_R) { const fl = Math.sin(S.t * 14) * 0.35; B.upperarm_L.rotateZ(1.1 + fl); B.upperarm_R.rotateZ(-1.1 - fl); }
+        root.updateMatrixWorld(true);
+        hipW.copy(root.position).add(UP);
+        return;
+      }
       // поворот: стоя — только курс; в обвязке — маятник (φ — вдоль хода, ψ — вбок)
       const yaw = heading + Math.sin(S.t * 0.7) * 0.03 * S.hang;
       e.set(S.phi * S.hang, yaw, S.psi * S.hang, 'YXZ'); root.quaternion.setFromEuler(e);
@@ -345,7 +365,7 @@
       cylBetween(bar, bl, br, 0.02);
       cylBetween(grips[0], new T.Vector3().copy(barC).addScaledVector(lat, 0.12), new T.Vector3().copy(barC).addScaledVector(lat, 0.28), 0.028);
       cylBetween(grips[1], new T.Vector3().copy(barC).addScaledVector(lat, -0.12), new T.Vector3().copy(barC).addScaledVector(lat, -0.28), 0.028);
-      const show = S.hang > 0.05 || S.phase !== 'prep' || S.t > 1.4;
+      const show = S.phase !== 'drop' && (S.hang > 0.05 || S.phase !== 'prep' || S.t > 1.4);
       [lanL, lanR].forEach((m, i) => { m.visible = !!(hero && B && show); if (m.visible) { const a = new T.Vector3().copy(axle).addScaledVector(lat, i ? -0.03 : 0.03).add(new T.Vector3(0, -0.12, 0)), b = new T.Vector3().copy(hipW).addScaledVector(lat, i ? -0.035 : 0.035); cylBetween(m, a, b, 0.011); } });
     }
 
@@ -353,6 +373,11 @@
     const offCur = new T.Vector3(), lookCur = new T.Vector3(), wantOff = new T.Vector3(), lookOff = new T.Vector3();
     function camera(dt) {
       if (!cam) return;
+      if (S.phase === 'drop' && hero) {   // W5: камера остаётся, где была, чуть поднимается и смотрит на героиню
+        if (!G.camP) G.camP = cam.position.clone();
+        G.camP.y += dt * 0.6; cam.position.copy(G.camP); camLook.copy(hero.root.position).add(UP); cam.lookAt(camLook);
+        return;
+      }
       const P = barC, k = S.k;
       let mode;
       if (S.phase === 'prep') mode = 'prep';
@@ -401,7 +426,8 @@
       if (hero && hero.root) { hero.root.rotation.set(0, heading, 0); hero.root.updateMatrixWorld(true); }
       if (cam && Math.abs(cam.fov - fov0) > 0.01) { cam.fov = fov0; cam.updateProjectionMatrix(); }
       const L = landP;
-      emit('done', { skipped: S.skipped });
+      emit('done', { skipped: S.skipped, dropped: G.dropped });
+      if (G.dropped) { if (resolveFn) resolveFn({ ok: false, dropped: true, skipped: false, k: +S.k.toFixed(3), restart: { x: launch.x, y: launch.y, z: launch.z, ry: heading }, spawn: 'zipline_start', line: LINES.again, t: +S.t.toFixed(2) }); return; }
       if (resolveFn) resolveFn({ ok: true, skipped: S.skipped, landing: { x: L.x, y: L.y, z: L.z, ry: heading }, to: 'kubachi', spawn: 'zipline_landing', exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, t: +S.t.toFixed(2) });
     }
 
@@ -415,13 +441,33 @@
         if (t > 1.5 && !S.sit) { S.sit = true; emit('clip'); }
         S.hang = clamp((t - 1.55) / 0.85, 0, 1);
         if (!S.events.start && t > 0.3) { S.events.start = true; emit('start', { line: LINES.start }); }
+        if (HOLD && !S.events.holdHint && t > 0.9) { S.events.holdHint = true; emit('holdHint', { held: G.held }); }
         if (t >= PREP) { S.phase = 'slide'; emit('go', { line: LINES.go }); }
       } else if (S.phase === 'slide') {
         const ts = t - PREP;
         S.s = s0 + sOfT(ts); S.v = vOfT(ts); S.a = aOfT(ts); S.ik = 1; S.hang = 1; S.sit = true;
         if (!S.events.mid && ts > SLIDE * 0.5) { S.events.mid = true; emit('mid'); }
+        // W5: держит — free = 0; отпустила — копится; > WARN — «Ой! Держись!»; > GRACE — отпустила ручку
+        if (HOLD) {
+          if (G.held) { if (G.warned) { G.warned = false; } G.free = 0; }
+          else {
+            G.free += dt;
+            if (!G.warned && G.free > WARN) { G.warned = true; emit('slip', { line: LINES.slip, left: +(GRACE - G.free).toFixed(2) }); }
+            if (G.free >= GRACE) {
+              S.phase = 'drop'; G.dropped = true; G.tDrop = 0; G.vy = 0; G.fy = 0; G.drift = 0; G.roll = 0;
+              G.p = hero ? hero.root.position.clone() : new T.Vector3(barC.x, barC.y - 1.5, barC.z); G.vd = S.v;
+              S.events.drop = true; emit('drop', { line: LINES.drop, k: +S.k.toFixed(3) });
+            }
+          }
+        }
         if (!S.events.brake && ts > TA + TC) { S.events.brake = true; emit('brake'); }
-        if (ts >= SLIDE) { S.phase = 'settle'; S.tSettle = t; S.s = sStop; S.v = 0; S.a = 0; rootStand.set(landP.x, landP.y, landP.z); emit('stop'); }
+        if (ts >= SLIDE && S.phase === 'slide') { S.phase = 'settle'; S.tSettle = t; S.s = sStop; S.v = 0; S.a = 0; rootStand.set(landP.x, landP.y, landP.z); emit('stop'); }
+      } else if (S.phase === 'drop') {   // W5: ролик тормозит на тросе, героиня «парит» вниз; в конце — шторка и старт
+        G.tDrop += dt; S.v = Math.max(0, S.v - dt * 9); S.s = Math.min(sStop, S.s + S.v * dt); S.a = 0;
+        S.ik = Math.max(0, S.ik - dt / 0.25); S.hang = 1; S.sit = false;
+        G.vy = Math.min(5.5, G.vy + dt * 7); G.fy += G.vy * dt; G.vd = Math.max(0, (G.vd || 0) - dt * 6); G.drift += G.vd * dt * 0.5; G.roll = Math.min(1, G.roll + dt * 1.2);
+        if (!S.events.fade && G.tDrop > DROP_T - 0.45) { S.events.fade = true; emit('fade'); }
+        if (G.tDrop >= DROP_T) { rig(); rigAfter(); finish(); return; }
       } else if (S.phase === 'settle') {
         const ts = t - S.tSettle; S.s = sStop; S.v = 0; S.a = 0;
         if (ts > 0.7 && S.sit) { S.sit = false; emit('land', { line: LINES.land }); }
@@ -439,7 +485,7 @@
     }
 
     function skip() {
-      if (S.done) return;
+      if (S.done || S.phase === 'drop') return;
       S.skipped = true; S.phase = 'settle'; S.tSettle = S.t - SETTLE; S.s = sStop; S.sit = false; S.hang = 0; S.ik = 0; S.phi = 0; S.phiV = 0;
       rootStand.set(landP.x, landP.y, landP.z);
       if (hero) { hero.root.position.copy(rootStand); e.set(0, heading, 0, 'YXZ'); hero.root.quaternion.setFromEuler(e); hero.root.updateMatrixWorld(true); }
@@ -452,7 +498,10 @@
     P.update = dt => tick(dt);
     P.skip = skip;
     P.cancel = () => { S.skipped = true; finish(); };
-    P.state = () => ({ phase: S.phase, t: +S.t.toFixed(2), k: +S.k.toFixed(3), v: +S.v.toFixed(2), phi: +S.phi.toFixed(3), hang: +S.hang.toFixed(2), ik: +S.ik.toFixed(2), camMode: S.camMode, done: S.done, total: PREP + SLIDE + SETTLE, vmax: +VMAX.toFixed(1),
+    // W5 «держись крепче»: игра — hold(true) на pointerdown/keydown, hold(false) на pointerup/cancel/blur/keyup
+    P.hold = b => { const v = !!b; if (v !== G.held) { G.held = v; if (HOLD && !S.done) emit('grip', { held: v }); } return G.held; };
+    P.grip = () => ({ on: HOLD && (S.phase === 'slide'), held: G.held, free: +G.free.toFixed(2), left: +Math.max(0, GRACE - G.free).toFixed(2), grace: GRACE, dropped: G.dropped });
+    P.state = () => ({ phase: S.phase, t: +S.t.toFixed(2), k: +S.k.toFixed(3), v: +S.v.toFixed(2), phi: +S.phi.toFixed(3), hang: +S.hang.toFixed(2), ik: +S.ik.toFixed(2), camMode: S.camMode, done: S.done, total: PREP + SLIDE + SETTLE, vmax: +VMAX.toFixed(1), grip: P.grip(),
       bar: [+barC.x.toFixed(2), +barC.y.toFixed(2), +barC.z.toFixed(2)], gripL: [+gripL.x.toFixed(3), +gripL.y.toFixed(3), +gripL.z.toFixed(3)], gripR: [+gripR.x.toFixed(3), +gripR.y.toFixed(3), +gripR.z.toFixed(3)] });
     P.handErr = () => {   // QA: насколько кисти (точка хвата) у перекладины, м
       if (!anim || !B || !B.hand_L) return null;
@@ -465,5 +514,57 @@
     return P;
   }
 
-  V.zipline = { GEO, LINES, route, cable, cableMesh, buildLanding, ride, ik: { arm: armIK, aim: aimBone }, toMacro, toLocal, version: 1 };
+  /* ---------- W5: стог сена у башни отеля — сюда мягко «плюхается» героиня, если отпустила ручку дольше 3 с ----------
+     haystack(THREE, { season }) → { group, seat (высота сиденья над землёй), puff() — облачко соломинок, dispose() }.
+     2 вызова отрисовки: стог (купол с соломенными прядями, цвет в вершинах) и облачко соломинок (инстансы, видно 0,9 с). */
+  function haystack(T, o = {}) {
+    const winter = o.season === 'winter', own = [];
+    const group = new T.Group(); group.name = 'zipline:haystack';
+    const C = h => new T.Color(h);
+    const hayA = C('#E8C46A'), hayB = C('#D2A447'), hayC = C('#F3DA8E'), snow = C('#F7F9FC'), tmp = new T.Color();
+    // купол: профиль «копна» (широкий низ, круглая шапка), неровный край; цвет в вершинах — пряди
+    const prof = [];
+    for (let i = 0; i <= 14; i++) { const t = i / 14, a = t * PI / 2; prof.push(new T.Vector2(Math.max(0.02, Math.cos(a) * (1.32 - 0.12 * t) + 0.05 * Math.sin(t * 9)), Math.sin(a) * 1.02)); }
+    const dome = new T.LatheGeometry(prof, 22); own.push(dome);
+    const pos = dome.attributes.position, col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), a = Math.atan2(x, z);
+      const n = 0.5 + 0.5 * Math.sin(a * 11 + y * 7) * Math.cos(a * 5 - y * 3);
+      tmp.copy(hayB).lerp(hayA, 0.35 + 0.5 * n).lerp(hayC, Math.max(0, y - 0.55) * 0.6);
+      if (winter && y > 0.72) tmp.lerp(snow, Math.min(1, (y - 0.72) * 3.2));
+      col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;
+      // неровная «лохматая» поверхность
+      const r = 1 + 0.035 * Math.sin(a * 17 + y * 13); pos.setX(i, x * r); pos.setZ(i, z * r);
+    }
+    dome.setAttribute('color', new T.BufferAttribute(col, 3)); dome.computeVertexNormals();
+    const mat = new T.MeshToonMaterial({ color: 0xffffff, vertexColors: true }); own.push(mat);
+    const mesh = new T.Mesh(dome, mat); mesh.name = 'haystack'; mesh.castShadow = false; mesh.receiveShadow = true; group.add(mesh);
+    // соломинки-пух: короткие палочки, разлетаются из стога и тают
+    const NP = 26, sGeo = new T.BoxGeometry(0.018, 0.018, 0.2); own.push(sGeo);
+    const sMat = new T.MeshToonMaterial({ color: 0xF0CF78 }); own.push(sMat);
+    const straws = new T.InstancedMesh(sGeo, sMat, NP); straws.name = 'haystack:puff'; straws.frustumCulled = false; straws.visible = false; group.add(straws);
+    const P = []; for (let i = 0; i < NP; i++) P.push({ a: (i / NP) * TAU + Math.random() * 0.4, v: 1.4 + Math.random() * 1.8, up: 2.2 + Math.random() * 2.2, s: 0.7 + Math.random() * 0.8, sp: (Math.random() - 0.5) * 14 });
+    const m4 = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), vp = new T.Vector3(), vs = new T.Vector3();
+    let t0 = -1;
+    straws.onBeforeRender = () => {
+      if (t0 < 0) return;
+      const t = (performance.now() - t0) / 1000;
+      if (t > 1.1) { straws.visible = false; t0 = -1; return; }
+      const k = Math.max(0, 1 - t / 1.1);
+      for (let i = 0; i < NP; i++) {
+        const p = P[i], r = p.v * t, y = 0.85 + p.up * t - 4.2 * t * t;
+        vp.set(Math.sin(p.a) * (0.3 + r), Math.max(0.05, y), Math.cos(p.a) * (0.3 + r));
+        e.set(p.sp * t, p.a, p.sp * t * 0.6); q.setFromEuler(e); vs.setScalar(p.s * (0.4 + 0.6 * k));
+        m4.compose(vp, q, vs); straws.setMatrixAt(i, m4);
+      }
+      straws.instanceMatrix.needsUpdate = true;
+    };
+    return {
+      group, seat: 0.52,
+      puff() { t0 = performance.now(); straws.visible = true; },
+      dispose() { own.forEach(x => { try { x.dispose(); } catch (er) { /* ok */ } }); straws.dispose && straws.dispose(); },
+    };
+  }
+
+  V.zipline = { GEO, LINES, route, cable, cableMesh, buildLanding, ride, haystack, ik: { arm: armIK, aim: aimBone }, toMacro, toLocal, version: 1 };
 })();

@@ -35,7 +35,13 @@
                         таз остаётся на высоте позы «стул», как раньше): {
                           steer     — −1..1 (+ налево): руль поворачивается, руки на «10 и 2» едут вместе с ним,
                           wheel     — центр руля (оси модели), wheelR — радиус, wheelTilt — наклон плоскости руля
-                                      назад от вертикали, рад (как rotation.x тора в car.js) }
+                                      назад от вертикали, рад (как rotation.x тора в car.js),
+                          seat      — 'low': низкое спортивное кресло (красный седан): таз — там, где его ставит машина
+                                      (корень героини ниже), ноги вытянуты вперёд к педалям (IK: сустав ступни в точке
+                                      pedal), корпус чуть откинут назад (recline), руки тянутся к рулю, голова — прямо;
+                                      без seat — прежняя поза «как на стуле» (ретро-купе); объект/массив — точка сиденья,
+                          pedal     — для seat 'low': сустав левой ступни [x, y, z] (оси модели; правая — зеркально),
+                                      по умолчанию HeroAnim.DRIVE_LOW.pedal; recline — наклон корпуса назад, градусы }
             }
      anim.handL / anim.handR / anim.head — кости для предметов: букет, стакан, находки — в handL;
             шапки, наушники, звезда — в head. anim.bones — все кости по имени.
@@ -60,6 +66,9 @@
   // руль машины по умолчанию (оси модели героини): куда дотягиваются руки с чуть согнутыми локтями; размер и наклон —
   // как у руля в js/world/car.js (тор 0.17, rotation.x 0.95). Корень героини в машине = центр руля − DRIVE.wheel.
   const DRIVE = { wheel: [0, 0.92, 0.32], wheelR: 0.17, wheelTilt: 0.95 };
+  // низкое спортивное кресло (opt.drive.seat === 'low'): сустав ступни у педалей (оси модели: таз на 0.86, пол салона
+  // на ≈ 0.40 — пятка на полу, носок на педали), наклон корпуса назад
+  const DRIVE_LOW = { pedal: [0.15, 0.5, 0.56], recline: 16, toe: 28 };
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const damp = (c, t, k, dt) => c + (t - c) * (1 - Math.exp(-k * dt));
@@ -122,7 +131,7 @@
     const mixTo = (n, x, y, z, k) => { const p = P[n]; p[0] = lerp(p[0], x, k); p[1] = lerp(p[1], y, k); p[2] = lerp(p[2], z, k); };
     // состояние
     let t = 0, phase = 0, speedS = 0, wMove = 0, wRun = 0, wSit = 0, wRec = 0, wWave = 0, wCarry = 0, wBq = 0, lean = 0, step = 0, lastF = 0;
-    let hipsS = 0.86, wRide = 0, wDrive = 0, pedPh = 0, steerS = 0, rideLean = 0, leanFw = 0;
+    let hipsS = 0.86, wRide = 0, wDrive = 0, pedPh = 0, steerS = 0, rideLean = 0, leanFw = 0, wLow = 0, lowMem = false;
     let wsT = 2 + Math.random() * 3, ws = 0, wsS = 0, lookT = 1.5 + Math.random() * 2, look = [0, 0, 0], lookS = [0, 0, 0];
     let celT = -1, prevCel = false, wavePh = 0;
     const hair = { x: 0, vx: 0, z: 0, vz: 0 };
@@ -550,17 +559,37 @@
             const a = (i ? -60 : 60) * D + ang, out = i ? RV.hR : RV.hL;
             out.copy(RV.wheel).addScaledVector(RV.wup, wr * Math.cos(a)); out.x += wr * Math.sin(a);
           });
-          if (Dd.seat) { toV(Dd.seat, RIDE.seat, RV.seat); hipsV.lerp(v4.copy(RV.seat).add(SEAT_OFF), eD); }
-          addDeg(SIT.drive, eD);
-          const fw = reachLean(hipsV, RV.hL, RV.hR, 0.45, -4 * D, 18 * D);
+          // низкое кресло помнится и на выходе из машины (opt.drive уже null, поза ещё гаснет 0.4 с) — без рывка ног
+          if (driveO) lowMem = driveO.seat === 'low';
+          const low = lowMem;
+          wLow = low ? eD : 0;
+          if (Dd.seat && typeof Dd.seat === 'object') { toV(Dd.seat, RIDE.seat, RV.seat); hipsV.lerp(v4.copy(RV.seat).add(SEAT_OFF), eD); }
+          if (!low) addDeg(SIT.drive, eD);
+          else {
+            // низкое кресло: корпус откинут назад, ноги — IK к педалям (колени чуть врозь, правая — на газе, чуть дальше)
+            const rc = (Dd.recline !== undefined ? +Dd.recline : DRIVE_LOW.recline) * D;
+            add('hips', -rc * eD, 0, 0); add('chest', 2 * D * eD, 0, 0);
+            e.set(P.hips[0], P.hips[1], P.hips[2]); qh.setFromEuler(e); qhi.copy(qh).invert();
+            toV(Dd.pedal, DRIVE_LOW.pedal, RV.tmp);
+            ['_L', '_R'].forEach((sd, i) => {
+              tg.set(i ? -RV.tmp.x : RV.tmp.x, RV.tmp.y, RV.tmp.z + (i ? 0.03 : 0));
+              const ik = legIK(sd, hipsV, tg, (i ? 1 : -1) * 4 * D);
+              mixTo('thigh' + sd, ik[0], ik[1], ik[2], eD); mixTo('shin' + sd, ik[3], 0, 0, eD);
+            });
+          }
+          const fw = low ? reachLean(hipsV, RV.hL, RV.hR, 0.45, -6 * D, 16 * D) : reachLean(hipsV, RV.hL, RV.hR, 0.45, -4 * D, 18 * D);
           leanFw = damp(leanFw, fw, 8, dt);
           add('spine', leanFw * 0.5 * eD, -steerS * 0.05 * eD, 0); add('chest', leanFw * 0.5 * eD, -steerS * 0.06 * eD, 0);
-          mixTo('head', -(leanFw - 6 * D) * 0.6, steerS * 0.22, -steerS * 0.05, eD); mixTo('neck', -(leanFw - 6 * D) * 0.25, steerS * 0.1, 0, eD);
-          ['_L', '_R'].forEach(sd => { const F = footDes[sd]; F.pitch = lerp(F.pitch, 12 * D, eD); F.yaw = lerp(F.yaw, 0, eD); F.w = Math.max(F.w, eD); });
+          // голова смотрит вперёд: в низком кресле шея и голова гасят наклон корпуса назад
+          const rcH = low ? (Dd.recline !== undefined ? +Dd.recline : DRIVE_LOW.recline) * D : 0;
+          mixTo('head', -(leanFw - 6 * D) * 0.6 + rcH * 0.55, steerS * 0.22, -steerS * 0.05, eD); mixTo('neck', -(leanFw - 6 * D) * 0.25 + rcH * 0.4, steerS * 0.1, 0, eD);
+          const toe = (low ? DRIVE_LOW.toe : 12) * D;
+          ['_L', '_R'].forEach(sd => { const F = footDes[sd]; F.pitch = lerp(F.pitch, toe, eD); F.yaw = lerp(F.yaw, 0, eD); F.w = Math.max(F.w, eD); });
           RV.poleL.set(0.6, -0.75, -0.2); RV.poleR.set(-0.6, -0.75, -0.2);
           armIK('_L', hipsV, RV.hL, RV.poleL, eD); armIK('_R', hipsV, RV.hR, RV.poleR, eD);
         }
         if (eV < 0.001) leanFw = 0;
+        if (eD <= 0.001) wLow = 0;
 
         // --- полы пальто идут за бёдрами (в шаге — не больше ~40% угла, с пружинкой: подол не раскрывается
         // юбкой; сидя — почти целиком: ложатся на колени; на велосипеде — наполовину)
@@ -568,7 +597,7 @@
         ['_L', '_R'].forEach(sd => {
           const tx = P['thigh' + sd][0], C = coatS[sd];
           const fwd = tx < 0 ? lerp(0.4, 0.34, r) : lerp(0.3, 0.24, r);
-          let target = tx * lerp(fwd, 0.88, wSit);
+          let target = tx * lerp(lerp(fwd, 0.88, wSit), 0.86, wLow);   // низкое кресло: полы лежат на коленях
           target = lerp(target, tx * 0.55, eR);
           target += (clamp(speedS * 1.3, 0, 4.5) * D) * coatK;   // встречный воздух: подол чуть назад
           let rem = dt;
@@ -637,5 +666,5 @@
     }
     return api;
   }
-  window.HeroAnim = { create, NAMES, SPEEDS, RIDE, DRIVE, version: 3, FEATURES: { ride: true, drive: true, speeds: true } };
+  window.HeroAnim = { create, NAMES, SPEEDS, RIDE, DRIVE, DRIVE_LOW, version: 3, FEATURES: { ride: true, drive: true, driveLow: true, speeds: true } };
 })();

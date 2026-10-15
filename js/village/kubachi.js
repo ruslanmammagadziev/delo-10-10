@@ -603,7 +603,7 @@
     houses.forEach(h => {
       const walk = h.row >= 0 && h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace');
       if (walk) return;
-      out.push({ type: 'box', x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0 - 1, y1: h.y0 + h.h + roofRise(h), id: h.id });
+      out.push({ type: 'box', x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0 - 1, y1: h.y0 + h.h + roofRise(h), id: h.id, house: h });
     });
     [MUSEUM, BAKERY].forEach((b, i) => out.push({ type: 'box', x: b.x, z: b.z, w: b.w, d: b.d, ry: b.ry, y0: -1, y1: b.h + 0.8, id: i ? 'bakery' : 'museum' }));
     out.push({ type: 'circle', x: TOWER.x, z: TOWER.z, r: TOWER.rB + 0.12, y0: 0, y1: TOWER.floor - 0.9, id: 'tower' });
@@ -2445,6 +2445,41 @@
     }
     const walk = FAR ? { auto: [], path: () => null, at: () => 0, A: [], BL: [], OCC: [] } : buildWalk(model, colliders);
     const allColliders = colliders.concat(walk.auto);
+    // W5: см. handle.moveColliders
+    let mvCols = null, mvBig = null;
+    function moveCols() {
+      const big = !!(BZ && BZ.api && BZ.api.big);
+      if (mvCols && mvBig === big) return mvCols;
+      mvBig = big; mvCols = [];
+      allColliders.forEach(c => {
+        const h = c.house; if (!h) { mvCols.push(c); return; }
+        const top = h.y0 + h.h, base = { type: 'box', x: c.x, z: c.z, w: c.w, d: c.d, ry: c.ry, y0: c.y0, id: c.id };
+        if (h.roof === 'flat') { mvCols.push(Object.assign(base, { y1: top + 0.12, kind: 'roof' })); return; }
+        mvCols.push(Object.assign(base, { y1: top - 0.02, stand: false }));   // стены до карниза: с улицы ниже — стена, с крыши-двора рядом — шаг на скат
+        // скат — лесенкой из тонких плит по форме кровли (roofGeo: свес 0,25 по бокам, 0,45 спереди, сзади 0,04 / 0,25 у гребня):
+        // каждая плита — полоса 0,8 м, её верх — середина ската на этой полосе (ошибка ≤ 0,08 м), подъём между плитами ≤ 0,16 м — заходит сама
+        const W = h.w, D = h.d, xa = -W / 2 - 0.25, xb = W / 2 + 0.25, za = -D / 2 - (h.row < 0 ? 0.25 : 0.04), zb = D / 2 + 0.45, y0 = top + 0.08;
+        const Wr = xb - xa, Dr = zb - za, F = new K.Frame(h.x, h.y0, h.z, h.ry), STEP = 0.8;
+        const slab = (x0, x1, z0, z1, y, i) => {
+          if (x1 - x0 < 0.36 || z1 - z0 < 0.36) return false;
+          const p = F.p((x0 + x1) / 2, 0, (z0 + z1) / 2);
+          mvCols.push({ type: 'box', x: p[0], z: p[2], w: x1 - x0, d: z1 - z0, ry: h.ry, y0: top - 0.25, y1: y, id: h.id + ':roof' + i, kind: 'slope', hid: h.id });
+          return true;
+        };
+        if (h.roof === 'hip') {   // пирамида со срезом: высота = y0 + 0,18 · расстояние до ближнего края свеса
+          const half = Math.min(Wr, Dr) / 2;
+          for (let i = 0, sIn = 0; sIn < half - 0.05; i++, sIn += STEP) if (!slab(xa + sIn, xb - sIn, za + sIn, zb - sIn, y0 + 0.18 * Math.min(sIn + STEP / 2, half), i)) break;
+        } else if (h.roof === 'gable') {   // два ската к коньку вдоль x: уклон 0,2
+          const half = Dr / 2;
+          for (let i = 0, sIn = 0; sIn < half - 0.05; i++, sIn += STEP) if (!slab(xa, xb, za + sIn, zb - sIn, y0 + 0.2 * Math.min(sIn + STEP / 2, half), i)) break;
+        } else {   // односкатная: низ у фасада (zb), верх сзади (za) на +0,62
+          const k = 0.62 / Dr;
+          for (let i = 0, sIn = 0; sIn < Dr - 0.05; i++, sIn += STEP) if (!slab(xa, xb, za, zb - sIn, y0 + k * Math.min(sIn + STEP / 2, Dr), i)) break;
+        }
+      });
+      if (big && BZ.dynamic) BZ.dynamic.forEach(c => mvCols.push(c));
+      return mvCols;
+    }
     // башня для луча камеры: круглый коллайдер ходьбы луч не видит — восьмиугольник из двух коробок
     if (!FAR) [0, PI / 4].forEach(ry => camColliders.push({ type: 'box', x: TOWER.x, z: TOWER.z, w: TOWER.rB * 1.84, d: TOWER.rB * 1.84, ry, y0: TOWER.y0 - 1, y1: TOWER.floor + 1.2, id: 'towerCam', cam: true }));
     const COL = FAR ? { collide: (x, z) => [x, z], rayHit: () => 1 } : makeCollider(allColliders.concat(camColliders, camExtra));
@@ -2626,6 +2661,12 @@
       spawn: { x: 24.5, y: 0, z: -2.8, ry: -PI / 2 },
       carSpawn: { x: PARK.x, y: 0, z: PARK.z, ry: PARK.ry },
       colliders: allColliders,
+      // W5 (бег и прыжки, js/move.js): коллайдеры для шага героини — как colliders, но плоские крыши домов — пол на высоте крыши-двора
+      // (прыгать по крышам), у скатных — стены до карниза (на скат не встать: соскальзывает) и узкая полоса по коньку; плюс прилавки
+      // большого базара (в его день). Массив пересобирается, только когда меняется базар (Move перечитывает его сам)
+      moveColliders: () => moveCols(),
+      // W5B: дома рядов (для проверок и подсказок): крыша — двор (walk), плоская высокая, скатная; top — карниз/двор, м
+      roofRows: () => houses.filter(h => h.row >= 0).map(h => ({ id: h.id, row: h.row, phi: h.phi, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, storeys: h.storeys, roof: h.roof, walk: h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace') })),
       camColliders: camColliders.concat(camExtra),   // кроны, галереи, свод арки, вывески, «метро»: только для луча камеры (rayHit их уже учитывает)
       ground: (x, z) => model.y(x, z),
       groundInfo: (x, z) => model.info(x, z),

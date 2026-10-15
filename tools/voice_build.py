@@ -223,6 +223,10 @@ CAST = {
     'hotel_otter': dict(label='Выдра у бассейна, отель', who='весёлая, быстрая, «мокрая» интонация', rec='A', line=['Вода в бассейне тёплая — с подогревом!'], opts={'A': P('tatiana', 4, 1.15, 1.4, 1.06, ['quaver'])}),
     'hotel_bear': dict(label='Медвежонок у костра, отель', who='тёплый, басовитый, неторопливый', rec='A', line=['Садись к огню, тут тепло!'], opts={'A': P('mikhail', -2, 0.86, 1.0, 0.96, ['warm'])}),
     'hotel_marmot': dict(label='Сурок-инструктор, отель', who='задорный, уверенный, чуть с хрипотцой', rec='A', line=['Держись крепче — и вжу-у-ух, через всю долину!'], opts={'A': P('pavel', 3, 1.08, 1.35, 1.03)}),
+    # волна 5: спорт отеля (js/village/sports.js — VILLAGE.sports.SPEAKERS / LINES; тренер — hotel_raccoon)
+    'sport_fox': dict(label='Лисичка, падел (отель)', who='звонкая, задорная, спортивная', rec='A', line=['Хоп — в уголок!'], opts={'A': P('tatiana', 5, 1.12, 1.45, 1.08)}),
+    'sport_bear': dict(label='Мишка-вратарь, мини-футбол (отель)', who='добродушный, басовитый, смешливый', rec='A', line=['Хоп — и в лапах!'], opts={'A': P('mikhail', -1, 0.9, 1.1, 0.98, ['warm'])}),
+    'sport_bunny': dict(label='Зайка, пас-пас (отель)', who='быстрая, радостная, тоненькая', rec='A', line=['Лови мячик!'], opts={'A': P('anna', 6, 1.14, 1.5, 1.1)}),
     # жители города волны 3 (js/world/residents.js, companion.js — LIFE): собачки, кошки, капибара, утки, мышиное трио, ёжик с листом
     'dog_spitz': dict(label='Шпиц Зефирка', who='восторг, только «Тяф!»', rec='A', line=['Тяф-тяф!'], opts={'A': P('victoria', 7, 1.2, 1.5, 1.12)}),
     'dog_dachshund': dict(label='Такса Багет', who='бодрый, всё меряет в таксах', rec='A', line=['До фонтана — сорок две таксы. Мерил лично.'], opts={'A': P('artemiy', 3, 1.08, 1.35, 1.04)}),
@@ -240,9 +244,11 @@ CAST = {
 # группы для --only: «--only village» = все говорящие горного села и серпантина
 W4_BAZAAR = ['cow', 'goat_grocer', 'bear_craft', 'lamb_cloth', 'squirrel_nuts']
 W4_WEDDING = ['wed_bride', 'wed_groom', 'wed_zurna', 'wed_drum', 'wed_aunt', 'wed_kid', 'paltar']
-W4_HOTEL = ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear', 'hotel_marmot']
+W4_HOTEL = ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear', 'hotel_marmot', 'sport_fox', 'sport_bear', 'sport_bunny']
 SPEAKER_GROUPS = {'village': ['badger', 'owl_keeper', 'eagle', 'roof_cat', 'pony', 'mtn_sheep', 'baker_bunny', 'spring_hedgehog', 'mouse', 'granny_hedgehog', 'pigeon_metro', 'tur'] + W4_BAZAAR + W4_WEDDING + W4_HOTEL,
                   'w4': W4_BAZAAR + W4_WEDDING + W4_HOTEL + ['mouse'], 'bazaar': W4_BAZAAR, 'wedding': W4_WEDDING, 'hotel': W4_HOTEL,
+                  # волна 5B (горы): героиня (туман, параплан, спорт, зиплайн, падения), кот и собачки сзади (туман), спорт отеля, «Помахать»
+                  'w5mtn': ['hero', 'cat', 'dog_spitz', 'dog_dachshund', 'dog_corgi', 'sport_fox', 'sport_bear', 'sport_bunny', 'hotel_raccoon', 'hotel_marmot'] + ['badger', 'owl_keeper', 'eagle', 'roof_cat', 'pony', 'mtn_sheep', 'baker_bunny', 'spring_hedgehog', 'mouse', 'granny_hedgehog', 'pigeon_metro', 'tur'] + W4_BAZAAR + W4_WEDDING + W4_HOTEL,
                   'life': ['dog_spitz', 'dog_dachshund', 'dog_corgi', 'cat_ginger', 'cat_tabby', 'cat_tux', 'capybara', 'ducks', 'ducklings', 'mice', 'hedgehog_leaf']}
 CASTING_ORDER = ['hero', 'hero_en', 'cat', 'raccoon', 'goose', 'parrot', 'fox', 'bunny', 'hedgehog', 'bee', 'narrator',
                  'sheep', 'turtle', 'gaunt', 'zhuzha', 'tycho', 'owl', 'pigeons', 'poodle']
@@ -595,7 +601,9 @@ def ensure_acorn():
 # каз (kaz.js: { text, n } — говорит мышка-вышивальщица, кроме строк героини), отель (hotel.js: LINES/EVENTS — для надёжности).
 # Модули — обычные IIFE без DOM при загрузке: node выполняет их в песочнице (vm) и читает таблицы VILLAGE.*.
 # Строки героини (who: 'hero', kaz 'heroOn'/'giveBack' — тост) не озвучиваются.
-MODULE_SRC = ['js/village/lines.js', 'js/village/wedding.js', 'js/village/kaz.js', 'js/village/hotel.js', 'js/village/bazaar.js']
+# Волна 5B: кроме новых — облачка героини в горах ОЗВУЧИВАЮТСЯ голосом героини: параплан (VILLAGE.paraglider.LINES — строки) и
+# спорт отеля (VILLAGE.sports.SAY — строки; реплики зверят и тренера — LINES { who, text }, их разбор находит и сам).
+MODULE_SRC = ['js/village/lines.js', 'js/village/wedding.js', 'js/village/kaz.js', 'js/village/hotel.js', 'js/village/bazaar.js', 'js/village/paraglider.js', 'js/village/sports.js']
 MODULE_JS = r'''
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const root = process.argv[1], files = process.argv.slice(2);   // node -e: argv[1] — первый аргумент
@@ -610,6 +618,10 @@ if (V.hotel) { walk(V.hotel.LINES, 'js/village/hotel.js'); walk(V.hotel.EVENTS, 
 if (V.kaz && V.kaz.lines) ['offer', 'pattern', 'fringe', 'careful'].forEach(k => { const l = V.kaz.lines[k]; if (!l) return; [l.text, l.n].filter(Boolean).forEach(t => out.push({ who: 'mouse', text: t, src: 'js/village/kaz.js' })); });
 if (V.LINES_SRC) walk(V.LINES_SRC, 'js/village/lines.js');
 if (V.EVENTS_SRC) walk(V.EVENTS_SRC, 'js/village/lines.js');
+// волна 5B: строки героини модулей гор — голосом героини (regions.js зовёт voice('hero', текст))
+const hero = (tbl, src) => Object.values(tbl || {}).forEach(t => { if (typeof t === 'string' && t.trim()) out.push({ who: 'hero', text: t, src }); });
+if (V.paraglider) hero(V.paraglider.LINES, 'js/village/paraglider.js');
+if (V.sports) { hero(V.sports.SAY, 'js/village/sports.js'); walk(V.sports.LINES, 'js/village/sports.js'); }
 process.stdout.write(JSON.stringify({ ok, lines: out }));
 '''
 

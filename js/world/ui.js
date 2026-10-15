@@ -49,7 +49,7 @@
 :where(.w-say) b{display:block;font-size:11px;color:var(--cherry,#C2405B);letter-spacing:.02em}
 :where(.w-say.hero){background:#FFF0F3;color:#9E2F47}
 :where(.w-say.hero)::after{border-top-color:#FFF0F3}
-:where(.w-hint){position:absolute;left:50%;transform:translateX(-50%);bottom:calc(92px + var(--safe-bottom,0px));z-index:20;background:rgba(58,46,63,.86);color:#fff;font-weight:800;font-size:13px;padding:8px 12px;border-radius:12px;white-space:nowrap;pointer-events:none!important;transition:opacity .9s}
+:where(.w-hint){position:absolute;left:12px;bottom:calc(284px + var(--safe-bottom,0px));max-width:min(46%,176px);z-index:20;background:rgba(58,46,63,.86);color:#fff;font-weight:800;font-size:13px;line-height:1.3;padding:8px 12px;border-radius:12px;white-space:normal;pointer-events:none!important;transition:opacity .9s}
 :where(.w-hint.off){opacity:0}
 :where(.w-toast){position:absolute;left:50%;top:calc(64px + var(--safe-top,0px));transform:translateX(-50%);z-index:22;background:var(--ink,#3A2E3F);color:#fff;font-weight:800;font-size:14px;padding:10px 16px;border-radius:14px;max-width:86%;text-align:center;pointer-events:none!important}
 :where(.w-loading){position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:linear-gradient(180deg,#F3D9E6 0%,#FFF4EC 70%);transition:opacity .5s}
@@ -65,9 +65,16 @@
 :where(.w-dn-i){width:36px;height:36px;padding:0;border:0;border-radius:50%;background:rgba(255,253,249,.94);font-size:18px;line-height:36px;text-align:center;box-shadow:0 3px 0 rgba(58,46,63,.12);cursor:pointer;touch-action:manipulation}
 :where(.w-dn-t){height:36px;padding:0 12px;border:0;border-radius:18px;background:rgba(255,253,249,.96);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:13px;white-space:nowrap;box-shadow:0 3px 0 rgba(58,46,63,.14);cursor:pointer;touch-action:manipulation}
 :where(.w-dnbox.night) .w-dn-i{background:#2C366A;box-shadow:0 3px 0 rgba(10,12,26,.35),inset 0 0 0 2px rgba(255,244,214,.35)}
-:where(.w-swap){position:absolute;right:14px;bottom:calc(150px + var(--safe-bottom,0px));height:42px;padding:0 14px;border:0;border-radius:21px;background:rgba(255,253,249,.95);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:13.5px;white-space:nowrap;box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 18px rgba(58,46,63,.12);z-index:21;cursor:pointer;touch-action:manipulation}
+:where(.w-swap){position:absolute;right:14px;bottom:calc(390px + var(--safe-bottom,0px));height:42px;padding:0 14px;border:0;border-radius:21px;background:rgba(255,253,249,.95);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:13.5px;white-space:nowrap;box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 18px rgba(58,46,63,.12);z-index:21;cursor:pointer;touch-action:manipulation}
 :where(.w-root.busy) .w-swap{display:none!important}
 :where(.w-root.busy) .w-joy,:where(.w-root.busy) .w-act,:where(.w-root.busy) .w-wave,:where(.w-root.busy) .w-round,:where(.w-root.busy) .w-pill,:where(.w-root.busy) .w-near{display:none!important}
+/* волна 5: правый столбик кнопок (снизу вверх, всё у правого края, над джойстиком и радаром слева не заходит):
+   действие .w-act (16) · 👋 (88) · ряд «Прыжок» 80 + «Бег» 64 (150) · «Бум!»/«Бупнуть»/«Пиу!» 62 (242) · «Листья» 62 (316) ·
+   «🚗 Другая машина» (390). В машине и на велосипеде ряд Move и «Бум!» спрятаны — там «Би-бип» (150), «цвет» (216), «Дзынь» (88). */
+.w-ui .mv-btns{right:14px;bottom:calc(150px + var(--safe-bottom,0px));z-index:21}
+.w-ui .pf-btn{right:23px;bottom:calc(242px + var(--safe-bottom,0px));z-index:21}
+.w-ui .pf-btn.pf-toss{bottom:calc(316px + var(--safe-bottom,0px))}
+:where(.w-root.busy) .mv-btns,:where(.w-root.busy) .pf-btn,:where(.w-root.busy) .pf-chip{display:none!important}
 `;
   function ensureCss() {
     if (document.getElementById('wUiCss')) return;

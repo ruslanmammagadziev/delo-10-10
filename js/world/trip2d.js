@@ -154,7 +154,7 @@
     const A = V.activities ? V.activities(named) : {};
     const title = V.regions && V.regions.kubachi && V.regions.kubachi.title ? V.regions.kubachi.title(named) : 'Наверху';
     const up = [
-      { id: 'edge', stage: 'up', title: 'Дорога наверх', text: ['Город остаётся позади. У столбов-ворот — синий указатель «' + (named ? title + ' ↑' : 'В горы ↑') + '».', 'Машинка бодро катит к облакам.'], who: [] },
+      { id: 'edge', stage: 'up', title: 'Дорога наверх', text: ['Город остаётся позади. У столбов-ворот — синий щит «' + (named ? title + ' ↑' : 'В горы ↑') + '».', 'Машинка бодро катит к облакам.'], who: [] },
       { id: 'hairpins', stage: 'up', title: 'Серпантин', text: ['Плечо, поворот, снова плечо. Шесть крутых шпилек — руль, газ и тормоз у тебя: машинка сама не сбавляет ход.', 'Можно остановиться, выйти и посидеть на лавочке над долиной.'], who: [] },
       { id: 'clouds', stage: 'up', title: 'Над облаками', text: ['Ещё поворот — и облака остаются внизу. Через долину видна круглая башня.', 'На камне у смотровой стоит тур.'], who: ['tur'] },
     ];
@@ -164,13 +164,15 @@
       { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['У развилки щит «Отель» — ветка ведёт на бровку холма.', 'Во дворе башня, бассейн под крышей, мини-гольф, падел и мини-футбол, купели с паром и костровой круг. Через долину видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
       { id: 'zipline', stage: 'hotel', title: 'Зиплайн через долину', text: ['С башни во дворе через всю долину натянут трос.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
     ] : [];
+    // волна 5B: параплан с башни — если открыт (CONFIG.UNLOCK.paraglider, вместе с поездкой)
+    const flyOpen = (() => { try { return !WORLD.Regions || !WORLD.Regions.flyLock || WORLD.Regions.flyLock().ok; } catch (e) { return true; } })();
     const village = [
       { id: 'square', stage: 'village', title, text: ['Дома стоят ступеньками: плоская крыша нижнего — двор верхнего.', 'Машина ждёт на парковке, а дальше — пешком.'], who: ['pony', 'mtn_sheep', 'granny_hedgehog'] },
       { id: 'bazaar', stage: 'village', title: (A.bazaar && A.bazaar.title) || 'Базарная площадь', text: ((A.bazaar && A.bazaar.text) || ['Раз в неделю здесь большой базар.']).concat(['Над площадью — арка-мост с голубой галереей.']), who: ['goat_grocer', 'bear_craft', 'lamb_cloth', 'squirrel_nuts'], act: 'shop' },
       { id: 'bakery', stage: 'village', title: (A.bakery && A.bakery.title) || 'Пекарня', text: ['Из окошка пахнет тёплым тестом. Зайка протягивает покупку прямо в ладошки.'], who: ['baker_bunny', 'roof_cat'], act: 'bakery' },
       { id: 'workshop', stage: 'village', title: (A.workshop && A.workshop.title) || 'Мастерская', text: ['Гравировка, чернь, полировка — три шага до блеска.', 'Тапни по пластине три раза.'], who: ['badger', 'mouse'], act: 'workshop' },
       { id: 'wedding', stage: 'village', title: 'Свадьба во дворе', text: named ? ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Пальтары в войлочных масках звенят колокольчиками и шутят.'] : ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Ряженые в масках звенят колокольчиками и шутят.'], who: ['wed_bride', 'wed_groom', 'wed_zurna', 'wed_drum', 'wed_aunt', 'paltar'], act: 'dance' },
-      { id: 'tower', stage: 'village', title: (A.tower && A.tower.title) || 'Башня', text: ((A.tower_top && A.tower_top.text) || ['Внизу — море облаков и крыши ступеньками.']).slice(0, 2), who: ['eagle', 'owl_keeper', 'spring_hedgehog'] },
+      { id: 'tower', stage: 'village', title: (A.tower && A.tower.title) || 'Башня', text: ((A.tower_top && A.tower_top.text) || ['Внизу — море облаков и крыши ступеньками.']).slice(0, 2).concat(flyOpen ? ['С площадки башни можно полететь на параплане — над крышами и обратно на землю.'] : []), who: ['eagle', 'owl_keeper', 'spring_hedgehog'] },
     ];
     const down = [{ id: 'down', stage: 'down', title: 'Вниз, к городу', text: ['Шпилька за шпилькой — и вот уже знакомые улицы и фонари.'], who: [], last: true }];
     const from = o.from || 'city';

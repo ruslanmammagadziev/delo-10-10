@@ -763,7 +763,7 @@
         statVis++;
         // поза
         const st = n.I.st;
-        st.spd = n.spd;
+        st.spd = n.pfRun > 0 ? n.pfRun : n.spd;   // волна 5: догонялки «Бум!» (playfight.js ставит n.pfRun) — шагает лапками, а не скользит
         // голова смотрит на неё, если рядом
         let look = 0;
         if (dH < 3.2 && n.act !== 'sleep') look = clamp(angDiff(Math.atan2(hx - n.x, hz - n.z), n.root.rotation.y), -0.9, 0.9);

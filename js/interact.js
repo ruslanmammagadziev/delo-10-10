@@ -544,6 +544,7 @@
     function boneLocal(bn, x, y, z, out) { return B[bn].localToWorld(out.set(x, y, z)); }
     function anchor(a, sd, out) {
       if (a === undefined || a === null) return heroPos(out);
+      if (Array.isArray(a)) return toV(a, out);   // [x, y, z] (у массива есть свой a.at — до проверки a.at не доходим)
       if (typeof a === 'function') { const r = a(out, api); return r && r.isVector3 && r !== out ? out.copy(r) : out; }
       if (a.isVector3) return out.copy(a);
       if (a.isObject3D) { a.updateWorldMatrix(true, false); return wpos(a, out); }
@@ -1185,6 +1186,9 @@
       // предмет в руке лежит иначе, чем сейчас (хлеб, пирог, браслет — их берут за край и поднимают): тянемся к краю
       const h = itOf(item) && itOf(item).def.hold;
       if (h && h.rot) return Object.assign({ at: gripAnchor(item, sd), rot: 'reach' }, extra || {});
+      // волна 5: свой угол кисти при захвате (def.reachRot — оси предмета в осях модели; лейка — за верхнюю ручку, сверху)
+      const rr = itOf(item) && itOf(item).def.reachRot;
+      if (rr) return Object.assign({ at: item, key: [0, 0, 0], item, rot: Object.assign({ item }, rr) }, extra || {});
       return Object.assign({
         at: item, key: [0, 0, 0], item,
         rot: (out) => {
@@ -1194,6 +1198,27 @@
           return rotSpec(rrSpec, sd, out);
         },
       }, extra || {});
+    }
+    // волна 5: «прыжок» предмета в кулак (было до 5–6 см у какао из лап). Кисть тянется к центру предмета повёрнутой «как будет
+    // держать», а предмет на лапке/прилавке стоит под своим углом — при захвате он доворачивался вокруг своего центра, и точка хвата
+    // (у стаканчика — 4,5 см от центра) уезжала. Теперь за время «дотянуться» предмет плавно доворачивается к тому углу, под каким
+    // окажется в кулаке (у круглых — незаметно): при захвате остаётся только погрешность IK. Предметы с def.hold.rot (берут за край)
+    // — по-прежнему (там кисть идёт к точке хвата, и угол — их собственный).
+    const alQ = Q(), alH = Q(), alP = Q(), alV = V(), alS = V(), alT = V();
+    function alignTick(item, sd) {
+      // def.reachRot (лейка): кисть сама поворачивается под предмет, как он стоит — доворачивать нечего (а по ходу руки,
+      // пока кисть ещё «как в покое», доворот наклонял бы большой предмет в воздухе)
+      const it0 = itOf(item); if (it0 && ((it0.def.hold && it0.def.hold.rot) || it0.def.reachRot)) return undefined;
+      return (ctx, u, st) => {
+        if (!item.parent || held[sd] === item) return;
+        if (!st._alQ0) st._alQ0 = item.quaternion.clone();
+        placement(itOf(item), sd, alV, alQ);
+        const hb = B['hand_' + sd]; hb.updateWorldMatrix(true, false); hb.matrixWorld.decompose(alS, alH, alT);
+        alH.multiply(alQ);                                                   // угол предмета в мире, если взять сейчас
+        item.parent.updateWorldMatrix(true, false); item.parent.matrixWorld.decompose(alS, alP, alT);
+        alP.invert().multiply(alH);                                          // в осях родителя (лапка, прилавок, сцена)
+        item.quaternion.slerpQuaternions(st._alQ0, alP, EASE.inOut(clamp(u / 0.85, 0, 1)));
+      };
     }
     // своя лапка (makePaw): 2 геометрии; материал — общий lib(T).material, его не трогать
     function freePaw(p) { try { p.geometry.dispose(); if (p.userData.arm) p.userData.arm.geometry.dispose(); } catch (e) { /* ok */ } }
@@ -1205,16 +1230,18 @@
 
     const ACTIONS = {
       /* взять с прилавка/полки/стола: opts.item — предмет (в сцене) или имя; side; approach:false; dist;
-         pose { crouch, bend } — своя поза наклона (низкая тележка и т. п.; по умолчанию — по высоте предмета) */
+         pose { crouch, bend } — своя поза наклона (низкая тележка и т. п.; по умолчанию — по высоте предмета);
+         always — подойти ровно на dist, даже если стоит ближе 20 см сверх него (предмет на полу: иначе рука не достаёт);
+         stand { pos, yaw } — точное место и поворот (у предмета с def.reachRot — так, чтобы он стоял, как ляжет в руку: без доворота) */
       take(ctx, op) {
         const sd = freeSide(op.side); if (!sd) return shrug();
         const item = itemMake(op.item); if (!item) return [];
         if (!item.parent) fxParent().add(item);
         return [
-          op.approach === false ? null : approach(item, op.dist || 0.38, { lateral: sd === 'L' ? 0.08 : -0.08 }),
+          op.approach === false ? null : approach(item, op.dist || 0.38, op.stand ? { spot: op.stand.pos, yaw: op.stand.yaw, always: true } : { lateral: sd === 'L' ? 0.08 : -0.08, always: !!op.always }),
           () => { item.updateWorldMatrix(true, false); wpos(item, sv0); ctx.pose = op.pose ? Object.assign({ crouch: 0, bend: 0 }, op.pose) : reachPose(sv0.y); return null; },
           () => ({ dur: 0.28, look: item, body: ctx.pose }),
-          { dur: 0.5, ev: 'reach', [sd]: reachTo(item, sd), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
+          { dur: 0.5, ev: 'reach', [sd]: reachTo(item, sd), tick: alignTick(item, sd), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
           { dur: 0.5, body: { crouch: 0, bend: 0, back: 0 }, [sd]: restOf(sd), look: null },
         ];
       },
@@ -1228,7 +1255,7 @@
           op.approach === false ? null : approach(npc, op.dist || 0.88),
           () => { npcChest(from, home); meetPoint(from, meet); pawOut(paw, !from.paw, home); paw.add(item); item.position.set(0, 0.035, 0); item.quaternion.identity(); item.scale.setScalar(1); return null; },
           { dur: 0.5, look: item, paw: { obj: paw, from: home, to: meet }, [sd]: W({ at: meet, offM: [sd === 'L' ? 0.07 : -0.07, -0.13, -0.13] }, 'reach', { w: 0.65 }) },
-          { dur: 0.42, ev: 'reach', [sd]: reachTo(item, sd), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
+          { dur: 0.42, ev: 'reach', [sd]: reachTo(item, sd), tick: alignTick(item, sd), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
           { dur: 0.45, paw: { obj: paw, from: meet, to: home, hide: !from.paw }, [sd]: restOf(sd), look: null },
         ];
       },
@@ -1258,6 +1285,21 @@
         ];
       },
       putDown(ctx, op) { return ACTIONS.give(ctx, Object.assign({}, op, { place: op.place || op.at })); },
+      /* волна 5: полить из лейки (оранжерея): opts.at — куда льётся (точка/объект), key — носик в осях предмета (по умолчанию
+         def.pour.key), tilt — наклон носиком вниз (рад), hold — сколько лить (с), onPour() — когда пошла вода. Предмет в руке
+         держат за верхнюю ручку: +y предмета — носик вперёд, +z — вниз (так он висит в опущенной руке) */
+      pour(ctx, op) {
+        const sd = holdSide(op.side); if (!sd) return [];
+        const it = itOf(held[sd]), key = op.key || (it && it.def.pour && it.def.pour.key) || [0, 0.12, 0.06], P = V(), a1 = op.tilt != null ? op.tilt : 0.62;
+        const rotA = a => ({ itemY: [0, -Math.sin(a), Math.cos(a)], itemZ: [0, -Math.cos(a), -Math.sin(a)] });
+        return [
+          op.approach === false ? null : approach(op.at, op.dist || 0.6, { lateral: sd === 'L' ? 0.12 : -0.12 }),
+          () => { anchor(op.at, null, P); return { dur: 0.5, look: P, [sd]: { at: P, key, rot: rotA(0.1), offM: [0, 0.07, -0.03] } }; },
+          { dur: 0.35, ev: 'pour', [sd]: { at: P, key, rot: rotA(a1) }, end: () => { if (op.onPour) { try { op.onPour(); } catch (e) { /* игра */ } } } },
+          { dur: op.hold || 0.9, [sd]: { at: P, key, rot: rotA(a1 + 0.08), offM: [0, -0.01, 0] } },
+          { dur: 0.45, [sd]: restOf(sd), look: null },
+        ];
+      },
       /* поднять с земли: opts.item */
       pickUp(ctx, op) {
         const sd = freeSide(op.side); if (!sd) return shrug();
@@ -1266,7 +1308,7 @@
         return [
           op.approach === false ? null : approach(item, op.dist || 0.34, { lateral: sd === 'L' ? 0.08 : -0.08 }),
           () => { item.updateWorldMatrix(true, false); wpos(item, sv0); return { dur: 0.5, look: item, body: reachPose(sv0.y) }; },
-          { dur: 0.42, ev: 'reach', [sd]: reachTo(item, sd, { pole: [0.7, -0.5, -0.5] }), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
+          { dur: 0.42, ev: 'reach', [sd]: reachTo(item, sd, { pole: [0.7, -0.5, -0.5] }), tick: alignTick(item, sd), evEnd: 'take', end: () => { attach(item, sd); ctx.item = item; } },
           { dur: 0.6, body: { crouch: 0, bend: 0 }, [sd]: restOf(sd), look: null },
         ];
       },

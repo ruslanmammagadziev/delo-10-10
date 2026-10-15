@@ -2454,7 +2454,14 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (IA) {
         const want = kind ? IA_ITEM[kind] : null, cur = IA.holding('L'), curN = cur && cur.userData.it ? cur.userData.it.name : null;
         if (want && curN === want) return;
-        if (cur) { const x = IA.drop('L'); if (x && x.userData.it && x.userData.it.def && x.userData.it.def.parts) x.userData.it.dispose(); else if (x && x.parent) x.parent.remove(x); }
+        // волна 5: молоточек «Юлы» — игрушка (не еда): уже в руке — оставить; нет — дать ту же игрушку
+        if (kind === 'squeaky_hammer') {
+          if (cur && (curN === 'squeaky_hammer' || cur.userData.pfHammer)) return;
+          if (cur) { const x = IA.drop('L'); if (x && x.userData.it && x.userData.it.dispose && (x.userData.it.def.parts || x.userData.pfHammer)) x.userData.it.dispose(); else if (x && x.parent) x.parent.remove(x); }
+          if (window.PlayFight && PlayFight.hammerItem) { const hm = PlayFight.hammerItem(T, window.Interact, GRAD); if (IA.give(hm, 'L')) return; if (hm.userData.pfDispose) hm.userData.pfDispose(); }
+          return;
+        }
+        if (cur) { const x = IA.drop('L'); if (x && x.userData.it && x.userData.it.def && (x.userData.it.def.parts || x.userData.pfHammer)) x.userData.it.dispose(); else if (x && x.parent) x.parent.remove(x); }
         if (want) {
           const g = IA.give(want, 'L'), d = g && g.userData.it;   // недоеденное: столько же укусов и какао, сколько было
           if (d && data && data._bites) for (let k = 0; k < data._bites && d.bite && d.bite(); k++) { /* укус */ }
@@ -2520,7 +2527,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (op.walkTo) { await spotApi.walkTo(op.walkTo[0], op.walkTo[1]); if (finished) return false; }
       if (op.face !== undefined) { faceLock = op.face; heroAng = faceTarget = op.face; }
       setHeld(null);   // свободная (левая) рука — пустая: букет или прежняя покупка уходят «в сумку» (букет вернётся, когда доест)
-      const nm = IA_ITEM[op.kind] || op.item || op.kind;
+      // волна 5: пищащий молоточек «Юлы» — готовая сетка игрушки (js/playfight.js), Interact берёт сетку через items.wrap
+      const nm = op.kind === 'squeaky_hammer' && window.PlayFight && PlayFight.hammerItem ? PlayFight.hammerItem(T, window.Interact, GRAD) : (IA_ITEM[op.kind] || op.item || op.kind);
       if (op.npc) {
         const n = typeof op.npc === 'string' ? (RM && RM.npcs[op.npc]) : op.npc, root2 = n && (n.root || n);
         if (!root2) return false;
@@ -2536,9 +2544,10 @@ void heroDeform(inout vec3 p, inout vec3 n) {
         await IA.play('takeFrom', { item: nm, from: { root: root2, color: op.color || '#E8D9C8', height: op.height || 0.62, meetY: op.meetY || 1.0, chestFwd: op.chestFwd }, approach: op.approach === true ? undefined : false });
         if (camSet && !finished && !op.eatNow) camLater(350);
       } else if (op.at) {
-        const item = Interact.items.make(nm, { THREE: T, gradientMap: GRAD }); if (!item) return false;
+        // волна 5: свой предмет места (op.obj — Object3D, обёрнутый Interact.items.wrap: лейка оранжереи) или предмет по имени
+        const item = op.obj && op.obj.isObject3D ? op.obj : Interact.items.make(nm, { THREE: T, gradientMap: GRAD }); if (!item) return false;
         item.position.set(op.at[0], op.at[1], op.at[2]); if (op.ry) item.rotation.y = op.ry; scene.add(item);
-        await IA.play('take', Object.assign({ item }, op.approach === false ? { approach: false } : {}, op.dist ? { dist: op.dist } : {}, op.pose ? { pose: op.pose } : {}));
+        await IA.play('take', Object.assign({ item }, op.approach === false ? { approach: false } : {}, op.dist ? { dist: op.dist } : {}, op.pose ? { pose: op.pose } : {}, op.always ? { always: true } : {}, op.stand ? { stand: op.stand } : {}));
       } else return false;
       faceLock = null;
       const it = iaHeldIt();
@@ -2775,6 +2784,12 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       hands: () => !!IA,
       takeItem: op => iaTakeRoom(op),
       nibble: o2 => (o2 && o2.focus ? iaTaste(o2) : iaNibble()),
+      // волна 5: полить из того, что в руке (лейка оранжереи): at [x, y, z] — куда льётся, onPour — когда пошла вода
+      pour: (at, onPour, op = {}) => {
+        if (!IA || finished || !iaHeldIt()) { if (onPour) onPour(); return Promise.resolve(false); }
+        if (sitting) standUp();
+        return IA.play('pour', Object.assign({ at: new T.Vector3(at[0], at[1], at[2]), onPour }, op)).then(r => !!(r && r.ok));
+      },
       // погладить жителя комнаты по-настоящему (присесть, ладонь на макушку): id в RM.npcs или объект с root/head
       petNpc: (id, op = {}) => {
         if (!IA || finished) return Promise.resolve(false);
@@ -3226,7 +3241,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
         const ast = {
           speed: sitting ? 0 : R.spd, sitting: !!sitting, sitPose: sitting && (sitting.recline || 0) > 0.15 ? 'recline' : 'chair',
           waving: waveT >= 0, turnRate: tr, celebrate: hopT >= 0, idle: !walking && !sitting && active && !finished && !blocked(),
-          carry: heldKind ? (heldKind === 'bouquet' ? 'bouquet' : 'item') : false, sniff,
+          carry: heldKind ? (heldKind === 'bouquet' ? 'bouquet' : heldKind === 'can' && IA && iaHeldIt() ? false : 'item') : false, sniff,   // лейка в настоящей руке — висит в опущенной руке
         };
         R.anim.update(dt, IA ? IA.animState(ast) : ast);   // руки: на время действия слой подменяет скорость, поворот и позу
         if (R.anim.step !== R.step) { R.step = R.anim.step; if (!sitting && !twirl && R.spd > 0.3) sfx('step', { surface: RM ? 'wood' : 'stone' }); }
@@ -3541,6 +3556,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       { const it = iaHeldIt(); roomHeldOut = heldKind ? { kind: heldKind, data: it ? Object.assign({}, heldData || {}, { _bites: it.bites || 0, _level: it.level }) : heldData } : null; LAST_HELD = roomHeldOut;
         // данные покупки — тот же объект, что держит прогулка (town: sess().hd): недоеденное переходит на следующий отрезок
         if (it && IA_ITEM[heldKind] && heldData && typeof heldData === 'object') { heldData._bites = it.bites || 0; heldData._level = it.level; } }
+      // волна 5: свой предмет места (лейка) — из сеток комнаты, их сейчас освободят: из руки убрать (вид — по heldKind, как раньше)
+      if (IA) { try { ['L', 'R'].forEach(sd => { const c = IA.holding(sd); if (c && c.userData && c.userData.roomItem) { const x = IA.drop(sd); if (x && x.parent) x.parent.remove(x); } }); } catch (e) { /* ignore */ } }
       if (IA) { try { IA.cancel(); IA.dispose(); } catch (e) { /* ignore */ } IA = null; }
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('blur', blur);
       window.removeEventListener('resize', resize);

@@ -55,6 +55,8 @@
       fact: [{ who: 'g_bear', text: 'Плюшевого мишку по-английски зовут teddy bear — в честь Теодора «Тедди» Рузвельта. Мы, медведи, этим гордимся.' }],
       talk: [{ who: 'g_bear', text: 'Самая важная игрушка — та, которую обнимают. Остальные просто стоят красиво.' }],
       thing: { act: 'Завести', bubble: 'юла', spin: true, lines: [{ who: 'g_bear', text: 'Юла жужжит и танцует! И ты тоже немножко. Это заразно.' }] },
+      // волна 5: пищащий молоточек для «Бум!» понарошку (js/playfight.js): в руке — кнопка «Пиу!»
+      buy: { act: 'Молоточек', bubble: 'пищащий молоточек', kind: 'squeaky_hammer', lines: [{ who: 'g_bear', text: 'Пищащий молоточек! Стучит только «пиу-пиу». Проверено на мне — щекотно.' }] },
       shelf: { act: 'Смотреть', bubble: 'полка с игрушками', lines: [{ text: 'Кубики сложены в башню. Сверху сидит заяц и уверяет, что так и задумано.' }] },
     },
     g_post: {
@@ -231,6 +233,13 @@
             cyl(st, toon('#9C5B4A'), bx - 0.08, 1.0, bz, 0.09, 0.22); cyl(st, toon('#7E4638'), bx - 0.08, 1.12, bz, 0.07, 0.03);
             put(st, GEO.cone, toon('#9C5B4A'), [bx + 0.02, 1.06, bz], [0.025, 0.08, 0.025], [0, 0, -1.1]);
             [[0.12, 0.05], [0.16, -0.08]].forEach(([dx, dz]) => { cyl(st, toon('#FFFDF9'), bx + dx, 0.95, bz + dz, 0.04, 0.1); cyl(st, toon('#F6C6D0'), bx + dx, 0.95, bz + dz, 0.042, 0.035); });
+          } else if (def.theme === 'toys' && window.PlayFight && PlayFight.makeHammer) {
+            // волна 5: пищащие молоточки на подставке (один лежит, второй стоит в стаканчике); сетка — одна на молоточек
+            cyl(st, toon('#9DB8E0'), bx + 0.12, 0.95, bz, 0.06, 0.1);
+            [[bx + 0.12, 1.06, bz, 0, 0, 0.08], [bx - 0.1, 0.915, bz + 0.02, PI / 2, 0, 1.2]].forEach(([x, y, z, rx, ry, rz]) => {
+              const hm = PlayFight.makeHammer(T, null); hm.position.set(x, y, z); hm.rotation.set(rx, ry, rz); hm.castShadow = false;
+              R.keep(hm.geometry); R.keep(hm.material); hm.raycast = () => {}; g.add(hm);
+            });
           }
         }
         // окно со шторами (правая стена)
@@ -319,8 +328,10 @@
               const B = def.buy; mem.buy++;
               await say(B.lines);
               // хозяин протягивает покупку через прилавок; героиня — к краю прилавка, лицом к хозяину, берёт рукой и пробует
-              if (api.hands && api.hands() && api.takeItem) await api.takeItem({ kind: B.kind, data: B.data, npc: def.host.id, color: def.host.body, height: 0.55, meetY: 1.08, chestFwd: 0.5, walkTo: [1.0, -2.95], face: Math.atan2(0.3 - 1.0, -4.05 + 2.95), eatNow: true });   // справа от хозяина: камера видит лапку и руку
+              const toy = B.kind === 'squeaky_hammer';   // волна 5: игрушка — не пробует на вкус, а радуется и пищит «пиу»
+              if (api.hands && api.hands() && api.takeItem) await api.takeItem({ kind: B.kind, data: B.data, npc: def.host.id, color: def.host.body, height: 0.55, meetY: 1.08, chestFwd: 0.5, walkTo: [1.0, -2.95], face: Math.atan2(0.3 - 1.0, -4.05 + 2.95), eatNow: !toy });   // справа от хозяина: камера видит лапку и руку
               else if (api.setHeld) api.setHeld(B.kind, B.data || null);
+              if (toy) { try { if (window.PlayFight && PlayFight.synth) PlayFight.synth('piu'); } catch (e) { /* без звука */ } if (api.celebrate) api.celebrate(); await new Promise(r => setTimeout(r, 700)); await say([{ who: def.host.id, text: 'Теперь на улице можно понарошку: «Пиу!» — и все смеются.' }]); }
               return;
             }
             if (sid === 'sit') {

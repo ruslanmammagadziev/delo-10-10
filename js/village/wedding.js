@@ -296,6 +296,9 @@
       B.head = mk('head', B.body, [0, neckY - hipY, spec.headZ || 0.02]);
       B.armL = mk('armL', B.body, [spec.shX || 0.2, shY - hipY, 0.03]); B.armR = mk('armR', B.body, [-(spec.shX || 0.2), shY - hipY, 0.03]);
       B.legL = mk('legL', B.root, [0.1, hipY, 0.02]); B.legR = mk('legR', B.root, [-0.1, hipY, 0.02]);
+      // W5 «Бум!» понарошку (js/playfight.js): у пальтара — пустая кость pf между корнем и телом/ногами (без весов, не в скелете):
+      // в неё слой возни пишет кувырок, сальто, поклон и в конце возвращает в покой; корнем по-прежнему владеет двор
+      if (spec.role === 'paltar') { const pf = new T.Bone(); pf.name = a.id + ':pf'; B.root.add(pf); pf.add(B.body); pf.add(B.legL); pf.add(B.legR); B.pf = pf; }
       a.B = B; a.rest = { hipY, neckY };
       // деталь в осях зверька (покой): кость → смещение кости от корня
       const off = { root: [0, 0, 0], body: [0, hipY, 0], head: [0, neckY, spec.headZ || 0.02], armL: [spec.shX || 0.2, shY, 0.03], armR: [-(spec.shX || 0.2), shY, 0.03], legL: [0.1, hipY, 0.02], legR: [-0.1, hipY, 0.02] };
@@ -715,6 +718,16 @@
       const n = { id: aid === 'paltar0' ? 'paltar' : aid, speaker: spk, name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: (a.role === 'paltar' ? 1.45 : 1.15) * a.scale, talkR: a.role === 'sit' ? 2.4 : 2.0, lines: lo.map(l => l.text), lineObjs: lo, animal: a, faceHero: 0, wedding: true };
       a.npc = n; npcs.push(n);
     });
+    // W5: остальные пальтары — тоже «жители» для возни понарошку; говорят те же шутки, что и первый (общий список реплик)
+    const palTalk = npcs.find(q => q.speaker === 'paltar' && q.lines && q.lines.length);
+    animals.filter(a => a.role === 'paltar' && !a.npc).forEach(a => {
+      const root = new T.Object3D(); root.name = 'npc:' + a.id; group.add(root);
+      const p = toW(a.x, a.z); root.position.set(p.x, p.y + (a.spec.y || 0), p.z);
+      const sp = SPEAKERS.paltar;
+      const n = { id: a.id, speaker: 'paltar', name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: 1.45 * a.scale, talkR: 2.0, lines: palTalk ? palTalk.lines : [], lineObjs: palTalk ? palTalk.lineObjs : [], animal: a, faceHero: 0, wedding: true };
+      a.npc = n; npcs.push(n);
+    });
+    npcs.forEach(n => { if (n.animal && n.animal.role === 'paltar') { n.pfBody = n.animal.B.pf; n.paltar = true; } });
     const spotW = (id, lx, lz, r, label, icon) => { const p = toW(lx, lz); return { id, x: p.x, y: p.y, z: p.z, r, label, icon, wedding: true }; };
     const spots = [
       spotW('wedding_treat', tableX, tableL / 2 + 0.55, 1.2, 'Угоститься', '🥟'),
@@ -844,6 +857,8 @@
     function updatePaltars(t, dt) {
       pal.forEach(a => {
         a.modeT -= dt;
+        if (a.hold) { if (a.mode !== 'hold') a.mode = 'hold'; return; }   // W5: возится с героиней понарошку — маршрут на паузе
+        if (a.mode === 'hold') a.mode = 'walk';
         if (a.mode === 'walk') {
           const p = a.path[a.seg];
           if (walkTo(a, p[0], p[1], dt)) {
@@ -889,7 +904,7 @@
     }
     function setPhase(ph) { const P = st.prank; P.phase = ph; P.t = 0; }
     function startPrank() {
-      if (st.prank || !pal.length) return false;
+      if (st.prank || !pal.length || pal.some(b => b.hold)) return false;
       const hl = heroLocal(); if (!hl) return false;
       const a = pal.slice().sort((p, q) => Math.hypot(p.px - hl.x, p.pz - hl.z) - Math.hypot(q.px - hl.x, q.pz - hl.z))[0];
       const kazOn = !!(V.kaz && V.kaz.isWorn && V.kaz.isWorn());
@@ -1088,6 +1103,21 @@
       onEvent(cb) { (st.evCb || (st.evCb = [])).push(cb); return h; },
       setHero(hero, anim) { st.hero = hero || null; st.heroAnim = anim || (hero && hero.rig ? hero.rig.anim : null); return h; },
       prank() { st.prankDone = false; return startPrank(); },
+      // W5: пальтар возится с героиней («Бум!» понарошку) — не ходит по маршруту и не начинает розыгрыш; id — npc.id / id зверька / npc
+      paltarHold(idOrNpc, on) {
+        const n = typeof idOrNpc === 'object' && idOrNpc ? idOrNpc : npcs.find(q => q.id === idOrNpc || (q.animal && q.animal.id === idOrNpc));
+        const a = n && n.animal; if (!a || a.role !== 'paltar') return false;
+        a.hold = !!on; if (on && st.prank && st.prank.a === a) endPrank(); return true;
+      },
+      // сдвинуть зверька двора (отлёт при кувырке, «вежливое расстояние»): мир → оси двора; в пределах двора
+      moveNpc(n, dx, dz) {
+        const a = n && n.animal; if (!a) return false;
+        const c = Math.cos(A.ry), s2 = Math.sin(A.ry), lx = dx * c - dz * s2, lz = dx * s2 + dz * c;
+        if (a.px === undefined) { a.px = a.x; a.pz = a.z; }
+        a.px = clamp(a.px + lx, -HW + 0.6, HW - 0.6); a.pz = clamp(a.pz + lz, -HD + 0.6, HD - 0.6);
+        if (a.role !== 'paltar' && a.role !== 'kid') { a.x = a.px; a.z = a.pz; a.B.root.position.x = a.px; a.B.root.position.z = a.pz; }
+        return true;
+      },
       stopPrank() { if (st.prank) { endPrank(); return true; } return false; },   // например, героиня ушла танцевать или в диалог
       get lod() { return st.lod; },
       get paltars() { return pal.map(a => ({ id: a.id, mode: a.mode, x: +a.px.toFixed(2), z: +a.pz.toFixed(2), ry: +a.pry.toFixed(2), seg: a.seg })); },
