@@ -13,7 +13,7 @@ window.CONFIG = {
 
   // --- Ссылки ---
   // Адрес, по которому лежит игра (GitHub Pages / Vercel). Нужен для кнопки «Отправить подружке роль».
-  GAME_URL: 'https://example.github.io/delo-10-10/', // TODO: ОБЯЗАТЕЛЬНО — адрес игры
+  GAME_URL: 'https://delo-10-10-seven.vercel.app/', // адрес игры (Vercel)
   // Если оформишь как Mini App через @BotFather — ссылка вида https://t.me/<bot>/<app>. Иначе оставь пустым.
   MINIAPP_URL: '',
 
