@@ -71,6 +71,7 @@
   const httpOk = /^https?:$/.test(location.protocol);
   function loadManifest() {
     if (manP) return manP;
+    if (window.CONFIG && CONFIG.VOICES === false) { manFail = true; manP = Promise.resolve(null); return manP; }   // голоса выключены: список записей не качаем
     const inl = INL();
     if (!inl && (!httpOk || !window.fetch)) { manFail = true; manP = Promise.resolve(null); return manP; }
     const src = inl ? new Promise(res => res(inlineGet('manifest.json', true))) : fetch(BASE + 'manifest.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null));
@@ -102,6 +103,7 @@
   const actx = () => { try { const G = G_(); return G && G.audio ? G.audio() : null; } catch (e) { return null; } };
   const bus = k => { try { const G = G_(); return G && G.audioBus ? G.audioBus(k) : null; } catch (e) { return null; } };
   function enabled(who) {
+    if (window.CONFIG && CONFIG.VOICES === false) return false;   // голоса выключены автором
     const s = st();
     if (!s.sound || s.voices === false) return false;
     if ((who || 'narrator') === 'narrator' && s.narr === false) return false;

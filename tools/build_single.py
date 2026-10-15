@@ -519,8 +519,22 @@ def scan_built(out):
 # Папка voice/ (mp3 + manifest.json, собирает tools/voice_build.py) копируется рядом с итоговым файлом:
 # dist/delo-10-10.html + dist/voice/. Выкладывать её рядом с index.html. Без неё игра тоже работает —
 # вместо голосов мягкий «лепет» (js/voice.js сам это понимает).
+def voices_off():
+    # js/config.js: VOICES: false — автор выключил голоса совсем; папку voice/ рядом со сборкой не кладём
+    try:
+        return re.search(r'^\s*VOICES:\s*false\b', open(os.path.join(ROOT, 'js', 'config.js'), encoding='utf-8').read(), re.M) is not None
+    except OSError:
+        return False
+
+
 def copy_voice(out_file):
     src = os.path.join(ROOT, 'voice')
+    if voices_off():
+        dst = os.path.join(os.path.dirname(os.path.abspath(out_file)), 'voice')
+        if os.path.abspath(dst) != os.path.abspath(src) and os.path.isdir(dst):
+            shutil.rmtree(dst)
+        print('голоса: выключены в js/config.js (VOICES: false) — папка voice/ рядом со сборкой не нужна')
+        return
     if not os.path.isfile(os.path.join(src, 'manifest.json')):
         print('голоса: папки voice/ нет — сборка без озвучки (в игре «лепет»)')
         return

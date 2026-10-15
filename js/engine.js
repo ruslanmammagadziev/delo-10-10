@@ -221,8 +221,9 @@
   const VOW_LP = { 'и': 1.25, 'е': 1.15, 'э': 1.1, 'я': 1.05, i: 1.25, e: 1.15, 'у': 0.75, 'о': 0.85, 'ю': 0.8, u: 0.75, o: 0.85, 'ы': 0.9 };
   const isVowel = ch => VOW[(ch || '').toLowerCase()] !== undefined;
   let voiceN = 0;
+  const voicesOff = () => !!(window.CONFIG && CONFIG.VOICES === false);   // автор выключил голоса совсем
   function babble(v, ch, k) {
-    if (!state.sound || state.voices === false || !v) return;
+    if (voicesOff() || !state.sound || state.voices === false || !v) return;
     const a = audio(); if (!a || !BUS) return;
     const lo = (ch || 'а').toLowerCase(), t = a.currentTime + 0.003;
     const jit = [0, 1, -1, 0, 2, -1, 1, 0][voiceN++ % 8];
@@ -249,6 +250,7 @@
   // o.mode: 'line' — окно диалога (перебивает других), иначе облачко (ждёт очереди). Возвращает f(i) с f.stop(fade).
   function voiceLine(who, text, o = {}) {
     let vh = null, failed = false;
+    if (voicesOff()) { const f0 = () => {}; f0.stop = () => {}; f0.voiced = false; return f0; }
     if (window.Voice && state.sound && state.voices !== false) { try { vh = Voice.line(who || 'narrator', text, { mode: o.mode || 'bubble', onFail: () => { failed = true; } }); } catch (e) { vh = null; } }
     const bab = babbleLine(who, text);
     const f = vh ? (i => { if (failed) bab(i); }) : bab;
@@ -296,8 +298,8 @@
     const row = (k, label, on) => `<button class="btn ${on ? '' : 'soft'} block" data-k="${k}" style="margin-top:10px">${label}: ${on ? 'вкл' : 'выкл'}</button>`;
     const draw = () => {
       m.innerHTML = `<div class="modal-card"><div class="title h3">Звук</div>
-        ${row('sound', '🔊 Звук', !!state.sound)}${row('voices', '💬 Голоса', state.voices !== false)}${row('narr', '📖 Рассказчик', state.narr !== false && state.voices !== false)}
-        <p class="muted tiny" style="margin-top:10px;font-weight:700">Голоса — герои говорят вслух (где записи нет — мягкий «лепет»). Рассказчик читает текст без героя.</p>
+        ${row('sound', '🔊 Звук', !!state.sound)}${voicesOff() ? '' : row('voices', '💬 Голоса', state.voices !== false) + row('narr', '📖 Рассказчик', state.narr !== false && state.voices !== false)}
+        ${voicesOff() ? '' : '<p class="muted tiny" style="margin-top:10px;font-weight:700">Голоса — герои говорят вслух (где записи нет — мягкий «лепет»). Рассказчик читает текст без героя.</p>'}
         <button class="btn soft block" data-k="x" style="margin-top:12px">Готово</button></div>`;
     };
     draw();
