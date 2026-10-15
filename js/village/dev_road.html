@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Серпантин · стенд</title>
+  <!-- Стенд горной дороги (не игра): проехать серпантин, посмотреть замеры. Параметры: ?q=low|high&season=winter&named=0&auto=1&w=390&h=844&solo=1&view=viewpoint -->
+  <link rel="stylesheet" href="../../css/fonts.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #CFE0F0; overflow: hidden; font-family: 'Nunito', system-ui, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+    #c { display: block; position: absolute; left: 0; top: 0; }
+    .pill { position: absolute; left: 10px; top: calc(10px + env(safe-area-inset-top, 0px)); padding: 6px 10px; border-radius: 14px; background: rgba(255,253,249,.9); color: #3A2E3F; font-size: 12px; font-weight: 800; line-height: 1.35; box-shadow: 0 2px 0 rgba(58,46,63,.12); max-width: calc(100% - 40px); white-space: pre; z-index: 5; }
+    .pill .ok { color: #3E8E6A; } .pill .mid { color: #C98A2B; } .pill .bad { color: #C2405B; }
+    .bar { position: absolute; right: 10px; top: calc(10px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 6px; z-index: 5; }
+    .bar button, .pedal, .sit { border: 0; border-radius: 12px; background: rgba(255,253,249,.92); color: #3A2E3F; font: 800 12px 'Nunito', system-ui, sans-serif; padding: 7px 10px; box-shadow: 0 2px 0 rgba(58,46,63,.14); cursor: pointer; }
+    .bar button.on { background: #C2405B; color: #fff; }
+    .pedals { position: absolute; right: 16px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 12px; z-index: 5; }
+    .pedal { width: 74px; height: 92px; border-radius: 22px; font-size: 14px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; }
+    .pedal.gas { background: #A8D8C4; } .pedal.brk { background: #F2B8C6; } .pedal.down { transform: translateY(3px) scale(.97); filter: brightness(.95); }
+    .joy { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: rgba(255,253,249,.35); border: 3px solid rgba(255,253,249,.8); display: none; z-index: 4; pointer-events: none; }
+    .joy .knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,253,249,.95); }
+    .hint { position: absolute; left: 50%; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 8px 14px; border-radius: 14px; background: rgba(58,46,63,.78); color: #fff; font-weight: 800; font-size: 14px; display: none; z-index: 6; white-space: nowrap; }
+    .sit { position: absolute; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 15px; padding: 10px 16px; display: none; z-index: 6; background: #C2405B; color: #fff; }
+    .shots .pill, .shots .bar, .shots .pedals, .shots .hint, .shots .sit { display: none !important; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="pill" id="dbg">загрузка…</div>
+  <div class="bar" id="bar">
+    <button data-go="0">Старт</button>
+    <button data-go="L3">Над облаками</button>
+    <button data-go="H6">Смотровая</button>
+    <button data-go="gate">Въезд</button>
+    <button id="autoB">Автопилот</button>
+    <button id="camB">Камера</button>
+  </div>
+  <div class="pedals"><button class="pedal brk" id="brk">тормоз</button><button class="pedal gas" id="gas">газ</button></div>
+  <div class="joy" id="joy"><div class="knob" id="knob"></div></div>
+  <div class="hint" id="hint"></div>
+  <button class="sit" id="sit">Посидеть</button>
+  <script src="../vendor/three.min.js"></script>
+  <script src="../world/kit.js"></script>
+  <script src="../world/car.js"></script>
+  <script>
+  'use strict';
+  (function () {
+    const QS = new URLSearchParams(location.search);
+    const opt = { q: QS.get('q') === 'high' ? 'high' : 'low', season: QS.get('season') === 'winter' ? 'winter' : 'autumn', named: QS.get('named') !== '0', solo: QS.get('solo') === '1' };
+    const load = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = () => res(true); s.onerror = () => res(false); document.body.appendChild(s); });
+    (async () => {
+      // модули села — по желанию (их пишет соседний строитель); без них — свой силуэт села
+      await load('vkit.js?v=' + Date.now());   // общая палитра и шум обоих регионов — нужен всегда
+      const optional = opt.solo ? [] : ['lines.js', 'kubachi.js'];
+      for (const f of optional) await load(f + '?v=' + Date.now());
+      await load('drive.js?v=' + Date.now()); await load('serpentine.js?v=' + Date.now());
+      try { await Promise.race([Promise.all(['900 40px Nunito', '800 40px Nunito'].map(f => document.fonts.load(f, 'АаZz'))), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* запасной шрифт */ }
+      start();
+    })();
+
+    function start() {
+      const T = THREE, V = window.VILLAGE;
+      const canvas = document.getElementById('c'), dbg = document.getElementById('dbg'), hint = document.getElementById('hint'), sitB = document.getElementById('sit');
+      const W0 = +QS.get('w') || 0, H0 = +QS.get('h') || 0;
+      const renderer = new T.WebGLRenderer({ canvas, antialias: opt.q === 'high', powerPreference: 'default', preserveDrawingBuffer: QS.get('shots') === '1' });
+      renderer.setPixelRatio(QS.get('dpr') ? +QS.get('dpr') : Math.min(window.devicePixelRatio || 1, opt.q === 'high' ? 1.6 : 1));
+      renderer.info.autoReset = false;
+      renderer.shadowMap.enabled = opt.q === 'high'; renderer.shadowMap.type = T.PCFShadowMap;
+      const scene = new T.Scene();
+      const camera = new T.PerspectiveCamera(58, 1, 0.25, 1600);
+      const tB = performance.now();
+      const region = V.regions.serpentine.build({ THREE: T, scene, named: opt.named, season: opt.season, quality: opt.q });
+      const buildMs = Math.round(performance.now() - tB);
+      const car = V.drive.makeCar(T, {});
+      scene.add(car.root);
+      car.root.traverse(o => { if (o.isMesh) o.castShadow = opt.q === 'high'; });
+      const drive = V.drive.create({ THREE: T, car, ground: region.ground, colliders: region.colliders, road: region.road, start: region.carSpawn, blob: opt.q !== 'high' });
+      const chase = V.drive.chase({ THREE: T, camera, ground: region.ground });
+      const road = region.road, len = road.len;
+      function resize() {
+        const w = W0 || window.innerWidth, h = H0 || window.innerHeight;
+        renderer.setSize(w, h, true); camera.aspect = w / h; camera.updateProjectionMatrix();
+        if (W0) { canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; }
+      }
+      resize(); window.addEventListener('resize', resize);
+      if (QS.get('shots') === '1') document.body.classList.add('shots');
+
+      /* --- управление --- */
+      const keys = {}, KM = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'b' };
+      window.addEventListener('keydown', e => { if (KM[e.code]) { keys[KM[e.code]] = true; e.preventDefault(); } if (e.code === 'KeyE' || e.code === 'Enter') trySit(); if (e.code === 'KeyV') cycleView(); });
+      window.addEventListener('keyup', e => { if (KM[e.code]) keys[KM[e.code]] = false; });
+      window.addEventListener('blur', () => Object.keys(keys).forEach(k => { keys[k] = false; }));
+      const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0 }, joyEl = document.getElementById('joy'), knob = document.getElementById('knob');
+      canvas.addEventListener('pointerdown', e => { if (joy.id !== null || e.clientX > (W0 || innerWidth) * 0.6) return; joy.id = e.pointerId; joy.cx = e.clientX; joy.cy = e.clientY; joy.x = joy.y = 0; joyEl.style.left = joy.cx + 'px'; joyEl.style.top = joy.cy + 'px'; joyEl.style.display = 'block'; canvas.setPointerCapture(e.pointerId); });
+      canvas.addEventListener('pointermove', e => { if (e.pointerId !== joy.id) return; let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy), R0 = 46; if (d > R0) { dx *= R0 / d; dy *= R0 / d; } joy.x = d < 8 ? 0 : dx / R0; joy.y = d < 8 ? 0 : dy / R0; knob.style.transform = `translate(${dx}px,${dy}px)`; });
+      const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joyEl.style.display = 'none'; knob.style.transform = ''; };
+      canvas.addEventListener('pointerup', joyEnd); canvas.addEventListener('pointercancel', joyEnd);
+      const ped = { gas: false, brk: false };
+      [['gas', 'gas'], ['brk', 'brk']].forEach(([id, k]) => { const el = document.getElementById(id); const on = v => e => { e.preventDefault(); ped[k] = v; el.classList.toggle('down', v); }; el.addEventListener('pointerdown', on(true)); el.addEventListener('pointerup', on(false)); el.addEventListener('pointerleave', on(false)); el.addEventListener('pointercancel', on(false)); });
+      let auto = QS.get('auto') === '1', autoThr = +(QS.get('thr') || 1);
+      const autoB = document.getElementById('autoB'); autoB.classList.toggle('on', auto); autoB.onclick = () => { auto = !auto; autoB.classList.toggle('on', auto); };
+      const camPos = new T.Vector3();
+      function input() {
+        if (auto) return { auto: true, thr: autoThr };
+        if (keys.u || keys.d || keys.l || keys.r || keys.b) return { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0), brake: !!keys.b };
+        if (Math.hypot(joy.x, joy.y) > 0.05) {
+          const f = new T.Vector3(); camera.getWorldDirection(f); f.y = 0; f.normalize();
+          const rx = -f.z, rz = f.x, jx = joy.x, jy = joy.y, dx = f.x * -jy + rx * jx, dz = f.z * -jy + rz * jx, l = Math.hypot(dx, dz) || 1;
+          return { dir: [dx / l, dz / l, Math.min(1, Math.hypot(jx, jy))] };
+        }
+        if (ped.gas || ped.brk) return { thr: ped.gas ? 1 : (drive.S.v > 0.6 ? 0 : -1), brake: ped.brk && drive.S.v > 0.6 };
+        return {};
+      }
+
+      /* --- камеры: следилка, заготовленные виды, «посидеть» --- */
+      let mode = 'drive', viewId = null, fovGoal = null, sitT = 0;
+      const views = region.camera.views, viewIds = Object.keys(views);
+      function setView(id) {
+        if (!id || !views[id]) { mode = 'drive'; viewId = null; chase.snap(); return; }
+        mode = 'view'; viewId = id; const v = views[id]; camera.position.set(...v.pos); camera.lookAt(...v.target); camera.fov = v.fov || 58; camera.updateProjectionMatrix();
+      }
+      function cycleView() { const i = viewId ? viewIds.indexOf(viewId) : -1; setView(i + 1 < viewIds.length ? viewIds[i + 1] : null); }
+      document.getElementById('camB').onclick = cycleView;
+      const spot = region.spots.find(s => s.id === 'road_view');
+      function trySit() {
+        if (mode === 'sit') { setView(null); return; }
+        if (!spot || Math.hypot(drive.S.x - spot.x, drive.S.z - spot.z) > 9 || Math.abs(drive.S.v) > 1.5) return;
+        mode = 'sit'; sitT = 0; const v = views.viewpoint; camera.position.set(...v.pos); camera.lookAt(...v.target); camera.fov = 58; camera.updateProjectionMatrix();
+      }
+      sitB.onclick = trySit;
+      document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => go(b.dataset.go); });
+      function go(k) {
+        let s = 0;
+        if (k === 'L3') s = region.sOf.L3 + 4; else if (k === 'H6') s = region.sOf.bench - 10; else if (k === 'gate') s = region.sOf.gate - 40; else s = +k * len;
+        drive.teleport(s); setView(null); chase.snap();
+      }
+
+      /* --- кадр --- */
+      const st = { fps: 0, calls: 0, tris: 0, frames: 0, maxCalls: 0, maxTris: 0, last: performance.now(), acc: 0, n: 0, simT: 0, lastExit: null };
+      function step(dt, over) {
+        const inp = over || (mode === 'drive' ? input() : {});
+        drive.update(dt, inp);
+        st.simT += dt;
+        // «вау»-момент: один раз за поездку камера показывает село через долину
+        let look = null, lookW = 0;
+        (region.moments || []).forEach(m => { if (!m.done && drive.S.s > m.s0 && drive.S.s < m.s1 && drive.S.v > 0.5) { m.done = true; m.t = 0; } if (m.t != null && m.t < m.dur) { m.t += dt; look = m.look; lookW = Math.min(1, m.t / 1.2, (m.dur - m.t) / 1.2); } });
+        if (mode === 'drive') chase.update(dt, drive, { yawBias: region.cameraBias ? region.cameraBias(drive.S.x, drive.S.y, drive.S.z, drive.S.ry, drive.S.s) : 0, look, lookW });
+        region.update(dt, drive.pos, camera);
+        // выходы региона
+        let ex = null; region.exits.forEach(e => { if (Math.hypot(drive.S.x - e.x, drive.S.z - e.z) < e.r) ex = e; });
+        if (ex && ex !== st.lastExit) { st.lastExit = ex; st.exitAt = st.simT; window.__road.lastExit = ex.id; }
+        if (!ex) st.lastExit = null;
+      }
+      function render() {
+        renderer.info.reset(); renderer.render(scene, camera);
+        st.calls = renderer.info.render.calls; st.tris = renderer.info.render.triangles;
+        st.maxCalls = Math.max(st.maxCalls, st.calls); st.maxTris = Math.max(st.maxTris, st.tris);
+      }
+      let paused = false;
+      function frame(now) {
+        requestAnimationFrame(frame);
+        if (paused) return;
+        const dt = Math.min(0.05, (now - st.last) / 1000); st.last = now;
+        step(dt);
+        if (mode === 'sit') { sitT += dt; const k = Math.min(1, sitT / 2.5), e = k * k * (3 - 2 * k); camera.fov = 58 + (16 - 58) * e; camera.updateProjectionMatrix(); }
+        render();
+        st.frames++; st.acc += dt; st.n++;
+        if (st.acc >= 0.5) { st.fps = st.n / st.acc; st.acc = 0; st.n = 0; showDbg(); }
+        const nearSpot = spot && Math.hypot(drive.S.x - spot.x, drive.S.z - spot.z) < 9 && Math.abs(drive.S.v) < 1.5 && mode === 'drive';
+        sitB.style.display = nearSpot || mode === 'sit' ? 'block' : 'none'; sitB.textContent = mode === 'sit' ? 'Встать' : 'Посидеть';
+        const exNear = region.exits.find(e => Math.hypot(drive.S.x - e.x, drive.S.z - e.z) < e.r + 3);
+        hint.style.display = exNear ? 'block' : 'none'; if (exNear) hint.textContent = '☁ ' + exNear.label;
+      }
+      function showDbg() {
+        const i = drive.info(), cls = (v, a, b) => (v <= a ? 'ok' : v <= b ? 'mid' : 'bad');
+        dbg.innerHTML = `<span class="${st.fps >= 45 ? 'ok' : st.fps >= 30 ? 'mid' : 'bad'}">${st.fps.toFixed(0)} fps</span> · <span class="${cls(st.calls, 200, 300)}">${st.calls} calls</span> · <span class="${cls(st.tris, 200000, 300000)}">${(st.tris / 1000).toFixed(0)}k tris</span>\n` +
+          `${i.kmh} км/ч · s ${i.s.toFixed(0)}/${len.toFixed(0)} · e ${i.e.toFixed(1)} · y ${i.y.toFixed(0)}\n${opt.q} · ${opt.season} · ${opt.named ? 'named' : 'neutral'} · село: ${region.info().village}`;
+      }
+      requestAnimationFrame(frame);
+      if (QS.get('view')) setView(QS.get('view'));
+
+      /* --- крючки для тестов --- */
+      const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+      window.__road = {
+        ready: true, buildMs, region, drive, camera, renderer, scene,
+        pos: () => ({ x: +drive.S.x.toFixed(2), y: +drive.S.y.toFixed(2), z: +drive.S.z.toFixed(2) }),
+        info: () => Object.assign({ fps: +st.fps.toFixed(1), calls: st.calls, tris: st.tris, maxCalls: st.maxCalls, maxTris: st.maxTris, t: +(drive.S.s / len).toFixed(4), len: +len.toFixed(1), mode, view: viewId, buildMs, quality: opt.q, season: opt.season, named: opt.named }, drive.info(), { region: region.info() }),
+        teleport: t => { drive.teleport(Math.max(0, Math.min(1, t)) * len); setView(null); chase.snap(); return window.__road.pos(); },
+        teleportS: s => { drive.teleport(s); setView(null); chase.snap(); return window.__road.pos(); },
+        view: id => { setView(id); region.update(0.001, drive.pos, camera); render(); return { calls: st.calls, tris: st.tris }; },
+        sit: () => { const s0 = region.sOf.bench - 2; drive.teleport(s0); trySit(); return mode; },
+        setCam: (pos, target, fov) => { mode = 'view'; viewId = 'custom'; camera.position.set(...pos); camera.lookAt(...target); if (fov) { camera.fov = fov; camera.updateProjectionMatrix(); } region.update(0.001, drive.pos, camera); render(); return { calls: st.calls, tris: st.tris }; },
+        auto: (on, thr) => { auto = !!on; if (thr != null) autoThr = thr; autoB.classList.toggle('on', auto); },
+        pause: p => { paused = !!p; },
+        renderNow: () => { render(); return { calls: st.calls, tris: st.tris }; },
+        // время кадра без rAF: n рендеров подряд, синхронизация чтением пикселя (меньше зависит от соседей по процессору)
+        bench: n => { n = n || 20; const gl = renderer.getContext(), px = new Uint8Array(4); render(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const t0 = performance.now(); for (let k = 0; k < n; k++) { render(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } const ms = (performance.now() - t0) / n; return { ms: +ms.toFixed(2), fps: +(1000 / ms).toFixed(1), calls: st.calls, tris: st.tris }; },
+        resetStats: () => { st.maxCalls = 0; st.maxTris = 0; st.frames = 0; },
+        stats: () => ({ fps: st.fps, calls: st.calls, tris: st.tris, maxCalls: st.maxCalls, maxTris: st.maxTris, frames: st.frames }),
+        // шаг физики с фиксированным dt (без рендера), для отснятых кадров и прогона
+        steps: (n, dt, inp) => { dt = dt || 1 / 60; for (let k = 0; k < n; k++) step(dt, inp); render(); return drive.info(); },
+        resetMoments: () => { (region.moments || []).forEach(m => { m.done = false; m.t = null; }); },
+        // прогон всей дороги автопилотом: симуляция 60 Гц, рендер каждые renderEvery шагов (замер вызовов и треугольников)
+        runAuto: async (o = {}) => {
+          const dt = o.dt || 1 / 60, every = o.renderEvery || 6, thr = o.thr == null ? 1 : o.thr, maxT = o.maxT || 400;
+          paused = true; drive.teleport(o.s0 || region.carSpawn.s); setView(null); chase.snap();
+          let t = 0, k = 0, maxC = 0, maxTr = 0, worst = null, bumps = 0, offRoad = 0, minEdge = 9, samples = [], reached = null, cityT = null;
+          const lim = () => { const p = road.project(drive.S.x, drive.S.z, drive.S.s); return Math.min(p.wl - Math.abs(p.e), p.wr - Math.abs(p.e)); };
+          (region.moments || []).forEach(m => { m.done = false; m.t = null; });
+          while (t < maxT) {
+            const r = drive.update(dt, o.input || { auto: true, thr }); chase.update(dt, drive, { yawBias: region.cameraBias(drive.S.x, drive.S.y, drive.S.z, drive.S.ry, drive.S.s) }); region.update(dt, drive.pos, camera);
+            if (r.bumped) bumps++; t += dt; k++;
+            const lm = lim(); if (lm < minEdge) minEdge = lm;
+            if (k % every === 0) { render(); if (st.calls > maxC) maxC = st.calls; if (st.tris > maxTr) { maxTr = st.tris; worst = { s: +drive.S.s.toFixed(0), calls: st.calls, tris: st.tris }; } if (k % (every * 10) === 0) samples.push([+drive.S.s.toFixed(0), st.calls, st.tris, +(drive.S.v * 3.6).toFixed(0)]); }
+            if (k % 240 === 0) await nextFrame();
+            const ex = region.exits.find(e => e.id === 'toVillage'); if (Math.hypot(drive.S.x - ex.x, drive.S.z - ex.z) < ex.r) { reached = t; break; }
+          }
+          paused = false; st.last = performance.now();
+          return { simTime: reached, maxT: t, maxCalls: maxC, maxTris: maxTr, worst, bumps, minEdge: +minEdge.toFixed(2), samples, len: +len.toFixed(1) };
+        },
+        // реальная частота кадров (рендер в рамках rAF) за ms, можно с автопилотом
+        fps: ms => new Promise(res => { const f0 = st.frames, t0 = performance.now(); setTimeout(() => res({ fps: +((st.frames - f0) / ((performance.now() - t0) / 1000)).toFixed(1), maxCalls: st.maxCalls, maxTris: st.maxTris }), ms); }),
+      };
+    }
+  })();
+  </script>
+</body>
+</html>

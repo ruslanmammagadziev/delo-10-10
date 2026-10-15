@@ -1,0 +1,7 @@
+dist/
+node_modules/
+__pycache__/
+*.pyc
+.voice_cache/
+tools/.voice_cache/
+.DS_Store

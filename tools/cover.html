@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+.c{position:relative;width:1200px;height:630px;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.7) 0 3px,transparent 4px),radial-gradient(circle at 70% 60%,rgba(255,255,255,.6) 0 3px,transparent 4px),linear-gradient(135deg,#FCE4EA 0%,#FFF4EC 55%,#FDEBDD 100%);background-size:140px 140px,180px 180px,100% 100%;font-family:Nunito,sans-serif;color:#3A2E3F}
+.t{position:absolute;left:90px;top:150px}
+.badge{display:inline-block;font-family:Comfortaa,sans-serif;font-weight:700;font-size:26px;letter-spacing:.14em;color:#C2405B;background:#fff;padding:10px 22px;border-radius:999px;box-shadow:0 5px 0 #F0D6DD}
+h1{font-family:Comfortaa,sans-serif;font-weight:700;font-size:104px;margin:26px 0 6px;letter-spacing:-.01em}
+h2{font-family:Comfortaa,sans-serif;font-weight:700;font-size:44px;margin:0;color:#C2405B}
+p{font-weight:800;font-size:28px;color:#6E6272;margin-top:26px}
+.hero{position:absolute;right:150px;bottom:40px;width:300px}
+.cat{position:absolute;right:70px;bottom:44px;width:140px}
+.sun{position:absolute;right:90px;top:50px;width:120px;height:120px;border-radius:50%;border:5px dashed rgba(194,64,91,.35)}
+</style></head><body><div class="c">
+<div class="sun"></div>
+<div class="t"><div class="badge">СЕЗОН 1 · СЕРИЯ 1</div><h1>Дело №10/10</h1><h2>Следствие ведёт она</h2><p>Из города пропало солнце. Минут на шесть.</p></div>
+<div class="hero" id="h"></div><div class="cat" id="k"></div>
+</div>
+<script src="../js/art.js"></script>
+<script>document.getElementById('h').innerHTML=Art.heroine({magnifier:true});document.getElementById('k').innerHTML=Art.cat();</script>
+</body></html>

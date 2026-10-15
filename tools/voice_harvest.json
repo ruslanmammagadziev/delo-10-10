@@ -1,0 +1,17 @@
+[
+ {
+  "who": "cat_ginger",
+  "text": "Мрр… (не просыпаясь)",
+  "note": "residents.js life.pet: спящая кошка (say(n, …) — разбор не видит говорящего)"
+ },
+ {
+  "who": "cat_tabby",
+  "text": "Мрр… (не просыпаясь)",
+  "note": "residents.js life.pet: спящая кошка (say(n, …) — разбор не видит говорящего)"
+ },
+ {
+  "who": "cat_tux",
+  "text": "Мрр… (не просыпаясь)",
+  "note": "residents.js life.pet: спящая кошка (say(n, …) — разбор не видит говорящего)"
+ }
+]

@@ -1,0 +1,1383 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="data:," />
+  <meta name="theme-color" content="#CFE0F0" />
+  <title>Горы · стенд села</title>
+  <!-- Стенд горного села и серпантина (не игра): ?region=kubachi|serpentine|hotel &named=0 &season=winter &view=p1..p5 &debug=1 &q=low|high · волна 4: &bazaar=1|0 &night=1 &h=час &morning=1 &look=tower_top &climb=bottom|top &car=sedan|coupe &ia=0 · W4A: &kaz=auto|offer|off &zip=1 &zipdur=сек &spot=id -->
+  <link rel="stylesheet" href="css/fonts.css" />
+  <style>
+    :root { --cherry: #C2405B; --cherry-d: #9E2F47; --ink: #3A2E3F; --ink-2: #6E6272; --paper: #FFFDF9; --sky: #CFE0F0; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: 'Nunito', system-ui, sans-serif; color: var(--ink); -webkit-user-select: none; user-select: none; touch-action: none; }
+    #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+    .ui { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+    .ui > * { pointer-events: auto; }
+    .chip { position: absolute; left: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); background: rgba(255,253,249,.92); border-radius: 14px; padding: 7px 12px; font-weight: 900; font-size: 14px; box-shadow: 0 3px 0 rgba(58,46,63,.12); }
+    .chip small { display: block; font-weight: 700; font-size: 11px; color: var(--ink-2); }
+    .joy { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: rgba(255,253,249,.42); box-shadow: inset 0 0 0 3px rgba(255,255,255,.85); pointer-events: none !important; display: none; }
+    .joy i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: var(--paper); box-shadow: 0 4px 0 rgba(58,46,63,.18); }
+    .joy.ghost { display: block; left: 76px; top: auto; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); margin: 0 0 0 -56px; opacity: .55; }
+    .act { position: absolute; right: 14px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); height: 56px; padding: 0 20px; border: 0; border-radius: 28px; background: var(--cherry); color: #fff; font: inherit; font-size: 16px; font-weight: 900; box-shadow: 0 5px 0 var(--cherry-d); max-width: 66%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; cursor: pointer; }
+    .act.soft { background: rgba(255,253,249,.96); color: var(--cherry); box-shadow: 0 4px 0 rgba(58,46,63,.16); }
+    .act2 { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+    .say { position: absolute; left: 0; top: 0; max-width: 230px; padding: 7px 11px; border-radius: 14px; background: #fff; font-size: 13px; font-weight: 800; line-height: 1.3; box-shadow: 0 3px 0 rgba(58,46,63,.12); text-align: center; transform: translate(-50%, -100%); pointer-events: none !important; opacity: 0; transition: opacity .25s; }
+    .say.on { opacity: 1; }
+    .say b { display: block; font-size: 11px; color: var(--cherry); }
+    .say::after { content: ''; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: #fff; }
+    .say.hero { background: #FFF0F3; color: var(--cherry-d); } .say.hero::after { border-top-color: #FFF0F3; }
+    .card { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; background: rgba(58,46,63,.35); padding: 16px; }
+    .card.on { display: grid; }
+    .card .box { background: var(--paper); border-radius: 20px; padding: 16px 16px 12px; width: 100%; max-width: 380px; box-shadow: 0 8px 30px rgba(58,46,63,.25); }
+    .card .t { font-weight: 900; color: var(--cherry); font-size: 18px; margin-bottom: 6px; }
+    .card p { margin: 6px 0; font-weight: 700; font-size: 14.5px; line-height: 1.35; }
+    .card .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .card button { flex: 1 1 40%; border: 0; border-radius: 14px; padding: 11px 10px; font: inherit; font-weight: 900; font-size: 14px; background: #F6E7EB; color: var(--ink); cursor: pointer; }
+    .card button.main { background: var(--cherry); color: #fff; }
+    .toast { position: absolute; left: 50%; top: calc(62px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; font-weight: 800; font-size: 14px; padding: 9px 14px; border-radius: 14px; max-width: 86%; text-align: center; pointer-events: none !important; opacity: 0; transition: opacity .3s; }
+    .toast.on { opacity: 1; }
+    .dbg { position: absolute; right: 8px; top: calc(8px + env(safe-area-inset-top, 0px)); background: rgba(255,253,249,.9); border-radius: 10px; padding: 5px 8px; font: 700 11px/1.35 ui-monospace, Menlo, monospace; white-space: pre; display: none; pointer-events: none !important; }
+    .fade { position: fixed; inset: 0; z-index: 30; pointer-events: none; opacity: 0; display: none; transition: opacity .6s ease; background: radial-gradient(ellipse at 30% 40%, #FFFFFF 0%, #F4F7FA 35%, #E3EBF3 70%, #D5E0EC 100%); }
+    .fade::before, .fade::after { content: ''; position: absolute; border-radius: 50%; background: rgba(255,255,255,.9); filter: blur(18px); }
+    .fade::before { width: 70vmax; height: 40vmax; left: -10vmax; top: 10vh; } .fade::after { width: 80vmax; height: 46vmax; right: -20vmax; bottom: 5vh; }
+    .fade.on { opacity: 1; pointer-events: auto; }
+    .fade .lbl { position: absolute; left: 0; right: 0; top: 46%; text-align: center; font-weight: 900; font-size: 20px; color: var(--cherry); z-index: 2; }
+    .load { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: linear-gradient(180deg, #DCE8F4 0%, #FFF4EC 80%); font-weight: 900; color: var(--cherry); font-size: 18px; transition: opacity .5s; }
+    .load.done { opacity: 0; pointer-events: none; }
+    .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); background: rgba(58,46,63,.82); color: #fff; font-weight: 800; font-size: 13px; padding: 8px 12px; border-radius: 12px; white-space: nowrap; pointer-events: none !important; transition: opacity .9s; }
+    .hint.off { opacity: 0; }
+    .pedals { position: absolute; right: 14px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: none; gap: 10px; }
+    .drive .pedals { display: flex; }
+    .pedal { width: 70px; height: 88px; border: 0; border-radius: 22px; font: inherit; font-size: 14px; font-weight: 900; color: var(--ink); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; box-shadow: 0 4px 0 rgba(58,46,63,.18); cursor: pointer; touch-action: none; }
+    .pedal.gas { background: #A8D8C4; } .pedal.brk { background: #F2B8C6; } .pedal.down { transform: translateY(3px) scale(.97); filter: brightness(.95); }
+    .drive .act { bottom: calc(122px + env(safe-area-inset-bottom, 0px)); }
+    .drive .act2 { bottom: calc(188px + env(safe-area-inset-bottom, 0px)); }
+    .speed { position: absolute; right: 12px; top: calc(14px + env(safe-area-inset-top, 0px)); background: rgba(255,253,249,.85); border-radius: 12px; padding: 4px 10px; font-weight: 900; font-size: 13px; display: none; pointer-events: none !important; }
+    .drive .speed { display: block; }
+    .drive .hint { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); white-space: normal; width: max-content; max-width: 78%; text-align: center; }
+    .shot .ui, .shot .dbg { display: none !important; }
+    .sticker { position: fixed; left: 50%; top: calc(112px + env(safe-area-inset-top, 0px)); z-index: 8; transform: translateX(-50%) rotate(-4deg) scale(.6); background: #FFF6D8; border: 3px dashed #E2B04E; color: #7A5418; font-weight: 900; font-size: 15px; padding: 10px 16px; border-radius: 18px; box-shadow: 0 5px 0 rgba(58,46,63,.15); opacity: 0; transition: opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); pointer-events: none; white-space: nowrap; }
+    .sticker.on { opacity: 1; transform: translateX(-50%) rotate(-4deg) scale(1); }
+    .sticker::before { content: '\1F404  '; }
+    .blink { position: fixed; inset: 0; z-index: 25; background: #2A2230; opacity: 0; pointer-events: none; transition: opacity .13s; }
+    .blink.on { opacity: .82; }
+    .shot .sticker { display: none; }
+    /* W4A: меню стенда, каз, танец «в такт», зиплайн, мини-гольф */
+    .menu { position: absolute; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); width: 42px; height: 42px; border: 0; border-radius: 14px; background: rgba(255,253,249,.92); font-size: 19px; line-height: 42px; padding: 0; box-shadow: 0 3px 0 rgba(58,46,63,.12); cursor: pointer; }
+    .speed { top: calc(62px + env(safe-area-inset-top, 0px)); }
+    .dbg { top: calc(62px + env(safe-area-inset-top, 0px)); }
+    .dnbtn { position: absolute; left: 12px; top: calc(108px + env(safe-area-inset-top, 0px)); z-index: 6; border: 0; border-radius: 16px; padding: 8px 12px; font: inherit; font-weight: 900; font-size: 13px; background: rgba(255,253,249,.94); color: var(--cherry); box-shadow: 0 3px 0 rgba(58,46,63,.14); cursor: pointer; }
+    .kazbtn { position: absolute; left: 12px; top: calc(152px + env(safe-area-inset-top, 0px)); border: 0; border-radius: 16px; padding: 8px 12px; font: inherit; font-weight: 900; font-size: 13px; background: rgba(255,253,249,.94); color: var(--cherry); box-shadow: 0 3px 0 rgba(58,46,63,.14); cursor: pointer; display: none; }
+    .tap { position: absolute; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 108px; height: 108px; margin-left: -54px; border: 0; border-radius: 50%; background: var(--cherry); color: #fff; font: inherit; font-size: 21px; font-weight: 900; box-shadow: 0 6px 0 var(--cherry-d); display: none; touch-action: none; transition: transform .08s; cursor: pointer; }
+    .tap.on { display: block; } .tap.beat { transform: scale(1.12); }
+    .skip { position: absolute; right: 12px; top: calc(62px + env(safe-area-inset-top, 0px)); height: 44px; padding: 0 16px; border: 0; border-radius: 22px; background: rgba(255,253,249,.96); color: var(--cherry); font: inherit; font-weight: 900; font-size: 15px; box-shadow: 0 4px 0 rgba(58,46,63,.16); display: none; cursor: pointer; }
+    .golfui { display: none; position: absolute; left: 50%; transform: translateX(-50%); top: calc(60px + env(safe-area-inset-top, 0px)); background: rgba(255,253,249,.94); border-radius: 16px; padding: 8px 14px; font-weight: 900; font-size: 14px; box-shadow: 0 3px 0 rgba(58,46,63,.12); text-align: center; pointer-events: none !important; }
+    .golfui small { color: var(--ink-2); font-weight: 800; }
+    .card .sub { font-weight: 900; font-size: 12px; color: var(--ink-2); margin: 10px 0 2px; text-transform: none; }
+    .card button.on { outline: 3px solid var(--cherry); }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="ui" id="ui">
+    <div class="chip" id="chip">…</div>
+    <div class="joy ghost" id="joy"><i></i></div>
+    <button class="act" id="act"></button>
+    <button class="act soft act2" id="act2"></button>
+    <div class="toast" id="toast"></div>
+    <div class="hint" id="hint">Палец слева — идти · справа — крутить камеру</div>
+    <div class="pedals" id="pedals"><button class="pedal brk" id="brk">тормоз</button><button class="pedal gas" id="gas">газ</button></div>
+    <div class="speed" id="speed"></div>
+    <button class="menu" id="menuBtn" aria-label="Стенд">⚙️</button>
+    <button class="kazbtn" id="kazBtn"></button>
+    <button class="tap" id="tapBtn">Хоп!</button>
+    <button class="skip" id="skip">⏭ Пропустить</button>
+    <div class="golfui" id="golfUI"><span id="golfTxt">Потяни назад и отпусти</span><br><small id="golfTries">удары: 3</small></div>
+  </div>
+  <div class="dbg" id="dbg"></div>
+  <div class="card" id="card"><div class="box" id="cardBox"></div></div>
+  <div class="fade" id="fade"><div class="lbl" id="fadeLbl"></div></div>
+  <div class="sticker" id="sticker"><span></span></div>
+  <div class="blink" id="blink"></div>
+  <div class="load" id="load">Поднимаемся в горы…</div>
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/GLTFLoader.js"></script>
+  <script src="js/hero3d.js" onerror="void 0"></script>
+  <script src="js/hero_anim.js" onerror="void 0"></script>
+  <script src="js/world/kit.js" onerror="void 0"></script>
+  <script src="js/world/actors.js" onerror="void 0"></script>
+  <script src="js/world/car.js" onerror="void 0"></script>
+  <script src="js/village/vkit.js"></script>
+  <script src="js/village/lines.js"></script>
+  <script src="js/village/kubachi.js"></script>
+  <script src="js/village/serpentine.js" onerror="void 0"></script>
+  <script src="js/village/drive.js" onerror="void 0"></script>
+  <!-- волна 4 (необязательные: стенд работает и без них) -->
+  <script src="js/village/bazaar.js" onerror="void 0"></script>
+  <script src="js/village/kaz.js" onerror="void 0"></script>
+  <script src="js/village/wedding.js" onerror="void 0"></script>
+  <script src="js/village/hotel.js" onerror="void 0"></script>
+  <script src="js/village/zipline.js" onerror="void 0"></script>
+  <script src="js/interact.js" onerror="void 0"></script>
+  <script src="js/daynight.js" onerror="void 0"></script>
+  <script src="js/vehicles/sedan.js" onerror="void 0"></script>
+  <script>
+  (function () {
+    'use strict';
+    const T = window.THREE, V = window.VILLAGE = window.VILLAGE || {}, PI = Math.PI, TAU = PI * 2;
+    const Q = new URLSearchParams(location.search);
+    const named = Q.get('named') !== '0'; V.named = named;
+    const season = Q.get('season') === 'winter' ? 'winter' : 'autumn';
+    const quality = Q.get('q') === 'high' ? 'high' : 'low';
+    const DEBUG = Q.get('debug') === '1';
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > PI) d -= TAU; if (d < -PI) d += TAU; return d; };
+    const $ = id => document.getElementById(id);
+    if (Q.get('shot') === '1') document.body.classList.add('shot');
+
+    /* ---------- рендер ---------- */
+    const canvas = $('c');
+    const lowDpr = +(Q.get('dpr') || (quality === 'high' ? Math.min(window.devicePixelRatio || 1, 1.6) : Math.min(window.devicePixelRatio || 1, 1)));
+    const renderer = new T.WebGLRenderer({ canvas, antialias: quality === 'high', powerPreference: 'default' });
+    renderer.setPixelRatio(lowDpr);
+    renderer.info.autoReset = false;
+    if (quality === 'high') { renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFShadowMap; }
+    const scene = new T.Scene();
+    const camera = new T.PerspectiveCamera(58, 1, 0.1, 1600);
+    function resize() { const w = window.innerWidth || 390, h = window.innerHeight || 844; renderer.setSize(w, h, false); camera.aspect = w / h; if (!S.view && !S.look) camera.fov = w / h < 0.8 ? 58 : 48; camera.updateProjectionMatrix(); }
+
+    /* ---------- состояние ---------- */
+    const S = {
+      region: null, rid: null, mode: 'walk', px: 0, py: 0, pz: 0, ang: 0, vx: 0, vz: 0, yaw: 0, camInit: false, manualT: 0, walking: false, moveT: 0,
+      sitting: null, view: null, busy: false, near: null, nearKind: null, lastGreet: {}, lineIdx: {}, frames: 0, fps: 0, info: { calls: 0, tris: 0 },
+      flags: { bread: false, jug: false, granny: false, stones: new Set(), pendant: false }, level: 'ground',
+      // волна 4
+      climb: null, look: null, inShop: null, iaDy: 0, wipeT: 0, wipeDelay: 0, bag: [], pats: 0, stickers: [], night: 0,
+      // W4A: зиплайн, мини-гольф, танец на свадьбе, выбор машины, каз
+      zip: null, zipEv: [], golf: null, dance: null, animSt: null,
+      carId: (() => { const q = Q.get('car'); if (q === 'sedan' || q === 'coupe') return q; try { const v = localStorage.getItem('w4.car'); if (v === 'sedan' || v === 'coupe') return v; } catch (e) { /* без хранилища */ } return 'coupe'; })(),
+    };
+    window.__villageState = S;
+
+    /* ---------- героиня: модель автора со скелетом (город) → статуэтка → кукла ---------- */
+    let H = null, A = null, hero = null, heroKind = 'doll', blob = null, IA = null;
+    async function makeHero() {
+      try { if (window.WORLD && WORLD.createKit) { H = WORLD.createKit({ rim: ['#FFE8D0', 0.22] }); A = WORLD.makeActors(H); } } catch (e) { console.warn('village: world kit', e); H = null; A = null; }
+      let H3 = null;
+      if (A && window.HERO3D && T.GLTFLoader && Q.get('hero') !== 'off') { try { H3 = await Promise.race([HERO3D.load(), new Promise(r => setTimeout(() => r(null), 9000))]); } catch (e) { H3 = null; } }
+      if (H3 && A) { try { hero = A.buildHeroRig(null, H3); if (hero) heroKind = 'rig'; } catch (e) { console.warn('village: hero rig', e); hero = null; } }
+      if (!hero && H3 && A) { try { hero = A.buildHeroGLB(null, H3); heroKind = 'statue'; } catch (e) { hero = null; } }
+      if (!hero) { hero = dollHero(); heroKind = 'doll'; }
+      if (H && hero.root) { const seen = new Set(); hero.root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !seen.has(m.material)) { seen.add(m.material); H.addRim(m.material, 1); } }); }
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 2, 32, 32, 30); g.addColorStop(0, 'rgba(70,58,72,.34)'); g.addColorStop(1, 'rgba(70,58,72,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+      blob = new T.Mesh(new T.PlaneGeometry(0.85, 0.55), new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true, depthWrite: false })); blob.rotation.x = -PI / 2; blob.renderOrder = 1;
+      try { shadowProxy = makeShadowProxy(); } catch (e) { console.warn('village: shadow proxy', e); shadowProxy = null; }
+      // волна 4: настоящие руки (js/interact.js) — только у героини со скелетом
+      if (window.Interact && hero.rig && hero.rig.anim && Q.get('ia') !== '0') {
+        try {
+          IA = Interact.create({ THREE: T, anim: hero.rig.anim, heroRoot: hero.root, scene, camera,
+            setRoot: (p, yaw) => { S.px = p.x; S.pz = p.z; S.ang = yaw; const g = S.region ? S.region.ground(p.x, p.z) : p.y; S.iaDy = p.y - g; S.py = g; },
+            on: (n) => { (S.iaEv = S.iaEv || []).push(n); if (S.iaEv.length > 80) S.iaEv.shift(); if (n === 'busy') toast('Руки заняты', 1200); } });
+        } catch (e) { console.warn('village: interact', e); IA = null; }
+      }
+    }
+    /* ---------- W4A: тень героини на high — простые формы по костям (голова, корпус, ноги ≈ 600 треуг.) вместо полной сетки
+       (≈ 28 тыс. треуг. в проходе теней). Формы невидимы в кадре (colorWrite: false) и лишь отбрасывают тень; ноги шагают ---------- */
+    let shadowProxy = null;
+    function makeShadowProxy() {
+      if (quality !== 'high' || Q.get('heroShadow') === 'full' || !hero || !hero.rig || !hero.rig.anim || !hero.rig.anim.bones) return null;
+      const B = hero.rig.anim.bones; if (!B.head || !B.hips || !B.thigh_L || !B.foot_L || !B.thigh_R || !B.foot_R) return null;
+      const mat = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false }), parts = [];
+      const mk = geo => { const m = new T.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false; m.name = 'heroShadowProxy'; m.renderOrder = -1; scene.add(m); parts.push(m); return m; };
+      const sph = new T.SphereGeometry(1, 12, 8), cyl = new T.CylinderGeometry(1, 1, 1, 10, 1);
+      const P = { head: mk(sph), torso: mk(cyl), hair: mk(sph), legL: mk(cyl), legR: mk(cyl) };
+      const a = new T.Vector3(), b = new T.Vector3(), d = new T.Vector3(), up = new T.Vector3(0, 1, 0);
+      const between = (m, p0, p1, r) => { d.subVectors(p1, p0); const l = d.length() || 1e-3; m.position.copy(p0).addScaledVector(d, 0.5); m.scale.set(r, l, r); m.quaternion.setFromUnitVectors(up, d.multiplyScalar(1 / l)); };
+      hero.root.traverse(m => { if (m.isMesh && m.castShadow && m.name !== 'heroShadowProxy') { m.castShadow = false; m.userData.shadow0 = true; } });
+      const sc = () => hero.root.scale.y || 1;
+      return { parts, update() {
+        const vis = hero.root.visible && hero.root.parent === scene; parts.forEach(m => { m.visible = vis; }); if (!vis) return;
+        const k = sc();
+        B.head.getWorldPosition(a); P.head.position.copy(a).addScaledVector(up, 0.12 * k); P.head.scale.set(0.3 * k, 0.33 * k, 0.3 * k);
+        B.hips.getWorldPosition(b); between(P.torso, b, a, 0.17 * k);
+        P.hair.position.copy(a).addScaledVector(up, -0.32 * k); P.hair.scale.set(0.24 * k, 0.36 * k, 0.2 * k);
+        B.thigh_L.getWorldPosition(a); B.foot_L.getWorldPosition(b); between(P.legL, a, b, 0.07 * k);
+        B.thigh_R.getWorldPosition(a); B.foot_R.getWorldPosition(b); between(P.legR, a, b, 0.07 * k);
+      }, dispose() { parts.forEach(m => { scene.remove(m); }); sph.dispose(); cyl.dispose(); mat.dispose(); hero.root.traverse(m => { if (m.userData.shadow0) m.castShadow = true; }); } };
+    }
+    function dollHero() {
+      const root = new T.Group(), body = new T.Group(); root.add(body);
+      const m = c => new T.MeshToonMaterial({ color: new T.Color(c) });
+      const put = (geo, mat, p, s) => { const x = new T.Mesh(geo, mat); x.position.set(...p); x.scale.set(...s); x.castShadow = true; body.add(x); return x; };
+      put(new T.ConeGeometry(1, 1, 10), m('#E9D4B6'), [0, 0.82, 0], [0.34, 0.95, 0.3]);
+      put(new T.SphereGeometry(1, 12, 9), m('#4A3128'), [0, 1.52, -0.03], [0.3, 0.32, 0.28]); put(new T.SphereGeometry(1, 12, 9), m('#F7DCC8'), [0, 1.5, 0.03], [0.26, 0.27, 0.25]);
+      put(new T.SphereGeometry(1, 12, 9), m('#C2405B'), [0, 1.78, 0], [0.27, 0.08, 0.26]);
+      const legs = [-1, 1].map(s => { const g = new T.Group(); g.position.set(0.08 * s, 0.42, 0); body.add(g); const l = new T.Mesh(new T.CylinderGeometry(1, 1, 1, 8), m('#F2C9C0')); l.position.y = -0.2; l.scale.set(0.045, 0.4, 0.045); g.add(l); return g; });
+      return { root, body, legs };
+    }
+    const inCar = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping'));
+    let tAnim = 0;
+    function animHero(dt) {
+      if (!hero) return;
+      tAnim += dt;
+      const R = hero.rig, car_ = inCar() && drv && drv.animState;
+      if (!car_) { hero.root.position.set(S.px, S.py + (S.iaDy || 0), S.pz); hero.root.rotation.set(0, S.ang, 0); hero.root.visible = S.mode !== 'drive' || !drv || !drv.heroIn; }
+      else if (!drv.heroIn) hero.root.visible = false;   // старая машинка без места водителя
+      if (blob) { blob.position.set(S.px, S.py + 0.03, S.pz); blob.visible = !car_ && S.mode !== 'drive'; }
+      if (R) {
+        if (car_) { const cs = drv.animState(); S.animSt = cs; R.anim.update(dt, cs); hero.body.position.y = 0; return; }
+        const dd = R.prev ? Math.hypot(S.px - R.prev.x, S.pz - R.prev.z) : 0;
+        const spd = S.sitting ? 0 : dd > 0.6 ? 0 : dd / Math.max(1e-3, dt);
+        R.spd += (Math.min(spd, 6) - R.spd) * Math.min(1, dt * 12);
+        const tr = R.prev && dt > 0 ? angDiff(S.ang, R.prev.a) / dt : 0; R.prev = { x: S.px, z: S.pz, a: S.ang };
+        R.sit += ((S.sitting ? 1 : 0) - R.sit) * Math.min(1, dt * 7);
+        const st = { speed: R.spd, sitting: !!S.sitting, sitPose: 'chair', waving: S.waveT > 0, turnRate: tr, celebrate: S.cheerT > 0, idle: !S.walking && !S.sitting && !S.climb, carry: S.flags.jug ? 'item' : false };
+        const st2 = IA ? IA.animState(st) : st; S.animSt = st2;
+        R.anim.update(dt, st2);
+        // волна 4: «вытереть ботинок о траву» после коровьей лепёшки — левая нога шаркает назад-вперёд
+        if (S.wipeDelay > 0) S.wipeDelay -= dt; else if (S.wipeT > 0 && R.anim.bones) {
+          S.wipeT -= dt; const B = R.anim.bones, k = Math.min(1, S.wipeT / 0.3, (1.5 - S.wipeT) / 0.3), w = Math.sin(tAnim * 15);
+          if (B.thigh_L) B.thigh_L.rotation.x -= 0.32 * k * (0.6 + 0.4 * w); if (B.shin_L) B.shin_L.rotation.x += 0.55 * k; if (B.foot_L) B.foot_L.rotation.x += 0.25 * k * w;
+          if (B.spine) B.spine.rotation.x += 0.12 * k; if (B.head) B.head.rotation.x += 0.25 * k;
+        }
+        const sk = R.sit, sitE = sk * sk * (3 - 2 * sk);
+        const seatY = S.sitting ? S.sitting.h - S.py + R.seat - R.hip : 0;
+        hero.body.position.y = seatY * sitE;
+      } else if (hero.statue) {
+        const U = hero.statue.U; if (S.walking) S.phase = (S.phase || 0) + dt * 10.5; S.walkAmt = (S.walkAmt || 0) + ((S.walking ? 1 : 0) - (S.walkAmt || 0)) * Math.min(1, dt * 10);
+        U.hdSwing.value = Math.sin(S.phase || 0) * S.walkAmt * 0.42; U.hdSit.value = S.sitting ? 1 : 0;
+        hero.body.position.y = S.sitting ? S.sitting.h - S.py + 0.12 - U.hdRig.value.y : Math.abs(Math.sin(S.phase || 0)) * 0.035 * S.walkAmt;
+      } else if (hero.legs) { if (S.walking) S.phase = (S.phase || 0) + dt * 10.5; hero.legs.forEach((l, i) => { l.rotation.x = (i ? -1 : 1) * Math.sin(S.phase || 0) * (S.walking ? 0.6 : 0); }); hero.body.position.y = S.sitting ? S.sitting.h - S.py - 0.35 : 0; }
+      if (S.waveT > 0) S.waveT -= dt; if (S.cheerT > 0) S.cheerT -= dt;
+    }
+
+    /* ---------- машина (волна 4: героиня за рулём, «Выйти» / «Сесть за руль», красный седан по ?car=sedan) ---------- */
+    let car = null, drv = null, chase = null;
+    function ensureCar() {
+      if (car) return car;
+      if (S.cars && S.cars[S.carId]) { car = S.cars[S.carId]; return car; }
+      const useSedan = S.carId === 'sedan' && window.VEHICLES && VEHICLES.sedan;
+      try {
+        if (V.drive && V.drive.makeCar) car = V.drive.makeCar(T, useSedan ? { kit: H, factory: () => VEHICLES.sedan.makeCar(H || T, { kit: H, quality, lite: quality !== 'high' }) } : { kit: H, color: '#A8D8C4' });
+        else if (window.WORLD && WORLD.makeCar && H) car = WORLD.makeCar(H, { color: '#A8D8C4' });
+      } catch (e) { console.warn('village: car', e); car = null; }
+      return car;
+    }
+    // W4A: выбор машины «Ретро-купе / Красный седан» (в игре — у гаража в городе, st.world.car); здесь — меню ⚙️ стенда
+    function setCar(id) {
+      if (id !== 'sedan' && id !== 'coupe') return false;
+      if (id === 'sedan' && !(window.VEHICLES && VEHICLES.sedan)) { toast('Седана нет в этой сборке.'); return false; }
+      if (id === S.carId && car) return true;
+      if (S.mode === 'drive' && drv && Math.abs(drv.S.v) > 0.6) { toast('Сначала остановись.', 1800); return false; }
+      S.carId = id; try { localStorage.setItem('w4.car', id); } catch (e) { /* без хранилища */ }
+      const h = S.region, wasDrive = S.mode === 'drive', pose = drv ? { x: drv.S.x, z: drv.S.z, ry: drv.S.ry } : null;
+      heroToScene();
+      if (drv && drv.dispose) { try { drv.dispose(); } catch (e) { /* ok */ } } drv = null; chase = null;
+      // прежняя машина — в «гараж» (кэш по id): у городского купе нет dispose(), а пересоздавать при каждой смене — утечка геометрий
+      if (car) { const cr = car.root || car; if (cr.parent) cr.parent.remove(cr); S.cars = S.cars || {}; S.cars[car.kind === 'sedan' ? 'sedan' : 'coupe'] = car; }
+      car = (S.cars && S.cars[id]) || null;
+      if (h) setupCar(h, S.rid, null, pose, wasDrive);
+      toast(id === 'sedan' ? 'Красный седан ждёт!' : 'Ретро-купе ждёт!', 1800);
+      return true;
+    }
+    function heroToScene() { if (hero && hero.root.parent !== scene) { if (drv && drv.heroOut && hero.root.parent) { try { drv.heroOut(hero, scene, { instant: true }); } catch (e) { /* ok */ } } if (hero.root.parent !== scene) { if (hero.root.parent) hero.root.parent.remove(hero.root); scene.add(hero.root); } } }
+
+    /* ---------- день и ночь (js/daynight.js, если есть) ---------- */
+    let dn = null;
+    if (window.DayNight) {
+      try {
+        dn = DayNight.create({ THREE: T, scene, renderer, camera, preset: 'village', quality });
+        if (Q.get('clock') !== null) DayNight.setClock(() => +Q.get('clock'));   // W4A: «часы телефона» для проверки (22.5 — ночь по часам)
+        if (Q.get('h') !== null) DayNight.set(+Q.get('h'), { persist: false, instant: true });
+        else if (Q.get('night') === '1') DayNight.set(22.5, { persist: false, instant: true });
+        else if (Q.get('morning') === '1') DayNight.set('morning', { persist: false, instant: true });
+        dn.onChange(e => { if (e.lamps && (e.phase === 'evening' || e.phase === 'night') && !S.nightHinted) { S.nightHinted = true; toast(DayNight.LINES.nightHint, 4200); } });
+      } catch (e) { console.warn('village: daynight', e); dn = null; }
+    }
+
+    /* ---------- регионы ---------- */
+    const REG = { kubachi: () => V.regions.kubachi, serpentine: () => V.regions.serpentine, hotel: () => V.regions.hotel };
+    function haveRegion(id) { return !!(V.regions && V.regions[id] && V.regions[id].build); }
+    function loadRegion(id, from) {
+      if (!haveRegion(id)) { toast(id === 'serpentine' ? 'Серпантина пока нет в этой сборке.' : id === 'hotel' ? 'Отеля пока нет в этой сборке.' : 'Региона нет.'); return false; }
+      if (IA) { try { IA.cancel(); IA.drop && IA.drop(); } catch (e) { /* ok */ } }
+      // W4A: каз остаётся в селе (иначе берет так и останется спрятанным — сетка героини общая); танец и гольф — закончить
+      const kazBack = S.rid === 'kubachi' && id !== 'kubachi' && kazRemove();
+      if (S.dance) endDance(null); if (S.golf) stopGolf(true);
+      heroToScene();
+      if (S.region) { try { if (dn) dn.detach(S.region.root || S.region); if (car && car.root && car.root.parent) car.root.parent.remove(car.root); S.region.dispose(); } catch (e) { console.warn(e); } }
+      if (drv && drv.dispose) { try { drv.dispose(); } catch (e) { /* ok */ } } drv = null; chase = null;
+      const t0 = performance.now();
+      S.epoch = (S.epoch || 0) + 1; bubbles.forEach(b => { b.until = 0; });
+      S.region = REG[id]().build({ THREE: T, scene, named, season, quality, mood: Q.get('mood') || undefined, clouds: Q.get('clouds') !== '0', from,
+        bazaar: Q.get('bazaar') === '1' ? true : Q.get('bazaar') === '0' ? false : undefined });
+      if (renderer.shadowMap.enabled) renderer.shadowMap.autoUpdate = true;
+      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.climb = null; S.look = null; S.inShop = null; S.iaDy = 0;
+      const h = S.region;
+      if (h.camera && h.camera.far) { camera.far = h.camera.far; camera.near = h.camera.near || 0.1; camera.updateProjectionMatrix(); }
+      if (hero && hero.root.parent !== scene) { scene.add(hero.root); } if (blob && blob.parent !== scene) scene.add(blob);
+      if (id !== 'serpentine') {
+        S.mode = 'walk';
+        const sp = (from === 'zipline' && h.places && h.places.zipLanding) || h.spawn; S.px = sp.x; S.pz = sp.z; S.py = h.ground(sp.x, sp.z); S.ang = sp.ry || 0; S.yaw = sp.ry || 0;
+      }
+      setupCar(h, id, from, null, true);
+      // W4A: свадьба — героиня модулю (розыгрыш с беретом), облачка пальтара; каз по приезде (KAZ_ON_ARRIVAL)
+      if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); } catch (e) { console.warn('village: wedding hero', e); } }
+      if (kazBack) later(900, () => toast(V.kaz.line('giveBack', named), 3400));
+      if (dn) { try { dn.apply(id === 'serpentine' ? 'road' : 'village'); dn.attachRegion(h); dn.attach(scene); } catch (e) { console.warn('village: daynight attach', e); } }
+      $('chip').innerHTML = (h.title || id) + '<small>' + (id === 'serpentine' ? (from === 'kubachi' ? 'дорога вниз, в город' : 'дорога в горы') : (season === 'winter' ? 'зима' : 'осень') + ' · ' + (named ? 'название включено' : 'без названия') + (h.bazaar && h.bazaar.big ? ' · базарный день' : '')) + '</small>';
+      document.body.classList.toggle('drive', S.mode === 'drive');
+      if (!hintOff) $('hint').textContent = S.mode === 'drive' ? 'Газ и тормоз — справа · палец слева — руль' : 'Палец слева — идти · справа — крутить камеру';
+      S.exitArmed = {}; S.trip = S.trip || { up: false, village: false, down: false, city: 0 };
+      resize();
+      S.buildMs = Math.round(performance.now() - t0);
+      if (id === 'kubachi') kazArrive(); updKazBtn();
+      return true;
+    }
+    // машина региона: серпантин — контроллер drive.js с героиней за рулём (или припаркована по pose); село и отель — на стоянке
+    function setupCar(h, id, from, pose, heroInCar) {
+      const c = ensureCar(); if (!c) return null;
+      if (id === 'serpentine' && V.drive) {
+        scene.add(c.root || c);
+        drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: c.driveCfg });
+        chase = V.drive.chase({ THREE: T, camera, ground: h.ground });
+        if (pose) { drv.teleport(pose); if (chase) chase.snap(); }
+        // из села — наверху у ворот, носом вниз; из отеля — в конце ветки; из города/старта — у щита на краю города, носом в гору
+        else if (from === 'kubachi') placeCarTop(); else if (from === 'hotel') placeCarHotel(); else placeCarStart();
+        if (heroInCar) { if (drv.heroIn && hero) drv.heroIn(hero, { instant: true }); S.mode = 'drive'; }
+        else { drv.S.mode = 'parked'; if (drv.update) drv.update(1 / 60, { brake: true }); }
+        document.body.classList.toggle('drive', S.mode === 'drive');
+      } else if (h.carSpawn) {
+        scene.add(c.root || c); const cr = c.root || c; const cy = h.ground(h.carSpawn.x, h.carSpawn.z);
+        if (c.S && c.place) { c.S.x = h.carSpawn.x; c.S.z = h.carSpawn.z; c.S.ry = h.carSpawn.ry; c.S.v = 0; c.place(); }
+        cr.position.set(h.carSpawn.x, cy, h.carSpawn.z); cr.rotation.set(0, h.carSpawn.ry, 0);
+      }
+      if (dn && c.setNight) { try { c.setNight(dn.lampsOn() ? 1 : 0); } catch (e) { /* ok */ } }
+      return c;
+    }
+
+    // машина на серпантине: у щита на краю города (вверх), у ворот села (вниз), в конце ветки к отелю
+    function placeCarStart() {
+      const h = S.region; if (!drv || !h) return;
+      drv.teleport(h.carSpawn); if (chase) chase.snap();
+      (h.moments || []).forEach(m => { m.done = false; m.t = null; });
+      S.dir = 'up'; S.exitArmed = {};
+    }
+    function placeCarTop() {
+      const h = S.region; if (!drv || !h) return;
+      const ex = h.exits.find(e => e.id === 'toVillage'), s0 = Math.max(0, (ex && ex.s != null ? ex.s : h.road.len) - (ex ? ex.r : 5) - 9);
+      const q = h.road.sample(s0); drv.teleport({ x: q.x, z: q.z, ry: q.th + PI }); if (chase) chase.snap();
+      (h.moments || []).forEach(m => { m.done = true; m.t = null; });   // «вау» с L3 уже было по дороге вверх
+      S.dir = 'down'; S.exitArmed = {};
+    }
+    function placeCarHotel() {
+      const h = S.region; if (!drv || !h) return;
+      const ex = h.exits.find(e => e.id === 'toHotel');
+      if (ex && h.road && h.road.branch && h.road.branch.sample) { const q = h.road.branch.sample(Math.max(0, (ex.s || h.road.branch.len) - (ex.r || 5) - 8)); drv.teleport({ x: q.x, z: q.z, ry: q.th + PI }); }
+      else placeCarStart();
+      if (chase) chase.snap(); S.dir = 'down'; S.exitArmed = {};
+    }
+
+    /* ---------- ввод: джойстик слева, камера справа, клавиши; в «Осмотреться» — палец крутит взгляд, два — ближе/дальше ---------- */
+    const keys = {}, joy = { id: null, x: 0, y: 0, ox: 0, oy: 0 }, cam = { id: null, lx: 0, ly: 0 }, pts = new Map();
+    const KM = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r', KeyQ: 'q', KeyE: 'e' };
+    window.addEventListener('keydown', e => { if (KM[e.code]) { keys[KM[e.code]] = true; e.preventDefault(); } if (e.code === 'Space' || e.code === 'Enter') { act(); e.preventDefault(); } });
+    window.addEventListener('keyup', e => { if (KM[e.code]) keys[KM[e.code]] = false; });
+    const joyEl = $('joy');
+    canvas.addEventListener('pointerdown', e => {
+      hideHint();
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (S.golf && !S.golf.G.rolling && S.golf.G.tries < S.golf.G.maxTries && !S.golf.G.holed) { S.golf.drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); return; }
+      if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); return; }
+      if (e.clientX < window.innerWidth * 0.5 && joy.id === null) { joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; joyEl.classList.remove('ghost'); joyEl.style.display = 'block'; joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px'; joyEl.firstChild.style.transform = ''; }
+      else if (cam.id === null) { cam.id = e.pointerId; cam.lx = e.clientX; cam.ly = e.clientY; }
+      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      const prev = pts.get(e.pointerId); if (prev) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) {
+        const dx = e.clientX - S.golf.drag.x, dy = e.clientY - S.golf.drag.y, len = Math.hypot(dx, dy); if (len < 8) return;
+        const f = camera.getWorldDirection(new T.Vector3()); const fl = Math.hypot(f.x, f.z) || 1, fx = f.x / fl, fz = f.z / fl, rx = -fz, rz = fx;
+        const wx = rx * -dx + fx * dy, wz = rz * -dx + fz * dy;   // «рогатка»: тянем назад — бьём вперёд
+        S.golf.angle = Math.atan2(wx, wz); S.golf.power = clamp(len / 170, 0.05, 1); S.golf.G.aim(S.golf.angle, S.golf.power); golfStance(); return;
+      }
+      if (S.look) {
+        if (pts.size >= 2 && S.look.pinch) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); S.look.fov = clamp(S.look.pinch.fov * S.look.pinch.d / Math.max(20, d), S.look.L.fovMin, S.look.L.fovMax); }
+        else if (prev) { const k = S.look.fov / 55; S.look.yaw -= (e.clientX - prev.x) * 0.006 * k; S.look.pitch = clamp(S.look.pitch + (e.clientY - prev.y) * 0.005 * k, S.look.L.pitchMin, S.look.L.pitchMax); }
+        return;
+      }
+      if (e.pointerId === joy.id) { let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const l = Math.hypot(dx, dy), m = 46; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = dy / m; joyEl.firstChild.style.transform = `translate(${dx}px,${dy}px)`; }
+      else if (e.pointerId === cam.id) { S.yaw -= (e.clientX - cam.lx) * 0.008; cam.lx = e.clientX; S.manualT = 2.5; }
+    });
+    const up = e => { if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) { S.golf.drag = null; pts.delete(e.pointerId); golfShoot(); return; } pts.delete(e.pointerId); if (S.look && pts.size < 2) S.look.pinch = null; if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyEl.classList.add('ghost'); joyEl.style.left = ''; joyEl.style.top = ''; joyEl.firstChild.style.transform = ''; } if (e.pointerId === cam.id) cam.id = null; };
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('wheel', e => { if (!S.look) return; S.look.fov = clamp(S.look.fov * (e.deltaY > 0 ? 1.08 : 0.92), S.look.L.fovMin, S.look.L.fovMax); e.preventDefault(); }, { passive: false });
+    const ped = { gas: false, brk: false };
+    [['gas', 'gas'], ['brk', 'brk']].forEach(([id, k]) => { const el = $(id); const on = v => e => { e.preventDefault(); hideHint(); ped[k] = v; el.classList.toggle('down', v); }; el.addEventListener('pointerdown', on(true)); el.addEventListener('pointerup', on(false)); el.addEventListener('pointerleave', on(false)); el.addEventListener('pointercancel', on(false)); });
+    window.addEventListener('keydown', e => { if (e.code === 'KeyB' || e.code === 'ShiftLeft') ped.brk = true; });
+    window.addEventListener('keyup', e => { if (e.code === 'KeyB' || e.code === 'ShiftLeft') ped.brk = false; });
+    function moveInput() {
+      let jx = joy.x, jy = joy.y;
+      if (keys.u || keys.d || keys.l || keys.r) { jx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0); jy = (keys.d ? 1 : 0) - (keys.u ? 1 : 0); }
+      const mag = Math.min(1, Math.hypot(jx, jy)); if (mag < 0.06) return null;
+      const fx = Math.sin(S.yaw), fz = Math.cos(S.yaw), rx = -Math.cos(S.yaw), rz = Math.sin(S.yaw);
+      const dx = fx * -jy + rx * jx, dz = fz * -jy + rz * jx, l = Math.hypot(dx, dz) || 1;
+      return [dx / l, dz / l, mag];
+    }
+
+    /* ---------- облачка, тосты, карточки, наклейки, моргание ---------- */
+    const bubbles = [];
+    function bubble(target, text, title, ms = 3200, isHero) {
+      const el = document.createElement('div'); el.className = 'say' + (isHero ? ' hero' : ''); el.innerHTML = (title ? '<b>' + title + '</b>' : '') + text; $('ui').appendChild(el);
+      requestAnimationFrame(() => el.classList.add('on'));
+      const b = { el, target, until: performance.now() + ms }; bubbles.push(b);
+      bubbles.filter(o => o !== b && o.target === target).forEach(o => { o.until = 0; });
+      return b;
+    }
+    const heroHead = () => ({ x: S.px, y: S.py + 2.25, z: S.pz });
+    const heroSay = (t, ms = 2400) => { if (t) bubble(heroHead, t, '', ms, true); };
+    function updBubbles() {
+      const now = performance.now(), w = window.innerWidth, h = window.innerHeight, v = new T.Vector3();
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i];
+        if (now > b.until) { b.el.classList.remove('on'); setTimeout(() => b.el.remove(), 300); bubbles.splice(i, 1); continue; }
+        const p = typeof b.target === 'function' ? b.target() : b.target; v.set(p.x, p.y, p.z).project(camera);
+        const bw = Math.min(230, b.el.offsetWidth || 160) / 2 + 8, bh = (b.el.offsetHeight || 40) + 70;
+        b.el.style.display = v.z > 1 ? 'none' : ''; b.el.style.left = clamp((v.x + 1) / 2 * w, bw, w - bw) + 'px'; b.el.style.top = clamp((1 - v.y) / 2 * h - 8, bh, h - 150) + 'px';
+      }
+    }
+    let toastT = 0;
+    // отложенное действие, которое не «перетекает» в другой регион
+    const later = (ms, fn) => { const ep = S.epoch; setTimeout(() => { if (ep === S.epoch) fn(); }, ms); };
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    function toast(t, ms = 2600) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
+    function sticker(t) { if (S.stickers.includes(t)) return; S.stickers.push(t); const el = $('sticker'); el.querySelector('span').textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 3600); }
+    function blink() { const el = $('blink'); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 260); }
+    function card(title, lines, buttons) {
+      return new Promise(res => {
+        const box = $('cardBox');
+        box.innerHTML = '<div class="t">' + title + '</div>' + (lines || []).map(l => '<p>' + l + '</p>').join('') + '<div class="row"></div>';
+        const row = box.querySelector('.row');
+        (buttons && buttons.length ? buttons : [{ t: 'Хорошо', main: true }]).forEach(b => { const bt = document.createElement('button'); bt.textContent = b.t; if (b.main) bt.className = 'main'; bt.onclick = () => { $('card').classList.remove('on'); S.busy = false; res(b.v !== undefined ? b.v : b.t); }; row.appendChild(bt); });
+        S.busy = true; $('card').classList.add('on');
+      });
+    }
+    function fade(label, fn) {
+      return new Promise(res => {
+        const f = $('fade'); $('fadeLbl').textContent = label || ''; f.style.display = 'block'; requestAnimationFrame(() => requestAnimationFrame(() => f.classList.add('on'))); S.busy = true;
+        setTimeout(async () => { try { await fn(); } catch (e) { console.error(e); } setTimeout(() => { f.classList.remove('on'); S.busy = false; setTimeout(() => { if (!f.classList.contains('on')) f.style.display = 'none'; }, 700); res(); }, 250); }, 700);
+      });
+    }
+    let hintOff = false; function hideHint() { if (hintOff) return; hintOff = true; $('hint').classList.add('off'); }
+    setTimeout(hideHint, 9000);   // подсказка не висит вечно, даже если ещё не трогали экран
+
+    /* ---------- жители: подойти и поговорить ---------- */
+    const npcHead = n => () => ({ x: n.root.position.x, y: n.root.position.y + (n.headY || 1.1) * (n.root.scale.y || 1) + 0.45, z: n.root.position.z });
+    function talk(n, auto) {
+      if (!n || !n.lines || !n.lines.length) return;
+      const i = S.lineIdx[n.id] || 0; S.lineIdx[n.id] = (i + 1) % n.lines.length;
+      let text = n.lines[i];
+      if (n.id === 'granny_hedgehog' && S.flags.jug) { const ev = V.eventLine && V.eventLine('grannyThanks', named); text = ev ? ev.text : text; S.flags.jug = false; S.flags.granny = true; S.cheerT = 1.2; }
+      if (n.id === 'granny_hedgehog' && i === 1) S.flags.askJug = true;
+      bubble(npcHead(n), text, n.name, 3600);
+      n.hop && n.hop(); n.faceHero = 2.5; S.lastGreet[n.id] = performance.now();
+      if (window.G && G.voiceLine) { try { G.voiceLine(n.speaker || n.id, text); } catch (e) { /* без голоса */ } }
+    }
+    const npcSayEvent = (id, ev, ms = 2800) => { const n = S.region.npcs.find(q => q.id === id), l = V.eventLine && V.eventLine(ev, named); if (n && l) { bubble(npcHead(n), l.text, n.name, ms); n.faceHero = 2.5; n.hop && n.hop(); } return !!(n && l); };
+
+    /* ---------- занятия (spots) ---------- */
+    const ACT = () => (V.activities ? V.activities(named) : {});
+    function sitAt(seat, ry, view) {
+      S.sitting = { h: seat[1], x: seat[0], z: seat[2] }; S.px = seat[0]; S.pz = seat[2]; S.ang = ry !== undefined ? ry : S.ang;
+      if (view) setView(view, true);
+    }
+    function standUp() { if (!S.sitting) return; const road = S.sitting.road; S.sitting = null; if (S.view) setView(null); if (road && chase) chase.snap(); }
+    function setView(id, smooth) {
+      // W4A: камера в лавке — тени не пересчитываются каждый кадр (внутри лавки они не меняются; проход теней ≈ 60 тыс. треуг. на high)
+      if (renderer.shadowMap.enabled) { const fz = !!id && /^shop_/.test(id); if (renderer.shadowMap.autoUpdate === fz) { renderer.shadowMap.autoUpdate = !fz; renderer.shadowMap.needsUpdate = true; } }
+      if (!id) { S.view = null; S.camInit = false; resize(); return; }
+      const v = S.region.camera.views[id]; if (!v) return;
+      S.view = { id, v, t: 0, from: camera.position.clone(), fromLook: new T.Vector3().copy(camera.getWorldDirection(new T.Vector3())).multiplyScalar(10).add(camera.position), smooth: !!smooth };
+      if (v.mood && S.region.setMood) S.region.setMood(v.mood);
+    }
+    const npcBy = id => S.region && S.region.npcs.find(n => n.id === id);
+    // W4A: поставить героиню и СРАЗУ корень сцены — до IA.play: слой рук запоминает корень в начале действия (иначе вернёт старый поворот)
+    function placeHero(x, z, ang, yaw) {
+      S.px = x; S.pz = z; S.py = S.region.ground(x, z); if (ang !== undefined) S.ang = ang; if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.iaDy = 0;
+      if (hero) { hero.root.position.set(S.px, S.py, S.pz); hero.root.rotation.y = S.ang; hero.root.updateMatrixWorld(true); if (hero.rig) hero.rig.prev = null; }
+    }
+    const pawOf = (n, paw) => ({ root: n.root, color: (paw && paw.color) || '#EDE4DA', height: (paw && paw.height) || 0.62, meetY: (paw && paw.meetY) || 1.0 });
+    async function useSpot(sp) {
+      const A = ACT(), a = A[sp.id] || {}, h = S.region;
+      const d = sp.use ? sp.use({ named, flags: S.flags }) : null;
+      S.lastUse = d;   // описание действия от региона (см. README): стенд ниже делает то же руками
+      // волна 4: лавки, лестница в башне, «Осмотреться», родник с крышкой — по полям описания
+      if (d && d.shop) return enterShop(d.shop);
+      if (d && d.climb && h.climb && h.climb.at) return startClimb(d.from === 'top' ? 'top' : 'bottom');
+      if (d && d.look && h.camera.looks && h.camera.looks[d.look]) { startLook(d.look); if (d.npc) later(1400, () => { if (!npcSayEvent(d.npc, d.event || 'climbTop', 3400)) { const e = npcBy(d.npc); if (e) talk(e); } }); return; }
+      if (d && d.interact === 'drinkSpring' && d.spring && IA) return drinkSpring(d);
+      // W4A: каз у мышки-вышивальщицы; свадьба — угоститься (руки), танец «в такт», поздравить молодых
+      if (d && d.kind === 'kaz') return kazSpot(d);
+      if (d && d.kind === 'treat') return weddingTreat(d);
+      if (d && d.kind === 'dance') return startDance(d);
+      if (d && d.kind === 'congrats') return congrats(d);
+      // W4A: отель на вершине — лестница башни, зиплайн, мини-гольф, места «посидеть / посмотреть» с репликами (как tests/w4/hotel.html)
+      if (h.id === 'hotel' && d) {
+        const sayNpc = () => { if (d.npc && d.line) { const n = npcBy(d.npc); if (n) later(900, () => { bubble(npcHead(n), d.line.text, n.name, 3000); n.faceHero = 3; n.hop && n.hop(); }); } };
+        if (d.kind === 'teleport') { await fade(d.fade || '', () => { S.level = d.level || 'ground'; S.px = d.to[0]; S.pz = d.to[2]; S.py = h.ground(S.px, S.pz); S.camInit = false; S.yaw = d.level === 'top' ? (h.zipline ? h.zipline.heading : S.yaw) : S.yaw; S.ang = S.yaw; if (hero && hero.rig) hero.rig.prev = null; }); if (d.npc) later(800, () => { const n = npcBy(d.npc); if (n) talk(n); }); return; }
+        if (d.kind === 'zipline') return startZip(d);
+        if (d.kind === 'golf') return startGolf(d);
+        if (d.kind === 'sit') { sitAt(d.seat, d.ry, d.view); sayNpc(); if (d.hero) later(400, () => heroSay(d.hero, 2200)); if (d.text) later(1500, () => toast(d.text, 3600)); return; }
+        if (d.kind === 'view') { setView(d.view, true); S.sitting = { h: S.py, x: S.px, z: S.pz }; sayNpc(); if (d.hero) later(500, () => heroSay(d.hero, 2200)); if (d.text) later(1400, () => toast(d.text, 3600)); return; }
+      }
+      switch (sp.id) {
+        case 'tower': await fade('Винтовая лестница…', () => { S.level = 'top'; S.px = h.places.tower.x + 0.3; S.pz = h.places.tower.z + 1.1; S.py = h.ground(S.px, S.pz); S.ang = 0; S.yaw = PI; S.camInit = false; }); toast(a.title + ': наверху'); break;
+        case 'tower_down': await fade('', () => { const dd = h.places.tower.doorAt; S.level = 'ground'; S.px = dd[0]; S.pz = dd[2]; S.py = h.ground(S.px, S.pz); S.camInit = false; }); break;
+        case 'tower_top': sitAt([sp.x, sp.y, sp.z], 0, 'p5'); { const e = h.npcs.find(n => n.id === 'eagle'); if (e) later(1200, () => talk(e)); } break;
+        case 'spyglass': setView('spyglass', true); { const ev = V.eventLine('spyglass', named); if (ev) later(800, () => toast(ev.text, 4200)); } S.sitting = { h: S.py, x: S.px, z: S.pz }; break;
+        case 'bakery': {
+          const menu = (a.menu || ['Пирог', 'Хлеб']).map((t, i) => ({ t, v: i, main: i === 0 }));
+          const pick = await card(a.title || 'Пекарня', [named ? 'Чуду пекут тонким, как блинчик.' : 'Пирог тонкий, как блинчик.'], menu);
+          const b = h.npcs.find(n => n.id === 'baker_bunny');
+          if (IA && b && d && d.give) {   // волна 4: зайка протягивает — героиня берёт из лап и откусывает
+            const st = d.give.stand; if (st) placeHero(st[0], st[2], st[3]);
+            b.faceHero = 4; bubble(npcHead(b), pick === 3 ? 'Держи! Тёплый, с хрустом.' : 'Держи! Горячий.', b.name, 2400);
+            await IA.play('takeFrom', { item: d.give.items[pick] || 'bread', from: pawOf(b, d.give.from), approach: false });
+            await IA.play('eat', {}); heroSay(a.after || 'Вкусно!', 2600); await IA.play('eat', {});
+            await sleep(300); if (IA.drop) IA.drop();   // W4A: остаток — «в сумку» (кошке на крыше); иначе рука занята и родник/угощение не получатся
+            S.flags.bread = true; later(1200, () => toast(a.drink || 'Запить — водой из родника.')); break;
+          }
+          if (b) bubble(npcHead(b), pick === 3 ? 'Держи! Тёплый, с хрустом.' : 'Держи! Горячий.', b.name, 2400);
+          later(1800, () => heroSay(a.after || 'Вкусно!', 2600));
+          S.flags.bread = true; later(4600, () => toast(a.drink || 'Запить — водой из родника.')); break;
+        }
+        case 'spring': case 'trough': case 'spring_lid': {
+          const ev = V.eventLine('springDrink', named); heroSay('Ух, холодная!', 2200);
+          if (sp.id !== 'trough') { const hh = h.npcs.find(n => n.id === 'spring_hedgehog'); if (hh && ev) later(1400, () => bubble(npcHead(hh), ev.text, hh.name, 2600));
+            if (S.flags.askJug && !S.flags.granny && !S.flags.jug) { const r = await card('Родник', [a.jug || 'Набрать кувшин?'], [{ t: 'Набрать', main: true, v: 1 }, { t: 'Потом', v: 0 }]); if (r) { S.flags.jug = true; toast('Кувшин с водой — отнеси бабушке-ежихе на площадь.'); } } }
+          break;
+        }
+        case 'workshop': {
+          const steps = a.steps || [];
+          for (let i = 0; i < steps.length; i++) { const r = await card(a.title + ' · ' + steps[i].title, [steps[i].hint, 'Узор: ' + a.pattern + '.'], [{ t: i < steps.length - 1 ? 'Готово, дальше' : 'Блестит!', main: true, v: 1 }, { t: 'Выйти', v: 0 }]); if (!r) return; }
+          const ev = V.eventLine('badgerDone', named), bd = h.npcs.find(n => n.id === 'badger'); if (bd && ev) bubble(npcHead(bd), ev.text, bd.name, 3000);
+          S.flags.pendant = true; S.cheerT = 1.2; toast('В кармане: ' + (a.reward || 'подвеска')); break;
+        }
+        case 'museum': await card(a.title, (a.text || []).concat([a.mail]).filter(Boolean)); break;
+        case 'treasure': await card(a.title, (a.text || []).concat([a.plate, a.game]).filter(Boolean)); break;
+        case 'roof': sitAt(sp.seat, sp.ry, 'roof_sunset'); toast((a.text || [''])[0], 3200); break;
+        case 'knoll': sitAt(sp.seat, sp.ry, 'p1'); break;
+        case 'spring_bench': sitAt(sp.seat, S.ang, 'spring'); break;
+        case 'godekan': sitAt(sp.seat, sp.ry, 'square'); toast((a.text || [''])[0], 3200); break;
+        case 'metro': { const p = h.npcs.find(n => n.id === 'pigeon_metro'); if (p) talk(p); else toast((a.text || [''])[0]); break; }
+        default:
+          if (sp.id.startsWith('carved_')) { S.flags.stones.add(sp.id); await card(a.title || 'Резной камень', (a.text || []).concat(S.flags.stones.size === 3 ? ['Все три камня найдены!'] : ['Найдено камней: ' + S.flags.stones.size + ' из 3.']));
+            if (S.flags.stones.size === 3) { const ev = V.eventLine('stones3', named); if (ev) toast(ev.text, 4200); } }
+          else if (d && d.kind === 'sit' && d.seat) { const seat = Array.isArray(d.seat) ? d.seat : [d.seat.x, d.seat.y, d.seat.z]; sitAt(seat, d.ry !== undefined ? d.ry : (d.seat.ry !== undefined ? d.seat.ry : S.ang), d.view); }   // лавочки серпантина и модулей
+          else if (d && d.kind === 'talk' && d.npc) { const n = npcBy(d.npc); if (n) talk(n); }
+          else if (d && d.kind === 'view' && d.view) { setView(d.view, true); if (d.text) later(1200, () => toast(d.text, 3600)); }
+          else if (d && d.kind === 'sheet') { const aa = A[d.activity] || {}; await card(aa.title || sp.label, aa.text || [sp.label]); }
+          else toast(d && d.text ? d.text : sp.label);
+      }
+    }
+
+    /* ---------- волна 4: лавки — войти, выбрать, заплатить, взять из лап, съесть / полюбоваться, выйти ---------- */
+    async function enterShop(shop) {
+      const h = S.region, seller = npcBy(shop.seller);
+      if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
+      await fade('Заходим в лавку…', () => { S.inShop = shop; S.px = shop.inside[0]; S.pz = shop.inside[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.inside[3]; S.vx = S.vz = 0; setView(shop.view, false); if (hero && hero.rig) hero.rig.prev = null; });
+      if (seller) { seller.faceHero = 3; if (seller.lines && seller.lines[0]) bubble(npcHead(seller), seller.lines[0], seller.name, 3000); }
+      await sleep(600);
+      return shopMenu(shop);
+    }
+    async function shopMenu(shop) {
+      if (!S.inShop) return;
+      const A = ACT()[shop.activity] || {}, items = (shop.items && shop.items.length ? shop.items : A.items) || [];
+      const pick = await card(A.title || shop.title || 'Лавка', (A.text || []).concat(S.bag.length ? ['В сумке: ' + S.bag.length] : []), items.map((it, i) => ({ t: it.title, v: i, main: i === 0 })).concat([{ t: 'Выйти', v: -1 }]));
+      if (pick === -1 || pick === undefined || !items[pick]) return leaveShop(shop);
+      await buy(shop, items[pick]);
+      return shopMenu(shop);
+    }
+    async function buy(shop, it) {
+      const seller = npcBy(shop.seller), thanks = shop.thanks && V.eventLine ? V.eventLine(shop.thanks, named) : null;
+      S.shopBuy = it.id;
+      if (IA && seller && window.Interact) {
+        const from = pawOf(seller, shop.paw);
+        let item = it.item;
+        if (V.bazaar && V.bazaar.ITEMS && V.bazaar.ITEMS.includes(item) && Interact.items && Interact.items.wrap) { const m = V.bazaar.makeItem(T, item); item = Interact.items.wrap(m.mesh, m.hold); }
+        seller.faceHero = 6;
+        const left = () => S.inShop !== shop;   // вышла из лавки посреди покупки — дальше не играем
+        try { await IA.play('pay', { to: from, approach: false }); if (!left()) await IA.play('takeFrom', { item, from, approach: false }); } catch (e) { console.warn('village: shop interact', e); }
+        if (left()) { if (IA.drop) IA.drop(); S.shopBuy = null; return; }
+        if (thanks) bubble(npcHead(seller), thanks.text, seller.name, 2400);
+        try { if (it.use === 'eat') { await IA.play('eat', {}); if (!left()) { heroSay(it.hero, 2200); await IA.play('eat', {}); } } else { await IA.play('admire', {}); if (!left()) heroSay(it.hero, 2200); } } catch (e) { /* ok */ }
+        if (!left()) await sleep(500); if (IA.drop) IA.drop();   // в «сумку»
+      } else {
+        if (seller && thanks) bubble(npcHead(seller), thanks.text, seller.name, 2400);
+        later(900, () => heroSay(it.hero, 2200)); await sleep(1600);
+      }
+      S.bag.push(it.id); S.shopBuy = null;
+      toast('В сумке: ' + it.title, 1800);
+    }
+    async function leaveShop(shop) {
+      const h = S.region; if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
+      await fade('', () => { S.inShop = null; setView(null); S.px = shop.door[0]; S.pz = shop.door[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.door[3]; S.yaw = shop.door[3]; S.camInit = false; if (hero && hero.rig) hero.rig.prev = null; });
+    }
+
+    /* ---------- W4A: каз (VILLAGE.kaz) — примерка; KAZ_ON_ARRIVAL: 'auto' (надет по приезде в село) | 'offer' (спросить) | 'off' ---------- */
+    const KAZ_MODE = ['auto', 'offer', 'off'].includes(Q.get('kaz')) ? Q.get('kaz') : ((window.CONFIG && CONFIG.KAZ_ON_ARRIVAL) || 'auto');
+    const kazWord = () => (named ? 'каз' : 'платок');
+    const kazOk = () => !!(V.kaz && V.kaz.wear && hero && (hero.rig || hero.statue));
+    const kazWorn = () => !!(V.kaz && V.kaz.isWorn && V.kaz.isWorn());
+    function kazWear(o = {}) {
+      if (!kazOk() || kazWorn()) return false;
+      try { V.kaz.wear(hero, hero.rig ? hero.rig.anim : null, { instant: !!o.instant, quality }); } catch (e) { console.warn('village: kaz', e); return false; }
+      if (shadowProxy && V.kaz.current) [V.kaz.current.mesh, V.kaz.current.outline, V.kaz.current.group].forEach(g => { if (g && g.traverse) g.traverse(m => { if (m.isMesh) m.castShadow = false; }); });   // тень — от простых форм
+      updKazBtn();
+      if (o.say !== false) later(o.delay || 700, () => heroSay(V.kaz.line('heroOn', named), 2600));
+      return true;
+    }
+    function kazRemove() { if (!kazWorn()) return false; try { V.kaz.remove(); } catch (e) { console.warn('village: kaz remove', e); } updKazBtn(); return true; }
+    function kazArrive() {
+      if (!kazOk() || kazWorn() || KAZ_MODE === 'off') return;
+      if (KAZ_MODE === 'auto') later(900, () => { if (S.rid === 'kubachi' && kazWear({ delay: 500 })) later(3400, () => toast('Снять ' + kazWord() + ' можно кнопкой слева.', 2600)); });
+      else later(1300, async () => { if (S.rid !== 'kubachi' || S.busy) return; const r = await card(named ? 'Каз' : 'Праздничный платок', [V.kaz.line('offer', named)], [{ t: 'Примерить', main: true, v: 1 }, { t: 'Потом', v: 0 }]); if (r && S.rid === 'kubachi') kazWear({}); });
+    }
+    function updKazBtn() { const b = $('kazBtn'); if (!b) return; b.style.display = S.rid === 'kubachi' && kazOk() && S.mode === 'walk' && !S.dance ? 'block' : 'none'; b.textContent = '🧣 ' + (kazWorn() ? 'Снять ' : 'Надеть ') + kazWord(); }
+    $('kazBtn').onclick = () => { if (S.busy || (IA && IA.busy())) return; if (kazWorn()) { kazRemove(); toast('Сняла и бережно сложила.', 1600); } else kazWear({}); };
+    // место у мышки-вышивальщицы (kubachi.js: spot 'kaz_try' → { kind:'kaz', npc:'mouse' })
+    async function kazSpot(d) {
+      const m = npcBy(d.npc || 'mouse');
+      if (kazWorn()) { if (m) { bubble(npcHead(m), V.kaz.line(Math.random() < 0.5 ? 'pattern' : 'fringe', named), m.name, 3200); m.faceHero = 3; } return; }
+      if (m) { bubble(npcHead(m), V.kaz.line('offer', named), m.name, 3200); m.faceHero = 4; m.hop && m.hop(); }
+      await sleep(900);
+      const r = await card(named ? 'Каз' : 'Праздничный платок', [V.kaz.line('pattern', named)], [{ t: 'Примерить', main: true, v: 1 }, { t: 'Потом', v: 0 }]);
+      if (r) { kazWear({}); if (m) later(1600, () => bubble(npcHead(m), V.kaz.line('careful', named), m.name, 2400)); }
+    }
+
+    /* ---------- W4A: свадьба во дворе (VILLAGE.wedding) — героиня приглашена на праздник ---------- */
+    function onPrank(ev) {
+      const W = S.region && S.region.wedding; if (!W || !ev) return;
+      const n = S.region.npcs.filter(q => q.ext && (q.id === ev.who || q.speaker === 'paltar')).sort((a, b) => Math.hypot(a.root.position.x - S.px, a.root.position.z - S.pz) - Math.hypot(b.root.position.x - S.px, b.root.position.z - S.pz))[0];
+      if (ev.text && n) bubble(npcHead(n), ev.text, n.name, 2600);
+      if (ev.type === 'beret' && ev.phase === 'take') { S.cheerT = 0.8; later(700, () => heroSay('Ой! Мой берет!', 1600)); }
+      if (ev.phase === 'end') later(300, () => heroSay(ev.type === 'beret' ? 'Ха-ха, спасибо!' : 'Звяк-звяк!', 1500));
+      (S.prankLog = S.prankLog || []).push(ev.type + ':' + ev.phase);
+    }
+    async function weddingTreat(d) {
+      const h = S.region;
+      if (!IA || !window.Interact || !Interact.items || !d.from) { heroSay(d.text, 2400); return; }
+      const st = d.stand; if (st) placeHero(st[0], st[2], st[3], st[3]);
+      if (IA.holding && IA.holding('L') && IA.holding('R') && IA.drop) IA.drop();
+      let item = null; try { item = Interact.items.make(d.item); } catch (e) { item = null; }
+      if (!item) { heroSay(d.text, 2400); return; }
+      item.position.set(d.from.x, d.from.y, d.from.z); scene.add(item);   // на блюде, на краю стола
+      S.treat = d.item;
+      try { await IA.play('take', { item, approach: false }); } catch (e) { console.warn('village: treat', e); }
+      if (item.parent === scene) { scene.remove(item); S.treat = null; return; }   // не взяла (руки заняты / отмена)
+      try { await IA.play('eat', {}); heroSay(d.text, 2400); await IA.play('eat', {}); } catch (e) { /* ok */ }
+      await sleep(300); if (IA.drop) IA.drop();
+      S.treat = null; S.treats = (S.treats || 0) + 1;
+    }
+    function startDance(d) {
+      const W = S.region.wedding; if (!W || !W.dance || !W.dance.active) { toast(d.text || 'Музыка!'); return; }
+      if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
+      const sl = d.slot; placeHero(sl.x, sl.z, sl.ry, sl.ry); S.sitting = null; S.view = null;
+      if (hero && hero.rig) hero.rig.prev = null;
+      S.dance = { W, beats: 0, taps: 0, slot: sl };
+      const tb = $('tapBtn');
+      W.dance.on = ev => {
+        if (!S.dance) return;
+        if (ev.type === 'beat') { S.dance.beats++; if (ev.n % 2 === 0) S.waveT = 0.42; tb.classList.add('beat'); setTimeout(() => tb.classList.remove('beat'), 110); }
+        else if (ev.type === 'hit') { if (ev.grade === 'perfect') S.cheerT = 0.45; if (ev.text) { tb.textContent = ev.text; clearTimeout(S.dance.tt); S.dance.tt = setTimeout(() => { tb.textContent = 'Хоп!'; }, 380); } }
+        else if (ev.type === 'end') endDance(ev);
+      };
+      tb.textContent = 'Хоп!'; tb.classList.add('on'); updKazBtn();
+      const dr = npcBy(d.who || 'wed_drum'); if (dr && d.text) { bubble(npcHead(dr), d.text, dr.name, 2600); dr.faceHero = 2; }
+      toast('Жми «Хоп!» в такт барабану', 2600);
+    }
+    function endDance(res) {
+      const D = S.dance; if (!D) return; S.dance = null; $('tapBtn').classList.remove('on'); updKazBtn();
+      if (D.W.dance.active) { try { D.W.dance.on = null; D.W.dance.stop(); } catch (e) { /* ok */ } }
+      if (res) { S.lastDance = { hits: res.hits, misses: res.misses, beats: res.beats, acc: res.acc, text: res.text }; if (res.text) heroSay(res.text, 2800); S.cheerT = 1.0; }
+    }
+    function danceTap() { if (!S.dance) return null; S.dance.taps++; return S.dance.W.dance.tap(); }
+    $('tapBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); hideHint(); danceTap(); });
+    function congrats(d) {
+      heroSay(d.text, 2600); S.waveT = 1.4;
+      const n = npcBy((d.reply && d.reply.npc) || 'wed_bride');
+      if (n && d.reply) later(2400, () => { bubble(npcHead(n), d.reply.text, d.reply.name || n.name, 3000); n.faceHero = 3; });
+    }
+
+    /* ---------- W4A: зиплайн (VILLAGE.zipline.ride) — со старта на башне отеля через долину к селу; как tests/w4/hotel.html ---------- */
+    async function startZip(d) {
+      const h = S.region;
+      if (!V.zipline || !V.zipline.ride || !hero) { toast(d.text || 'Зиплайн'); return; }
+      S.busy = true;
+      if (IA) { try { IA.cancel(); if (IA.drop) IA.drop(); } catch (e) { /* ok */ } if (IA.canPocket && IA.canPocket()) { try { await IA.play('pocket'); } catch (e) { /* ok */ } } }
+      const n = d.npc && npcBy(d.npc); if (n && d.line) { bubble(npcHead(n), d.line.text, n.name, 2600); n.faceHero = 3; }
+      S.sitting = null; S.view = null; S.look = null; S.busy = false;
+      if (h.idleTrolley) h.idleTrolley.visible = false;
+      $('skip').style.display = 'block'; S.zipEv = []; updKazBtn();
+      S.zip = V.zipline.ride({ THREE: T, scene, camera, hero, anim: hero.rig && hero.rig.anim, ia: IA, route: d.route || h.zipline, external: true, ground: h.ground, duration: +(Q.get('zipdur') || 27),
+        onEvent: (e, data) => { S.zipEv.push(e); if (data && data.line && e !== 'done') heroSay(data.line, 1800); } });
+      S.mode = 'zip';
+      const r = await S.zip;
+      $('skip').style.display = 'none'; S.zipResult = r;
+      await fade(named ? 'Финиш! Добро пожаловать в Кубачи…' : 'Финиш! Добро пожаловать в село…', () => { S.zip = null; loadRegion('kubachi', 'zipline'); });
+      if (IA && IA.pocketed && IA.pocketed()) later(700, () => { try { IA.play('unpocket'); } catch (e) { /* ok */ } });
+      return r;
+    }
+    $('skip').onclick = () => { if (S.zip && S.zip.skip) S.zip.skip(); };
+
+    /* ---------- W4A: мини-гольф отеля — потянуть назад и отпустить, 3 удара; руки на клюшке (golf.heroPose) ---------- */
+    function golfLabel() { const g = S.golf; if (!g) return; $('golfTries').textContent = 'удары: ' + (g.G.maxTries - g.G.tries) + ' из ' + g.G.maxTries; }
+    function golfStance() { const g = S.golf, st = g.G.stance(g.angle); S.px = st.x; S.pz = st.z; S.py = S.region.ground(st.x, st.z); S.ang = st.ry; if (hero && hero.rig) hero.rig.prev = null; }
+    function startGolf(d) {
+      const G = d.golf || S.region.golf; if (!G) { toast(d.text); return; }
+      if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
+      const st = G.start(); S.golf = { G, angle: G.aimAngle(), power: 0.45, drag: null }; G.aim(S.golf.angle, S.golf.power);
+      golfStance(); setView(st.view, true); S.sitting = null;
+      $('golfUI').style.display = 'block'; $('golfTxt').textContent = 'Потяни назад и отпусти'; golfLabel();
+      if (d.hero) later(300, () => heroSay(d.hero, 1800)); if (d.text) toast(d.text, 2600);
+    }
+    async function golfShoot(angle, power) {
+      const g = S.golf; if (!g || g.G.rolling) return null;
+      if (angle !== undefined) g.angle = angle; if (power !== undefined) g.power = power;
+      const r = await g.G.shoot(g.angle, g.power); golfLabel();
+      const n = npcBy('hotel_raccoon'); if (n && r && r.text) { bubble(npcHead(n), r.text, n.name, 2600); n.faceHero = 2.5; n.hop && n.hop(); }
+      if (r && r.holed) { S.cheerT = 1.2; heroSay('Ура! В лунку!', 1800); }
+      if (r && r.done) { $('golfTxt').textContent = r.holed ? 'В лунке! «Встать» — закончить' : 'Удары кончились. «Встать» — закончить'; }
+      else if (S.golf) { g.angle = g.G.aimAngle(); golfStance(); }
+      S.golfLast = r; return r;
+    }
+    function stopGolf(quiet) { if (!S.golf) return; try { S.golf.G.stop(); } catch (e) { /* ok */ } S.golf = null; $('golfUI').style.display = 'none'; if (!quiet) { setView(null); S.camInit = false; } }
+
+    /* ---------- W4A: меню стенда ⚙️ — машина, время суток, каз, базар ---------- */
+    async function menu() {
+      if (S.busy || S.zip) return;
+      const box = $('cardBox'); S.busy = true;
+      const h = S.region, inV = S.rid === 'kubachi';
+      box.innerHTML = '<div class="t">Стенд гор</div>'
+        + '<div class="sub">Машина</div><div class="row" id="mCar"></div>'
+        + (window.DayNight ? '<div class="sub">Время суток · сейчас ' + (DayNight.override() !== null ? 'утро (зафиксировано)' : 'как на часах') + ' · ' + DayNight.phase() + '</div><div class="row" id="mTime"></div>' : '')
+        + (inV ? '<div class="sub">Село</div><div class="row" id="mVil"></div>' : '')
+        + '<div class="row"><button class="main" id="mOk">Готово</button></div>';
+      const btn = (host, t, on, fn) => { const b = document.createElement('button'); b.textContent = t; if (on) b.classList.add('on'); b.onclick = fn; $(host).appendChild(b); return b; };
+      if (window.VEHICLES && VEHICLES.picker) { const pk = VEHICLES.picker({ current: S.carId, onPick: id => { if (!setCar(id)) pk.select(S.carId); } }); pk.style.flex = '1'; $('mCar').appendChild(pk); }
+      else btn('mCar', 'Ретро-купе', true, () => {});
+      if (window.DayNight) {
+        // «ночь» стенда — часы телефона на 22:30 (как будто уже вечер): кнопка DayNight «Вернуться в утро» появляется сама
+        btn('mTime', '🌙 Часы: 22:30', DayNight.phase() === 'night', () => { DayNight.setClock(() => 22.5); DayNight.set(null, { persist: false }); if (S.dnToggle) S.dnToggle.refresh(); closeMenu(); });
+        btn('mTime', '☀️ Вернуться в утро', DayNight.override() !== null && DayNight.phase() === 'morning', () => { DayNight.set('morning'); closeMenu(); toast(DayNight.LINES.toMorning, 2200); });
+        btn('mTime', '🕗 Как на часах', DayNight.override() === null, () => { DayNight.setClock(null); DayNight.set(null); if (S.dnToggle) S.dnToggle.refresh(); closeMenu(); toast(DayNight.LINES.toClock, 2200); });
+      }
+      if (inV) {
+        if (kazOk()) btn('mVil', '🧣 ' + (kazWorn() ? 'Снять ' : 'Надеть ') + kazWord(), false, () => { if (kazWorn()) kazRemove(); else kazWear({}); closeMenu(); });
+        if (h.setBazaar) btn('mVil', h.bazaar && h.bazaar.big ? '🧺 Базар: обычный день' : '🧺 Базар: большой день', false, () => { h.setBazaar(!(h.bazaar && h.bazaar.big)); closeMenu(); toast(h.bazaar && h.bazaar.big ? 'Большой базар — раз в неделю.' : 'Обычный день на площади.', 2000); });
+      }
+      $('mOk').onclick = closeMenu;
+      $('card').classList.add('on');
+    }
+    function closeMenu() { $('card').classList.remove('on'); S.busy = false; }
+    $('menuBtn').onclick = () => { hideHint(); menu(); };
+
+    /* ---------- волна 4: родник с крышкой — открыть, спуститься, зачерпнуть ладошками, попить, закрыть (js/interact.js) ---------- */
+    async function drinkSpring(d) {
+      const st = d.spring.stand; if (st && st.pos) placeHero(st.pos.x, st.pos.z, st.yaw, st.yaw);
+      S.springT = true;
+      if (IA.holding && IA.holding() && IA.drop) IA.drop();   // W4A: обе руки свободны — пить из ладошек
+      try { await IA.play('drinkSpring', { spring: d.spring }); } catch (e) { console.warn('village: drinkSpring', e); }
+      S.springT = false; S.iaDy = 0;
+      heroSay('Холодненькая!', 2200); later(900, () => npcSayEvent('spring_hedgehog', 'springDrink', 2600));
+    }
+
+    /* ---------- волна 4: лестница в башне (h.climb) — палец вверх/вниз или кнопки «Вверх» / «Вниз» ---------- */
+    const atTmp = {}, camW = new T.Vector3(), lookW = new T.Vector3();
+    function startClimb(from) {
+      const c = S.region.climb; if (!c || !c.at) return false;
+      if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
+      S.climb = { s: from === 'top' ? c.len : 0, dir: from === 'top' ? -1 : 1, auto: from === 'top' ? -1 : 1, camMode: null };
+      S.mode = 'climb'; S.sitting = null; S.view = null; S.look = null; S.level = 'ground';
+      blink(); const a = ACT().tower || {}; toast(a.climb || 'Винтовая лестница', 2600);
+      stepClimb(0); S.camInit = false;
+      return true;
+    }
+    function stepClimb(dt) {
+      const c = S.region.climb, C = S.climb; if (!c || !C) return;
+      let inp = 0; const jy = (keys.u ? -1 : 0) + (keys.d ? 1 : 0) + (Math.abs(joy.y) > 0.25 ? joy.y : 0);
+      if (jy < -0.2) inp = 1; else if (jy > 0.2) inp = -1;
+      if (inp) C.auto = 0;
+      const v = S.busy ? 0 : (inp || C.auto), spd = 1.55;
+      if (v) { C.s = clamp(C.s + v * spd * dt, 0, c.len); C.dir = v > 0 ? 1 : -1; }
+      const p = c.at(C.s, atTmp); S.px = p.x; S.py = p.y; S.pz = p.z; S.ang = C.dir > 0 ? p.ry : p.ry + PI; S.walking = !!v;
+      if (C.dir > 0 && C.s >= c.len - 1e-4) finishClimb('top');
+      else if (C.dir < 0 && C.s <= 1e-4) finishClimb('bottom');
+    }
+    function finishClimb(where) {
+      const c = S.region.climb; S.climb = null; S.mode = 'walk'; blink(); S.camInit = false; if (hero && hero.rig) hero.rig.prev = null;
+      if (where === 'top') { S.level = 'top'; S.px = c.top[0]; S.pz = c.top[2]; S.py = c.top[1]; S.yaw = S.ang; later(700, () => npcSayEvent('eagle', 'climbTop', 3200)); }
+      else { S.level = 'ground'; const d = c.door; S.px = d[0]; S.pz = d[2]; S.py = S.region.ground(d[0], d[2]); const tw = S.region.places.tower; S.ang = Math.atan2(d[0] - tw.x, d[2] - tw.z); S.yaw = S.ang; }
+    }
+
+    /* ---------- волна 4: «Осмотреться» с площадки башни ---------- */
+    function startLook(id) {
+      const L = S.region.camera.looks[id]; S.look = { id, L, yaw: L.yaw0, pitch: L.pitch0, fov: L.fov0 }; S.view = null; S.sitting = null; S.level = 'top';
+      const a = ACT().tower_top || {}; toast(a.look || 'Веди пальцем — оглядись.', 3600);
+    }
+    function stopLook() { S.look = null; S.camInit = false; resize(); }
+
+    /* ---------- выходы: облачная шторка и смена региона ---------- */
+    const EXIT_TO = { toHotel: 'hotel', toVillage: 'kubachi', toKubachi: 'kubachi', toZip: 'kubachi', toRoad: 'serpentine' };
+    async function useExit(ex) {
+      if (S.rid === 'hotel' && ex.id === 'zipline') { const sp = S.region.spots.find(q => q.id === 'zipline_start'); if (sp) return useSpot(sp); }
+      const to = ex.to || (S.rid === 'hotel' ? (ex.id === 'toRoad' ? 'serpentine' : EXIT_TO[ex.id]) : null);
+      if (S.rid === 'kubachi') {
+        if (haveRegion('serpentine')) await fade('Вниз по серпантину…', () => loadRegion('serpentine', 'kubachi'));
+        else { await fade('Дорога вниз…', () => {}); toast('Серпантин и город — в основной игре. Возвращаемся на площадь.'); const sp = S.region.spawn; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); S.camInit = false; }
+      } else if (S.rid === 'hotel') {
+        if (to && haveRegion(to)) await fade(to === 'kubachi' ? 'В село…' : 'На дорогу…', () => loadRegion(to, ex.via || 'hotel'));
+        else toast(ex.label || 'Выход');
+      } else if (ex.id === 'toHotel') {
+        if (haveRegion('hotel')) await fade('К отелю…', () => loadRegion('hotel', 'serpentine'));
+        else toast('Отель — в следующей сборке. Дорога дальше — к селу.', 2600);
+      } else if (ex.id === 'toVillage') {
+        S.trip.up = true;
+        await fade('Через облака — в село…', () => { loadRegion('kubachi', 'serpentine'); S.trip.village = true; });
+      } else {
+        // край города: в игре здесь начинается город; в стенде — карточка и снова к щиту
+        S.trip.down = S.dir === 'down' || S.trip.down; S.trip.city++;
+        await fade('Город…', () => { if (drv) { drv.S.v = 0; } });
+        S.cityCard = true;
+        await card('Город', ['Серпантин позади — впереди улицы города.', 'В игре дальше — город. Здесь, в стенде, можно снова поехать в горы.'], [{ t: 'Снова в горы', main: true }]);
+        S.cityCard = false;
+        await fade('', () => placeCarStart());
+      }
+    }
+    // выходы серпантина срабатывают сами, когда машина въезжает в облако (вооружаются, когда машина от них отъехала)
+    function checkExits() {
+      const h = S.region; if (!h || S.mode !== 'drive' || !drv || S.busy) return null;
+      for (const ex of h.exits) {
+        const d = Math.hypot(drv.S.x - ex.x, drv.S.z - ex.z);
+        if (d > ex.r + 3) S.exitArmed[ex.id] = true;
+        if (S.exitArmed[ex.id] && d < ex.r) { S.exitArmed[ex.id] = false; S.lastExit = ex.id; useExit(ex); return ex.id; }
+      }
+      return null;
+    }
+
+    /* ---------- машина: выйти и сесть за руль (drive.js волны 4) ---------- */
+    async function getOut() {
+      if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
+      S.busy = true; const r = await drv.heroOut(hero, scene, {}); S.busy = false;
+      if (!r) return false;
+      S.mode = 'walk'; S.px = r.x; S.pz = r.z; S.py = S.region.ground(r.x, r.z); S.ang = r.ry; S.yaw = drv.S.ry; S.camInit = false; if (hero.rig) hero.rig.prev = null;
+      document.body.classList.toggle('drive', false); return r;
+    }
+    async function getIn() {
+      if (S.mode !== 'walk' || !drv || !drv.heroIn || !drv.canEnter(S.px, S.pz) || S.busy) return false;
+      S.busy = true; S.sitting = null; S.view = null; await drv.heroIn(hero, {}); S.busy = false; S.mode = 'drive'; if (chase) chase.snap();
+      document.body.classList.toggle('drive', true); return true;
+    }
+
+    /* ---------- кнопка действия: ближайший житель / место / выход ---------- */
+    function nearest() {
+      const h = S.region; if (!h) return null;
+      let best = null;
+      const cand = (kind, ref, x, y, z, r, label) => { const d = Math.hypot(S.px - x, S.pz - z); if (d < r && Math.abs((y || 0) - S.py) < 2.4 && (!best || d < best.d)) best = { kind, ref, d, label }; };
+      S.near2 = null;
+      if (S.mode === 'walk') {
+        h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || !n.lines || !n.lines.length) return; cand('npc', n, n.root.position.x, n.root.position.y, n.root.position.z, (n.talkR || 2.2) + (n.id === 'eagle' ? 1.5 : 0), 'Поговорить: ' + n.name); });
+        h.spots.forEach(sp => { if ((sp.level || 'ground') !== S.level) return; cand('spot', sp, sp.x, sp.y, sp.z, sp.r || 1.2, (sp.icon ? sp.icon + ' ' : '') + (sp.action || sp.label)); });
+        h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });
+        if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
+      } else if (drv) {
+        const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;
+        h.exits.forEach(ex => { const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
+        if (slow) {
+          h.spots.forEach(sp => { const d = Math.hypot(cx - sp.x, cz - sp.z); if (d < 9 && (!best || d < best.d + 3)) best = { kind: 'spot', ref: sp, d, label: (sp.icon ? sp.icon + ' ' : '') + 'Посидеть: ' + String(sp.label || '').toLowerCase() }; });
+          h.npcs.forEach(n => { if (n.silent || !n.lines || !n.lines.length) return; const d = Math.hypot(cx - n.root.position.x, cz - n.root.position.z); if (d < (n.talkR || 2.8) + 11 && (!best || best.kind !== 'spot')) best = { kind: 'npc', ref: n, d, label: 'Поговорить: ' + n.name }; });
+          const tur = h.npcs.find(n => !n.silent && Math.hypot(cx - n.root.position.x, cz - n.root.position.z) < (n.talkR || 2.8) + 11);
+          if (tur && best && best.kind === 'spot') S.near2 = { kind: 'npc', ref: tur, label: 'Поговорить: ' + tur.name };
+        }
+        if (drv.heroOut && drv.canExit && drv.canExit() && !S.near2) { const g = { kind: 'carOut', d: 0, label: '🚪 Выйти' }; if (best) S.near2 = g; else best = g; }
+      }
+      return best;
+    }
+    function act() {
+      if (S.busy || S.zip) return;
+      if (S.dance) { danceTap(); return; }
+      if (S.golf) { stopGolf(); updAct(); return; }
+      if (S.climb) { S.climb.auto = S.climb.auto > 0 ? 0 : 1; return; }
+      if (S.look) { stopLook(); updAct(); return; }
+      if (S.inShop) { shopMenu(S.inShop); return; }
+      if (S.sitting || S.view) { standUp(); setView(null); updAct(); return; }
+      const n = S.near; if (!n) return;
+      if (n.kind === 'npc') { if (n.ref.id === 'roof_cat' && S.flags.bread && S.region.feedCat) { S.region.feedCat(); const ev = V.eventLine('catFed', named); bubble(npcHead(n.ref), ev ? ev.text : 'Мур.', n.ref.name, 2600); S.flags.bread = false; } else talk(n.ref); }
+      else if (n.kind === 'spot') { if (S.mode === 'drive') sitRoad(n.ref); else useSpot(n.ref); }
+      else if (n.kind === 'exit') useExit(n.ref);
+      else if (n.kind === 'carIn') getIn();
+      else if (n.kind === 'carOut') getOut();
+    }
+    $('act').onclick = act;
+    $('act2').onclick = () => {
+      if (S.dance) { endDance(S.dance.W.dance.stop()); return; }
+      if (S.climb) { S.climb.auto = S.climb.auto < 0 ? 0 : -1; return; }
+      if (S.inShop) { leaveShop(S.inShop); return; }
+      if (S.sitting || S.view) { standUp(); setView(null); return; }
+      if (S.near2) { if (S.near2.kind === 'npc') talk(S.near2.ref); else if (S.near2.kind === 'carIn') getIn(); else if (S.near2.kind === 'carOut') getOut(); }
+    };
+    // смотровая серпантина: машина стоит, героиня на лавочке, камера плавно приближает (FOV 58 → 16)
+    function sitRoad(sp) {
+      if (!drv || Math.abs(drv.S.v) > 1.6) return;
+      drv.S.v = 0; S.sitting = { h: drv.S.y, x: drv.S.x, z: drv.S.z, road: true };
+      camera.fov = camera.aspect < 0.8 ? 58 : 48; camera.updateProjectionMatrix();
+      setView(sp.view || 'viewpoint', true); if (S.view) S.view.zoom = true;
+      const ev = S.region.npcs.find(n => n.id === 'tur'); if (ev) later(2600, () => { if (S.sitting && S.sitting.road) talk(ev); });
+    }
+    function updAct() {
+      const a = $('act'), a2 = $('act2');
+      if (S.busy || S.shopBuy || S.springT || S.zip || S.treat || (IA && IA.busy())) { a.style.display = 'none'; a2.style.display = 'none'; return; }
+      if (S.dance) { a.style.display = 'none'; a2.style.display = 'block'; a2.textContent = 'Хватит танцевать'; return; }
+      if (S.golf) { a.style.display = 'block'; a.classList.add('soft'); a.textContent = 'Встать'; a2.style.display = 'none'; return; }
+      if (S.climb) { a.style.display = 'block'; a.classList.add('soft'); a.textContent = S.climb.auto > 0 ? '⏸ Стоп' : '▲ Вверх'; a2.style.display = 'block'; a2.textContent = S.climb.auto < 0 ? '⏸ Стоп' : '▼ Вниз'; return; }
+      if (S.look) { a.style.display = 'block'; a.textContent = 'Хватит смотреть'; a.classList.add('soft'); a2.style.display = 'none'; return; }
+      if (S.inShop) { a.style.display = 'block'; a.classList.remove('soft'); a.textContent = '🛍️ Купить'; a2.style.display = 'block'; a2.textContent = 'Выйти из лавки'; return; }
+      if (S.sitting || S.view) { a.style.display = 'block'; a.textContent = 'Встать'; a.classList.add('soft'); a2.style.display = 'none'; return; }
+      a.classList.remove('soft');
+      S.near = nearest();
+      if (S.near) { a.style.display = 'block'; a.textContent = S.near.label; } else a.style.display = 'none';
+      if (S.near2) { a2.style.display = 'block'; a2.textContent = S.near2.label; } else a2.style.display = 'none';
+    }
+
+    /* ---------- кадр ---------- */
+    const HR = 0.3;
+    function stepWalk(dt) {
+      const h = S.region;
+      // палец на джойстике прерывает действие рук (один раз: cancel доигрывает 0,35 с «вернуть руки»)
+      if (IA && IA.busy()) { if (moveInput() && !S.inShop && !S.springT && !S.iaCancel) { S.iaCancel = true; IA.cancel(); } S.vx = S.vz = 0; S.walking = false; return; }
+      S.iaCancel = false;
+      if (S.dance) { const sl = S.dance.slot; S.px = sl.x; S.pz = sl.z; S.ang = sl.ry; S.vx = S.vz = 0; S.walking = false; if (moveInput() && !S.danceAuto) endDance(S.dance.W.dance.stop()); return; }
+      if (S.golf) { S.vx = S.vz = 0; S.walking = false; return; }
+      if (S.busy || S.sitting || S.view || S.look || S.inShop) { S.vx = S.vz = 0; S.walking = false; return; }
+      const dir = moveInput(), speed = dir ? 1.2 + 2.2 * dir[2] : 0;
+      const tvx = dir ? dir[0] * speed : 0, tvz = dir ? dir[1] * speed : 0, k = Math.min(1, dt * 10);
+      S.vx += (tvx - S.vx) * k; S.vz += (tvz - S.vz) * k;
+      // W4A: шаг больше 12 см (медленный кадр, 10 кадров/с) — по частям, чтобы не «протиснуться» сквозь угол дома
+      let nx = S.px, nz = S.pz; const mvx = S.vx * dt, mvz = S.vz * dt, nSub = Math.max(1, Math.min(6, Math.ceil(Math.hypot(mvx, mvz) / 0.12)));
+      for (let k = 0; k < nSub; k++) { nx += mvx / nSub; nz += mvz / nSub; if (h.collide) [nx, nz] = h.collide(nx, nz, HR, S.py); }
+      // героиня не «проваливается»: шаг вверх/вниз больше 0,6 м — стоп (на случай чужого региона без обрывов)
+      const ny = h.ground(nx, nz);
+      if (Math.abs(ny - S.py) < 0.7 || S.level === 'top') { S.px = nx; S.pz = nz; S.py += (ny - S.py) * Math.min(1, dt * 16); if (Math.abs(ny - S.py) > 0.3) S.py = ny; }
+      const sp = Math.hypot(S.vx, S.vz); S.walking = sp > 0.25;
+      if (sp > 0.25) { S.ang += angDiff(Math.atan2(S.vx, S.vz), S.ang) * Math.min(1, dt * 11); S.moveT += dt; } else S.moveT = 0;
+      // жители здороваются сами, когда подходишь
+      h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || !n.lines || !n.lines.length) return; const d = Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz); if (d < 2.6 && Math.abs(n.root.position.y - S.py) < 2.5 && performance.now() - (S.lastGreet[n.id] || -1e9) > 25000) talk(n, true); });
+    }
+    const camPos = new T.Vector3(), look = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3();
+    function updCamera(dt) {
+      const h = S.region;
+      if (S.view) {
+        const v = S.view.v; S.view.t += dt; const e = S.view.smooth ? Math.min(1, S.view.t / 1.4) : 1, ee = e * e * (3 - 2 * e);
+        const tp = new T.Vector3(...v.pos), tl = new T.Vector3(...v.target);
+        camera.position.lerpVectors(S.view.from, tp, ee); const lk = new T.Vector3().lerpVectors(S.view.fromLook, tl, ee); camera.lookAt(lk);
+        const fov = v.fov || 50;
+        if (S.view.zoom) { const k = Math.min(1, S.view.t / 2.6), e2 = k * k * (3 - 2 * k); S.view.fov0 = S.view.fov0 || camera.fov; camera.fov = S.view.fov0 + (fov - S.view.fov0) * e2; camera.updateProjectionMatrix(); }
+        else if (Math.abs(camera.fov - fov) > 0.01) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3 + (S.view.smooth ? 0 : 1)); camera.updateProjectionMatrix(); }
+        return;
+      }
+      if (S.look) {   // «Осмотреться»: за плечом героини над парапетом, свободный взгляд
+        const L = S.look.L, cy = Math.cos(S.look.pitch), f = [Math.sin(S.look.yaw) * cy, Math.sin(S.look.pitch), Math.cos(S.look.yaw) * cy], pv = L.pivot, fx = Math.sin(S.look.yaw), fz = Math.cos(S.look.yaw);
+        // взгляд вниз (pitch < −0,3): камера плавно выходит к парапету, героиня остаётся позади — видно село под башней, а не макушку
+        const kq = clamp((-0.3 - S.look.pitch) / 0.5, 0, 1), k = kq * kq * (3 - 2 * kq), ahead = L.heroAhead * (1 - k) - 0.45 * k, back = L.dist * cy * (1 - k) - (L.edge || 2.4) * k;
+        S.px = pv[0] + fx * ahead; S.pz = pv[2] + fz * ahead; S.py = L.heroY; S.ang = S.look.yaw; S.walking = false;
+        camera.position.set(pv[0] - fx * back, pv[1] + L.up - f[1] * L.dist * 0.5 * (1 - k) + (L.edgeUp || 0.6) * k, pv[2] - fz * back);
+        camera.lookAt(pv[0] + f[0] * 20, pv[1] + f[1] * 20, pv[2] + f[2] * 20);
+        if (Math.abs(camera.fov - S.look.fov) > 0.01) { camera.fov += (S.look.fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
+        return;
+      }
+      if (S.climb && h.climb && h.climb.cam) {   // лестница в башне: камера внутри, позади по лестнице
+        const m = h.climb.cam(S.climb.s, S.climb.dir, camW, lookW);
+        if (m !== S.climb.camMode) { if (S.climb.camMode) blink(); S.climb.camMode = m; camPos.copy(camW); }
+        camPos.lerp(camW, 1 - Math.exp(-dt * 6)); camera.position.copy(camPos); camera.lookAt(lookW);
+        const fovT = 66; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
+        return;
+      }
+      if ((S.mode === 'drive' || inCar()) && chase && drv) { chaseCam(dt); return; }
+      if (keys.q) { S.yaw += dt * 1.8; S.manualT = 2.5; } if (keys.e) { S.yaw -= dt * 1.8; S.manualT = 2.5; }
+      S.manualT = Math.max(0, S.manualT - dt);
+      if (S.manualT <= 0 && S.walking && S.moveT > 0.6) { const e = angDiff(S.ang, S.yaw); if (Math.abs(e) < 2.3) S.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
+      const top = S.level === 'top', dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      look.set(S.px, S.py + 1.35, S.pz);
+      want.set(S.px - Math.sin(S.yaw) * dist, S.py + hgt, S.pz - Math.cos(S.yaw) * dist);
+      const gy = h.ground(want.x, want.z); if (want.y < gy + 1.2) want.y = gy + 1.2;
+      // склон/бугор между героиней и камерой (рельеф, не коллайдер): поднять камеру над линией взгляда, не больше чем на 3,5 м
+      if (!top) { let up = 0; for (const t of [0.5, 0.75]) { camUp.lerpVectors(look, want, t); const g = h.ground(camUp.x, camUp.z) + 0.35; if (camUp.y + up * t < g) up = (g - camUp.y) / t; } want.y += Math.min(3.5, up); }
+      // камера не в стене: луч голова → камера по коллайдерам; заслонило — придвинуть к героине (перед препятствием),
+      // а если вышло близко — приподнять над головой, но только туда, куда луч свободен
+      if (h.rayHit && !top) {
+        const t = h.rayHit(look, want);
+        if (t < 1) {
+          const full = look.distanceTo(want), k = Math.max(0, t - 0.07);
+          if (k * full < 1.2) {
+            const hx = want.x - look.x, hz = want.z - look.z, hl = Math.hypot(hx, hz) || 1;
+            camUp.set(look.x - hx / hl * 0.7, look.y + 3.2, look.z - hz / hl * 0.7);
+            if (h.rayHit(look, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); else want.lerpVectors(look, want, Math.max(0.03, k));
+          } else {
+            want.lerpVectors(look, want, k);
+            const d = k * full;
+            if (d < 4) { camUp.copy(want); camUp.y += (4 - d) * 0.9; if (h.rayHit(look, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); }
+          }
+        }
+      }
+      if (!S.camInit) { camPos.copy(want); S.camInit = true; }
+      camPos.lerp(want, 1 - Math.exp(-dt * 7));
+      // сглаживание не протаскивает камеру сквозь дома и землю
+      const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
+      if (h.rayHit && !top) { const t2 = h.rayHit(look, camPos); if (t2 < 1) camPos.lerpVectors(look, camPos, Math.max(0.03, t2 - 0.07)); }
+      camera.position.copy(camPos); camera.lookAt(look);
+      const fovT = camera.aspect < 0.8 ? 58 : 48; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
+    }
+    // «вау»-момент серпантина: один раз за поездку вверх камера показывает село через долину
+    let momentLook = null, momentW = 0;
+    function moments(dt) {
+      momentLook = null; momentW = 0; const h = S.region; if (!h || !drv) return;
+      (h.moments || []).forEach(m => { if (!m.done && drv.S.s > m.s0 && drv.S.s < m.s1 && drv.S.v > 0.5 && S.dir === 'up') { m.done = true; m.t = 0; } if (m.t != null && m.t < m.dur) { m.t += dt; momentLook = m.look; momentW = Math.min(1, m.t / 1.2, (m.dur - m.t) / 1.2); } });
+    }
+    function chaseCam(dt) {
+      const h = S.region; let bias = 0;
+      try { bias = h.cameraBias ? h.cameraBias(drv.S.x, drv.S.y, drv.S.z, drv.S.ry, drv.S.s) : 0; } catch (e) { bias = 0; }
+      if (S.dir === 'down') bias = 0;
+      chase.update(dt, drv, { yawBias: bias, look: momentLook, lookW: momentW });
+    }
+    // волна 4: без помощников — газ, тормоз и руль только от игрока (drive.touchInput); автопилот — только для QA
+    function driveInput() {
+      if (S.busy || S.sitting || S.view) return { brake: true };
+      if (S.auto) return { auto: true, thr: S.auto, road: S.autoRoad };
+      if (keys.u || keys.d || keys.l || keys.r) return { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0), brake: ped.brk };
+      if (V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: joy.x, jy: joy.y, gas: ped.gas, brake: ped.brk, v: drv.S.v });
+      const d = moveInput(); if (d) return { dir: d };
+      if (ped.gas || ped.brk) return { thr: ped.gas ? 1 : (drv.S.v > 0.6 ? 0 : -1), brake: ped.brk && drv.S.v > 0.6 };
+      return {};
+    }
+    function stepDrive(dt, inp) {
+      if (!drv) return;
+      drv.update(dt, inp || driveInput());
+      // подпись тормозной педали: «назад», пока тормоз после остановки везёт машину задом (drive.js → brakeLabel)
+      if (drv.brakeLabel) { const lb = drv.brakeLabel(); if (lb !== S.brkLabel) { S.brkLabel = lb; const el = $('brk'); if (el) el.textContent = lb; } }
+      S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y;
+      moments(dt);
+      checkExits();
+    }
+    // волна 4: события региона (коровья лепёшка): «Ой!» — подпрыгнула — шаркнула ботинком о траву — «Фу-фу…», наклейка
+    function pollEvents() {
+      const h = S.region; if (!h || !h.pollEvents) return;
+      h.pollEvents().forEach(ev => {
+        (S.evLog = S.evLog || []).push({ type: ev.type, id: ev.id, t: Math.round(performance.now()) });
+        if (ev.type !== 'cowpat') return;
+        S.pats++; heroSay((ev.hero || ['Ой!'])[0], 1100); later(1150, () => heroSay((ev.hero || [])[1] || '', 1700));
+        S.cheerT = 0.9; S.wipeDelay = 0.95; S.wipeT = 1.5;
+        if (ev.sticker) later(600, () => sticker(ev.sticker));
+        if (ev.line) { const cow = h.npcs.filter(n => n.speaker === 'cow' && n.root.visible).sort((a, b) => Math.hypot(a.x - S.px, a.z - S.pz) - Math.hypot(b.x - S.px, b.z - S.pz))[0]; if (cow && Math.hypot(cow.x - S.px, cow.z - S.pz) < 16) later(1700, () => { bubble(npcHead(cow), ev.line.text, cow.name, 2600); cow.faceHero = 2.5; }); }
+      });
+    }
+    let last = performance.now(), fpsAcc = 0, fpsN = 0;
+    function tick() {
+      requestAnimationFrame(tick);
+      const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
+      fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
+      if (!S.region || S.paused) return;
+      frame(dt);
+    }
+    function frame(dt) {
+      if (S.zip && S.mode === 'zip') {
+        S.zip.update(dt);
+        if (hero) { S.px = hero.root.position.x; S.py = hero.root.position.y; S.pz = hero.root.position.z; }
+        if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
+        S.region.update(dt, { x: S.px, y: S.py, z: S.pz }, camera);
+        if (dn) dn.update(dt, camera);
+        if (blob) blob.visible = false;
+        renderer.info.reset(); renderer.render(scene, camera); S.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; S.frames++;
+        if (S.frames % 6 === 0) updAct(); updBubbles(); return;
+      }
+      if (S.mode === 'climb') stepClimb(dt);
+      else if (S.mode === 'walk') { if (drv) drv.update(dt, { brake: true }); stepWalk(dt); }
+      else stepDrive(dt);
+      animHero(dt);
+      if (IA) { IA.update(dt); if (!IA.busy() && S.iaDy) { S.iaDy *= 0.7; if (Math.abs(S.iaDy) < 0.01) S.iaDy = 0; } }
+      if (S.golf && hero && hero.rig) { S.walking = false; S.golf.G.heroPose(hero.rig.anim, dt, hero.root); }
+      if (kazWorn()) { try { V.kaz.update(dt, S.animSt || {}); } catch (e) { if (!S.kazErr) { S.kazErr = true; console.warn('village: kaz update', e); } } }
+      if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
+      updCamera(dt);
+      S.region.update(dt, { x: S.px, y: S.py, z: S.pz }, camera);
+      pollEvents();
+      if (dn) { dn.update(dt, camera); const k = dn.lampsOn() ? Math.max(0.65, dn.night()) : dn.night() * 0.5; if (Math.abs(k - S.night) > 0.004 && S.region.setNight) { S.night = k; S.region.setNight(k); }
+        const lo = dn.lampsOn(); if (car && car.setNight && lo !== S.carLamps) { S.carLamps = lo; try { car.setNight(lo ? 1 : 0); } catch (e) { /* ok */ } } }
+      renderer.info.reset();
+      renderer.render(scene, camera);
+      S.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
+      S.frames++;
+      if (S.frames % 6 === 0) { updAct(); if (S.mode === 'drive' && drv) $('speed').textContent = Math.round(Math.abs(drv.S.v) * 3.6) + ' км/ч'; }
+      updBubbles();
+      if (DEBUG && S.frames % 10 === 0) { const d = $('dbg'); d.style.display = 'block'; d.textContent = `${S.fps} fps · ${S.info.calls} вызовов · ${Math.round(S.info.tris / 1000)} тыс.\n${S.rid} ${S.mode} (${S.px.toFixed(1)}, ${S.py.toFixed(1)}, ${S.pz.toFixed(1)})\nгероиня: ${heroKind}${IA ? ' + руки' : ''} · dpr ${renderer.getPixelRatio()}${dn ? ' · ' + DayNight.phase() : ''}`; }
+    }
+
+    /* ---------- отладка ---------- */
+    window.__village = {
+      region: () => S.rid,
+      pos: () => ({ x: S.px, y: S.py, z: S.pz, ry: S.ang, mode: S.mode, level: S.level, sitting: !!S.sitting, view: S.view && S.view.id, active: !!S.region && !S.busy, climb: S.climb ? +S.climb.s.toFixed(2) : null, look: S.look ? S.look.id : null, shop: S.inShop ? S.inShop.id : null }),
+      info: () => Object.assign({ fps: S.fps, calls: S.info.calls, tris: S.info.tris, frames: S.frames, hero: heroKind, buildMs: S.buildMs, dpr: renderer.getPixelRatio() }, S.region && S.region.stats ? S.region.stats() : {}),
+      go: id => { if (!id) { setView(null); return true; } if (!S.region.camera.views[id]) return false; setView(id, false); return true; },
+      spot: id => { const sp = S.region.spots.find(s => s.id === id); if (!sp) return false; if (sp.level === 'top') { S.level = 'top'; } S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); useSpot(sp); return true; },
+      talk: id => { const n = S.region.npcs.find(x => x.id === id); if (!n) return false; talk(n); return n.lines.slice(); },
+      tp: (x, z, yaw) => { S.px = x; S.pz = z; S.py = S.region.ground(x, z); if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.view = null; S.sitting = null; S.look = null; S.inShop = null; if (S.climb) { S.climb = null; S.mode = 'walk'; } return S.py; },
+      // идти к точке (как палец на джойстике в сторону цели); возвращает итог и минимум/максимум высоты по пути
+      walkTo: (x, z, sec = 30) => new Promise(r => { const t0 = performance.now(); let ymin = 1e9, ymax = -1e9, jump = 0, py = S.py, lastD = 1e9, stuckT = performance.now();
+        const kk = () => { const dx = x - S.px, dz = z - S.pz, d = Math.hypot(dx, dz); ymin = Math.min(ymin, S.py); ymax = Math.max(ymax, S.py); jump = Math.max(jump, Math.abs(S.py - py)); py = S.py;
+          if (d < lastD - 0.05) { lastD = d; stuckT = performance.now(); }
+          if (d < 0.5 || performance.now() - t0 > sec * 1000 || performance.now() - stuckT > 2500) { keys.u = keys.d = keys.l = keys.r = false; joy.x = joy.y = 0; r({ ok: d < 0.5, d: +d.toFixed(2), x: +S.px.toFixed(2), z: +S.pz.toFixed(2), y: +S.py.toFixed(2), ymin: +ymin.toFixed(2), ymax: +ymax.toFixed(2), jump: +jump.toFixed(2) }); return; }
+          // направление цели в осях камеры: джойстик (x — вправо, y — вниз)
+          const a = Math.atan2(dx, dz) - S.yaw; joy.x = -Math.sin(a); joy.y = -Math.cos(a); requestAnimationFrame(kk); };
+        S.view = null; S.sitting = null; kk(); }),
+      walk: (dx, dz, sec) => new Promise(r => { const t0 = performance.now(); const kk = () => { joy.x = dx; joy.y = dz; if (performance.now() - t0 < sec * 1000) requestAnimationFrame(kk); else { joy.x = joy.y = 0; r(window.__village.pos()); } }; kk(); }),
+      load: (id, from) => loadRegion(id, from),
+      exit: id => { const ex = S.region.exits.find(e => e.id === id); if (!ex) return false; useExit(ex); return true; },
+      frames: () => S.frames, state: S, handle: () => S.region, camera, renderer, scene,
+      // серпантин: состояние машины, телепорт по дороге, автопилот, быстрая езда без рендера (физика 60 Гц, выходы срабатывают как в игре)
+      drive: () => (drv ? Object.assign(drv.info(), { dir: S.dir, len: +S.region.road.len.toFixed(1), trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +camera.fov.toFixed(1) }) : null),
+      teleportS: (s, rev) => { if (!drv) return null; const q = S.region.road.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; if (chase) chase.snap(); return drv.info(); },
+      auto: thr => { S.auto = thr || 0; return S.auto; },
+      act: () => { updAct(); act(); return S.near && S.near.label; },
+      act2: () => { $('act2').click(); return true; },
+      simDrive: (sec, inp, o = {}) => new Promise(res => {
+        // inp: 'auto' | {…} | null (= педаль газа: по дороге в ту сторону, куда смотрит машина)
+        const dt = 1 / 60; let t = 0, k = 0, bumps = 0, exitAt = null, minE = 9, start = S.rid;
+        const run = () => {
+          for (let n = 0; n < 240 && t < sec; n++) {
+            if (S.busy || S.rid !== start || S.mode !== 'drive') { finish(); return; }
+            const input = inp === 'auto' ? { auto: true, thr: o.thr || 1 } : (inp || { thr: 1 });
+            const r = drv.update(dt, input); if (r.bumped) bumps++;
+            S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; moments(dt); chaseCam(dt);
+            const p = S.region.road.project(drv.S.x, drv.S.z, drv.S.s); minE = Math.min(minE, Math.min(p.wl - Math.abs(p.e), p.wr - Math.abs(p.e)));
+            t += dt; k++;
+            const ex = checkExits(); if (ex) { exitAt = { id: ex, t: +t.toFixed(1) }; finish(); return; }
+            if (o.until != null && (S.dir === 'down' ? drv.S.s <= o.until : drv.S.s >= o.until)) { for (let b = 0; b < 180 && Math.abs(drv.S.v) > 0.02; b++) { drv.update(dt, { brake: true }); t += dt; } S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; finish(); return; }
+          }
+          if (t >= sec) { finish(); return; }
+          requestAnimationFrame(run);
+        };
+        const finish = () => res({ t: +t.toFixed(1), bumps, exit: exitAt, minEdge: +minE.toFixed(2), info: drv ? drv.info() : null });
+        run();
+      }),
+      sitRoad: () => { const sp = S.region.spots[0]; if (sp) sitRoad(sp); return !!(S.view); },
+      // QA: машина без рендера и без выходов — режимы ввода gas | rev | lockL | lockR | joyPerp | fuzz;
+      // считает скачки s (перескок на соседнюю петлю), выезд кузова за полотно, «застревание», скачки высоты
+      simCar: (o = {}) => {
+        if (!drv) return null;
+        const h = S.region, road = h.road, dt = o.dt || 1 / 60, steps = o.steps || 600;
+        if (o.s != null) { const q = road.sample(o.s); drv.teleport(o.rev ? { x: q.x, z: q.z, ry: q.th + PI } : { x: q.x, z: q.z, ry: q.th }); }
+        let seed = o.seed || 5; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+        const out = { steps: 0, s0: +drv.S.s.toFixed(1), maxDs: 0, off: 0, minBody: 9, stuck: 0, maxStuckT: 0, dy: 0, bumps: 0, ex: [] };
+        let fz = null, fzT = 0, ps = drv.S.s, py = drv.S.y;
+        for (let i = 0; i < steps; i++) {
+          let inp;
+          switch (o.mode) {
+            case 'rev': inp = { thr: -1 }; break;
+            case 'lockL': inp = { thr: 1, str: -1 }; break;
+            case 'lockR': inp = { thr: 1, str: 1 }; break;
+            case 'joyPerp': { const P = road.project(drv.S.x, drv.S.z, drv.S.s), sg = o.side || 1; inp = { dir: [Math.cos(P.th) * sg, -Math.sin(P.th) * sg, 1] }; break; }
+            case 'fuzz': if (fzT <= 0) { const r = rnd(); fz = r < 0.2 ? { thr: -1, str: rnd() * 2 - 1 } : r < 0.45 ? { thr: 1, str: rnd() * 2 - 1 } : r < 0.6 ? { brake: true } : r < 0.85 ? { dir: [Math.sin(rnd() * 6.28), Math.cos(rnd() * 6.28), 0.4 + rnd() * 0.6] } : { thr: 1 }; fzT = Math.round((0.4 + rnd() * 2.5) / dt); } fzT--; inp = fz; break;
+            default: inp = { thr: 1 };
+          }
+          const r = drv.update(dt, inp); if (r.bumped) out.bumps++;
+          out.steps++;
+          const P = road.project(drv.S.x, drv.S.z, drv.S.s);
+          const ds = Math.abs(drv.S.s - ps); if (ds > out.maxDs) out.maxDs = ds;
+          if (ds > Math.abs(drv.S.v) * dt + 0.6 && out.ex.length < 20) out.ex.push({ k: 'sJump', from: +ps.toFixed(1), to: +drv.S.s.toFixed(1), x: +drv.S.x.toFixed(1), z: +drv.S.z.toFixed(1) });
+          ps = drv.S.s;
+          const rel = angDiff(drv.S.ry, P.th), ext = drv.cfg.halfW * Math.abs(Math.cos(rel)) + drv.cfg.halfL * 0.62 * Math.abs(Math.sin(rel));
+          const body = Math.min(P.wl - P.e - ext, P.wr + P.e - ext); if (body < out.minBody) out.minBody = body;
+          if (body < -0.15) { out.off++; if (out.ex.length < 20) out.ex.push({ k: 'off', s: +P.s.toFixed(1), e: +P.e.toFixed(2), Se: +drv.S.e.toFixed(2), wl: +P.wl.toFixed(2), wr: +P.wr.toFixed(2), body: +body.toFixed(2), rel: +rel.toFixed(2), v: +drv.S.v.toFixed(2), inp: JSON.stringify(inp) }); }
+          const dy = Math.abs(drv.S.y - py); if (dy > out.dy) out.dy = dy; py = drv.S.y;
+          out.maxStuckT = Math.max(out.maxStuckT, drv.S.stuckT);
+          if (drv.S.stuckT > 3 && drv.S.stuckT - dt <= 3) { out.stuck++; if (out.ex.length < 20) out.ex.push({ k: 'stuck', s: +drv.S.s.toFixed(1), e: +drv.S.e.toFixed(2), mode: o.mode }); }
+        }
+        out.s1 = +drv.S.s.toFixed(1); out.maxDs = +out.maxDs.toFixed(2); out.minBody = +out.minBody.toFixed(2); out.dy = +out.dy.toFixed(3); out.maxStuckT = +out.maxStuckT.toFixed(1);
+        S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; if (chase) chase.snap();
+        return out;
+      },
+      // QA: ходьба без рендера — тот же stepWalk и та же камера, джойстик по программе (случайные направления с seed);
+      // считает нарушения: центр героини внутри коллайдера, перепад высоты за шаг, отрыв от земли, выход за проходимое,
+      // камера внутри дома / под землёй / за стеной (луч голова → камера по коллайдерам и, если meshes, по геометрии)
+      simWalk: (o = {}) => {
+        const h = S.region; if (!h || S.mode !== 'walk') return null;
+        const dt = o.dt || 1 / 60, steps = o.steps || 600, every = o.every || 12, R = [];
+        if (o.start) { S.px = o.start[0]; S.pz = o.start[1]; S.py = h.ground(S.px, S.pz); }
+        S.level = 'ground'; S.view = null; S.sitting = null; S.busy = false; S.camInit = false; S.vx = S.vz = 0;
+        if (o.yaw !== undefined) S.yaw = o.yaw;
+        let seed = o.seed || 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+        const cols = (h.colliders || []).filter(c => c.id !== 'towerTop');
+        const inC = (c, x, z, y, pad) => {
+          if (y !== undefined && ((c.y1 !== undefined && y > c.y1 - 0.05) || (c.y0 !== undefined && y < c.y0 - 0.5))) return false;
+          if (c.type === 'circle') return Math.hypot(x - c.x, z - c.z) < c.r - pad;
+          const co = Math.cos(c.ry || 0), si = Math.sin(c.ry || 0), dx = x - c.x, dz = z - c.z, lx = dx * co - dz * si, lz = dx * si + dz * co;
+          return Math.abs(lx) < c.w / 2 - pad && Math.abs(lz) < c.d / 2 - pad;
+        };
+        const camIn = (x, y, z) => cols.find(c => c.id !== 'edge' && c.type === 'box' && c.y1 !== undefined && y < c.y1 - 0.1 && y > (c.y0 === undefined ? -1e9 : c.y0) && inC(c, x, z, undefined, 0.05));
+        const npcRoots = new Set(h.npcs.map(n => n.root));
+        let meshes = null;
+        if (o.meshes) { meshes = []; h.root.traverse(m => { if (!m.isMesh || !m.visible || m.isInstancedMesh && !m.count) return; let p = m, skip = false; while (p) { if (npcRoots.has(p) || p.userData && p.userData.noRay) { skip = true; break; } p = p.parent; } if (m.material && (m.material.transparent && m.material.opacity < 0.9 || m.material.depthWrite === false)) skip = true; if (!skip) meshes.push(m); }); }
+        const rc = new T.Raycaster(), lk = new T.Vector3(), dir = new T.Vector3();
+        const out = { steps: 0, moved: 0, inside: 0, drop: 0, float: 0, off: 0, camIn: 0, camLow: 0, camBehind: 0, camGeo: 0, samples: 0, ex: [] };
+        const note = (k, extra) => { out[k]++; if (out.ex.length < (o.maxEx || 40)) out.ex.push(Object.assign({ k, x: +S.px.toFixed(2), z: +S.pz.toFixed(2), y: +S.py.toFixed(2), yaw: +S.yaw.toFixed(2) }, extra || {})); };
+        let left = 0, lx0 = S.px, lz0 = S.pz, offRun = 0;
+        const now0 = performance.now(); h.npcs.forEach(n => { S.lastGreet[n.id] = now0 + 1e9; });
+        for (let i = 0; i < steps; i++) {
+          if (o.still) { joy.x = joy.y = 0; left = 1e9; } if (left <= 0) { const a = rnd() * Math.PI * 2, m = 0.5 + rnd() * 0.5; joy.x = Math.sin(a) * m; joy.y = Math.cos(a) * m; left = Math.round((0.6 + rnd() * 2.2) / dt); if (rnd() < 0.25) { S.manualT = 2.5; S.yaw += (rnd() - 0.5) * 3; } }
+          left--;
+          const y0 = S.py; stepWalk(dt); updCamera(dt); out.steps++;
+          out.moved += Math.hypot(S.px - lx0, S.pz - lz0); lx0 = S.px; lz0 = S.pz;
+          if (Math.abs(S.py - y0) > 0.75) note('drop', { dy: +(S.py - y0).toFixed(2) });
+          const g = h.ground(S.px, S.pz); if (Math.abs(S.py - g) > 0.8) note('float', { g: +g.toFixed(2) });
+          const c = cols.find(c => inC(c, S.px, S.pz, S.py, 0.05)); if (c) note('inside', { id: c.id });
+          if (h.walkable && !h.walkable(S.px, S.pz)) { offRun++; if (offRun === 30) note('off'); } else offRun = 0;
+          if (i % every === 0) {
+            out.samples++;
+            const cp = camera.position; lk.set(S.px, S.py + 1.35, S.pz);
+            const ci = camIn(cp.x, cp.y, cp.z); if (ci) note('camIn', { id: ci.id, cam: [+cp.x.toFixed(1), +cp.y.toFixed(1), +cp.z.toFixed(1)] });
+            if (cp.y < h.ground(cp.x, cp.z) + 0.25) note('camLow', { cam: [+cp.x.toFixed(2), +cp.y.toFixed(2), +cp.z.toFixed(2)], g: +h.ground(cp.x, cp.z).toFixed(2), kind: h.groundInfo ? h.groundInfo(cp.x, cp.z).kind : '' });
+            if (h.rayHit && h.rayHit(lk, cp) < 0.97) note('camBehind', { cam: [+cp.x.toFixed(2), +cp.y.toFixed(2), +cp.z.toFixed(2)] });
+            if (meshes) {
+              const d = lk.distanceTo(cp); dir.copy(cp).sub(lk).normalize(); rc.set(lk, dir); rc.far = d; rc.near = 0.35;
+              const hit = rc.intersectObjects(meshes, false)[0];
+              if (hit && hit.distance < d - 0.25) { const hp = hit.point, cr = (h.camColliders || []).some(c => Math.abs(hp.x - c.x) < c.w / 2 + 0.6 && Math.abs(hp.z - c.z) < c.d / 2 + 0.6 && hp.y > c.y0 - 0.6 && hp.y < c.y1 + 0.6); note('camGeo', { at: +(hit.distance / d).toFixed(2), obj: (hit.object.name || hit.object.parent && hit.object.parent.name || '?') + (cr ? ':crown' : ''), hp: [+hp.x.toFixed(1), +hp.y.toFixed(1), +hp.z.toFixed(1)], cam: [+cp.x.toFixed(1), +cp.y.toFixed(1), +cp.z.toFixed(1)] }); }
+            }
+          }
+        }
+        joy.x = joy.y = 0; S.vx = S.vz = 0; S.walking = false;
+        h.npcs.forEach(n => { S.lastGreet[n.id] = performance.now(); });
+        out.moved = +out.moved.toFixed(1); out.end = [+S.px.toFixed(2), +S.pz.toFixed(2), +S.py.toFixed(2)];
+        return out;
+      },
+      // ---------- волна 4 ----------
+      regions: () => ['kubachi', 'serpentine', 'hotel'].filter(haveRegion),
+      hero: () => ({ kind: heroKind, ia: !!IA, iaBusy: !!(IA && IA.busy()), car: car ? (Q.get('car') === 'sedan' ? 'sedan' : 'spare') : null }),
+      // лестница в башне: начать (снизу / сверху) и пройти её без рендера — та же логика шага и камеры, что в игре
+      climb: from => startClimb(from === 'top' ? 'top' : 'bottom'),
+      simClimb: (o = {}) => {
+        const h = S.region; if (!h || !h.climb || !h.climb.at) return null;
+        if (!S.climb) startClimb(o.from === 'top' ? 'top' : 'bottom');
+        const dt = o.dt || 1 / 60, tw = h.places.tower, out = { steps: 0, len: +h.climb.len.toFixed(2), maxDy: 0, maxDxz: 0, ymin: 1e9, ymax: -1e9, modes: {}, camRmax: 0, camLow: 0, heroRmax: 0 };
+        let px = S.px, py = S.py, pz = S.pz;
+        for (let i = 0; i < (o.steps || 6000) && S.climb; i++) {
+          stepClimb(dt); updCamera(dt); out.steps++;
+          out.maxDy = Math.max(out.maxDy, Math.abs(S.py - py)); out.maxDxz = Math.max(out.maxDxz, Math.hypot(S.px - px, S.pz - pz)); px = S.px; py = S.py; pz = S.pz;
+          out.ymin = Math.min(out.ymin, S.py); out.ymax = Math.max(out.ymax, S.py);
+          if (!S.climb) break;
+          const m = S.climb.camMode || '?'; out.modes[m] = (out.modes[m] || 0) + 1;
+          const cp = camera.position, r = Math.hypot(cp.x - tw.x, cp.z - tw.z);
+          if (m === 'inside') { out.camRmax = Math.max(out.camRmax, r); out.heroRmax = Math.max(out.heroRmax, Math.hypot(S.px - tw.x, S.pz - tw.z)); }
+          if (cp.y < h.climb.at(0, {}).y - 0.4) out.camLow++;
+        }
+        out.done = !S.climb; out.level = S.level; out.end = [+S.px.toFixed(2), +S.py.toFixed(2), +S.pz.toFixed(2)];
+        ['maxDy', 'maxDxz', 'ymin', 'ymax', 'camRmax', 'heroRmax'].forEach(k => { out[k] = +out[k].toFixed(3); });
+        return out;
+      },
+      // «Осмотреться» с башни: включить (id, yaw, pitch, fov) / выключить (false)
+      look: (id, yaw, pitch, fov) => {
+        if (id === false || id === null) { stopLook(); return null; }
+        const looks = S.region.camera.looks || {}; id = id || 'tower_top'; if (!looks[id]) return false;
+        if (!S.look || S.look.id !== id) startLook(id);
+        if (yaw != null) S.look.yaw = yaw; if (pitch != null) S.look.pitch = clamp(pitch, S.look.L.pitchMin, S.look.L.pitchMax); if (fov != null) S.look.fov = clamp(fov, S.look.L.fovMin, S.look.L.fovMax);
+        return { id, yaw: S.look.yaw, pitch: S.look.pitch, fov: S.look.fov };
+      },
+      // карточка на экране (лавка, пекарня, музей…): что показано и нажать кнопку по номеру или тексту
+      card: () => { if (!$('card').classList.contains('on')) return null; const t = $('cardBox').querySelector('.t'); return { title: t ? t.textContent : '', lines: [...$('cardBox').querySelectorAll('p')].map(p => p.textContent), buttons: [...$('cardBox').querySelectorAll('button')].map(b => b.textContent) }; },
+      pick: v => { if (!$('card').classList.contains('on')) return false; const bs = [...$('cardBox').querySelectorAll('button')]; const b = typeof v === 'number' ? bs[v] : bs.find(x => x.textContent.indexOf(v) >= 0); if (!b) return false; b.click(); return b.textContent; },
+      // лавки: зайти (shop_food | shop_craft | shop_cloth), купить n-й товар, выйти
+      shop: id => { const sp = S.region.spots.find(s => s.id === id); if (!sp) return false; S.level = 'ground'; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); useSpot(sp); return true; },
+      inShop: () => (S.inShop ? { id: S.inShop.id, bag: S.bag.slice(), buying: S.shopBuy || null, card: !!$('card').classList.contains('on') } : null),
+      buy: i => window.__village.pick(i | 0),
+      leaveShop: () => { if (!S.inShop) return false; if ($('card').classList.contains('on')) window.__village.pick('Выйти'); else leaveShop(S.inShop); return true; },
+      // большой базар (true | false | undefined = по дню недели)
+      bazaar: b => (S.region && S.region.setBazaar ? S.region.setBazaar(b) : false),
+      // день/ночь: час (22.5 — ночь) или 'morning'; без DayNight — сразу setNight(0..1)
+      night: hr => {
+        if (dn && window.DayNight) { DayNight.set(hr === undefined ? 22.5 : hr, { persist: false, instant: true }); return { hour: +DayNight.hour().toFixed(2), phase: DayNight.phase(), lamps: dn.lampsOn() }; }
+        const k = hr === undefined ? 1 : (typeof hr === 'number' && hr <= 1 ? hr : 0); if (S.region.setNight) S.region.setNight(k); S.night = k; return { k };
+      },
+      setNight: k => { if (!S.region.setNight) return false; S.night = k; S.region.setNight(k); return true; },
+      clock: v => (S.region && S.region.setClock ? S.region.setClock(v) : false),
+      // коровы и «коровья тропа»
+      pats: () => ({ list: (S.region.pats || []).map(p => ({ id: p.id, x: +p.x.toFixed(2), z: +p.z.toFixed(2), r: p.r })), stepped: S.pats, stickers: S.stickers.slice(), events: (S.evLog || []).slice(-10) }),
+      // подойти к лепёшке за 1,6 м и наступить (как пальцем на джойстике) → { hit, pats, sticker }
+      stepOnPat: (i, from) => new Promise(res => {
+        const p = (S.region.pats || [])[i | 0]; if (!p) { res(null); return; }
+        const a = from === undefined ? S.yaw : from; S.mode = 'walk'; S.level = 'ground'; S.view = null; S.sitting = null; S.look = null;
+        S.px = p.x - Math.sin(a) * 1.6; S.pz = p.z - Math.cos(a) * 1.6; S.py = S.region.ground(S.px, S.pz); S.camInit = false;
+        const n0 = S.pats, t0 = performance.now();
+        const kk = () => { const dx = p.x - S.px, dz = p.z - S.pz, d = Math.hypot(dx, dz);
+          if (S.pats > n0 || performance.now() - t0 > 5000 || d < 0.06) { joy.x = joy.y = 0; const hit = S.pats > n0; setTimeout(() => res({ hit, pats: S.pats, d: +d.toFixed(2), sticker: S.stickers.slice(-1)[0] || null }), hit ? 800 : 0); return; }
+          const b = Math.atan2(dx, dz) - S.yaw, m = d < 0.5 ? 0.35 : 0.7; joy.x = -Math.sin(b) * m; joy.y = -Math.cos(b) * m; requestAnimationFrame(kk); };
+        requestAnimationFrame(kk);
+      }),
+      cows: () => S.region.npcs.filter(n => n.speaker === 'cow').map(n => ({ id: n.id, x: +n.root.position.x.toFixed(2), z: +n.root.position.z.toFixed(2), vis: n.root.visible })),
+      // родник с крышкой (js/interact.js: drinkSpring)
+      spring: () => { const sp = S.region.spots.find(s => s.id === 'spring_lid'); if (!sp) return false; S.level = 'ground'; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); useSpot(sp); return !!IA; },
+      // свадебный двор (модуль VILLAGE.wedding, если есть)
+      wedding: () => { const h = S.region; return h && h.places && h.places.wedding ? { module: !!h.wedding, gate: h.places.wedding.gate, npcs: h.npcs.filter(n => n.ext).length } : null; },
+      // машина: выйти / сесть (drive.js волны 4)
+      getOut: () => getOut(), getIn: () => getIn(),
+      bubbles: () => bubbles.map(b => b.el.textContent),
+      lastUse: () => S.lastUse || null,
+      // ---------- W4A ----------
+      iaEvents: () => (S.iaEv || []).slice(),   // события слоя рук (take, bite, lid, splash, …) — для тестов и звука
+      kaz: () => ({ mode: KAZ_MODE, ok: kazOk(), worn: kazWorn(), btn: $('kazBtn').style.display !== 'none' ? $('kazBtn').textContent : null, beretVisible: !!(hero && hero.beret ? hero.beret.visible : null), hidden: V.kaz && V.kaz.beretHidden ? V.kaz.beretHidden() : null }),
+      kazOn: on => (on ? kazWear({ instant: true, say: false }) : kazRemove()),
+      kazBtn: () => { $('kazBtn').click(); return kazWorn(); },
+      car: () => ({ id: S.carId, kind: car ? (car.kind || 'coupe') : null, drv: drv ? drv.S.mode : null, cfg: drv ? { halfL: drv.cfg.halfL, halfW: drv.cfg.halfW } : null }),
+      setCar: id => setCar(id),
+      menu: () => { menu(); return true; },
+      closeMenu: () => { closeMenu(); return true; },
+      // свадьба: место (treat | dance | congrats), такт, итог танца, розыгрыш
+      wed: () => { const W = S.region && S.region.wedding; return W ? { dance: !!(S.dance), danceActive: W.dance.active, last: S.lastDance || null, treats: S.treats || 0, treat: S.treat || null, prank: W.prankState, prankLog: (S.prankLog || []).slice(), lod: W.lod } : null; },
+      wedSpot: id => { const sp = S.region.spots.find(s => s.id === id); if (!sp) return false; S.level = 'ground'; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); useSpot(sp); return true; },
+      danceTap: () => danceTap(),
+      danceAuto: on => { S.danceAuto = !!on; return S.danceAuto; },
+      prank: () => { const W = S.region && S.region.wedding; return W ? W.prank() : null; },
+      // зиплайн и мини-гольф (регион hotel)
+      zip: () => { const h = S.region, sp = h.spots.find(q => q.id === 'zipline_start'); if (!sp) return false; S.level = 'top'; S.px = sp.x; S.pz = sp.z; S.py = h.ground(sp.x, sp.z); useSpot(sp); return true; },
+      zipState: () => (S.zip && S.zip.state ? S.zip.state() : null), zipEvents: () => S.zipEv.slice(), zipResult: () => S.zipResult || null,
+      skip: () => { if (S.zip && S.zip.skip) { S.zip.skip(); return true; } return false; },
+      golfStart: () => { const sp = S.region.spots.find(q => q.id === 'golf_putt'); if (!sp) return false; S.px = sp.x; S.pz = sp.z; useSpot(sp); return !!S.golf; },
+      golfShoot: (a, p) => golfShoot(a, p), golfState: () => (S.golf ? S.golf.G.state() : null), golfStop: () => stopGolf(), golfAngle: () => (S.golf ? S.golf.G.aimAngle() : null),
+      heroAt: (x, z, ry, level) => { if (IA && IA.busy()) { try { IA.cancel(); } catch (e) { /* ok */ } } S.level = level || 'ground'; placeHero(x, z, ry, ry); S.view = null; S.sitting = null; return S.py; },
+      cam: (pos, target, fov) => { if (!pos) { S.view = null; S.camInit = false; return true; } S.view = { id: 'probe', v: { pos, target, fov: fov || 50 }, t: 10, from: new T.Vector3(), fromLook: new T.Vector3(), smooth: false }; return true; },
+      dn: () => (window.DayNight ? { hour: +DayNight.hour().toFixed(2), phase: DayNight.phase(), override: DayNight.override(), lamps: dn ? dn.lampsOn() : null, toggle: !!document.querySelector('.dn-toggle') && document.querySelector('.dn-toggle').style.display !== 'none' ? document.querySelector('.dn-toggle').textContent : null } : null),
+      dnSet: v => { if (!window.DayNight) return null; DayNight.set(v, { persist: false, instant: true }); return DayNight.phase(); },
+      dnClock: hr => { if (!window.DayNight) return null; DayNight.setClock(hr == null ? null : () => hr); if (S.dnToggle) S.dnToggle.refresh(); return DayNight.phase(); },
+    };
+
+    /* ---------- старт ---------- */
+    (async () => {
+      try { await Promise.race([document.fonts ? document.fonts.load('900 20px Nunito') : 0, new Promise(r => setTimeout(r, 1200))]); } catch (e) { /* ok */ }
+      await makeHero();
+      resize(); window.addEventListener('resize', resize);
+      const want = Q.get('region'), rid = want && want !== 'kubachi' && haveRegion(want) ? want : 'kubachi';
+      loadRegion(rid, Q.get('from') || 'start');
+      if (Q.get('view')) setView(Q.get('view'), false);
+      if (Q.get('climb')) startClimb(Q.get('climb') === 'top' ? 'top' : 'bottom');
+      if (Q.get('look') && S.region.camera.looks && S.region.camera.looks[Q.get('look')]) startLook(Q.get('look'));
+      if (dn && DayNight.mountToggle) {   // в режиме ?shot=1 кнопку прячет CSS (.shot .ui)
+        try { S.dnToggle = DayNight.mountToggle($('ui'), { className: 'dnbtn', onSet: (to, line) => toast(line, 2400) }); } catch (e) { /* без кнопки */ } }
+      if (Q.get('zip') === '1' && S.rid === 'hotel') setTimeout(() => window.__village.zip(), 600);
+      if (Q.get('spot') && S.region.spots.find(q => q.id === Q.get('spot'))) setTimeout(() => window.__village.spot(Q.get('spot')), 400);
+      $('load').classList.add('done'); setTimeout(() => { const l = $('load'); if (l) l.remove(); }, 600);
+      window.__villageReady = true;
+      requestAnimationFrame(tick);
+    })();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#F8D9CC" />
+  <title>Единый город · стенд</title>
+  <!-- Стенд единого города и «Замер» для телефона (не игра). Игра — index.html, город там же, через WorldHub. -->
+  <link rel="stylesheet" href="css/fonts.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .stats { position: absolute; left: 10px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); z-index: 95; font-size: 12px; max-width: calc(100% - 20px); font-family: 'Nunito', system-ui, sans-serif; }
+    .stats .pill { display: inline-block; padding: 5px 10px; border-radius: 99px; background: rgba(255,253,249,.9); font-weight: 900; color: #3A2E3F; cursor: pointer; box-shadow: 0 2px 0 rgba(58,46,63,.12); min-width: 58px; text-align: center; }
+    .stats .pill.ok { color: #3E8E6A; } .stats .pill.mid { color: #C98A2B; } .stats .pill.bad { color: #C2405B; }
+    .stats .panel { margin-top: 6px; padding: 10px 12px; border-radius: 14px; background: rgba(255,253,249,.98); box-shadow: 0 4px 14px rgba(58,46,63,.14); width: 268px; max-width: 100%; }
+    .stats .row { margin: 2px 0; font-weight: 700; line-height: 1.35; } .stats .row.dim { color: #6E6272; font-weight: 600; font-size: 11px; word-break: break-word; }
+    .stats .btns { display: flex; gap: 6px; margin-top: 8px; } .stats .btns button { flex: 1; border: 0; border-radius: 10px; padding: 7px 4px; background: #F6E7EB; color: #3A2E3F; font-weight: 800; font-size: 11px; cursor: pointer; font-family: inherit; }
+    .stats .btns button.on { background: #C2405B; color: #fff; } .stats .btns button.wide { background: #3A2E3F; color: #fff; }
+    .stand-modal { position: fixed; inset: 0; z-index: 99; background: rgba(58,46,63,.45); display: grid; place-items: center; padding: 16px; font-family: 'Nunito', system-ui, sans-serif; }
+    .stand-modal .card { background: #FFFDF9; border-radius: 20px; padding: 16px; width: 100%; max-width: 560px; max-height: 90%; overflow: auto; }
+    .stand-modal .ttl { font-weight: 800; color: #C2405B; font-size: 18px; margin-bottom: 8px; }
+    .stand-modal pre { white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.45; background: #FFF4EC; padding: 10px; border-radius: 12px; margin: 0; -webkit-user-select: text; user-select: text; }
+    .stand-modal .btns { display: flex; gap: 8px; margin-top: 10px; } .stand-modal .btns button { flex: 1; border: 0; border-radius: 14px; padding: 12px; font-weight: 900; font-size: 15px; background: #C2405B; color: #fff; font-family: inherit; }
+    .stand-modal .btns .close { background: #F2DCE2; color: #3A2E3F; } .stand-modal .note { margin-top: 8px; font-size: 12px; color: #6E6272; font-weight: 700; }
+    .benching .w-ui { display: none !important; }
+  </style>
+  <script>window.WORLD_STAND = 1;</script>
+</head>
+<body>
+  <div id="app">
+    <div id="stage"></div>
+    <div id="hud" class="hidden"></div>
+    <div id="fx"></div>
+    <div id="layer"></div>
+  </div>
+  <noscript>Включи JavaScript, чтобы открыть город.</noscript>
+  <script src="js/config.js"></script>
+  <script src="js/hero_assets.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/GLTFLoader.js"></script>
+  <script src="js/hero3d.js"></script>
+  <script src="js/hero_anim.js"></script>
+  <script src="js/interact.js"></script>
+  <script src="js/city3d.js"></script>
+  <script src="js/shops3d.js"></script>
+  <script src="js/rooms/cinema.js"></script>
+  <script src="js/rooms/bureau.js"></script>
+  <script src="js/rooms/sweets.js"></script>
+  <script src="js/rooms/roof.js"></script>
+  <script src="js/world/kit.js"></script>
+  <script src="js/world/facades.js"></script>
+  <script src="js/world/shops.js"></script>
+  <script src="js/world/actors.js"></script>
+  <script src="js/world/car.js"></script>
+  <script src="js/vehicles/sedan.js"></script>
+  <script src="js/world/bike.js"></script>
+  <script src="js/world/map.js"></script>
+  <script src="js/world/doors.js"></script>
+  <script src="js/world/residents.js"></script>
+  <script src="js/world/companion.js"></script>
+  <script src="js/world/toys.js"></script>
+  <script src="js/world/markers.js"></script>
+  <script src="js/world/ui.js"></script>
+  <script src="js/world/minimap.js"></script>
+  <script src="js/world/interiors.js"></script>
+  <script src="js/village/vkit.js"></script>
+  <script src="js/village/lines.js"></script>
+  <script src="js/village/kubachi.js"></script>
+  <script src="js/village/serpentine.js"></script>
+  <script src="js/village/drive.js"></script>
+  <script src="js/village/bazaar.js"></script>
+  <script src="js/village/kaz.js"></script>
+  <script src="js/village/wedding.js"></script>
+  <script src="js/village/hotel.js"></script>
+  <script src="js/village/zipline.js"></script>
+  <script src="js/daynight.js"></script>
+  <script src="js/world/regions.js"></script>
+  <script src="js/world/trip2d.js"></script>
+  <script src="js/world/main.js"></script>
+  <script src="js/world/hub.js"></script>
+  <script src="js/world/missions.js"></script>
+  <script src="js/ep1.js"></script>
+  <script src="js/town.js"></script>
+  <script src="js/places/cinema.js"></script>
+  <script src="js/places/bureau.js"></script>
+  <script src="js/places/sweets.js"></script>
+  <script src="js/places/stairs.js"></script>
+  <script src="js/places/silver.js"></script>
+  <script src="js/places/kiosk.js"></script>
+  <script src="js/places/orangery.js"></script>
+  <script src="js/places/atelier.js"></script>
+  <script src="js/places/photo.js"></script>
+  <script src="js/places/records.js"></script>
+  <script src="js/places/books.js"></script>
+  <script src="js/places/planet.js"></script>
+  <script src="js/world/stand.js"></script>
+</body>
+</html>
