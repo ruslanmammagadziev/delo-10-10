@@ -5,3 +5,5 @@ __pycache__/
 .voice_cache/
 tools/.voice_cache/
 .DS_Store
+node_modules
+tools/node_modules
