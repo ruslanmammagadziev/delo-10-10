@@ -906,7 +906,12 @@ void main() {
       }
       geo.setAttribute('color', new T.BufferAttribute(col, 3));
       geo.computeBoundingSphere();
-      const m = chunked(geo, vcMat, { cell: 96, renderOrder: -4, name: 'terrainNear' });   // W6: дорога длиннее и петляет — куски крупнее (меньше вызовов) root.add(m); meshes.near = m;
+      // W6: дорога длиннее и петляет — куски крупнее (меньше вызовов).
+      // W6+ (исправлено): «root.add(m); meshes.near = m;» стояли внутри этого комментария, и ближний рельеф у дороги
+      // (24 м по обе стороны) не рисовался вовсе: виден был только грубый дальний, опущенный у полотна на 3 м, — отсюда
+      // щель между дорогой и склоном, «пустота» за кромкой и деревья, висящие в воздухе (их ставили на ближний рельеф)
+      const m = chunked(geo, vcMat, { cell: 96, renderOrder: -4, name: 'terrainNear' });
+      root.add(m); meshes.near = m;
     }
     /* ---------- дальний рельеф ---------- */
     {
