@@ -130,11 +130,21 @@
     [/^сыграть в гольф|^играть в гольф|^мини-гольф/i, '⛳', 'Играть'], [/^сыграть|^играть/i, '🎲', 'Играть'], [/^взять/i, '✋', 'Взять'],
     [/^поднять/i, '✋', 'Поднять'], [/^угостить/i, '🍬', 'Угостить'], [/^подарить/i, '🎁', 'Подарить'], [/^покормить/i, '🍪', 'Кормить'],
     [/^полить/i, '💧', 'Полить'], [/^сфотограф|^снять фото|^фото/i, '📷', 'Фото'], [/^потанцевать|^танцевать/i, '💃', 'Танец'],
-    [/^обнять/i, '🤗', 'Обнять'], [/^позвонить/i, '🔔', 'Звонок'], [/^открыть/i, '🗝', 'Открыть'], [/^подняться|^наверх/i, '⬆️', 'Наверх'],
+    [/^обнять/i, '🤗', 'Обнять'], [/^позвонить/i, '☎️', 'Звонок'], [/^открыть/i, '🗝', 'Открыть'], [/^подняться|^наверх/i, '⬆️', 'Наверх'],
     [/^спуститься|^вниз/i, '⬇️', 'Вниз'], [/^поехать|^ехать/i, '🚗', 'Поехать'], [/^лететь|^полететь|^взлететь/i, '🪂', 'Лететь'],
     [/^кататься|^прокатиться/i, '🎢', 'Кататься'], [/^поставить на дорогу|^на дорогу/i, '🛟', 'На дорогу'], [/^тур|^экскурс/i, '💬', 'Тур'],
     [/^послушать|^слушать/i, '🎵', 'Слушать'], [/^попробовать/i, '😋', 'Пробовать'], [/^отдохнуть/i, '🪑', 'Отдых'], [/^загадать/i, '✨', 'Желание'],
-    [/^бросить|^кинуть/i, '🪙', 'Бросить'], [/^ждать|^подождать/i, '⏳', 'Ждать'], [/^назад|^вернуться/i, '↩️', 'Назад'], [/^войти в/i, '🚪', 'Войти'],
+    [/^бросить|^кинуть/i, '🪙', 'Бросить'], [/^ждать|^подождать/i, '⏳', 'Ждать'], [/^назад|^вернуться/i, '↩️', 'Назад'],
+    [/^букет/i, '💐', 'Букет'], [/^газета/i, '📰', 'Газета'], [/^почта/i, '✉️', 'Почта'], [/^прогноз/i, '⛅', 'Прогноз'], [/^прыгнуть|^прыг/i, '💦', 'Прыг!'],
+    [/^выглянуть|^заглянуть/i, '👀', 'Глянуть'], [/^завести/i, '🔑', 'Завести'], [/^зажечь/i, '🕯', 'Зажечь'], [/^заказать/i, '🧾', 'Заказать'],
+    [/^залезть/i, '🧗', 'Залезть'], [/^какао/i, '☕', 'Какао'], [/^коснуться|^потрогать/i, '✋', 'Тронуть'], [/^крендель/i, '🥨', 'Крендель'],
+    [/^крикнуть/i, '📣', 'Крикнуть'], [/^молоточ/i, '🔨', 'Молоток'], [/^погреться/i, '🔥', 'Греться'], [/^покрутить/i, '🔄', 'Крутить'],
+    [/^понюхать/i, '👃', 'Нюхать'], [/^попкорн/i, '🍿', 'Попкорн'], [/^поправить/i, '🪄', 'Поправить'], [/^порыться/i, '🔎', 'Порыться'],
+    [/^посыпать/i, '🧂', 'Посыпать'], [/^прилечь/i, '🛋', 'Прилечь'], [/^присесть|^отдохнуть/i, '🪑', 'Сесть'], [/^разглядеть|^рассмотреть/i, '🔍', 'Смотреть'],
+    [/^раскрыть/i, '✨', 'Раскрыть'], [/^рисовать|^нарисовать/i, '🎨', 'Рисовать'], [/^свидетел/i, '🕵️', 'Свидетели'], [/^сложить/i, '🧺', 'Сложить'],
+    [/^сменить/i, '🔁', 'Сменить'], [/^смотать/i, '🧶', 'Смотать'], [/^сняться|^сфоткаться/i, '📸', 'Фото'], [/^шкаф/i, '🗄', 'Шкаф'],
+    [/^штемпель/i, '📮', 'Штемпель'], [/^гуляем|^гулять/i, '🐕', 'Гулять'], [/^домой/i, '🏠', 'Домой'], [/^новое имя|^имя/i, '✏️', 'Имя'],
+    [/^просто погладить/i, '🤍', 'Гладить'], [/^(?:в|на|к|ко)\s/i, '🚶', 'Идти'], [/^пиу|^бум/i, '💫', 'Бум!'], [/^дзынь|^звонок/i, '🔔', 'Дзынь'],
   ];
   const EMOJI_HEAD = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})|[\u{1F3FB}-\u{1F3FF}])*)\s*/u;
   function actFace(label) {
@@ -148,8 +158,8 @@
       if (f[0].test(head)) return { icon: icon || f[1], short: f[2], full, known: true };
     }
     const w = head.split(/\s+/)[0] || '';
-    const short = w.length && w.length <= 8 ? w.charAt(0).toUpperCase() + w.slice(1) : (w ? w.slice(0, 7) + '…' : '');
-    return { icon: icon || '✨', short, full, known: !!(w && w.length <= 8) };
+    const short = w.length && w.length <= 9 ? w.charAt(0).toUpperCase() + w.slice(1) : (w ? w.slice(0, 7) + '…' : '');
+    return { icon: icon || '✨', short, full, known: !!(w && w.length <= 9) };
   }
   HUD.actFace = actFace;
   HUD.FACES = FACES;
@@ -160,7 +170,7 @@
     if (btn.dataset.full !== f.full || btn.dataset.faceKey !== key) {
       btn.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i><b aria-hidden="true">${esc(f.short)}</b>`;
       btn.setAttribute('aria-label', f.full); btn.title = f.full; btn.dataset.full = f.full; btn.dataset.faceKey = key;
-      btn.dataset.long = f.short.length > 7 ? '1' : '';
+      btn.dataset.long = f.short.length > 8 ? '2' : f.short.length > 6 ? '1' : '';
     }
     btn.classList.toggle('soft', !!soft);
     btn.classList.add('hud-act');
@@ -313,6 +323,16 @@
     if (d.textContent !== t) d.textContent = t;
     d.classList.toggle('hidden', !t);
     if (o.label) el.setAttribute('aria-label', o.label);
+  };
+
+  // шеврон у левого/правого края экрана (улица-запас, 2D-улица): side 'l' | 'r' | null (спрятать); y — по умолчанию 46 % высоты
+  HUD.chevAt = function (el, side, o) {
+    if (!el) return;
+    if (!side) { HUD.chev(el, null); return; }
+    o = o || {};
+    const host = el.offsetParent || el.parentNode || app(), W = host.clientWidth || app().clientWidth, H = host.clientHeight || app().clientHeight, m = metrics(W, H);
+    const x = side === 'l' ? 26 + m.safe.l : W - 26 - m.safe.r;
+    HUD.chev(el, { on: true, x, y: HUD.chevY(o.y == null ? H * 0.46 : o.y, H), side, rot: side === 'l' ? 180 : 0, dist: o.dist, label: o.label });
   };
 
   /* ---------- Лист меню ☰ (§3.2) ---------- */
@@ -521,7 +541,7 @@
       mb.addEventListener('click', e => { e.stopPropagation(); haptic('light'); tapSfx(); if (HUD.menu.isOpen()) menuClose(); else menuOpen(); });
       mb.classList.toggle('news', !!HUD._news);
       hudTitle = opts.label ? String(opts.label) : '';
-      if (opts.menuSub !== undefined) menuInfo = opts.menuSub;
+      menuInfo = opts.menuSub || null;
       // выход: строка меню (город, регионы, 2D) и/или 🚪 в правом слоте (комнаты и места)
       const place = opts.exitPlace || (opts.onExit && /улиц/i.test(opts.exitText || '← на улицу') ? 'bar' : 'menu');
       if (opts.onExit) {
@@ -584,7 +604,7 @@
   /* ---------- Прямоугольники для тестов перекрытий ---------- */
   const RECT_SEL = [
     ['menu', '#hudMenu'], ['obj', '#hudObj'], ['status', '#hudStatus > *'], ['card', '#hud .hud-card'], ['toast', '.toast'],
-    ['radar', '.wmm-wrap'], ['joy', '.hud-joy'], ['slot', '[data-hud-slot]:not(.hud-joy):not(.wmm-wrap)'], ['chev', '.hud-chev'],
+    ['radar', '.wmm-wrap'], ['joy', '.hud-joy, .city3d .joy'], ['pad', '.pad-ctl .ctl'], ['slot', '[data-hud-slot]:not(.hud-joy):not(.wmm-wrap)'], ['chev', '.hud-chev'],
     ['edge', '.w-edge:not(.hud-chev), .edge-arrow:not(.hud-chev)'], ['act', '.w-act, .ctl.act'], ['near', '.w-near, .near-bubble'],
   ];
   HUD.rects = function (root) {

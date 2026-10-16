@@ -277,7 +277,7 @@
         <div class="edge-arrow hidden" id="edge"></div>
         <div class="near-bubble hidden" id="nearBubble"></div>
         <div class="joy hidden" id="joy"><div class="joy-knob"></div></div>
-        <button class="ctl act hidden" id="act">Войти</button>
+        <button class="ctl act hidden" id="act" data-hud-slot="P">Войти</button>
         <button class="ctl wave hidden" id="waveBtn" aria-label="Помахать">👋</button>
         <div class="ctl-hint hidden" id="hint"></div>
       </div>`, 'street street3d');
@@ -326,6 +326,25 @@
     const act = scr.querySelector('#act'), hint = scr.querySelector('#hint'), waveBtn = scr.querySelector('#waveBtn');
     ensureWaveCss();
     const coarse = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return true; } })();
+    // HUD v2: главная кнопка P (значок + слово; без действия — «👋 Помахать»), шеврон у края, ярлык двери — в пределах экрана
+    const HUDm = window.HUD || null;
+    let actLbl = null, actWave = false;
+    const setAct = (lbl, soft) => {
+      const key = (lbl || '') + (soft ? '~' : '');
+      if (key === actLbl) return; actLbl = key;
+      if (lbl) { if (HUDm) HUDm.paintAct(act, lbl, soft); else act.textContent = lbl; }
+      act.classList.toggle('hidden', !lbl);
+    };
+    const setEdge = (side, txt, dist) => {
+      if (HUDm) { HUDm.chevAt(edge, side || null, { dist, label: txt }); return; }
+      if (!side) { edge.className = 'edge-arrow hidden'; return; }
+      edge.className = 'edge-arrow ' + side; edge.textContent = side === 'r' ? `${txt} →` : `← ${txt}`;
+    };
+    const placeBubble = (x, y) => {
+      const Wb = root.clientWidth || 390, hw = (bubble.offsetWidth || 90) / 2 + 8;
+      bubble.style.left = Math.max(hw, Math.min(Wb - hw, x)) + 'px';
+      bubble.style.top = (HUDm ? HUDm.labelY(y, root.clientHeight) : y) + 'px'; bubble.style.bottom = 'auto';
+    };
 
     /* --- рендерер, сцена, свет --- */
     let renderer;
@@ -2655,7 +2674,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     let catX = px - 1, catZ = pz + 0.3, catTX = catX, catTZ = catZ, catAng = 0;
     let heroAng = 0, faceTarget = 0, walking = false, idleT = 0, phase = 0, walkAmt = 0, forceWalk = false, hopT = -1;
     let blinkT = 2, eyesClosed = false, catBlinkT = 3, catEyes = false, glance = 0, glanceT = 4;
-    let waveT = -1, stepIdx = 0, wbN = 0;
+    let waveT = -1, stepIdx = 0, wbN = 0, waveOk = false;
     let twirl = null, pendingTwirl = null, pets = 0, splashed = false, inPuddle = -1, wIdx = 0, kIdx = 0, sfIdx = 0, catHatT = -1;
     let inPile = -1, kicked = false; const kicks = [];
     const drops = [];
@@ -2855,7 +2874,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const doWave = () => {
       if (!active || finished || blocked() || waveT >= 0) return;
       waveT = 0; if (!sitting && !hero.rig) { hopT = 0; if (hero.statue) spinT = 0; }   // скелетная героиня просто машет рукой
-      haptic('light'); waveBtn.classList.remove('go'); void waveBtn.offsetWidth; waveBtn.classList.add('go');
+      haptic('light'); act.classList.remove('go'); void act.offsetWidth; act.classList.add('go');
       const nn = nearestNpc(3.4);
       const r = G.wave ? G.wave({ where: RM ? 'room' : 'street', room: o.room || null, npc: nn ? nn.id : null }) : { first: false, hi: 'Hi!', reply: null, name: '' };
       const intro = r.first || (nn && !greeted.has(nn.id));
@@ -2877,7 +2896,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const doorChime = k => { let h = 0; String(k || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return [1046.5, 1174.66, 1318.5, 1568, 1760][h % 5]; };
     const finish = async () => {
       if (finished) return; finished = true; haptic('medium'); sfx('door'); sfx('chime', { f: doorChime(o.target) });
-      act.classList.add('hidden'); bubble.classList.add('hidden'); edge.className = 'edge-arrow hidden';
+      setAct(''); bubble.classList.add('hidden'); setEdge(null);
       const d = doorOf(o.target), bd = buildings[(DOORS[o.target] && DOORS[o.target].bkey) || o.target] || { doors: [] };
       const x0 = px, z0 = pz, t0 = performance.now();
       hero.root.traverse(l => { if (l.isMesh && (l.material === outlineMat || l.userData.outline)) l.visible = false; });
@@ -2900,7 +2919,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const closeOverlays = () => document.querySelectorAll('#layer .dlg-wrap, #layer .modal, #layer .remark, #layer .intertitle').forEach(el => el.remove());
     const leave = async (fast, value = 'exit') => {
       if (finished) return; finished = true; haptic('light'); if (!fast) sfx('door');
-      act.classList.add('hidden'); bubble.classList.add('hidden');
+      setAct(''); bubble.classList.add('hidden');
       if (fast) { G.skipDialogs(true); closeOverlays(); setTimeout(() => G.skipDialogs(false), 400); }
       else if (RM) {
         const x0 = px, z0 = pz, t0 = performance.now(), ex = RM.exit.x + (RM.exitDir ? RM.exitDir[0] : -0.9), ez = RM.exit.z + (RM.exitDir ? RM.exitDir[1] : 0);
@@ -2916,9 +2935,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       }
       cleanup(); o.done(value);
     };
-    const finishRoom = v => { if (finished) return; finished = true; act.classList.add('hidden'); bubble.classList.add('hidden'); cleanup(); o.done(v); };
+    const finishRoom = v => { if (finished) return; finished = true; setAct(''); bubble.classList.add('hidden'); cleanup(); o.done(v); };
     if (RM) { G.setHud({ label: o.hudLabel, onExit: () => { if (!finished) leave(true); }, top: true }); document.body.classList.add('room-on'); }
-    if (FREE) G.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню' });
+    if (FREE) G.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню', exitPlace: 'menu', menuSub: FO.menuSub });
     // метки: розовая точка (ещё не была) и золотая бирка «НОВОЕ» (изменилось на неделе)
     const doorMarks = [];
     if (FREE) Object.keys(DOORS).forEach(id => {
@@ -2963,7 +2982,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     let joyId = null, joyC = null;
     const joyMove = e => {
       if (joyId !== e.pointerId || !joyC) return;
-      let dx = e.clientX - joyC.x, dy = e.clientY - joyC.y; const len = Math.hypot(dx, dy), max = 42;
+      let dx = e.clientX - joyC.x, dy = e.clientY - joyC.y; const len = Math.hypot(dx, dy), max = Math.max(24, ((joy.offsetWidth || 104) - (knob.offsetWidth || 44)) / 2 + 4);
       if (len > max) { dx *= max / len; dy *= max / len; }
       knob.style.transform = `translate(${dx}px, ${dy}px)`;
       joyVec = len > 8 ? { x: dx / max, z: dy / max } : null; moveTo = null; pendingEnter = false; pendingTwirl = null;
@@ -2977,7 +2996,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const joyEnd = e => { if (joyId !== e.pointerId) return; joyId = null; joyVec = null; knob.style.transform = ''; };
     joy.addEventListener('pointerdown', joyStart); joy.addEventListener('pointermove', joyMove);
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => joy.addEventListener(ev, joyEnd));
-    act.addEventListener('click', e => { e.stopPropagation(); tryEnter(); });
+    act.addEventListener('click', e => { e.stopPropagation(); if (actWave) doWave(); else tryEnter(); });
 
     /* --- ввод: тап по миру --- */
     const ray = new T.Raycaster(), ndc = new T.Vector2(), groundPlane = new T.Plane(new T.Vector3(0, 1, 0), 0), hitP = new T.Vector3();
@@ -3479,38 +3498,37 @@ void heroDeform(inout vec3 p, inout vec3 n) {
         if (b.t > b.dur && !b.out) { b.out = true; b.el.classList.add('out'); }
         if (b.t > b.dur + 0.4 || finished) { b.el.remove(); sayBubbles.splice(i, 1); }
       }
-      if ((wbN = (wbN + 1) % 6) === 0) waveBtn.classList.toggle('hidden', !(active && !finished && !blocked() && !document.querySelector('.room-puzzle') && (hint.classList.contains('hidden') || hint.style.opacity === '0')));
+      if ((wbN = (wbN + 1) % 6) === 0) waveOk = active && !finished && !blocked() && !document.querySelector('.room-puzzle');
       // HTML-подсказки поверх 3D
       if (active && !finished) {
         const k = nk, sp = !k && !spotBusy ? spotNear() : null;
         const onSunPuddle = !k && !sp && !walking && Math.hypot(px - PS.x, pz - PS.z) < PS.r * 0.8;
-        act.classList.toggle('hidden', !(atT || sp || onSunPuddle));
-        act.textContent = atT ? (RM ? 'Выйти' : FREE ? `Войти · ${doorLabel(nk)}` : 'Войти') : sp ? sp.act : onSunPuddle ? 'Прыгнуть' : 'Войти';
+        const aL = atT || sp || onSunPuddle ? (atT ? (RM ? 'Выйти' : FREE ? `Войти · ${doorLabel(nk)}` : 'Войти') : sp ? sp.act : 'Прыгнуть') : '';
+        actWave = !aL && waveOk;
+        setAct(aL || (actWave ? 'Помахать' : ''), actWave);
         act.classList.toggle('pulse', !!atT && !RM);
         if (k && RM && !blocked()) {
           const s = toScreen(RM.exit.x, 2.0, RM.exit.z - 0.2);
-          bubble.classList.remove('hidden'); bubble.style.left = s.x + 'px'; bubble.style.top = s.y + 'px'; bubble.style.bottom = 'auto';
-          bubble.textContent = coarse ? RM.exitLabel : `Enter — ${RM.exitLabel}`;
+          bubble.classList.remove('hidden');
+          bubble.textContent = coarse ? RM.exitLabel : `Enter — ${RM.exitLabel}`; placeBubble(s.x, s.y);
         } else if (k && !blocked()) {
           const d = doorOf(k), s = toScreen(d.x, 2.1, FRONT_Z + 0.2);
-          bubble.classList.remove('hidden'); bubble.style.left = s.x + 'px'; bubble.style.top = s.y + 'px'; bubble.style.bottom = 'auto';
+          bubble.classList.remove('hidden');
           bubble.textContent = FREE ? doorLabel(k) + (DOORS[k] && DOORS[k].mark === 'new' ? ' · ✦ новое' : DOORS[k] && DOORS[k].mark === 'fresh' ? ' · НОВОЕ' : '') : atT ? (coarse ? 'жми «Войти»' : 'Enter — войти') : o.isLit(k) ? 'уже раскрыто' : 'закрыто';
+          placeBubble(s.x, s.y);
         } else if (sp && !blocked()) {
           const s2 = toScreen(sp.x, 2.2, sp.z - 0.6);
-          bubble.classList.remove('hidden'); bubble.style.left = s2.x + 'px'; bubble.style.top = s2.y + 'px'; bubble.style.bottom = 'auto';
+          bubble.classList.remove('hidden');
           const bt = heldKind === 'bouquet' && sp.bubble2 ? sp.bubble2 : sp.bubble;
-          bubble.textContent = coarse ? bt : `Enter — ${bt}`;
+          bubble.textContent = coarse ? bt : `Enter — ${bt}`; placeBubble(s2.x, s2.y);
         } else bubble.classList.add('hidden');
         const ts = toScreen(tgtDoor.x, 2.7, FRONT_Z + 0.5), Wd = root.clientWidth;
         if (FREE && hintShown && FO.hintDoor && DOORS[FO.hintDoor] && !(cat.root.visible && o.catHelper)) {
           const hs = toScreen(doorOf(FO.hintDoor).x, 2.4, FRONT_Z + 0.5), Wd2 = root.clientWidth;
-          if (hs.x > Wd2 - 24) { edge.className = 'edge-arrow r'; edge.textContent = `→ ${doorLabel(FO.hintDoor)} ✦`; }
-          else if (hs.x < 24) { edge.className = 'edge-arrow l'; edge.textContent = `${doorLabel(FO.hintDoor)} ✦ ←`; }
-          else edge.className = 'edge-arrow hidden';
-        } else if (RM || FREE) edge.className = 'edge-arrow hidden';
-        else if (ts.x > Wd - 24) { edge.className = 'edge-arrow r'; edge.textContent = `${o.arrowText} →`; }
-        else if (ts.x < 24) { edge.className = 'edge-arrow l'; edge.textContent = `← ${o.arrowText}`; }
-        else edge.className = 'edge-arrow hidden';
+          const hd = doorOf(FO.hintDoor), hm = Math.round(Math.hypot(hd.x - px, hd.z - pz));
+          setEdge(hs.x > Wd2 - 24 ? 'r' : hs.x < 24 ? 'l' : null, doorLabel(FO.hintDoor) + ' ✦', hm);
+        } else if (RM || FREE) setEdge(null);
+        else setEdge(ts.x > Wd - 24 ? 'r' : ts.x < 24 ? 'l' : null, o.arrowText, Math.round(Math.hypot(tgtDoor.x - px, (FRONT_Z + 0.5) - pz)));
         if (!qDone && !/hq=1/.test(location.search)) {
           qFrames.push(rawDt);
           if (qFrames.length >= 90) { qDone = true; const avg = qFrames.slice(10).reduce((a, b) => a + b, 0) / (qFrames.length - 10); if (avg > 0.045) dropQuality(); qFrames = null; }
@@ -3586,11 +3604,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     active = true;
     if (RM && RM.catSpot) setTimeout(() => { if (!finished && cat.root.visible && !catPin) catPin = { x: RM.catSpot.x, z: RM.catSpot.z, ry: RM.catSpot.ry, y: RM.catSpot.y }; }, 2500);
     joy.classList.remove('hidden');
-    if (o.showHint) {
-      hint.textContent = coarse ? 'Тяни джойстик или тапни по земле' : 'Стрелки — ходить, Enter — войти';
-      hint.classList.remove('hidden');
-      setTimeout(() => { hint.style.opacity = '0'; }, 4500);
-    }
+    // подсказка управления — тостом (HUD v2)
+    if (o.showHint) toast(coarse ? 'Кружок внизу — идти · тап по земле — туда' : 'Стрелки — идти · Enter — войти', 4000);
   }
 
   window.City3D = { supported, run, registerRoom, extendRoom, lastHeld: () => LAST_HELD, hasRoom: id => !!(ROOMS[id] || (id === 'stairs' && ROOMS.roof) || (id === 'roof' && ROOMS.stairs)), registerShop, shops: () => Object.keys(SHOPS).map(k => Object.assign({ key: k }, SHOPS[k])) };

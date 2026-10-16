@@ -136,6 +136,8 @@
     if (p && Array.isArray(p.secrets) && p.secrets.length) return p.secrets.map(s => s.id);
     return REG.secrets.filter(s => s.indexOf(SEC_PREFIX[id]) === 0);
   }
+  // HUD v2: строка прогресса в шапке меню ☰ (бывший чип «🏙 N/12»)
+  const progressLine = () => { const c = counts(); return `Штампы ${c.stamps}/12 · Факты ${c.facts}/${c.factsAvail} · Секретики ${c.secrets}/${c.secretsTotal}`; };
   function counts() {
     const t = ensure(), w = week();
     let factsAvail = 0;
@@ -952,7 +954,7 @@
         catAt: catF ? null : t.cat === 0 ? { x: 3.5, z: -0.7 } : { x: 1.3, z: -0.9 },
         hintDoor: hintDoorFrom(sd ? sd.x : 0),
         decor: { sweaters: w >= 2 ? 2 : w >= 1 ? 1 : 0, snow: w >= 5, garlands: w >= 6, portrait: t.k.wp && t.ph ? heroLook() : null },
-        exitText: '← в меню',
+        exitText: '← в меню', menuSub: progressLine,
       },
       openDoors: doors.filter(d => d.open).map(d => d.id), closedText: SHUT_TEXT,
       hero: heroLook(), catHelper: catF, catSweater: !!st.catSweater && catF, catBeret: !!t.k.cb && catF, held: heldNow(),
@@ -960,7 +962,7 @@
       onSpot: (id, api) => streetSpot(id, api, true),
       onNpc: (id, api) => (id === 'cat' ? catOffer(api, true) : null),
       pickups: picks, onPickup: (id, api) => (kit.pickFind ? kit.pickFind(id, api) : null),
-      lines: kit.STREET_LINES || {}, hudLabel: `🏙 ${counts().stamps}/12`,
+      lines: kit.STREET_LINES || {}, hudLabel: 'Город нараспашку',
       heroLine: 'Бант держится. Планов нет. Какое счастье.',
       beforeActive: async () => { await firstWalkHints(); },
       done, fallback,
@@ -1053,7 +1055,7 @@
     return new Promise(res => {
       let closed = false, busy = false;
       const scr = G.show(street2DHTML(), 'town2d');
-      const hud = () => G.setHud({ label: `🏙 ${counts().stamps}/12`, onExit: () => close('menu'), exitText: '← в меню' });
+      const hud = () => G.setHud({ label: 'Город нараспашку', menuSub: progressLine, onExit: () => close('menu'), exitText: '← в меню', exitPlace: 'menu' });
       const close = r => {
         if (closed) return; closed = true; endStreetVisits();
         if (r === 'menu') { G.skipDialogs(true); closeLayer(); syncSheetClass(); setTimeout(() => G.skipDialogs(false), 400); }

@@ -566,7 +566,7 @@
         </div>
         <div class="edge-arrow hidden" id="edge"></div>
         <div class="pad-ctl hidden" id="pad"><button class="ctl" data-dir="left" aria-label="Влево">◀</button><button class="ctl" data-dir="right" aria-label="Вправо">▶</button></div>
-        <button class="ctl act hidden" id="act">Войти</button>
+        <button class="ctl act hidden" id="act" data-hud-slot="P">Войти</button>
         <div class="ctl-hint hidden" id="hint"></div>`, 'street');
       G.setHud({ label: label(target) }); G.tgHeader(LIGHT);
       if (M()) caseCardOn(target, M().worldExtras({ mode: 'story', target, idx }).hud, scr);
@@ -605,7 +605,7 @@
         if (finished) return; finished = true;
         cleanup(); haptic('medium'); sfx('ok');
         // поворачивается спиной и заходит в дверь
-        act.classList.add('hidden'); bubble.classList.add('hidden'); edge.className = 'edge-arrow hidden';
+        act.classList.add('hidden'); bubble.classList.add('hidden'); edge.classList.add('hidden');
         heroChar.classList.remove('walk', 'flip');
         heroChar.innerHTML = heroArt({ view: 'back' });
         await wait(180);
@@ -762,9 +762,10 @@
           const k = nearDoor();
           const atTarget = k === target;
           const atCart = !k && !cartBusy && Math.abs(heroX - cartX) < 50;
-          act.classList.toggle('hidden', !(atTarget || atCart));
-          if (atTarget) act.textContent = target === 'roof' ? 'К лестнице' : 'Войти';
-          else if (atCart) act.textContent = 'Букет';
+          // HUD v2: главная кнопка P — значок + слово (HUD.paintAct), полная подпись — aria-label
+          const aL = atTarget ? (target === 'roof' ? 'Войти · к лестнице' : 'Войти') : atCart ? '💐 Букет' : '';
+          if (aL !== act.dataset.lbl) { act.dataset.lbl = aL; if (aL) { if (window.HUD) HUD.paintAct(act, aL); else act.textContent = aL; } }
+          act.classList.toggle('hidden', !aL);
           if (k && !blocked()) {
             bubble.classList.remove('hidden');
             bubble.style.left = L.door(k) + 'px';
@@ -772,9 +773,10 @@
             bubble.textContent = atTarget ? (coarse() ? 'жми «Войти»' : '↑ — войти') : lit(k) ? 'уже раскрыто' : 'закрыто';
             goArrow.classList.toggle('hidden', atTarget);
           } else { bubble.classList.add('hidden'); goArrow.classList.remove('hidden'); }
-          const sx = L.door(target) + camX;
-          if (sx > L.W - 30) { edge.className = 'edge-arrow r'; edge.textContent = `${ARROW[target]} →`; }
-          else if (sx < 30) { edge.className = 'edge-arrow l'; edge.textContent = `← ${ARROW[target]}`; }
+          const sx = L.door(target) + camX, eSide = sx > L.W - 30 ? 'r' : sx < 30 ? 'l' : null;
+          if (window.HUD) HUD.chevAt(edge, eSide, { label: ARROW[target] });
+          else if (eSide === 'r') { edge.className = 'edge-arrow r'; edge.textContent = `${ARROW[target]} →`; }
+          else if (eSide === 'l') { edge.className = 'edge-arrow l'; edge.textContent = `← ${ARROW[target]}`; }
           else edge.className = 'edge-arrow hidden';
         }
         raf = requestAnimationFrame(tick);
@@ -805,9 +807,8 @@
       active = true;
       pad.classList.remove('hidden');
       if (!st.walkedOnce || opts.intro) {
-        hint.textContent = coarse() ? 'Держи ◀ ▶ или тапни по тротуару' : '← → — ходить, ↑ — войти';
-        hint.classList.remove('hidden');
-        setTimeout(() => { hint.style.opacity = '0'; }, 4200);
+        // подсказка управления — тостом (HUD v2)
+        toast(coarse() ? 'Держи ◀ ▶ внизу или тапни по тротуару' : '← → — ходить, ↑ — войти', 4000);
         st.walkedOnce = true; G.save();
       }
     });

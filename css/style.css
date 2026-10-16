@@ -1065,6 +1065,7 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 [data-hud-slot="brake"] { right: var(--hud-r); bottom: calc(var(--hud-b) + 86px); left: auto; top: auto; }
 [data-hud-slot="radar"] { left: var(--hud-l); bottom: var(--hud-b); top: auto; right: auto; }
 /* главная кнопка P: значок + одно слово */
+.ctl.act[data-hud-slot="P"] { right: var(--hud-r); bottom: var(--hud-b); left: auto; top: auto; }
 .hud-act, .w-act[data-hud-slot="P"], .ctl.act[data-hud-slot="P"] {
   width: var(--hud-act); height: var(--hud-act); min-width: 0; max-width: none; padding: 0; border: 0; border-radius: 50%;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
@@ -1074,6 +1075,7 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 .hud-act > i { font-style: normal; font-size: 24px; line-height: 1; height: 26px; display: grid; place-items: center; }
 .hud-act > b { font-size: 11px; font-weight: 900; line-height: 1.05; letter-spacing: -.01em; max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
 .hud-act[data-long="1"] > b { font-size: 10px; }
+.hud-act[data-long="2"] > b { font-size: 9.5px; letter-spacing: -.02em; }
 .hud-act:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--cherry-d); }
 .hud-act.soft { background: var(--hud-glass-2); color: var(--cherry); box-shadow: 0 4px 0 rgba(58,46,63,.16), 0 8px 18px rgba(58,46,63,.12); }
 .hud-act.soft:active { box-shadow: 0 1px 0 rgba(58,46,63,.16); }
@@ -1138,3 +1140,20 @@ body.hud-quiet .w-edge, body.hud-quiet .edge-arrow, body.hud-quiet .w-near, body
 body.hud-quiet .hud-a2, body.hud-quiet .hud-pedal, body.hud-quiet #hud .hud-obj, body.hud-quiet #hud .hud-card, body.hud-quiet .mv-say {
   opacity: 0 !important; pointer-events: none !important; transition: opacity .18s;
 }
+/* улица-запас (?world=off, js/city3d.js): джойстик на месте покоя по центру снизу, тот же вид; 2D-улица (js/ep1.js): ◀ ▶ на месте джойстика */
+.city3d .joy {
+  left: calc(var(--hud-joy-cx) - var(--hud-joy) / 2); bottom: var(--hud-joy-b); width: var(--hud-joy); height: var(--hud-joy); z-index: 19;
+  background: rgba(255,253,249,.32) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23C2405B' stroke-opacity='.35' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M44,15 L50,9 L56,15'/%3E%3Cpath d='M44,85 L50,91 L56,85'/%3E%3Cpath d='M15,44 L9,50 L15,56'/%3E%3Cpath d='M85,44 L91,50 L85,56'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.8), inset 0 0 0 3px rgba(58,46,63,.06), 0 6px 16px rgba(58,46,63,.10);
+}
+.city3d .joy .joy-knob { width: var(--hud-knob); height: var(--hud-knob); margin: calc(var(--hud-knob) / -2) 0 0 calc(var(--hud-knob) / -2); background: rgba(255,253,249,.96); box-shadow: 0 3px 0 rgba(58,46,63,.16), 0 6px 12px rgba(58,46,63,.14); }
+.city3d .joy .joy-knob::after { content: ''; inset: auto; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--powder); }
+.pad-ctl { left: calc(var(--hud-joy-cx) - 64px); bottom: calc(var(--hud-joy-b) + var(--hud-joy) / 2 - 28px); gap: 16px; z-index: 19; }
+.pad-ctl .ctl { width: 56px; height: 56px; font-size: 22px; background: var(--hud-glass-2); }
+.city3d .ctl.wave { display: none !important; }
+.ctl-hint { display: none !important; }
+/* карточка дела на титуле — в потоке страницы (не поверх: позиция .w-case из города здесь не нужна) */
+.w-case.inline { position: relative; left: auto; top: auto; right: auto; max-width: 100%; }
+/* 2D-город и комнаты 2D: список ниже верхней полосы */
+.town2d-wrap { padding-top: calc(var(--hud-bar-b) + 8px); }
+.town-room-wrap { padding-top: calc(var(--hud-bar-b) + 6px); }

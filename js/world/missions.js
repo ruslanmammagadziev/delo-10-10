@@ -296,8 +296,22 @@
       <div class="w-case-x">${esc(c.text)}</div>${p}</button>`;
   }
   // карточка поверх экрана улицы: host — экран (по умолчанию — текущий), onTap — что делать по тапу
+  // HUD v2: на улице и в 2D карточка — пилюля цели в верхней полосе (HUD.objective; тап — карточка, тап по карточке — o.onTap);
+  // «Следующее дело» — строка в шапке меню ☰. Без модуля HUD (или o.dom) — прежняя карточка поверх экрана.
   function mountCard(c, o = {}) {
     if (!c) return { el: null, remove() {} };
+    const HUD = window.HUD;
+    if (HUD && HUD.objective && !o.dom) {
+      if (c.lock || (c.tap === 'none' && !c.door)) {
+        const note = `${c.icon || '🔒'} ${c.title || 'Следующее дело'}: ${c.text || ''}`;
+        HUD.menu.note(note);
+        return { el: null, remove() { HUD.menu.note(null); } };
+      }
+      const short = c.short || String(c.text || '').split(/[:·—]/)[0].trim() || c.title;
+      const obj = { icon: c.icon || '🔍', text: short, title: c.title || 'Сегодняшнее дело', full: c.text || '', progress: c.progress || null, onTap: () => { if (o.onTap) o.onTap(c); } };
+      HUD.objective.set(obj);
+      return { el: null, remove() { if (HUD.objective.get() === obj) HUD.objective.set(null); } };
+    }
     const host = o.host || document.querySelector('#stage .screen:not(.out)') || (window.G && G.app) || document.body;
     const wrap = document.createElement('div');
     wrap.className = 'm-case-host';
