@@ -1563,7 +1563,7 @@
       ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 14.9, -9.7], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
       // волна 6: дороги села — школа, школьный двор, разворот у башни, дорога к отелю
-      ['school', 'place', 21, -68.8, 'Школа'], ['schoolYard', 'sport', 21, -53.6, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'], ['toHotel', 'hotel', 76.9, -99.7]],
+      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 21, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'], ['toHotel', 'hotel', 76.9, -99.7]],
     hotel: [['main', 'hotel', -2, 23], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', -5, -36.9], ['tower', 'zip', -26, -24], ['park', 'parking', -50, 13]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
@@ -1796,7 +1796,7 @@
     if (h && h.colliders) h.colliders.forEach(cl => {
       if (cl.type !== 'box') return; const id = String(cl.id || '');
       if (houses && houses.length && /^h\d/.test(id)) return;
-      if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop)/.test(id) || /stair/.test(id)) return;
+      if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop|school\b)/.test(id) || /stair/.test(id)) return;
       drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /museum/.test(id) ? '#DCD3EC' : /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');
     });
     else { [[kd.MUSEUM, '#DCD3EC'], [kd.BAKERY, '#F2D9B8']].forEach(([b, col]) => { if (b) drawHouse(b.x, b.z, b.w, b.d, b.ry, col); }); }
