@@ -259,10 +259,11 @@
   // z — середина корпуса, fz — плоскость фасада крыльев, ffl — пол 1-го этажа над двором (крыльцо)
   const SCHOOL = { x: 21, z: -92, fz: -86, w: 39.4, d: 12, ry: 0, st: 2, y: 4.8, ffl: 0.6 };
   // большой двор 39 × 40 м (в 3 с лишним раза больше прежнего): ограда — ломаная (по западу, югу и вдоль дороги наверх, с запасом
-  // ≥ 1 м от обочины); ворота на восток к дороге (gate — середина проёма), калитка на запад. x, z, w, d — габарит двора
+  // ≥ 1 м от обочины); ворота на восток к дороге (gate — середина проёма). Западная ограда — сплошная: за ней только узкая
+  // полоска до края плато (калитка вела в тупик). x, z, w, d — габарит двора
   const YARD = { x: 21, z: -66, w: 39.4, d: 40, ry: 0, y: 4.8,
     fence: [[1.3, -86], [1.3, -46], [34.4, -46], [36.0, -52], [36.5, -61], [38.0, -68], [40.7, -75], [40.7, -86]],
-    gate: { seg: 3, w: 3.6 }, wicket: { seg: 0, z: -66, w: 1.4 } };
+    gate: { seg: 3, w: 3.6 } };
   // ровные площадки: под корпусом (с запасом за ним, мягкий край 6 м — к северо-восточному подъёму) и под двором (до ограды
   // у дороги). bank: откос дороги наверх считается и внутри площадки (от полотна к уровню двора, без ступеньки на краю)
   PADS.push({ x: 21, z: -90.5, w: 44, d: 21, ry: 0, y: 4.8, kind: 'yard', m: 6.0, walk: true, bank: true, id: 'school' },
@@ -1902,7 +1903,7 @@
       W6.signs.push({ x, z, items: items.map(i => i.text) });
     }
     // школа — 1-в-1 по двум фото (чертёж фотоаналитика, school/bp): длинный симметричный корпус 39,4 × 12 м в 2 этажа из светлого
-    // силикатного кирпича (частая расшивка — уменьшенная полоса ASHLAR). В каждой оси крыльев (6 на крыло) — ниша от цоколя до карниза:
+    // силикатного кирпича (частая расшивка — полоса WASH в родном масштабе). В каждой оси крыльев (6 на крыло) — ниша от цоколя до карниза:
     // красная кирпичная филёнка, окно, филёнка, окно. Белые окна ПВХ (фрамуга и 3 створки). Ризалит без ниш: 4 окна парами, фронтон
     // 30° с белыми досками и окошком. Над входом белый козырёк с фигурным фризом (уступы и арка), красный баннер, гладкий медальон,
     // два флажка, бордовые колонны и двери; широкое крыльцо со ступенями между щёчками. Пологие вальмы крыльев из тёмного профлиста
@@ -1912,19 +1913,22 @@
     function schoolGeo() {
       const S0 = SCHOOL, bk = W6.upB, db = W6.detB, R = rng(2026), FL = S0.ffl, FFL = S0.y + FL, F = new K.Frame(S0.x, FFL, S0.fz, S0.ry);
       const D = S0.d, WX = S0.w / 2, RX = 3.8, RZ = 0.5, EAVE = 6.75, APEX = 8.94, RIDGE = 8.25, NZ = 0.09, PB = -FL - 0.3;
-      const T14 = Math.tan(14 * PI / 180), T30 = Math.tan(PI / 6), AX = [5.05, 7.65, 10.25, 12.85, 15.45, 18.05], NW = 1.25;
+      const T14 = Math.tan(14 * PI / 180), T30 = Math.tan(PI / 6), AX = [5.05, 7.65, 10.25, 12.85, 15.45, 18.05], NW = 1.25, ANZ = -4.7;
       const t0 = bk.count(), d0 = db.count();
-      // палитра фото. Кирпич — полоса ASHLAR, уменьшенная в 2,67 раза (ряды 0,1 м, тычки 0,17–0,34 м — как силикатный кирпич
-      // 1,4НФ), тон — множитель к среднему цвету полосы (0,787; 0,692; 0,529): светло-серый, швы чуть темнее, филёнки терракотовые
-      const BRK = -1, brick = [0.95, 1.08, 1.42], brickL = [1.0, 1.14, 1.5], redP = [0.79, 0.67, 0.83], plinth = rgb('#B7B4AD');
+      // палитра фото. Кирпич — полоса WASH в родном масштабе (8 рядов на 0,8 м = ряды 0,1 м, камни 0,19–0,48 м, разброс тона 5 %:
+      // ровная частая кладка силикатного кирпича 1,4НФ без пятен), тон — множитель к среднему цвету полосы (0,938 серый):
+      // тёплый светло-серый, филёнки — приглушённый терракотовый; цоколь — гладкий (S.FLAT), светлее стены (фото 2), зимой —
+      // тёмный бетон (фото 1)
+      const BRK = -1, brick = [0.745, 0.73, 0.71], brickL = [0.79, 0.775, 0.755], redP = [0.64, 0.42, 0.40];
+      const plinth = WIN ? rgb('#9A9893') : [0.93, 0.92, 0.89];
       const white = rgb('#F3F3EF'), roofC = mul(rgb('#5A4345'), 1.12), gutter = rgb('#3B3132'), dark = rgb('#3C3B42');
       const P3 = (x, y, z) => F.p(x, y, z), dW = d => { const w = F.dir(d[0], d[2]); return [w[0], d[1], w[1]]; };
       const nrm = w => { const u = [w[1][0] - w[0][0], w[1][1] - w[0][1], w[1][2] - w[0][2]], v = [w[2][0] - w[0][0], w[2][1] - w[0][1], w[2][2] - w[0][2]]; return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]; };
-      // развёртка кирпича: по стене — вдоль грани / 1,2 м и высота / 0,3 м (3 ряда полосы = 3 ряда кладки)
-      const bUV = (w, n) => { const l = Math.hypot(n[0], n[1], n[2]) || 1; if (Math.abs(n[1]) / l > 0.6) return w.map(q => [q[0] / 1.2, q[2] / 0.3]); const h = Math.hypot(n[0], n[2]) || 1, rx = n[2] / h, rz = -n[0] / h; return w.map(q => [(q[0] * rx + q[2] * rz) / 1.2, q[1] / 0.3]); };
+      // развёртка кирпича: по стене — вдоль грани / 3,2 м и высота / 0,8 м (полоса WASH в родном масштабе)
+      const bUV = (w, n) => { const l = Math.hypot(n[0], n[1], n[2]) || 1; if (Math.abs(n[1]) / l > 0.6) return w.map(q => [q[0] / 3.2, q[2] / 0.8]); const h = Math.hypot(n[0], n[2]) || 1, rx = n[2] / h, rz = -n[0] / h; return w.map(q => [(q[0] * rx + q[2] * rz) / 3.2, q[1] / 0.8]); };
       // грань по местным точкам (3 или 4, против часовой снаружи; с dir — лицом к dir); s = BRK — кирпич со своей развёрткой
       const qd = (b, p, col, s, dir) => { let w = p.map(q => P3(...q)); if (dir) { const n = nrm(w), d = dW(dir); if (n[0] * d[0] + n[1] * d[1] + n[2] * d[2] < 0) w = w.reverse(); }
-        const st = s === BRK ? S.ASHLAR : s, uv = s === BRK ? bUV(w, nrm(w)) : null;
+        const st = s === BRK ? S.WASH : s, uv = s === BRK ? bUV(w, nrm(w)) : null;
         if (w.length === 4) b.quad(w[0], w[1], w[2], w[3], col, st, uv); else b.tri(w[0], w[1], w[2], col, st, uv); };
       const rectZ = (b, x0, x1, y0, y1, z, col, s, back) => (back ? qd(b, [[x1, y0, z], [x0, y0, z], [x0, y1, z], [x1, y1, z]], col, s) : qd(b, [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], col, s));
       const triF = (b, a, c, e, col, s, dir) => qd(b, [a, c, e], col, s, dir);
@@ -1945,13 +1949,13 @@
 
       // крылья: задняя стена — одной гранью на весь корпус; торцы; цоколь по кругу (у крыльца его закрывает площадка)
       rectZ(bk, -WX, WX, 0, EAVE, -D, brick, BRK, true);
-      rectZ(bk, -WX - 0.03, WX + 0.03, PB, 0, 0.03, plinth, S.PLASTER);
-      qd(bk, [[-WX - 0.03, 0, 0.03], [WX + 0.03, 0, 0.03], [WX + 0.03, 0, 0], [-WX - 0.03, 0, 0]], plinth, S.PLASTER, [0, 1, 0]);
-      rectZ(bk, -WX - 0.03, WX + 0.03, PB, 0, -D - 0.03, plinth, S.PLASTER, true);
+      rectZ(bk, -WX - 0.03, WX + 0.03, PB, 0, 0.03, plinth, S.FLAT);
+      qd(bk, [[-WX - 0.03, 0, 0.03], [WX + 0.03, 0, 0.03], [WX + 0.03, 0, 0], [-WX - 0.03, 0, 0]], plinth, S.FLAT, [0, 1, 0]);
+      rectZ(bk, -WX - 0.03, WX + 0.03, PB, 0, -D - 0.03, plinth, S.FLAT, true);
       [-1, 1].forEach(sd => {
         const xo = sd * WX;
         qd(bk, [[xo, 0, 0], [xo, 0, -D], [xo, EAVE, -D], [xo, EAVE, 0]], brick, BRK, [sd, 0, 0]);
-        qd(bk, [[xo + sd * 0.03, PB, 0.03], [xo + sd * 0.03, PB, -D - 0.03], [xo + sd * 0.03, 0, -D - 0.03], [xo + sd * 0.03, 0, 0.03]], plinth, S.PLASTER, [sd, 0, 0]);
+        qd(bk, [[xo + sd * 0.03, PB, 0.03], [xo + sd * 0.03, PB, -D - 0.03], [xo + sd * 0.03, 0, -D - 0.03], [xo + sd * 0.03, 0, 0.03]], plinth, S.FLAT, [sd, 0, 0]);
         // фасад: 7 простенков, полоса под карнизом, 6 ниш (филёнки, окна, светлые откосы)
         const ed = [RX]; AX.forEach(a => ed.push(a - NW / 2, a + NW / 2)); ed.push(WX);
         for (let k = 0; k < ed.length - 1; k += 2) { const xa = sd * ed[k], xb = sd * ed[k + 1]; rectZ(bk, Math.min(xa, xb), Math.max(xa, xb), 0, 6.1, 0, brick, BRK); }
@@ -1965,8 +1969,8 @@
           win(xc, 0.88, 1.72, z); win(xc, 4.25, 1.65, z);
           win(xc, 0.88, 1.72, -D, { back: true }); win(xc, 4.25, 1.65, -D, { back: true });
         });
-        // торцы: по 2 окна на этаж
-        [-3.6, -8.4].forEach(z => [0.88, 4.25].forEach(yb => glass(F, xo + sd * 0.03, yb + 0.83, z, 1.1, 1.65, 3, white, R() < 0.25 ? 1 : 0, sd * PI / 2)));
+        // торцы: по 2 окна на этаж (справа внизу у фасада — пристройка, окна за ней нет)
+        [-3.6, -8.4].forEach(z => [0.88, 4.25].forEach(yb => { if (sd > 0 && yb < 1 && z > ANZ - 2.5) return; glass(F, xo + sd * 0.03, yb + 0.83, z, 1.1, 1.65, 3, white, R() < 0.25 ? 1 : 0, sd * PI / 2); }));
       });
 
       // ризалит: выступ 0,5 м, по углам пилястры 0,4 (кирпич светлее), без ниш и филёнок; фронтон 30° с белыми досками
@@ -2016,20 +2020,25 @@
       });
 
       // крыльцо: площадка 10,6 м до 3,1 м от стены (верх = пол 1-го этажа), щёчки по бокам ступеней (летом белёные),
-      // 4 подступёнка по 0,15 и 3 проступи по 0,32
-      const conc = rgb('#8E8880'), cheekC = WIN ? rgb('#9A958D') : rgb('#E6E4DE'), stepC = rgb('#8A847C');
-      bk.box(F, 0, PB / 2, 1.55, 10.6, -PB, 3.1, { col: conc, s: S.SLAB, skip: { ny: 1, nz: 1, pz: 1 } });
-      [-1, 1].forEach(sd => bk.box(F, sd * 4.2, PB / 2, 3.58, 2.2, -PB, 0.96, { col: cheekC, s: S.SLAB, skip: { ny: 1, nz: 1 } }));
-      for (let k = 0; k < 4; k++) { const z = 3.1 + 0.32 * k, y1 = -0.15 * k, y0 = -0.15 * (k + 1); rectZ(bk, -3.1, 3.1, y0, y1, z, mul(stepC, 0.9), S.SLAB); if (k < 3) qd(bk, [[-3.1, y0, z + 0.32], [3.1, y0, z + 0.32], [3.1, y0, z], [-3.1, y0, z]], stepC, S.SLAB, [0, 1, 0]); }
-      // мощёный «фартук» 8,6 × 3 м перед ступенями (розовато-серая плитка); зимой — снег с протоптанной серединой (как на фото 1)
-      { const pav = rgb('#A48474'), n0 = bk.n, snowK = p => clamp(0.15 + 0.75 * Math.abs(p[0] - S0.x) / 4.3 + 0.7 * (VK.vnoise(p[0] * 0.9, p[2] * 0.9) - 0.5), 0, 0.92);
-        for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) { const x0 = -4.3 + i * 8.6 / 6, x1 = x0 + 8.6 / 6, z0 = 4.06 + j, z1 = z0 + 1, yy = -FL + 0.035;
-          qd(bk, [[x0, yy, z1], [x1, yy, z1], [x1, yy, z0], [x0, yy, z0]], WIN ? (p => mix(pav, mul(C('snowGround'), 1.06), snowK(p))) : pav, S.WASH); }
-        if (WIN) (bk.noSnow = bk.noSnow || []).push([n0, bk.n]); }
+      // 4 подступёнка по 0,15 и 3 проступи по 0,32. Гладкий тёмный бетон без швов (S.PLASTER), зимой щёчки — серый бетон
+      const conc = rgb('#8E8880'), cheekC = WIN ? rgb('#8F8B84') : rgb('#E6E4DE'), stepC = rgb('#8A847C');
+      bk.box(F, 0, PB / 2, 1.55, 10.6, -PB, 3.1, { col: conc, s: S.PLASTER, skip: { ny: 1, nz: 1, pz: 1 } });
+      [-1, 1].forEach(sd => bk.box(F, sd * 4.2, PB / 2, 3.58, 2.2, -PB, 0.96, { col: cheekC, s: S.PLASTER, skip: { ny: 1, nz: 1 } }));
+      for (let k = 0; k < 4; k++) { const z = 3.1 + 0.32 * k, y1 = -0.15 * k, y0 = -0.15 * (k + 1); rectZ(bk, -3.1, 3.1, y0, y1, z, mul(stepC, 0.9), S.PLASTER); if (k < 3) qd(bk, [[-3.1, y0, z + 0.32], [3.1, y0, z + 0.32], [3.1, y0, z], [-3.1, y0, z]], stepC, S.PLASTER, [0, 1, 0]); }
+      // мощёный «фартук» 8,6 × 3 м перед ступенями (розовато-серая плитка) — одной гранью в атлас плато; зимой он под снегом
+      // (как весь двор), а протоптанная середина и пятна — чёткие клетки плитки 0,5 м в мелочь (как на фото 1)
+      { const pav = rgb('#A48474'), yy = -FL + 0.035;
+        qd(bk, [[-4.3, yy, 7.06], [4.3, yy, 7.06], [4.3, yy, 4.06], [-4.3, yy, 4.06]], pav, S.WASH);
+        if (WIN) { const R2 = rng(77), y2 = yy + 0.012, n0 = db.n;
+          for (let i = 0; i < 17; i++) for (let j = 0; j < 6; j++) { const x0 = -4.25 + i * 0.5, z0 = 4.06 + j * 0.5, xc = x0 + 0.25, zc = z0 + 0.25;
+            const tr = Math.abs(xc) < 2.6 - 0.32 * j + 1.2 * (VK.vnoise(xc * 1.1 + 3, zc * 1.1) - 0.5) || VK.vnoise(xc * 0.9 + 7, zc * 0.9) > 0.74;
+            if (tr) qd(db, [[x0, y2, z0 + 0.5], [x0 + 0.5, y2, z0 + 0.5], [x0 + 0.5, y2, z0], [x0, y2, z0]], mul(mix(pav, [0.96, 0.95, 0.95], 0.3), 0.94 + 0.12 * R2())); }
+          (db.noSnow = db.noSnow || []).push([n0, db.n]); } }
 
       // козырёк: плита 8 × 2 м (низ +2,75), спереди белый фриз — плечи 1,10, уступы 1,27 / 1,44 и сегментная арка до 2,14 (R 2 м);
       // тёмные боковины и кровля к стене; красный баннер, гладкий медальон, 2 бордовые колонны Ø 0,16
-      const CY = 2.75, CZ0 = RZ, CZ1 = 2.5, fzF = CZ1 + 0.02, fzB = CZ1 - 0.1, fasC = rgb('#ECEEF0');
+      // фриз чуть серее белого: на зимнем свету не «выгорает» в чистый белый (фото 1 — серо-белый)
+      const CY = 2.75, CZ0 = RZ, CZ1 = 2.5, fzF = CZ1 + 0.02, fzB = CZ1 - 0.1, fasC = rgb('#E0E2E4');
       qd(bk, [[-4, CY, fzF], [4, CY, fzF], [4, CY, CZ0], [-4, CY, CZ0]], rgb('#DFE1E2'), S.FLAT, [0, -1, 0]);
       const prof = [[-4, 1.1], [-3.2, 1.1], [-3.2, 1.27], [-2.24, 1.27], [-2.24, 1.44], [-1.52, 1.44]];
       for (let k = 1; k < 8; k++) { const x = -1.52 + 3.04 * k / 8; prof.push([x, 0.14 + Math.sqrt(4 - x * x)]); }
@@ -2049,13 +2058,17 @@
       { const disc = (x, y, z, r, col) => { const c = P3(x, y, z); for (let k = 0; k < 12; k++) { const a0 = k / 12 * TAU, a1 = (k + 1) / 12 * TAU; db.tri(c, P3(x + Math.cos(a0) * r, y + Math.sin(a0) * r, z), P3(x + Math.cos(a1) * r, y + Math.sin(a1) * r, z), col); } };
         disc(0, CY + 1.42, fzF + 0.012, 0.225, rgb('#A8915A')); disc(0, CY + 1.42, fzF + 0.024, 0.18, rgb('#CDB57A')); }
       [-2.65, 2.65].forEach(x => { const c = P3(x, 0, 2.35); db.cyl(c[0], FFL, c[2], 0.08, 0.08, CY, { seg: 6, col: rgb('#6B1E24'), cap: false }); colliders.push({ type: 'circle', x: c[0], z: c[2], r: 0.12, y0: FFL - 0.1, y1: FFL + CY, id: 'schoolColumn' }); });
-      // флажки на коротких древках у верхних углов фриза (наклон 35° наружу и чуть вперёд): гладкие триколоры без символов
+      // колонны и козырёк — ещё и для луча камеры (круги он не видит): коробка 1 × 1 м вокруг колонны ловит и лучи, идущие рядом,
+      // — камера не встаёт в шаге от колонны (она бы заняла треть кадра) и не лезет в козырёк
+      [-2.65, 2.65].forEach(x => { const c = P3(x, 0, 2.35); camColliders.push({ type: 'box', x: c[0], z: c[2], w: 1.0, d: 1.0, ry: S0.ry, y0: FFL - 0.1, y1: FFL + CY, id: 'schoolColumnCam', cam: true }); });
+      { const c = P3(0, 0, (CZ0 + CZ1) / 2); camColliders.push({ type: 'box', x: c[0], z: c[2], w: 8.0, d: CZ1 - CZ0 + 0.1, ry: S0.ry, y0: FFL + CY - 0.1, y1: FFL + CY + 1.2, id: 'schoolCanopyCam', cam: true }); }
+      // флажки на коротких древках (1,2 м) у верхних углов фриза, наклон 30° наружу и чуть вперёд: небольшое полотнище 0,6 × 0,35
+      // висит без ветра — кромка у древка, свободный край опущен; полосы сверху вниз; гладкие триколоры без символов
       [[-1, ['#1E8B3A', '#1F5FBF', '#D52B1E']], [1, ['#FFFFFF', '#0039A6', '#D52B1E']]].forEach(([sd, cols]) => {
-        const a = 35 * PI / 180, base = [sd * 3.95, CY + 1.1, fzF], at = t => [base[0] + sd * Math.sin(a) * t, base[1] + Math.cos(a) * t, base[2] + 0.12 * t];
-        railSeg(F, base, at(1.5), 0.035, white, db);
-        // полотнище 0,9 × 0,6: от древка наружу и вниз, полосы — вдоль полёта
-        const fx = sd * Math.cos(a) * 0.9, fy = -Math.sin(a) * 0.9 - 0.12;
-        for (let k = 0; k < 3; k++) { const h0 = at(1.45 - 0.2 * k), h1 = at(1.25 - 0.2 * k), f0 = [h0[0] + fx, h0[1] + fy, h0[2]], f1 = [h1[0] + fx, h1[1] + fy, h1[2]], col = rgb(cols[k]);
+        const a = 30 * PI / 180, base = [sd * 3.95, CY + 1.1, fzF], at = t => [base[0] + sd * Math.sin(a) * t, base[1] + Math.cos(a) * t, base[2] + 0.1 * t];
+        railSeg(F, base, at(1.2), 0.03, white, db);
+        const A = at(1.17), B = at(0.77), fd = [sd * 0.6 * Math.cos(0.45), -0.6 * Math.sin(0.45), 0.05], L = (t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t];
+        for (let k = 0; k < 3; k++) { const h0 = L(k / 3), h1 = L((k + 1) / 3), f0 = [h0[0] + fd[0], h0[1] + fd[1], h0[2] + fd[2]], f1 = [h1[0] + fd[0], h1[1] + fd[1], h1[2] + fd[2]], col = rgb(cols[k]);
           db.quad(P3(...h1), P3(...f1), P3(...f0), P3(...h0), col); db.quad(P3(...h0), P3(...f0), P3(...f1), P3(...h1), col); }
       });
       // ночью: два плафона под козырьком
@@ -2069,10 +2082,16 @@
       rectZ(bk, 0.45, 1.03, 0.03, 2.12, zD + 0.012, leafM, S.FLAT); rectZ(bk, 1.07, 1.65, 0.03, 2.12, zD + 0.012, leafM, S.FLAT);
       [-2.57, -1.03, 1.03, 2.57].forEach(x => { win(x, 4.25, 1.65, RZ); win(x, 4.25, 1.65, -D, { back: true }); });
       [-2.62, 2.62].forEach(x => { win(x, 0.95, 1.65, RZ); win(x, 0.95, 1.65, -D, { back: true }); });
-      // водостоки: по углам, у ризалита (со стороны крыльев) и посреди крыла; табличка справа от входа (без названия — «Школа»)
-      [-WX + 0.12, -RX - 0.12, -8.95, 8.95, RX + 0.12, WX - 0.12].forEach(x => { const yb = Math.abs(x) < 5.4 ? 0 : -FL, yt = yeE - 0.1; db.box(F, x, (yb + yt) / 2, 0.08, 0.1, yt - yb, 0.1, { col: gutter, skip: { nz: 1, py: 1, ny: 1 } }); });
+      // водостоки: по углам, у ризалита (со стороны крыльев) и посреди левого крыла (на правом его нет — фото 1 и 2);
+      // табличка справа от входа (без названия — «Школа»)
+      [-WX + 0.12, -RX - 0.12, -8.95, RX + 0.12, WX - 0.12].forEach(x => { const yb = Math.abs(x) < 5.4 ? 0 : -FL, yt = yeE - 0.1; db.box(F, x, (yb + yt) / 2, 0.08, 0.1, yt - yb, 0.1, { col: gutter, skip: { nz: 1, py: 1, ny: 1 } }); });
       rectZ(bk, 6.15, 6.55, 2.3, 2.8, 0.012, rgb('#2A2A2E'), S.FLAT);
       props.signs.push({ text: 'Школа', p: P3(6.35, 2.55, 0.016), ry: S0.ry, h: 0.16, bg: '#8A8A86', fg: '#F4F4F0', size: 64 });
+      // к правому торцу примыкает низкая пристройка из тёмного бута (фото 1, правый край): 4 × 5 м, высота 2,5 м, плоский верх
+      // (бетонная плита, зимой под снегом); окно 1-го этажа торца за ней не рисуем (см. торцы выше)
+      { const c = P3(WX + 2.0, 0, ANZ), gy = Math.min(G(c[0] - 2, c[2] - 2.5), G(c[0] + 2, c[2] - 2.5), G(c[0] + 2, c[2] + 2.5), G(c[0] - 2, c[2] + 2.5)), AF = new K.Frame(c[0], gy, c[2], S0.ry);
+        bk.box(AF, 0, 1.0, 0, 4.0, 3.0, 5.0, { col: [0.66, 0.64, 0.58], s: S.RUBBLE, cols: { py: C('parapetCap') }, ss: { py: S.PLASTER }, skip: { ny: 1, nx: 1 } });
+        colliders.push({ type: 'box', x: c[0], z: c[2], w: 4.0, d: 5.0, ry: S0.ry, y0: gy - 1, y1: gy + 2.5, id: 'schoolAnnex' }); }
 
       // коллайдеры: корпус, выступ ризалита, крыльцо (на него — по ступеням Move; сбоку обходим), колонны (выше — над крыльцом)
       colliders.push({ type: 'box', x: S0.x, z: S0.z, w: S0.w, d: D, ry: S0.ry, y0: S0.y - 1, y1: FFL + APEX + 0.5, id: 'school' });
@@ -2083,26 +2102,31 @@
     }
     // большой школьный двор ≈ 39 × 40 м (по фото — открытый и в основном пустой): у фасада газонные полосы с бордюром и тротуар,
     // мощёный фартук у ступеней и пустая площадка для линеек; футбольное поле — у западной ограды; лавки, деревья и ограда — только
-    // по краю; ворота на восток к дороге, калитка на запад
+    // по краю; ворота на восток к дороге
     function yardGeo() {
       const Y = YARD, y = Y.y, S0 = SCHOOL, SF = new K.Frame(S0.x, y, S0.fz, S0.ry), bk = W6.upB, db = W6.detB, WX = S0.w / 2;
       const t0 = bk.count(), d0 = db.count(), p0 = pb.count();
       const flat = (x0, x1, z0, z1, h, col, s) => bk.quad(SF.p(x0, h, z1), SF.p(x1, h, z1), SF.p(x1, h, z0), SF.p(x0, h, z0), col, s);
-      // у фасада: газон 1,2 м и низкий бордюр вдоль крыльев, тротуар; площадка для линеек (асфальт) — пустая, у ступеней
-      // зимой под снегом швов плит не видно — гладкая полоса
+      // у фасада: газон 1,2 м и низкий бордюр вдоль крыльев, тротуар; площадка для линеек (асфальт) — пустая, у ступеней.
+      // Зимой всё под ровным снегом (швов плит не видно — гладкая полоса); яркость снега во дворе — yardSnow() после snowify
       const lawn = rgb('#5F7A3A'), curb = rgb('#C2BFB8'), hard = rgb('#8E8A84'), hard2 = mul(hard, 1.04), HS = WIN ? S.PLASTER : S.SLAB;
       [-1, 1].forEach(sd => { const xa = Math.min(sd * 5.3, sd * WX), xb = Math.max(sd * 5.3, sd * WX);
         flat(xa, xb, 0.03, 1.2, 0.02, lawn, S.PLASTER);
         bk.box(SF, sd * (5.3 + WX) / 2, 0.06, 1.275, WX - 5.3, 0.12, 0.15, { col: curb, s: S.SLAB, skip: { ny: 1, px: 1, nx: 1 } });
         flat(xa, xb, 1.35, 4.06, 0.035, hard2, HS); });
       flat(-6, -4.3, 4.06, 7.06, 0.03, hard, HS); flat(4.3, 14, 4.06, 7.06, 0.03, hard, HS); flat(-6, 14, 7.06, 22, 0.03, hard, HS);
-      // футбольное поле 11 × 26 м вдоль западной ограды (длинная ось — поперёк фасада): полосы, разметка, ворота с сетками
-      const PF = new K.Frame(8.6, y, -64, PI / 2), PW = 26, PD = 11, g1 = WIN ? C('snowGround') : rgb('#7FA65A'), g2 = WIN ? C('snowShade') : rgb('#72994F'), wl = WIN ? rgb('#D5DEE8') : rgb('#F6F4EC');
+      // футбольное поле 11 × 22 м вдоль западной ограды (длинная ось — поперёк фасада, северные ворота в 15 м от фасада — вне кадра
+      // фото 1): полосы, разметка, ворота с сетками. Зимой — тот же снег, что во дворе (цвет заранее, мимо snowify: иначе пересвет
+      // в чистый белый), полосы покоса — едва заметные, разметка — бледно-голубая
+      const PF = new K.Frame(8.6, y, -60, PI / 2), PW = 22, PD = 11, g1 = WIN ? [1.01, 1.005, 1.0] : rgb('#7FA65A'), g2 = WIN ? [0.98, 0.977, 0.975] : rgb('#72994F'), wl = WIN ? [0.84, 0.88, 0.95] : rgb('#F6F4EC');
+      const pn0 = pb.n;
       for (let i = 0; i < 8; i++) { const x0 = -PW / 2 + i * PW / 8, x1 = x0 + PW / 8; pb.quad(PF.p(x0, 0.04, -PD / 2), PF.p(x0, 0.04, PD / 2), PF.p(x1, 0.04, PD / 2), PF.p(x1, 0.04, -PD / 2), i & 1 ? g2 : g1); }
       const line = (ax, az, bx, bz, w = 0.1) => { const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz) || 1, nx = -dz / L * w / 2, nz = dx / L * w / 2; pb.quadF(PF.p(ax - nx, 0.055, az - nz), PF.p(ax + nx, 0.055, az + nz), PF.p(bx + nx, 0.055, bz + nz), PF.p(bx - nx, 0.055, bz - nz), wl, S.FLAT, [0, 1, 0]); };
       line(-PW / 2, -PD / 2, PW / 2, -PD / 2); line(PW / 2, PD / 2, -PW / 2, PD / 2); line(-PW / 2, PD / 2, -PW / 2, -PD / 2); line(PW / 2, -PD / 2, PW / 2, PD / 2); line(0, -PD / 2, 0, PD / 2);
       for (let i = 0; i < 16; i++) { const a0 = i / 16 * TAU, a1 = (i + 1) / 16 * TAU; line(Math.sin(a0) * 1.8, Math.cos(a0) * 1.8, Math.sin(a1) * 1.8, Math.cos(a1) * 1.8, 0.09); }
-      [-1, 1].forEach(sd => { const x0 = sd * PW / 2, x1 = sd * (PW / 2 - 3.0); line(x0, -2.8, x1, -2.8); line(x1, -2.8, x1, 2.8); line(x1, 2.8, x0, 2.8);
+      [-1, 1].forEach(sd => { const x0 = sd * PW / 2, x1 = sd * (PW / 2 - 3.0); line(x0, -2.8, x1, -2.8); line(x1, -2.8, x1, 2.8); line(x1, 2.8, x0, 2.8); });
+      if (WIN) (pb.noSnow = pb.noSnow || []).push([pn0, pb.n]);
+      [-1, 1].forEach(sd => {
         // ворота 3 × 1,6 м: белые штанги, перекладина, сетка (тонкие нити)
         const gx = sd * (PW / 2 + 0.05), post = (z) => pb.box(PF, gx, 0.82, z, 0.09, 1.64, 0.09, { col: rgb('#FFFFFF') });
         post(-1.5); post(1.5); pb.box(PF, gx, 1.64, 0, 0.09, 0.09, 3.09, { col: rgb('#FFFFFF') });
@@ -2113,11 +2137,16 @@
         const c = PF.p(gx + sd * 0.45, 0, 0); colliders.push({ type: 'box', x: c[0], z: c[2], w: 1.0, d: 3.2, ry: PF.ry, y0: y - 0.5, y1: y + 1.7, id: 'goal' }); });
       // мяч у южных ворот (красно-белый)
       { const p = PF.p(-PW / 2 + 3.6, 0.17, 1.2); db.sph(p[0], p[1], p[2], 0.17, 0.17, 0.17, (q, ny) => (Math.abs(ny) < 0.35 ? rgb('#FFFFFF') : rgb('#D9455A')), { seg: 8, rings: 6 }); W6.ball = p; }
-      // ограда: цоколь 0,4 м и решётка (крашеная, тёмно-зелёная) по ломаной YARD.fence; ворота на восток, калитка на запад
+      // ограда: цоколь 0,4 м и решётка (крашеная, тёмно-зелёная) по ломаной YARD.fence; ворота на восток
       const iron = WIN ? rgb('#3E4A44') : rgb('#3F5F4E');
-      // звено ограды: уровень — средний по земле концов (у дороги двор чуть поднимается к полотну), цоколь уходит в землю
+      // звено ограды не длиннее 8 м (длинный пролёт делим): уровень — средний по земле трёх точек звена (у дороги двор чуть
+      // поднимается к полотну), цоколь уходит в землю; на стыке звеньев разной высоты — ступенька (торцы цоколя на месте)
       const fenceSeg = (ax, az, bx, bz) => {
-        const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), ry = Math.atan2(dx, dz) - PI / 2, cx = (ax + bx) / 2, cz = (az + bz) / 2, yy = (G(ax, az) + G(bx, bz)) / 2, FF = new K.Frame(cx, yy, cz, ry);
+        const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 8 - 1e-6);
+        for (let k = 0; k < n; k++) fencePiece(ax + (bx - ax) * k / n, az + (bz - az) * k / n, ax + (bx - ax) * (k + 1) / n, az + (bz - az) * (k + 1) / n);
+      };
+      const fencePiece = (ax, az, bx, bz) => {
+        const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), ry = Math.atan2(dx, dz) - PI / 2, cx = (ax + bx) / 2, cz = (az + bz) / 2, yy = (G(ax, az) + G(bx, bz) + 2 * G(cx, cz)) / 4, FF = new K.Frame(cx, yy, cz, ry);
         bk.box(FF, 0, 0.05, 0, L, 0.7, 0.36, { col: [0.95, 0.95, 0.93], s: S.BIG, cols: { py: C('parapetCap') }, ss: { py: S.RUBBLE }, skip: { ny: 1 } });
         railSeg(FF, [-L / 2, 1.3, 0], [L / 2, 1.3, 0], 0.05, iron, db); railSeg(FF, [-L / 2, 0.6, 0], [L / 2, 0.6, 0], 0.04, iron, db);
         // прутья через 0,55 м: лицо и изнанка (бока в 3,5 см не видны)
@@ -2126,7 +2155,7 @@
         for (let k = 0; k <= np; k++) db.box(FF, -L / 2 + k * L / np, 0.85, 0, 0.11, 1.0, 0.11, { col: iron, skip: { ny: 1 } });
         colliders.push({ type: 'box', x: cx, z: cz, w: L, d: 0.4, ry, y0: yy - 0.6, y1: yy + 1.4, id: 'fence' });
       };
-      const FP = Y.fence, gapAt = i => (i === Y.gate.seg ? Y.gate : i === Y.wicket.seg ? Y.wicket : null);
+      const FP = Y.fence, gapAt = i => (i === Y.gate.seg ? Y.gate : null);
       let gateP = null;
       for (let i = 0; i < FP.length - 1; i++) {
         const [ax, az] = FP[i], [bx, bz] = FP[i + 1], L = Math.hypot(bx - ax, bz - az), g = gapAt(i);
@@ -2137,7 +2166,9 @@
         // створки ворот открыты внутрь двора
         const ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, ins = (nx * (Y.x - ax) + nz * (Y.z - az)) > 0 ? 1 : -1, c = at(tc);
         gateP = [c[0] - nx * ins * 0.3, y, c[1] - nz * ins * 0.3];
+        // створки — с тонкими коллайдерами (вдоль ограды их не пройти насквозь), проход между ними ≈ 1,7 м
         [[at(t0g), 1], [at(t1g), -1]].forEach(([hp, s]) => { const dirx = ux * s * Math.cos(1.0) + nx * ins * Math.sin(1.0), dirz = uz * s * Math.cos(1.0) + nz * ins * Math.sin(1.0), FF = new K.Frame(hp[0], y, hp[1], Math.atan2(dirx, dirz) - PI / 2);
+          colliders.push({ type: 'box', x: hp[0] + dirx * 0.85, z: hp[1] + dirz * 0.85, w: 1.7, d: 0.12, ry: FF.ry, y0: y - 0.5, y1: y + 1.5, id: 'fence' });
           railSeg(FF, [0, 0.15, 0], [0, 1.45, 0], 0.06, iron, db); railSeg(FF, [0, 1.45, 0], [1.7, 1.45, 0], 0.04, iron, db); railSeg(FF, [0, 0.2, 0], [1.7, 0.2, 0], 0.04, iron, db); railSeg(FF, [1.7, 0.2, 0], [1.7, 1.45, 0], 0.04, iron, db);
           for (let t = 0.3; t < 1.7; t += 0.35) db.box(FF, t, 0.82, 0, 0.03, 1.2, 0.03, { col: iron, skip: { ny: 1, py: 1, nx: 1, px: 1 } }); });
       }
@@ -2957,6 +2988,17 @@
       } catch (e) { console.warn('village: wedding', e); return null; }
     }
     const MODG = { wd: [], stalls: [] };
+    // волна 6: дом-усадьба свадьбы — глухой короб (стены без крыши, с запасом 0,15 м внутрь) для проверки «двор за домом»
+    const WHB = { x0: WED.house.x - WED.house.w / 2 + 0.15, x1: WED.house.x + WED.house.w / 2 - 0.15, y0: WED.y + 0.15, y1: WED.y + WED.house.st * ST - 0.15, z0: WED.house.z - WED.house.d / 2 + 0.15, z1: WED.house.z + WED.house.d / 2 - 0.15 };
+    // отрезок a → b задевает короб WHB (метод плит)
+    const segHitsWHB = (a, b) => { let t0 = 0, t1 = 1; for (const [k, lo, hi] of [[0, WHB.x0, WHB.x1], [1, WHB.y0, WHB.y1], [2, WHB.z0, WHB.z1]]) { const d = b[k] - a[k]; if (Math.abs(d) < 1e-9) { if (a[k] < lo || a[k] > hi) return false; continue; } let u = (lo - a[k]) / d, v = (hi - a[k]) / d; if (u > v) { const w = u; u = v; v = w; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) return false; } return true; };
+    // рамка меша — один раз (у толпы с запасом 0,25 м: гости танцуют), проверка — по всем 8 углам
+    const wedOccl = (e, c) => {
+      if (!e.bb) { const g = e.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); e.m.updateMatrixWorld(true); const b = g.boundingBox.clone().applyMatrix4(e.m.matrixWorld); const m = e.crowd ? 0.25 : 0; e.bb = [[b.min.x - m, b.max.x + m], [b.min.y, b.max.y + m], [b.min.z - m, b.max.z + m]]; }
+      const a = [c.x, c.y, c.z];
+      for (let k = 0; k < 8; k++) if (!segHitsWHB(a, [e.bb[0][k & 1], e.bb[1][(k >> 1) & 1], e.bb[2][(k >> 2) & 1]])) return false;
+      return true;
+    };
     const CROWNLOD = [];   // W4A: { m1 гладкие, m0 20-гранные, x, z, r } — переключение по камере в modGuard
     const DISTLOD = [];   // 4B: { m, x, z, r, max } — кусок не рисуется, когда камера дальше max от его края
     function modGuard(hx, hz, cam) {
@@ -2970,9 +3012,12 @@
       const yardSeen = (Math.abs(cwx) < WED.w / 2 + WED.gal + 1.5 && Math.abs(cwz) < WED.d / 2 + 1.5) || (cwz > 0 && Math.abs(cwx) < 7 && cwz < WED.d / 2 + 12) || c.y > WED.y + 7.5;
       for (const L of CROWNLOD) { const near = Math.hypot(c.x - L.x, c.z - L.z) - L.r < 30; if (L.m1.visible !== near) { L.m1.visible = near; L.m0.visible = !near; } }
       for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < L.max; if (L.m.visible !== on) L.m.visible = on; }
+      // волна 6: с плато (школьный двор, за домом-усадьбой) двор свадьбы закрыт глухим домом в 3 этажа — меш модуля не рисуем,
+      // если отрезки от камеры ко всем 8 углам его рамки проходят сквозь дом (−29 тыс. треуг. в кадре со двора школы на юг)
+      const behindH = c.z < WHB.z0 && c.y < WHB.y1 + 12;
       for (const e of MODG.wd) {
         if (e.cast0) e.m.castShadow = inYard && !e.crowd;   // W4A: толпа без теней (≈ 32 тыс. треуг. в проходе теней на high)
-        const hide = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen));
+        const hide = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen)) || (behindH && wedOccl(e, c));
         if (hide && e.m.visible) { e.m.visible = false; e.hid = true; } else if (!hide && e.hid) { e.m.visible = true; e.hid = false; }
       }
       const nearSq = Math.hypot(hx - SQUARE.x, hz - SQUARE.z) < 24;
@@ -3073,7 +3118,14 @@
       const m = bk.mesh(K.vcMat); if (!m) return; const ca = m.geometry.attributes.color.array, sa = m.geometry.attributes.strip.array;
       for (let i = 0; i < sa.length; i++) { const t = SM[Math.round(sa[i])] || [1, 1, 1]; ca[i * 3] *= t[0]; ca[i * 3 + 1] *= t[1]; ca[i * 3 + 2] *= t[2]; }
       add(litMesh(m)); });
-    if (W6.upB) { snowify(W6.upB); const m = add(litMesh(W6.upB.mesh(K.atlasMat)), { cast: true }); if (m) m.name = 'upland'; W6.upMesh = m; }   // волна 6: плато, школа, ограда двора
+    // волна 6: снег во дворе школы — ровный и светлее волнистого поля вокруг (фото 1: двор — самое светлое пятно, заметно светлее
+    // стен); только горизонтальные грани внутри ограды (полигон YARD.fence, замкнут по линии фасада), после snowify
+    const yardSnow = bk => {
+      if (!WIN || !bk) return; const P = YARD.fence, K2 = 1.12 * 1.1;
+      const inY = (x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+      for (let i = 0; i < bk.n; i++) { if (bk.N[i * 3 + 1] < 0.42 || !inY(bk.P[i * 3], bk.P[i * 3 + 2])) continue; for (let c = 0; c < 3; c++) bk.C[i * 3 + c] = SNOW[c] * K2; }
+    };
+    if (W6.upB) { snowify(W6.upB); yardSnow(W6.upB); const m = add(litMesh(W6.upB.mesh(K.atlasMat)), { cast: true }); if (m) m.name = 'upland'; W6.upMesh = m; }   // волна 6: плато, школа, ограда двора
     if (W6.roadMesh) add(litMesh(W6.roadMesh), { receive: true });
     if (!FAR) { snowify(detail); add(litMesh(detail.mesh(K.atlasMatD)), { cast: false }); }
     snowify(pb); { const m = add(litMesh(pb.mesh(K.vcMat)), { cast: true }); if (m) m.name = 'props'; }
@@ -3279,7 +3331,7 @@
       school: { pos: [52.0, 14.0, -47.0], target: [21, 8.0, -84], fov: 50 },                       // школа и большой двор с дороги
       school_yard: { pos: [21.4, 7.0, -45.4], target: [21, 5.6, -86], fov: 55 },                  // со скамейки у южной ограды: пустой двор и фасад (как фото 1)
       tower_park: { pos: [-13.0, 9.0, -41.0], target: [-11.0, 4.0, -22.0], fov: 55 },               // разворот у холма и башня
-      hotel_road: { pos: [71.0, 16.5, -100.5], target: [30.0, 5.5, -70.0], fov: 55 },              // сверху дороги к отелю: школа, двор, село вдали
+      hotel_road: { pos: [71.0, 16.5, -100.5], target: [31.0, 6.0, -80.0], fov: 55 },              // сверху дороги к отелю: школа (с торца — фасад отсюда не виден) и двор
       square_free: { pos: [18.5, 1.7, -9.0], target: [3.0, 1.2, 0.0], fov: 64 },                   // площадь свободна: мощение, фонарь, старые дома (p8)
       roads_map: { pos: [22, 230, -44.99], target: [22, 0, -45], fov: 46 },                        // сверху: все проезды       // луг снизу: днём коровы пасутся (утром и вечером — по тропе)       // луг: днём коровы пасутся (утром и вечером — по тропе)
     };
