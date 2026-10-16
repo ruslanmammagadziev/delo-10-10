@@ -2,9 +2,11 @@
    СВАДЬБА ВО ДВОРЕ (волна 4): праздник двух жителей-зверят, героиня — приглашённая на праздник.
    Факты — plan2/kubachi_spec2.md §2 (пальтары), §4 (свадьба): три дня, под открытым небом, живая музыка (зурна и
    барабан), круг танца, общий стол (чуду, пельмени, плов в казане, фрукты, мёд, сладости), невесту осыпают
-   сладостями, пальтары — на 2-й и 3-й день (войлочная маска с белым узором и шерстяными усами, кольчуга поверх белой
-   рубахи, колокольчики). Только праздничные народные элементы: без обрядов, без денег в танце, без чая и вина,
-   без оружия и плёток. Героиню не ставят на место невесты, ей ничего «свадебного» не дарят.
+   сладостями, пальтары — на 2-й и 3-й день: высокие статные ряженые (по фото p1–p4) — войлочная маска-капюшон с полосами,
+   носом и длинным нагрудником, кольчуга до середины бедра поверх белой рубахи, пояс с пряжкой, перчатки; звенят кольчугой,
+   пляшут, хлопают, «пугают» понарошку, фотографируются с детьми. По просьбе: у кого-то — короткая плётка, ею только
+   щёлкают в воздухе для веселья, никогда ни в кого и рядом с детьми — за поясом. Только праздничные народные элементы:
+   без обрядов, без денег в танце, без чая и вина, без оружия. Героиню не ставят на место невесты, ей ничего «свадебного» не дарят.
 
    Обычный <script>: VILLAGE.wedding. Нужен THREE r149 и набор села (VILLAGE.vkit.makeKit → kit), всё — кодом.
 
@@ -26,10 +28,12 @@
                     'beret' — «утащил» берет на пару секунд и вернул с поклоном (нужен h.setHero(hero) — тогда берет героини
                     правда пропадает: VILLAGE.kaz.hideBeret); в казе или без героини — 'jingle' (звенит колокольчиками и кланяется)
      h.setHero(hero[, anim]) — героиня из buildHeroRig (для берета и точки над головой); h.prank() — начать розыгрыш сейчас; h.stopPrank() — прервать
-     h.onEvent(cb) — { type:'beat'|'shower'|'bell'|'prank' } — для звука; h.setNight(k 0..1) — гирлянды-фонарики светят
+     h.onEvent(cb) — { type:'beat'|'shower'|'bell'|'prank'|'jingle'|'crack'|'flash'|'say', who?, text? } — для звука и облачков
+                    (jingle — звон кольчуги, crack — щелчок плётки в воздухе, flash — «фото», say — короткий возглас ряженого);
+                    h.setNight(k 0..1) — гирлянды-фонарики светят
      h.info       — { calls, tris, animals, bones }; h.lod — 0 близко / 1 средне / 2 далеко; h.dispose()
-   Бюджет: ≤ 40 вызовов и ≤ 60 тыс. треугольников на всю сцену. Все зверята — ОДНА сетка со скелетом (SkinnedMesh) +
-   контур + лица (атлас) + «ткани» (маски, кольчуги, платки — атлас): 4 вызова на 21 зверька. Реквизит — 2 сетки.
+   Бюджет: ≤ 40 вызовов и ≤ 60 тыс. треугольников на всю сцену. Все зверята и ряженые — ОДНА сетка со скелетом (SkinnedMesh) +
+   контур + лица (атлас) + «ткани» (маски, кольчуги, платки — атлас 1024×2048): 4 вызова на всех. Реквизит — 2 сетки.
    ===================================================================== */
 (function () {
   'use strict';
@@ -63,11 +67,15 @@
     wed_aunt: [L('wed_aunt', 'Свадьба у нас — целых три дня!'), L('wed_aunt', 'Готовим все вместе: кто лепит, кто печёт чуду.', 'Готовим все вместе: кто лепит, кто печёт пироги.'), L('wed_aunt', 'Если дождь — танцуем под навесом.')],
     wed_kid: [L('wed_kid', 'Невесту осыпают сладостями — на счастье. Лови конфетку!')],
     paltar: [L('paltar', 'Я пальтар! Маска войлочная, узор — белый.', 'Я ряженый! Маска из войлока, с белым узором.'), L('paltar', 'Не узнаёшь? Так и задумано. Я даже голос меняю!'),
-      L('paltar', 'Кольчуга — как настоящая! Для свадеб их снова плетут.'), L('paltar', 'Давным-давно мы стерегли крепость. А теперь — веселим свадьбу!')],
+      L('paltar', 'Кольчуга — как настоящая! Для свадеб их снова плетут.'), L('paltar', 'Давным-давно мы стерегли крепость. А теперь — веселим свадьбу!'),
+      L('paltar', 'Перчатки — чтобы хлопать громче! Хлоп-хлоп, в такт!'), L('paltar', 'Щёлк — только в воздух и понарошку! Это я зову всех в круг.'),
+      L('paltar', 'Хочешь фото на память? Встану рядом — улыбнёмся!')],
   };
   const EV = {
     prankBeret: L('paltar', 'Ой, чей это берет? Шучу-шучу, держи!'),
     prankJingle: L('paltar', 'Звяк-звяк! Это я так здороваюсь!'),
+    // короткие возгласы ряженых (облачко над маской)
+    palSay: { boo: L('paltar', 'Бу-у!'), hey: L('paltar', 'Хэй!'), hi: L('paltar', 'Звяк-звяк! Привет!'), smile: L('paltar', 'Улыбочку!'), win: L('paltar', 'Ура! Звяк!'), squeal: L('wed_kid', 'И-и-и! Не догонишь!') },
     congrats: L('hero', 'Поздравляю! Пусть в доме будет много радости!'),
     congratsReply: L('wed_bride', 'Спасибо большое! Угощайся!'),   // W4A: без обращения из стоп-списка scan_words
     treat: { chudu: L('hero', 'Ммм, тёплое чуду!', 'Ммм, тёплый пирожок!'), apple: L('hero', 'Яблочко — хрустит!'), grapes: L('hero', 'Виноград — сладкий!'), pear: L('hero', 'Груша — мягкая и сладкая!') },
@@ -79,7 +87,9 @@
   const pick = (l, named) => (l ? (named === false && l.n ? l.n : { who: l.who, text: l.text }) : null);
 
   /* ---------------------------------------------------------------------
-     АТЛАС 1024×1024 (canvas): лица зверят (верх, клетки 128), маска пальтара, кольчуга, «борода», ковёр, дорожка, платок
+     АТЛАС 1024×2048 (canvas): верхняя половина — лица зверят (клетки 128), ковёр, дорожка, платок; нижняя — блок пальтаров
+     (маски-капюшоны пяти видов, нагрудники, кольчуга, перчатки, борода, мех, ворот, плётка) — всё в ОДНОЙ текстуре: 4 вызова
+     на всю толпу остаются. Координаты v (flipY): верхняя половина — v 0,5..1, блок пальтаров — v 0..0,5
      --------------------------------------------------------------------- */
   function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
   const FACE = {
@@ -99,64 +109,253 @@
     lambkid: { muzzle: '#F6EAE0', muzzleW: 96, muzzleH: 60, nose: '#C9858E', noseW: 13, noseH: 9, mouth: 'smile', white: true, er: 32, ey: 345 },
   };
   const FACE_KEYS = Object.keys(FACE);
-  // клетка лица k: открытые глаза — (2k mod 8, ...), закрытые — соседняя справа
-  const faceCell = k => { const c = (k * 2) % 8, r = Math.floor(k * 2 / 8); return { u0: c * 0.125, v0: 1 - (r + 1) * 0.125 }; };
-  function paintAtlas(faceCanvas) {
-    const [cv, c] = cnv(1024, 1024);
-    c.fillStyle = 'rgba(0,0,0,0)'; c.clearRect(0, 0, 1024, 1024);
+  // клетка лица k: открытые глаза — (2k mod 8, ...), закрытые — соседняя справа (v — в верхней половине атласа)
+  const faceCell = k => { const c = (k * 2) % 8, r = Math.floor(k * 2 / 8); return { u0: c * 0.125, v0: 0.5 + (1 - (r + 1) * 0.125) / 2 }; };
+
+  /* --- блок пальтаров (1024×1024 в координатах блока; в атласе — y + 1024). Слот вида k = 0..4 (A..E): x0 = (k % 2)·512,
+     y0 = ⌊k / 2⌋·256; в слоте: лицо 256×256, капюшон сзади 128×256, нагрудник 128×256. Лицо: x 0..256 — азимут −75°..+75°
+     (x = 0 — правая щека носящего), y 0..256 — макушка..низ капюшона, линейно по высоте. Глаза (87,119) и (169,119), кончик
+     носа y 152, рот (128,182), подбородок y 217. Круги — эллипсами ry = 0,86·rx (на капюшоне выглядят круглыми). Капюшон
+     сзади: x 0 = +75° (стык с правым краем лица), x 128 = −75°. Нагрудник: 128 px = самая широкая часть, щит нарисован внутри --- */
+  const KY = 0.86;
+  const PCOL = {
+    feltK: '#23201E', chalk: '#EEE8DE', edgeK: '#141210', skin: '#E8B596', eye: '#2E2A3B', lip: '#C9474B', mouth: '#4A2430', teeth: '#FFF8F0',
+    cBase: '#B8B19B', cDark: '#4F473B', cFur: '#DAD5C4', dBase: '#2F251E', dGold: '#E3B23C', dGoldS: '#B98A2A', dFelt: '#4A3828', dLip: '#C0605A',
+    dBeard: '#7C6A58', dBeardL: '#A08C76', eRed: '#B83A5E', eRedS: '#7E2643', eWool: '#EEE6E9', eNose: '#F6F0F2',
+    mailGap: '#34363C', mail: '#8C9098', mailHi: '#D8DBE0', mailLo: '#5C5F66',
+  };
+  const hexRGB = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  // полосы «совиных колец»: d — мягкое объединение расстояний до двух глаз; белое там, где дробная часть (d − r0)/P < duty;
+  // край сглажен по пикселю (один отсчёт на пиксель); spiral — закрутка (вид A). Клетку целиком пишем сами (фон o.bg) —
+  // без чтения холста обратно (getImageData на большом холсте медленный)
+  function pBands(c, x0, y0, o) {
+    const w = 256, h = 256, img = c.createImageData(w, h), D = img.data, fg = hexRGB(o.fg), bg = hexRGB(o.bg), E = [[87, 119], [169, 119]], k = o.soft || 9, P = o.P;
+    for (let i = 0; i < w * h; i++) { D[i * 4] = bg[0]; D[i * 4 + 1] = bg[1]; D[i * 4 + 2] = bg[2]; D[i * 4 + 3] = 255; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      const d0 = Math.hypot(px - E[0][0], (py - E[0][1]) / KY), d1 = Math.hypot(px - E[1][0], (py - E[1][1]) / KY);
+      let d = -k * Math.log(Math.exp(-d0 / k) + Math.exp(-d1 / k));
+      if (o.spiral) { const ex = px < 128 ? E[0] : E[1], th = Math.atan2((py - ex[1]) / KY, px - ex[0]), wq = Math.min(1, Math.abs(px - 128) / 34); d += (px < 128 ? -1 : 1) * th / TAU * P * o.spiral * wq * wq * (3 - 2 * wq); }
+      if (d < o.r0 - 1 || (o.rMax && d > o.rMax + 1)) continue;
+      const f = (d - o.r0) / P, fr = f - Math.floor(f);
+      // расстояние до края белой полосы в пикселях (+ внутри)
+      let s = fr < o.duty ? Math.min(fr, o.duty - fr) * P : -Math.min(fr - o.duty, 1 - fr) * P;
+      if (o.rMax) s = Math.min(s, o.rMax - d);
+      s = Math.min(s, d - o.r0);
+      const a = clamp(0.5 + s, 0, 1);
+      if (a > 0) { const i = (y * w + x) * 4; for (let q = 0; q < 3; q++) D[i + q] = D[i + q] * (1 - a) + fg[q] * a; }
+    }
+    c.putImageData(img, x0, y0);
+  }
+  const pEl = (c, x, y, rx) => { c.beginPath(); c.ellipse(x, y, rx, rx * KY, 0, 0, TAU); };
+  const pDisc = (c, x, y, r, col) => { c.fillStyle = col; pEl(c, x, y, r); c.fill(); };
+  // глазница: кожа носящего, тёмный глаз с бликом (добрый взгляд — маска весёлая, не страшная)
+  function pEye(c, x, y, r, rim) {
+    pDisc(c, x, y, r, rim || PCOL.skin);
+    c.fillStyle = PCOL.eye; c.beginPath(); c.ellipse(x, y + 1, r * 0.55, r * 0.62, 0, 0, TAU); c.fill();
+    c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(x + r * 0.22, y - r * 0.25, r * 0.2, 0, TAU); c.fill();
+  }
+  // рот: открытая улыбка с красными губами
+  function pMouth(c, x, y, rx, ry, lip, open) {
+    c.fillStyle = PCOL.mouth; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill();
+    if (open) { c.fillStyle = PCOL.teeth; c.fillRect(x - rx * 0.55, y - ry * 0.75, rx * 1.1, ry * 0.45); }
+    c.strokeStyle = lip; c.lineWidth = 5; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.stroke();
+  }
+  // ворс войлока и вязки: короткие волоски
+  function pFuzz(c, x0, y0, w, h, n, cols, alpha, seed, len) {
+    const R = rng(seed); c.save(); c.beginPath(); c.rect(x0, y0, w, h); c.clip(); c.globalAlpha = alpha; c.lineWidth = 1.2;
+    for (let i = 0; i < n; i++) { const x = x0 + R() * w, y = y0 + R() * h, a = R() * TAU, l = (len || 4) * (0.5 + R()); c.strokeStyle = cols[i % cols.length]; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); }
+    c.restore();
+  }
+  // силуэт нагрудника-щита в клетке 128×256: верх w0, самая широкая часть wm на доле pm длины, круглый кончик
+  function shieldPath(c, x0, y0, w0, wm, pm) {
+    const cx = x0 + 64, H = 256, t = wm / 2, s = w0 / 2;
+    c.beginPath(); c.moveTo(cx - s, y0); c.bezierCurveTo(cx - t, y0 + H * pm * 0.5, cx - t, y0 + H * pm, cx - t * 0.98, y0 + H * pm);
+    c.bezierCurveTo(cx - t * 0.95, y0 + H * 0.82, cx - t * 0.45, y0 + H, cx, y0 + H);
+    c.bezierCurveTo(cx + t * 0.45, y0 + H, cx + t * 0.95, y0 + H * 0.82, cx + t * 0.98, y0 + H * pm);
+    c.bezierCurveTo(cx + t, y0 + H * pm, cx + t, y0 + H * pm * 0.5, cx + s, y0); c.closePath();
+  }
+  // та же кривая для сетки: полуширина щита (px) на доле длины u 0..1 — по точкам двух кубических кривых
+  function shieldHW(w0, wm, pm) {
+    const t = wm / 2, s = w0 / 2, H = 256, pts = [];
+    const bz = (p0, p1, p2, p3, k) => { const m = 1 - k; return m * m * m * p0 + 3 * m * m * k * p1 + 3 * m * k * k * p2 + k * k * k * p3; };
+    for (let i = 0; i <= 24; i++) { const k = i / 24; pts.push([bz(s, t, t, t * 0.98, k), bz(0, H * pm * 0.5, H * pm, H * pm, k)]); }
+    for (let i = 1; i <= 24; i++) { const k = i / 24; pts.push([bz(t * 0.98, t * 0.95, t * 0.45, 0, k), bz(H * pm, H * 0.82, H, H, k)]); }
+    return u => { const y = u * H; for (let i = 1; i < pts.length; i++) if (pts[i][1] >= y) { const a = pts[i - 1], b = pts[i], k = b[1] > a[1] ? (y - a[1]) / (b[1] - a[1]) : 1; return a[0] + (b[0] - a[0]) * k; } return 0; };
+  }
+  function pChev(c, x0, y0, y, depth, w, col, inset, curve) {
+    c.strokeStyle = col; c.lineWidth = w; c.lineJoin = 'round'; c.lineCap = 'round';
+    const L = x0 + inset, Rr = x0 + 128 - inset, M = x0 + 64;
+    c.beginPath(); c.moveTo(L, y0 + y); c.quadraticCurveTo(L + (M - L) * 0.45, y0 + y + depth * (curve || 0.8), M, y0 + y + depth);
+    c.quadraticCurveTo(Rr - (Rr - M) * 0.45, y0 + y + depth * (curve || 0.8), Rr, y0 + y); c.stroke();
+  }
+  function pZigEl(c, cx, cy, rx, ry, amp, per, col, w) {
+    const n = Math.max(24, Math.round(TAU * Math.max(rx, ry) / per * 2)); c.strokeStyle = col; c.lineWidth = w; c.beginPath();
+    for (let i = 0; i <= n; i++) { const a = i / n * TAU, k = 1 + (i % 2 ? amp : -amp) / Math.max(rx, ry); const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
+    c.stroke();
+  }
+  const pHoop = (c, x0, y0, y, sag, w, col) => { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(x0, y0 + y - sag / 2); c.quadraticCurveTo(x0 + 64, y0 + y + sag / 2, x0 + 128, y0 + y - sag / 2); c.stroke(); };
+  // лица, капюшоны сзади, нагрудники: A — чёрно-белый «вихрь», B — «совиные» кольца, C — лохматый серо-кремовый,
+  // D — тёмный с золотом, E — малиновый вязаный с белыми зигзагами (по фото p1–p4)
+  const PAINT = {
+    A: {
+      face(c, x0, y0) {
+        c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 256, 256);
+        pBands(c, x0, y0, { fg: PCOL.chalk, bg: PCOL.feltK, r0: 17, P: 28, duty: 0.5, spiral: 1, soft: 10 });
+        c.save(); c.translate(x0, y0);
+        c.fillStyle = PCOL.feltK; c.beginPath(); c.ellipse(128, 44, 15, 46, 0, 0, TAU); c.fill();
+        c.fillStyle = PCOL.chalk; c.beginPath(); c.ellipse(128, 44, 9, 40, 0, 0, TAU); c.fill();
+        [87, 169].forEach(x => pEye(c, x, 119, 11)); pMouth(c, 128, 182, 15, 8, PCOL.lip, true);
+        c.restore();
+      },
+      hood(c, x0, y0) { c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 128, 256); [120, 165, 210].forEach(y => pHoop(c, x0, y0, y, 12, 14, PCOL.chalk)); },
+      bib(c, x0, y0, sh) {
+        c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 128, 256);
+        c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
+        pChev(c, x0, y0, 150, 26, 14, PCOL.chalk, 18, 0.6);
+        c.strokeStyle = PCOL.chalk; c.lineWidth = 12; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+      },
+    },
+    B: {
+      face(c, x0, y0) {
+        c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 256, 256);
+        pBands(c, x0, y0, { fg: PCOL.chalk, bg: PCOL.feltK, r0: 17, P: 28, duty: 0.52, soft: 9 });
+        c.save(); c.translate(x0, y0);
+        // белая полоса от макушки до переносицы, с чёрными краями
+        c.fillStyle = PCOL.feltK; c.fillRect(117, 0, 22, 100); c.fillStyle = PCOL.chalk; c.fillRect(122, 0, 12, 104);
+        [87, 169].forEach(x => pEye(c, x, 119, 11)); pMouth(c, 128, 182, 15, 8, PCOL.lip, true);
+        c.restore();
+      },
+      hood(c, x0, y0) { c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 128, 256); for (let y = 40; y < 256; y += 35) pHoop(c, x0, y0, y, 12, 17, PCOL.chalk); c.fillStyle = PCOL.chalk; c.fillRect(x0 + 61, y0, 5, 60); },
+      bib(c, x0, y0, sh) {
+        c.fillStyle = PCOL.feltK; c.fillRect(x0, y0, 128, 256);
+        c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
+        pChev(c, x0, y0, 22, 78, 14, PCOL.chalk, 12, 0.75); pChev(c, x0, y0, 118, 78, 14, PCOL.chalk, 10, 0.75);
+        c.strokeStyle = PCOL.chalk; c.lineWidth = 16; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke();
+        c.strokeStyle = PCOL.edgeK; c.lineWidth = 4; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+      },
+    },
+    C: {
+      face(c, x0, y0) {
+        c.fillStyle = PCOL.cBase; c.fillRect(x0, y0, 256, 256);
+        c.save(); c.translate(x0, y0); c.lineCap = 'round'; c.strokeStyle = PCOL.cDark;
+        [22, 52, 82].forEach(y => { c.lineWidth = 15; c.beginPath(); c.moveTo(-4, y + 10); c.quadraticCurveTo(128, y - 12, 260, y + 10); c.stroke(); });
+        c.fillStyle = PCOL.cDark; c.beginPath(); c.ellipse(128, 119, 112, 18, 0, 0, TAU); c.fill();
+        [87, 169].forEach(x => { pDisc(c, x, 119, 17, PCOL.cBase); pEye(c, x, 119, 11); });
+        c.lineWidth = 15; [[104, 146, 30, 206], [114, 172, 52, 240], [152, 146, 226, 206], [142, 172, 204, 240]].forEach(([a, b, d, e]) => { c.beginPath(); c.moveTo(a, b); c.quadraticCurveTo((a + d) / 2, b + 30, d, e); c.stroke(); });
+        c.beginPath(); c.moveTo(0, 246); c.lineTo(128, 226); c.lineTo(256, 246); c.stroke();
+        pMouth(c, 128, 182, 14, 7, PCOL.lip, true);
+        c.restore();
+        pFuzz(c, x0, y0, 256, 256, 1600, [PCOL.cFur, PCOL.cDark, '#8E8672'], 0.35, 11, 5);
+      },
+      hood(c, x0, y0) { c.fillStyle = PCOL.cBase; c.fillRect(x0, y0, 128, 256); for (let y = 30; y < 256; y += 32) pHoop(c, x0, y0, y, -8, 16, PCOL.cDark); pFuzz(c, x0, y0, 128, 256, 800, [PCOL.cFur, PCOL.cDark], 0.35, 12, 5); },
+      bib(c, x0, y0, sh) {
+        c.fillStyle = PCOL.cBase; c.fillRect(x0, y0, 128, 256);
+        c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
+        for (let y = 6; y < 250; y += 32) pChev(c, x0, y0, y, 34, 15, PCOL.cDark, -4, 0.9);
+        c.strokeStyle = PCOL.cDark; c.lineWidth = 10; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+        pFuzz(c, x0, y0, 128, 256, 700, [PCOL.cFur, PCOL.cDark], 0.35, 13, 5);
+      },
+    },
+    D: {
+      face(c, x0, y0) {
+        c.fillStyle = PCOL.dBase; c.fillRect(x0, y0, 256, 256);
+        pBands(c, x0, y0, { fg: PCOL.dGold, bg: PCOL.dBase, r0: 20, P: 30, duty: 0.42, soft: 10, rMax: 100 });
+        c.save(); c.translate(x0, y0); c.lineCap = 'round'; c.strokeStyle = PCOL.dGold;
+        [10, 36].forEach(y => { c.lineWidth = 13; c.beginPath(); c.moveTo(-6, y + 58); c.quadraticCurveTo(128, y - 36, 262, y + 58); c.stroke(); });
+        [87, 169].forEach(x => { pDisc(c, x, 119, 20, PCOL.dFelt); pEye(c, x, 119, 11, '#C99470'); });
+        pMouth(c, 128, 182, 13, 11, PCOL.dLip, false);
+        c.restore();
+        pFuzz(c, x0, y0, 256, 256, 900, ['#5A4636', '#1C1612'], 0.3, 21, 4);
+      },
+      hood(c, x0, y0) { c.fillStyle = PCOL.dBase; c.fillRect(x0, y0, 128, 256); [60, 100, 140, 180, 220].forEach(y => pHoop(c, x0, y0, y, 14, 14, PCOL.dGold)); },
+      bib(c, x0, y0, sh) {
+        c.fillStyle = PCOL.dBase; c.fillRect(x0, y0, 128, 256);
+        c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
+        [34, 86, 138, 190].forEach(y => pChev(c, x0, y0, y, 44, 16, PCOL.dGold, 2, 0.85));
+        c.strokeStyle = PCOL.dGoldS; c.lineWidth = 8; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+      },
+    },
+    E: {
+      face(c, x0, y0) {
+        c.fillStyle = PCOL.eRed; c.fillRect(x0, y0, 256, 256);
+        c.save(); c.translate(x0, y0);
+        [58, 79, 100, 121, 142, 163, 184].forEach(r => pZigEl(c, 128, 142, r, r * 0.98, 2.2, 7, PCOL.eWool, 7));
+        c.fillStyle = PCOL.eRed; c.beginPath(); c.ellipse(128, 146, 40, 46, 0, 0, TAU); c.fill();
+        [104, 152].forEach(x => { c.strokeStyle = PCOL.eWool; c.lineWidth = 4; c.beginPath(); c.ellipse(x, 126, 15, 11, 0, 0, TAU); c.stroke(); });
+        [104, 152].forEach(x => { c.fillStyle = PCOL.skin; c.beginPath(); c.ellipse(x, 126, 11, 8, 0, 0, TAU); c.fill(); c.fillStyle = PCOL.eye; c.beginPath(); c.ellipse(x, 127, 6, 6, 0, 0, TAU); c.fill(); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(x + 2, 124, 1.6, 0, TAU); c.fill(); });
+        c.fillStyle = PCOL.eNose; c.beginPath(); c.ellipse(128, 152, 9, 7, 0, 0, TAU); c.fill();
+        pMouth(c, 128, 178, 12, 6, PCOL.eRedS, true);
+        c.restore();
+        pFuzz(c, x0, y0, 256, 256, 1200, [PCOL.eRedS, PCOL.eWool, '#D8668A'], 0.25, 31, 3);
+        // макушка — пушистая, без полос
+        c.save(); c.globalAlpha = 0.9; const g = c.createLinearGradient(0, y0, 0, y0 + 26); g.addColorStop(0, PCOL.eRed); g.addColorStop(1, 'rgba(184,58,94,0)'); c.fillStyle = g; c.fillRect(x0, y0, 256, 26); c.restore();
+      },
+      hood(c, x0, y0) {
+        c.fillStyle = PCOL.eRed; c.fillRect(x0, y0, 128, 256);
+        for (let y = 30; y < 256; y += 21) { c.strokeStyle = PCOL.eWool; c.lineWidth = 7; c.beginPath(); for (let x = 0; x <= 128; x += 3.5) { const yy = y + ((x / 3.5) % 2 ? 2.5 : -2.5); if (x) c.lineTo(x0 + x, y0 + yy); else c.moveTo(x0 + x, y0 + yy); } c.stroke(); }
+        pFuzz(c, x0, y0, 128, 256, 600, [PCOL.eRedS, PCOL.eWool], 0.25, 32, 3);
+      },
+      bib(c, x0, y0, sh) {
+        c.fillStyle = PCOL.eRed; c.fillRect(x0, y0, 128, 256);
+        c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
+        c.fillStyle = PCOL.eWool; c.fillRect(x0, y0, 128, 256);
+        c.fillStyle = PCOL.eRed; c.strokeStyle = PCOL.eRedS; c.lineWidth = 2;
+        for (let r = 0; r < 11; r++) for (let q = -1; q < 6; q++) { const x = x0 + 20 + q * 22 + (r % 2) * 11, y = y0 + 16 + r * 23; c.beginPath(); c.moveTo(x, y - 9); c.lineTo(x + 8, y); c.lineTo(x, y + 9); c.lineTo(x - 8, y); c.closePath(); c.fill(); c.stroke(); }
+        c.strokeStyle = PCOL.eRed; c.lineWidth = 16; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+        pFuzz(c, x0, y0, 128, 256, 400, [PCOL.eRedS, '#FFFFFF'], 0.2, 33, 3);
+      },
+    },
+  };
+  // нагрудники-щиты (px в клетке 128×256): верх, самая широкая часть, где она
+  const PSH = { A: [72, 88, 0.4], B: [88, 124, 0.42], C: [100, 124, 0.45], D: [96, 122, 0.4], E: [120, 128, 0.55] };
+  const PKEYS = ['A', 'B', 'C', 'D', 'E'];
+  function paintPaltarBlock(c, ox, oy, used) {
+    const cell = (fn, x, y, w, h, arg) => { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); fn(c, x, y, arg); c.restore(); };
+    PKEYS.forEach((key, k) => {
+      if (used && !used.includes(key)) return;
+      const x0 = ox + (k % 2) * 512, y0 = oy + Math.floor(k / 2) * 256, Pn = PAINT[key];
+      cell(Pn.face, x0, y0, 256, 256); cell(Pn.hood, x0 + 256, y0, 128, 256); cell(Pn.bib, x0 + 384, y0, 128, 256, PSH[key]);
+    });
+    // кольчуга 512×256: мелкие колечки «4 в 1» (80 по кругу рубахи ≈ 1,7 см, как на фото), бесшовная плитка 32×32
+    {
+      const [tc, t2] = cnv(32, 32); t2.fillStyle = PCOL.mailGap; t2.fillRect(0, 0, 32, 32);
+      for (let r = -1; r <= 10; r++) for (let q = -1; q <= 5; q++) {
+        const x = q * 6.4 + (r % 2 ? 3.2 : 0), y = r * 3.2, tilt = r % 2 ? 0.45 : -0.45;
+        [[0, 0], [32, 0], [0, 32], [-32, 0], [0, -32]].forEach(([dx, dy]) => {
+          t2.strokeStyle = PCOL.mail; t2.lineWidth = 1.5; t2.beginPath(); t2.ellipse(x + dx, y + dy, 3.3, 2.5, tilt, 0, TAU); t2.stroke();
+          t2.strokeStyle = PCOL.mailHi; t2.lineWidth = 0.8; t2.beginPath(); t2.ellipse(x + dx, y + dy, 3.3, 2.5, tilt, PI * 1.05, PI * 1.6); t2.stroke();
+        });
+      }
+      c.save(); c.translate(ox, oy + 768); c.fillStyle = c.createPattern(tc, 'repeat'); c.fillRect(0, 0, 512, 256); c.restore();
+    }
+    // перчатки: белая с синими точками, кремовая с коричневыми точками (кончики пальцев открыты), синяя вязаная с зигзагами
+    const gx = ox + 768, gy = oy + 512;
+    c.fillStyle = '#ECF0EE'; c.fillRect(gx + 128, gy, 128, 128);
+    c.fillStyle = '#4A78B8'; for (let r = 0; r < 11; r++) for (let q = 0; q < 11; q++) { c.beginPath(); c.arc(gx + 128 + 6 + q * 12 + (r % 2) * 6, gy + 6 + r * 12, 3, 0, TAU); c.fill(); }
+    c.fillStyle = '#DCCDA8'; c.fillRect(gx, gy + 128, 128, 128);
+    c.fillStyle = '#6B4A2A'; for (let r = 0; r < 13; r++) for (let q = 0; q < 13; q++) { c.beginPath(); c.arc(gx + 5 + q * 10 + (r % 2) * 5, gy + 128 + 5 + r * 10, 2.5, 0, TAU); c.fill(); }
+    c.fillStyle = '#2F4F7A'; c.fillRect(gx + 128, gy + 128, 128, 128);
+    c.strokeStyle = '#E8EEF5'; c.lineWidth = 3.5; for (let y = 8; y < 128; y += 12) { c.beginPath(); for (let x = 0; x <= 128; x += 4) { const yy = y + ((x / 4) % 2 ? 3 : -3); if (x) c.lineTo(gx + 128 + x, gy + 128 + yy); else c.moveTo(gx + 128 + x, gy + 128 + yy); } c.stroke(); }
+    // жёлтая резиновая (клетка про запас: перчатки C — цветом вершин)
+    const gr = c.createLinearGradient(gx, gy, gx + 128, gy + 128); gr.addColorStop(0, '#FFF07A'); gr.addColorStop(0.45, '#F6D23C'); gr.addColorStop(1, '#D9AE2C'); c.fillStyle = gr; c.fillRect(gx, gy, 128, 128);
+    // войлочная борода D, мех C, малиновый ворот E, серая вязаная гетра E
+    const woolly = (x, y, w, h, base, cols, seed) => { c.fillStyle = base; c.fillRect(x, y, w, h); pFuzz(c, x, y, w, h, Math.round(w * h / 18), cols, 0.55, seed, 6); };
+    woolly(ox + 512, oy + 768, 128, 256, PCOL.dBeard, [PCOL.dBeardL, '#5E4E40', '#8E7C68'], 51);
+    woolly(ox + 640, oy + 768, 128, 256, '#8A7A5C', ['#B5A585', '#5E5240', '#DAD5C4'], 52);
+    woolly(ox + 768, oy + 768, 128, 128, PCOL.eRed, [PCOL.eRedS, '#D8668A', '#9E2E50'], 53);
+    c.fillStyle = '#C9D1D6'; c.fillRect(ox + 896, oy + 768, 128, 128); c.strokeStyle = '#AEB8BF'; c.lineWidth = 3; for (let x = 4; x < 128; x += 8) { c.beginPath(); c.moveTo(ox + 896 + x, oy + 768); c.lineTo(ox + 896 + x, oy + 896); c.stroke(); }
+    // плётка: кожаная косичка (256×64) и рукоять с латунными кольцами (256×64)
+    for (let i = 0; i < 33; i++) { c.fillStyle = i % 2 ? '#8A5E3E' : '#5E3E26'; c.beginPath(); c.moveTo(ox + 768 + i * 8, oy + 896); c.lineTo(ox + 768 + i * 8 + 8, oy + 928); c.lineTo(ox + 768 + i * 8, oy + 960); c.lineTo(ox + 768 + i * 8 - 8, oy + 928); c.closePath(); c.fill(); }
+    c.fillStyle = '#3A2A20'; c.fillRect(ox + 768, oy + 960, 256, 64); c.fillStyle = '#C9A23F'; [40, 120, 200].forEach(x => c.fillRect(ox + 768 + x, oy + 960, 10, 64));
+  }
+  function paintAtlas(faceCanvas, used) {
+    const [cv, c] = cnv(1024, 2048);
+    c.clearRect(0, 0, 1024, 2048);
     FACE_KEYS.forEach((k, i) => {
       const cc = (i * 2) % 8, rr = Math.floor(i * 2 / 8);
       [false, true].forEach((closed, j) => { const f = faceCanvas(FACE[k], closed); c.drawImage(f, (cc + j) * 128, rr * 128, 128, 128); });
     });
-    // --- маска пальтара (256×512, x 0..256, y 512..1024): тёмный войлок, белые дуги вокруг глаз, нос-полоса, полосы сзади ---
-    c.save(); c.beginPath(); c.rect(0, 512, 256, 512); c.clip();
-    c.fillStyle = '#4A3E44'; c.fillRect(0, 512, 256, 512);
-    // ворс войлока
-    const R = rng(77); c.globalAlpha = 0.08; for (let i = 0; i < 900; i++) { c.fillStyle = R() < 0.5 ? '#FFFFFF' : '#000000'; c.fillRect(R() * 256, 512 + R() * 512, 1 + R() * 2, 1 + R() * 3); } c.globalAlpha = 1;
-    const W2 = '#F6F1E6';
-    c.lineCap = 'round'; c.lineJoin = 'round';
-    // сзади и по бокам — горизонтальные дуги-полосы (u у краёв клетки)
-    c.strokeStyle = W2; c.lineWidth = 9;
-    for (let y = 560; y < 1010; y += 34) { c.beginPath(); c.moveTo(-10, y); c.quadraticCurveTo(30, y - 14, 70, y); c.stroke(); c.beginPath(); c.moveTo(186, y); c.quadraticCurveTo(226, y - 14, 266, y); c.stroke(); }
-    // лоб — дуги над глазами (центр лица — x = 128, глаза на высоте y ≈ 840)
-    const ey = 842, ex = 30;
-    for (let k = 0; k < 4; k++) { c.beginPath(); c.arc(128, ey - 10, 64 + k * 22, PI * 1.12, PI * 1.88); c.stroke(); }
-    // кольца вокруг глаз (концентрические)
-    [-1, 1].forEach(s => { [36, 24].forEach((r, q) => { c.lineWidth = q ? 6 : 8; c.beginPath(); c.arc(128 + s * ex, ey, r, 0, TAU); c.stroke(); }); });
-    // нос-полоса и щёки
-    c.lineWidth = 9; c.beginPath(); c.moveTo(128, ey - 70); c.lineTo(128, ey + 40); c.stroke();
-    [-1, 1].forEach(s => { c.beginPath(); c.arc(128 + s * 18, ey + 64, 46, s > 0 ? PI * 1.55 : PI * 0.95, s > 0 ? PI * 2.05 : PI * 1.45); c.stroke(); });
-    // глазницы: внутри — мех и добрые круглые глаза с бликом, под ними румянец
-    [-1, 1].forEach(s => {
-      const x = 128 + s * ex;
-      c.fillStyle = '#EADBC8'; c.beginPath(); c.arc(x, ey, 17, 0, TAU); c.fill();
-      c.fillStyle = '#2E2A3B'; c.beginPath(); c.ellipse(x, ey + 1, 9.5, 12, 0, 0, TAU); c.fill();
-      c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(x + 3.5, ey - 4, 3.6, 0, TAU); c.fill();
-      c.fillStyle = 'rgba(245,154,174,0.65)'; c.beginPath(); c.ellipse(x + s * 6, ey + 30, 9, 5, 0, 0, TAU); c.fill();
-    });
-    // ротик-улыбка в прорези (под носом-пуговкой: на маске нос — на высоте y ≈ 944)
-    c.fillStyle = '#EADBC8'; c.beginPath(); c.ellipse(128, 982, 22, 13, 0, 0, TAU); c.fill();
-    c.strokeStyle = '#B5546A'; c.lineWidth = 4; c.beginPath(); c.moveTo(113, 978); c.quadraticCurveTo(128, 994, 143, 978); c.stroke();
-    c.fillStyle = '#F29AAE'; c.beginPath(); c.ellipse(128, 987, 6, 3.5, 0, 0, TAU); c.fill();
-    // макушка — белый «гребень»
-    c.strokeStyle = W2; c.lineWidth = 8; c.beginPath(); c.moveTo(128, 520); c.lineTo(128, 690); c.stroke();
-    c.restore();
-    // --- кольчуга (x 256..512, y 512..1024): серебристые колечки рядами со сдвигом ---
-    c.save(); c.beginPath(); c.rect(256, 512, 256, 512); c.clip();
-    c.fillStyle = '#6E7076'; c.fillRect(256, 512, 256, 512);
-    for (let r = 0; r < 34; r++) for (let q = 0; q < 17; q++) {
-      const x = 256 + q * 16 + (r % 2) * 8, y = 512 + r * 15 + 7;
-      c.strokeStyle = '#B9BDC4'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, 6.5, 0, TAU); c.stroke();
-      c.strokeStyle = '#EEF0F4'; c.lineWidth = 2; c.beginPath(); c.arc(x - 1, y - 1, 5.6, PI * 1.05, PI * 1.75); c.stroke();
-    }
-    c.restore();
-    // --- «борода» маски (x 512..768, y 512..768): тёмная лента с белыми шевронами и белой каймой ---
-    c.save(); c.beginPath(); c.rect(512, 512, 256, 256); c.clip();
-    c.fillStyle = '#F6F1E6'; c.fillRect(512, 512, 256, 256);
-    c.fillStyle = '#4A3E44'; c.fillRect(530, 512, 220, 256);
-    c.strokeStyle = '#F6F1E6'; c.lineWidth = 10; c.lineJoin = 'round';
-    for (let y = 540; y < 770; y += 44) { c.beginPath(); c.moveTo(552, y); c.lineTo(640, y + 30); c.lineTo(728, y); c.stroke(); }
-    c.restore();
     // --- ковёр (x 512..768, y 768..1024): тёмно-красное поле, медальон, кайма с ромбами ---
     c.save(); c.beginPath(); c.rect(512, 768, 256, 256); c.clip();
     c.fillStyle = '#9E2F3E'; c.fillRect(512, 768, 256, 256);
@@ -178,10 +377,19 @@
     c.fillStyle = '#D9A632'; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { c.beginPath(); c.arc(784 + i * 32 + (j % 2) * 16, 784 + j * 32, 4, 0, TAU); c.fill(); }
     c.fillStyle = '#D9A632'; c.fillRect(768, 1006, 256, 18);
     c.restore();
+    // --- блок пальтаров (нижняя половина атласа) ---
+    paintPaltarBlock(c, 0, 1024, used);
     return cv;
   }
-  // прямоугольники атласа (u0, v0, du, dv) — v от низа текстуры (flipY)
-  const UVR = { mask: [0, 0, 0.25, 0.5], mail: [0.25, 0, 0.25, 0.5], beard: [0.5, 0.25, 0.25, 0.25], carpet: [0.5, 0, 0.25, 0.25], runner: [0.75, 0.25, 0.25, 0.25], scarf: [0.75, 0, 0.25, 0.25] };
+  // прямоугольники атласа (u0, v0, du, dv) — v от низа текстуры (flipY); верхняя половина атласа — v 0,5..1
+  const VY = r => [r[0], 0.5 + r[1] / 2, r[2], r[3] / 2];
+  const UVR = { carpet: VY([0.5, 0, 0.25, 0.25]), runner: VY([0.75, 0.25, 0.25, 0.25]), scarf: VY([0.75, 0, 0.25, 0.25]) };
+  // клетка блока пальтаров (px блока: x, y, ширина, высота) → (u0, v0, du, dv)
+  const PR = (x, y, w, h) => [x / 1024, (1 - (y + h) / 1024) / 2, w / 1024, h / 2048];
+  const PUV = {};
+  PKEYS.forEach((key, k) => { const x0 = (k % 2) * 512, y0 = Math.floor(k / 2) * 256; PUV[key] = { face: PR(x0, y0, 256, 256), hood: PR(x0 + 256, y0, 128, 256), bib: PR(x0 + 384, y0, 128, 256) }; });
+  Object.assign(PUV, { mail: PR(0, 768, 512, 256), gYellow: PR(768, 512, 128, 128), gDots: PR(896, 512, 128, 128), gCream: PR(768, 640, 128, 128), gNavy: PR(896, 640, 128, 128),
+    beardD: PR(512, 768, 128, 256), furC: PR(640, 768, 128, 256), ruff: PR(768, 768, 128, 128), warmer: PR(896, 768, 128, 128), lash: PR(768, 896, 256, 64), grip: PR(768, 960, 256, 64) });
 
   /* ---------------------------------------------------------------------
      ТОЛПА СО СКЕЛЕТОМ: детали (сфера, капсула, конус...) копятся в общие буферы; у каждой — своя кость
@@ -240,13 +448,15 @@
     const toW = (x, z, y) => { const c = Math.cos(A.ry), s = Math.sin(A.ry); return { x: A.x + x * c + z * s, y: A.y + (y || 0), z: A.z - x * s + z * c }; };
     const HW = A.w / 2, HD = A.d / 2;
     const S = Math.min(1, A.w / 20, A.d / 12);   // двор меньше расчётного — всё поджимаем
+    // какие пальтары на свадьбе (виды по фото, см. PV ниже): на low — три, на high — четыре; зимой A вместо C
+    const PSET = (HI ? ['B', 'C', 'D', 'E'] : ['B', 'C', 'D']).map(k => (k === 'C' && season === 'winter' ? 'A' : k));
 
     // общие материалы
     let GRAD = K && K.GRAD;
     if (!GRAD) { const d = new Uint8Array(64); [100, 100, 100, 104, 128, 160, 166, 168, 176, 212, 236, 244, 255, 255, 255, 255].forEach((v, i) => d.set([v, v, v, 255], i * 4)); GRAD = keep(new T.DataTexture(d, 16, 1, T.RGBAFormat)); GRAD.minFilter = GRAD.magFilter = T.LinearFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
     const rim = m => (K && K.addRim ? K.addRim(m, 1) : m);
     const faceCanvas = (K && K.faceCanvas) || VK.faceCanvas;
-    const atlasTex = keep(new T.CanvasTexture(paintAtlas(faceCanvas)));
+    const atlasTex = keep(new T.CanvasTexture(paintAtlas(faceCanvas, PSET)));
     atlasTex.anisotropy = 4;
     const matBody = keep(rim(new T.MeshToonMaterial({ color: 0xFFFFFF, vertexColors: true, gradientMap: GRAD })));
     const matTex = keep(rim(new T.MeshToonMaterial({ color: 0xFFFFFF, vertexColors: true, map: atlasTex, gradientMap: GRAD })));
@@ -275,33 +485,16 @@
       plane: keep(new T.PlaneGeometry(1, 1)),
     };
     const capC = new Map(); const cap = (r, l) => { const k = r + '|' + l; if (!capC.has(k)) capC.set(k, keep(new T.CapsuleGeometry(r, l, HI ? 2 : 1, HI ? 6 : 5))); return capC.get(k); };
-    // капюшон-маска пальтара: высокий, заострённый, лицо — спереди (u = 0,5)
-    const maskGeo = keep(new T.LatheGeometry([[0.2, -0.16], [0.235, -0.04], [0.25, 0.08], [0.235, 0.2], [0.19, 0.32], [0.13, 0.43], [0.07, 0.52], [0.02, 0.6], [0.001, 0.62]].map(p => new T.Vector2(p[0], p[1])), 14, PI, TAU));
-    // фартук-«борода» маски и кольчуга-рубаха
-    const beardGeo = keep(new T.PlaneGeometry(0.2, 0.34, 1, 3));
-    const mailGeo = keep(new T.CylinderGeometry(0.25, 0.32, 0.5, 14, 1, true));
+    // пальтар: капсулы попроще (руки, ноги) — треугольников меньше
+    const capPC = new Map(); const capP = (r, l) => { const k = r + '|' + l; if (!capPC.has(k)) capPC.set(k, keep(new T.CapsuleGeometry(r, l, 1, HI ? 6 : 5))); return capPC.get(k); };
 
     /* --- зверята --- */
     const bones = [], animals = [], partsBody = [], partsOl = [], partsFace = [], partsTex = [];
     const M4 = new T.Matrix4(), Q = new T.Quaternion(), E = new T.Euler(), VP = new T.Vector3(), VS = new T.Vector3();
     const C = h => (Array.isArray(h) ? h : hex(h));
-    function makeAnimal(spec) {
-      const a = { spec, id: spec.id, role: spec.role, x: spec.x, z: spec.z, ry: spec.ry || 0, scale: spec.scale || 1.15, ph: Math.random() * 6, blinkT: 1 + Math.random() * 3, idx: animals.length, look: 0 };
-      const sc = a.scale, rootM = new T.Matrix4().compose(new T.Vector3(a.x, spec.y || 0, a.z), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), a.ry), new T.Vector3(sc, sc, sc));
-      const mk = (name, parent, pos) => { const b = new T.Bone(); b.name = a.id + ':' + name; b.position.set(pos[0], pos[1], pos[2]); (parent || stage).add(b); b.userData.i = bones.length; bones.push(b); return b; };
-      const B = {};
-      B.root = mk('root', null, [a.x, spec.y || 0, a.z]); B.root.rotation.y = a.ry; B.root.scale.setScalar(sc);
-      const hipY = spec.hipY || 0.22, shY = spec.shY || 0.56, neckY = spec.neckY || 0.72;
-      B.body = mk('body', B.root, [0, hipY, 0]);
-      B.head = mk('head', B.body, [0, neckY - hipY, spec.headZ || 0.02]);
-      B.armL = mk('armL', B.body, [spec.shX || 0.2, shY - hipY, 0.03]); B.armR = mk('armR', B.body, [-(spec.shX || 0.2), shY - hipY, 0.03]);
-      B.legL = mk('legL', B.root, [0.1, hipY, 0.02]); B.legR = mk('legR', B.root, [-0.1, hipY, 0.02]);
-      // W5 «Бум!» понарошку (js/playfight.js): у пальтара — пустая кость pf между корнем и телом/ногами (без весов, не в скелете):
-      // в неё слой возни пишет кувырок, сальто, поклон и в конце возвращает в покой; корнем по-прежнему владеет двор
-      if (spec.role === 'paltar') { const pf = new T.Bone(); pf.name = a.id + ':pf'; B.root.add(pf); pf.add(B.body); pf.add(B.legL); pf.add(B.legR); B.pf = pf; }
-      a.B = B; a.rest = { hipY, neckY };
-      // деталь в осях зверька (покой): кость → смещение кости от корня
-      const off = { root: [0, 0, 0], body: [0, hipY, 0], head: [0, neckY, spec.headZ || 0.02], armL: [spec.shX || 0.2, shY, 0.03], armR: [-(spec.shX || 0.2), shY, 0.03], legL: [0.1, hipY, 0.02], legR: [-0.1, hipY, 0.02] };
+    // детали жителя: в осях зверька (покой), кость → смещение кости от корня (off); kind: 'ol' — тело и контур, 'plain' — тело,
+    // { uv } — «ткани» (атлас), 'face' — лицо
+    function partFns(a, B, off, rootM) {
       a.P = (bone, geo, col, p, s, r, kind) => {
         const o2 = off[bone]; VP.set(o2[0] + p[0], o2[1] + p[1], o2[2] + p[2]); VS.set(s[0], s[1], s[2]);
         E.set(r ? r[0] : 0, r ? r[1] : 0, r ? r[2] : 0); Q.setFromEuler(E);
@@ -314,7 +507,23 @@
         return part;
       };
       a.tex = (bone, geo, uvKey, p, s, r, col) => { const part = a.P(bone, geo, col || '#FFFFFF', p, s, r, { uv: UVR[uvKey] }); part.uv = UVR[uvKey]; return part; };
-      a.faceDecal = (key, p, s) => { const fc = faceCell(FACE_KEYS.indexOf(key)); const part = a.P('head', G.face, '#FFFFFF', p, s, null, 'face'); part.uv = [fc.u0, fc.v0, 0.125, 0.125]; return part; };
+      a.faceDecal = (key, p, s) => { const fc = faceCell(FACE_KEYS.indexOf(key)); const part = a.P('head', G.face, '#FFFFFF', p, s, null, 'face'); part.uv = [fc.u0, fc.v0, 0.125, 0.0625]; return part; };
+    }
+    function makeAnimal(spec) {
+      const a = { spec, id: spec.id, role: spec.role, x: spec.x, z: spec.z, ry: spec.ry || 0, scale: spec.scale || 1.15, ph: Math.random() * 6, blinkT: 1 + Math.random() * 3, idx: animals.length, look: 0 };
+      const sc = a.scale, rootM = new T.Matrix4().compose(new T.Vector3(a.x, spec.y || 0, a.z), new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), a.ry), new T.Vector3(sc, sc, sc));
+      const mk = (name, parent, pos) => { const b = new T.Bone(); b.name = a.id + ':' + name; b.position.set(pos[0], pos[1], pos[2]); (parent || stage).add(b); b.userData.i = bones.length; bones.push(b); return b; };
+      // пальтар — человек в костюме: свой скелет (таз, грудь, голова, плечо-локоть-кисть-пальцы, бедро-голень)
+      if (spec.role === 'paltar') { makePaltar(a, spec, rootM, mk); animals.push(a); return a; }
+      const B = {};
+      B.root = mk('root', null, [a.x, spec.y || 0, a.z]); B.root.rotation.y = a.ry; B.root.scale.setScalar(sc);
+      const hipY = spec.hipY || 0.22, shY = spec.shY || 0.56, neckY = spec.neckY || 0.72;
+      B.body = mk('body', B.root, [0, hipY, 0]);
+      B.head = mk('head', B.body, [0, neckY - hipY, spec.headZ || 0.02]);
+      B.armL = mk('armL', B.body, [spec.shX || 0.2, shY - hipY, 0.03]); B.armR = mk('armR', B.body, [-(spec.shX || 0.2), shY - hipY, 0.03]);
+      B.legL = mk('legL', B.root, [0.1, hipY, 0.02]); B.legR = mk('legR', B.root, [-0.1, hipY, 0.02]);
+      a.B = B; a.rest = { hipY, neckY };
+      partFns(a, B, { root: [0, 0, 0], body: [0, hipY, 0], head: [0, neckY, spec.headZ || 0.02], armL: [spec.shX || 0.2, shY, 0.03], armR: [-(spec.shX || 0.2), shY, 0.03], legL: [0.1, hipY, 0.02], legR: [-0.1, hipY, 0.02] }, rootM);
       SPECIES[spec.sp](a, spec);
       animals.push(a);
       return a;
@@ -440,33 +649,215 @@
         a.faceDecal('raccoon', [0, 0.14, 0], r); a.headR = r;
       },
     };
-    // пальтар: высокий войлочный капюшон с белыми дугами, «борода», усы из шерсти, пучок «конского волоса», кольчуга
-    // поверх белой рубахи, пояс с колокольчиками. Видно, кто под маской: рожки козлика, ушки лисёнка, хвост енотика
-    function paltar(a, s) {
-      const tuft = s.tuft || '#2E2A30', under = s.speciesUnder || s.sp;
-      // белая рубаха (рукава), кольчуга до колен, пояс, колокольчики
-      a.P('body', G.sph, '#FFFDF8', [0, 0.22, 0], [0.24, 0.26, 0.22], null, 'plain');
-      a.tex('body', mailGeo, 'mail', [0, 0.14, 0], [1, 1, 1], null, '#FFFFFF');
-      a.tex('body', G.cylO, 'mail', [0, 0.42, 0], [0.25, 0.08, 0.23], null, '#FFFFFF');
-      a.P('body', G.cylO, '#7A4E32', [0, 0.18, 0], [0.27, 0.045, 0.25], null, 'ol');
-      [[-0.18, 0.15, 0.17], [0, 0.15, 0.27], [0.18, 0.15, 0.17], [0.24, 0.15, 0]].forEach(p => a.P('body', G.sphLo, '#F2C94C', p, [0.03, 0.03, 0.03], null, 'plain'));
-      ['armL', 'armR'].forEach(b => { a.tex(b, cap(0.058, 0.08), 'mail', [0, -0.05, 0.02], [1, 1, 1]); a.P(b, cap(0.05, 0.1), '#FFFDF8', [0, -0.13, 0.02], [1, 1, 1], null, 'plain'); a.P(b, G.sphLo, s.paw || '#EADBC8', [0, -0.23, 0.03], [0.055, 0.05, 0.055], null, 'plain'); });
-      ['legL', 'legR'].forEach(b => { a.P(b, cap(0.06, 0.1), '#FFFDF8', [0, -0.1, 0], [1, 1, 1], null, 'plain'); a.P(b, G.sphLo, '#5E4A40', [0, -0.2, 0.04], [0.07, 0.05, 0.095], null, 'plain'); });
-      // голова под маской (не видна) не нужна: маска — сама голова
-      a.tex('head', maskGeo, 'mask', [0, 0.14, 0], [1, 1, 1]);
-      a.tex('head', beardGeo, 'beard', [0, -0.12, 0.215], [1, 1, 1], [0.12, 0, 0]);
-      a.P('head', G.sph, '#2E2A30', [0, 0.13, 0.255], [0.04, 0.033, 0.04], null, 'plain');           // нос-пуговка
-      a.P('head', G.sphLo, '#FFFFFF', [0.012, 0.142, 0.288], [0.01, 0.008, 0.006], null, 'plain');
-      [-1, 1].forEach(sd => [0.1, -0.12].forEach((tw, q) => a.P('head', G.cone, s.must || '#D9C7A8', [sd * 0.085, 0.128 + q * 0.012, 0.235], [0.014, 0.11, 0.012], [0, 0, sd * (1.45 + tw)], 'plain')));   // шерстяные усы — пучками в стороны, чуть вверх (не «клыки»)
-      // пучок «конского волоса» на макушке: мягкая кисточка, чуть свисает
-      a.P('head', G.sphLo, tuft, [0, 0.765, 0], [0.035, 0.03, 0.035], null, 'plain');
-      for (let i = 0; i < 9; i++) { const ang = i / 9 * TAU, tilt = 0.22 + (i % 3) * 0.12; a.P('head', G.cone, tuft, [Math.sin(ang) * 0.018, 0.83, Math.cos(ang) * 0.018 - 0.01], [0.016, 0.13, 0.016], [Math.cos(ang) * tilt - 0.15, 0, -Math.sin(ang) * tilt], 'plain'); }
-      if (under === 'goat') [-1, 1].forEach(sd => { a.P('head', G.cone, '#CDBFA6', [sd * 0.12, 0.5, -0.04], [0.035, 0.16, 0.035], [-0.3, 0, -sd * 0.5], 'plain'); a.P('head', G.sph, '#F3EDE4', [sd * 0.25, 0.22, -0.02], [0.08, 0.03, 0.045], [0, 0, -sd * 0.4], 'plain'); });
-      if (under === 'fox') { [-1, 1].forEach(sd => a.P('head', G.cone, '#E8894A', [sd * 0.13, 0.45, -0.02], [0.065, 0.14, 0.045], [0, 0, -sd * 0.45])); a.P('body', G.sph, '#E8894A', [0.05, 0.06, -0.3], [0.09, 0.09, 0.2], [0.6, 0.3, 0]); a.P('body', G.sphLo, '#FFF4E6', [0.08, -0.02, -0.45], [0.06, 0.06, 0.07], null, 'plain'); }
-      if (under === 'raccoon') { [-1, 1].forEach(sd => a.P('head', G.sph, '#9A949C', [sd * 0.19, 0.38, -0.03], [0.065, 0.065, 0.04])); for (let i = 0; i < 4; i++) a.P('body', G.sphLo, i % 2 ? '#4E4650' : '#9A949C', [0.04 + i * 0.03, 0.06 + i * 0.03, -0.26 - i * 0.07], [0.07, 0.07, 0.06], null, 'plain'); }
-      a.headR = [0.25, 0.3, 0.25];
+    /* --- ПАЛЬТАР (по фото p1–p4): высокий статный ряженый, не зверёк — ничего звериного не видно. Войлочный капюшон-маска
+       (яйцом, с полосами, выпуклым носом, красными губами) переходит в длинный нагрудник; кольчуга до середины бедра с рваным
+       подолом и рукавами-колоколами до локтя поверх белой рубахи; кожаный пояс с пряжкой; светлые штаны, тёмные сапоги;
+       перчатки (жёлтые резиновые, белые и кремовые в точку, синие вязаные) или голые руки; султан, коса, хвост, мех, борода;
+       у D и E — короткая кожаная плётка (ею только щёлкают в воздухе, никогда ни в кого). Кости — как у человека.
+       Метры, масштаб 1: макушка 2,25, султан до 2,42; глаза 2,06; плечи 1,69; пояс 1,28; подол 0,84; колено 0,53 --- */
+    const PH = { hip: 1.0, waist: 1.24, neck: 1.8, shX: 0.29, shY: 1.685, elb: 1.35, wri: 1.035, fing: 0.075, kn: 0.53, legX: 0.105 };
+    const PV = {
+      A: { base: '#23201E', glove: 'bare', belt: '#6B3A22', buckle: null, hair: 'pony', bibW: 0.2, bibL: 0.46 },
+      B: { base: '#23201E', glove: 'dots', belt: '#3A2A22', buckle: 'iron', hair: 'plume', bibW: 0.27, bibL: 0.48 },
+      C: { base: '#B8B19B', snout: '#9C9682', glove: 'yellow', belt: '#3A2A22', buckle: 'brass', hair: 'shag', bibW: 0.28, bibL: 0.44 },
+      D: { base: '#2F251E', glove: 'cream', belt: '#3A2A22', buckle: null, hair: 'beard', bibW: 0.27, bibL: 0.52, whip: true, satin: true },
+      E: { base: '#B83A5E', glove: 'navy', belt: '#2A221F', buckle: 'brass', hair: 'tuft', bibW: 0.28, bibL: 0.46, whip: true, ruff: true },
+    };
+    // профиль, у которого v текстуры — линейно по высоте (как на рисунке лица): точки снизу вверх [r, y]
+    function latheV(pts, segs, phi0, phiL, y0, y1) {
+      const g = keep(new T.LatheGeometry(pts.map(p => new T.Vector2(p[0], p[1])), segs, phi0, phiL));
+      const P = g.attributes.position, U = g.attributes.uv;
+      for (let i = 0; i < P.count; i++) U.setY(i, (P.getY(i) - y0) / (y1 - y0));
+      return g;
     }
-    SPECIES.paltar = paltar;
+    // капюшон (оси головы: шея — 0; подбородок 0,06; макушка 0,45): лицо — спереди 150°, затылок — 210°
+    const HOODP = [[0.122, -0.02], [0.133, 0.05], [0.158, 0.12], [0.176, 0.19], [0.182, 0.25], [0.177, 0.31], [0.161, 0.36], [0.133, 0.403], [0.094, 0.432], [0.048, 0.449], [0, 0.455]];
+    const PG = {
+      hoodF: latheV(HOODP, HI ? 10 : 8, -PI * 75 / 180, PI * 150 / 180, -0.02, 0.455),
+      hoodB: latheV(HOODP, HI ? 8 : 6, PI * 75 / 180, PI * 210 / 180, -0.02, 0.455),
+      // кольчуга: верх (на кости груди, мир 1,27..1,80) и юбка до середины бедра (на тазу) — шов сзади
+      mailUp: latheV([[0.24, 1.27], [0.258, 1.4], [0.28, 1.56], [0.285, 1.7], [0.24, 1.765], [0.13, 1.8]], HI ? 14 : 12, PI, TAU, 0.84, 1.8),
+      mailLo: latheV([[0.315, 0.84], [0.29, 0.97], [0.262, 1.13], [0.242, 1.31]], HI ? 14 : 12, PI, TAU, 0.84, 1.8),
+      sleeve: keep(new T.CylinderGeometry(0.09, 0.128, 0.33, 10, 1, true)),
+      ruff: keep(new T.CylinderGeometry(0.15, 0.3, 0.1, 14, 1, true)),
+      finger: HI ? keep(new T.CapsuleGeometry(1, 1, 1, 4)) : keep(new T.CylinderGeometry(0.85, 1, 1, 5)),
+      cone5: keep(new T.ConeGeometry(1, 1, 5, 1, true)), cyl6: keep(new T.CylinderGeometry(1, 1, 1, 6)), cylO8: keep(new T.CylinderGeometry(1, 1, 1, 8, 1, true)),
+      cyl8: keep(new T.CylinderGeometry(1, 1, 1, 8)), sph5: keep(new T.SphereGeometry(1, 5, 3)), sph6: keep(new T.SphereGeometry(1, 6, 4)), coil: keep(new T.TorusGeometry(1, 0.17, 4, 9)),
+      snout: keep(new T.CylinderGeometry(0.019, 0.031, 0.08, 8)),
+    };
+    // рваный край: каждая вторая вершина нижнего кольца — ниже
+    const ragged = (g, yBottom, dy, segs) => { const P = g.attributes.position; for (let i = 0; i < P.count; i++) if (Math.abs(P.getY(i) - yBottom) < 1e-4) { const k = Math.round((Math.atan2(P.getX(i), P.getZ(i)) + PI) / TAU * segs); if (k % 2) P.setY(i, yBottom - dy); } P.needsUpdate = true; g.computeVertexNormals(); };
+    ragged(PG.mailLo, 0.84, 0.035, HI ? 14 : 12); ragged(PG.sleeve, -0.165, 0.035, 10);
+    { const P = PG.ruff.attributes.position; for (let i = 0; i < P.count; i++) if (P.getY(i) < 0) P.setY(i, P.getY(i) - ((i * 7) % 3) * 0.018); P.needsUpdate = true; }
+    // кольчуга одной текстурой: юбка и верх — v 0..0,75 клетки по высоте 0,84..1,80; рукав — та же частота колец
+    const MAILR = PUV.mail, SLVR = [PUV.mail[0], PUV.mail[1], PUV.mail[2] * 0.49, PUV.mail[3] * 0.34];
+    // поверхность груди (для нагрудника): радиус кольчуги на высоте y × 0,66 (сплюснута спереди назад)
+    const MAILPROF = [[0.84, 0.315], [0.97, 0.29], [1.13, 0.262], [1.31, 0.242], [1.4, 0.258], [1.56, 0.28], [1.7, 0.285], [1.765, 0.24], [1.8, 0.13]];
+    const mailR = y => { for (let i = 1; i < MAILPROF.length; i++) if (y <= MAILPROF[i][0]) { const a = MAILPROF[i - 1], b = MAILPROF[i]; return lerp(a[1], b[1], (y - a[0]) / (b[0] - a[0])); } return 0.13; };
+    const MZ = 0.66;
+    // нагрудник-щит сеткой по силуэту рисунка; верхняя часть (у подбородка) — на голове, ниже 1,74 — на груди
+    function bibGeo(key, yTop, yBot, back) {
+      const v = PV[key], sh = PSH[key], hw = shieldHW(sh[0], sh[1], sh[2]), Wc = v.bibW * 128 / sh[1], L = (v.bibL || 0.36);
+      const rows = [], NR = 7, NC = 4;
+      for (let i = 0; i <= NR; i++) { const y = lerp(yTop, yBot, i / NR), u = clamp((1.86 - y) / L, 0, 1); rows.push({ y, u }); }
+      const P = [], U = [], I = [];
+      rows.forEach(r => {
+        const hwm = hw(r.u) / 128 * Wc, chestZ = mailR(r.y) * MZ;
+        const z0 = r.y > 1.78 ? 0.152 : r.y > 1.7 ? lerp(chestZ + 0.03, 0.152, (r.y - 1.7) / 0.08) : chestZ + 0.03;
+        for (let j = 0; j <= NC; j++) { const s = j / NC * 2 - 1, x = s * hwm; P.push(back ? -x : x, r.y, (z0 - 0.035 * s * s) * (back ? -1 : 1)); U.push(0.5 + s * hw(r.u) / 128, 1 - r.u); }
+      });
+      for (let i = 0; i < NR; i++) for (let j = 0; j < NC; j++) { const a = i * (NC + 1) + j, b = a + NC + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
+      const g = keep(new T.BufferGeometry()); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(U, 2)); g.setIndex(I); g.computeVertexNormals();
+      return g;
+    }
+    // лоскут капюшона сзади (затылок → спина, 1,80..1,57): полосы капюшона продолжаются вниз
+    function flapGeo() {
+      const P = [], Uv = [], I = [], NR = 5, NC = 4;
+      for (let i = 0; i <= NR; i++) {
+        const t = i / NR, y = lerp(1.8, 1.57, t), hw = 0.135 * Math.sqrt(Math.max(0, 1 - Math.pow(t, 3))), z0 = y > 1.74 ? lerp(mailR(y) * MZ + 0.022, 0.142, (y - 1.74) / 0.06) : mailR(y) * MZ + 0.022;
+        for (let j = 0; j <= NC; j++) { const s2 = j / NC * 2 - 1; P.push(-s2 * hw, y, -(z0 - 0.03 * s2 * s2)); Uv.push(0.5 + s2 * hw / 0.3, 0.2 * (1 - t)); }
+      }
+      for (let i = 0; i < NR; i++) for (let j = 0; j < NC; j++) { const a = i * (NC + 1) + j, b = a + NC + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
+      const g = keep(new T.BufferGeometry()); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(Uv, 2)); g.setIndex(I); g.computeVertexNormals();
+      return g;
+    }
+    const FLAPG = flapGeo();
+    const BIBG = {};
+    const _up = new T.Vector3(0, 1, 0), _dv = new T.Vector3(), _eu = new T.Euler();
+    // поворот, который ведёт ось +y к направлению d (для конусов, прядей, усов)
+    const aimE = (dx, dy, dz) => { _dv.set(dx, dy, dz).normalize(); _eu.setFromQuaternion(new T.Quaternion().setFromUnitVectors(_up, _dv)); return [_eu.x, _eu.y, _eu.z]; };
+    function makePaltar(a, spec, rootM, mk) {
+      const key = spec.variant || 'B', v = PV[key], B = {}, U = PUV[key];
+      a.variant = key; a.pv = v;
+      B.root = mk('root', null, [a.x, 0, a.z]); B.root.rotation.y = a.ry;
+      // W5 «Бум!» понарошку (js/playfight.js): пустая кость pf между корнем и телом/ногами (без весов, не в скелете) —
+      // в неё слой возни пишет кувырок, сальто, поклон и в конце возвращает в покой; корнем по-прежнему владеет двор
+      const pf = new T.Bone(); pf.name = a.id + ':pf'; B.root.add(pf); B.pf = pf;
+      B.body = mk('body', pf, [0, PH.hip, 0]);
+      B.chest = mk('chest', B.body, [0, PH.waist - PH.hip, 0]);
+      B.head = mk('head', B.chest, [0, PH.neck - PH.waist, 0]);
+      const off = { root: [0, 0, 0], body: [0, PH.hip, 0], chest: [0, PH.waist, 0], head: [0, PH.neck, 0] };
+      [['L', 1], ['R', -1]].forEach(([s, sd]) => {
+        B['arm' + s] = mk('arm' + s, B.chest, [sd * PH.shX, PH.shY - PH.waist, 0]);
+        B['fore' + s] = mk('fore' + s, B['arm' + s], [0, PH.elb - PH.shY, 0]);
+        B['hand' + s] = mk('hand' + s, B['fore' + s], [0, PH.wri - PH.elb, 0]); B['hand' + s].rotation.order = 'YZX';
+        B['fing' + s] = mk('fing' + s, B['hand' + s], [0, -PH.fing, 0]);
+        B['leg' + s] = mk('leg' + s, pf, [sd * PH.legX, PH.hip, 0]);
+        B['shin' + s] = mk('shin' + s, B['leg' + s], [0, PH.kn - PH.hip, 0]);
+        Object.assign(off, { ['arm' + s]: [sd * PH.shX, PH.shY, 0], ['fore' + s]: [sd * PH.shX, PH.elb, 0], ['hand' + s]: [sd * PH.shX, PH.wri, 0], ['fing' + s]: [sd * PH.shX, PH.wri - PH.fing, 0], ['leg' + s]: [sd * PH.legX, PH.hip, 0], ['shin' + s]: [sd * PH.legX, PH.kn, 0] });
+      });
+      // пряди (коса, хвост, султан, кисточка) и борода — свои кости (пружинят), плётка — цепочка костей от кисти
+      const hb = { pony: [0, 0.44, -0.06], plume: [-0.172, 0.23, -0.05], tuft: [0.02, 0.44, -0.04], shag: [0, 0.44, -0.02] }[v.hair];
+      if (hb) { B.hair0 = mk('hair0', B.head, hb); off.hair0 = [hb[0], PH.neck + hb[1], hb[2]]; }
+      if (v.hair === 'plume') { B.hair1 = mk('hair1', B.chest, [-0.205, 1.76 - PH.waist, 0.155]); off.hair1 = [-0.205, 1.76, 0.155]; }
+      if (v.hair === 'beard' || v.hair === 'shag') { B.beard = mk('beard', B.head, [0, 0.11, 0.16]); off.beard = [0, PH.neck + 0.11, 0.16]; }
+      if (v.whip) {
+        B.whip0 = mk('whip0', B.handR, [0, -0.085, 0.0]); off.whip0 = [-PH.shX, PH.wri - 0.085, 0];
+        let prev = B.whip0, py = PH.wri - 0.085, pz = 0.2;
+        B.whip1 = mk('whip1', prev, [0, 0, 0.2]); off.whip1 = [-PH.shX, py, pz]; prev = B.whip1;
+        for (let i = 2; i <= 5; i++) { B['whip' + i] = mk('whip' + i, prev, [0, -0.1, 0]); py -= 0.1; off['whip' + i] = [-PH.shX, py, pz]; prev = B['whip' + i]; }
+        B.coil = mk('coil', B.body, [-0.235, 0.2, 0.06]); off.coil = [-0.235, PH.hip + 0.2, 0.06];
+      }
+      a.B = B; a.rest = { hipY: PH.hip, neckY: PH.neck };
+      partFns(a, B, off, rootM);
+      const P = a.P, tex = (bone, geo, uv, p, s, r, col, ol) => { const part = P(bone, geo, col || '#FFFFFF', p, s, r, { uv }); part.uv = uv; if (ol) partsOl.push(part); return part; };
+      const cap = capP, skin = '#E8B596';
+      // --- капюшон-маска, нос, нагрудник, лоскут сзади ---
+      tex('head', PG.hoodF, U.face, [0, 0, 0], [1, 1, 1.09], null, null, true);
+      tex('head', PG.hoodB, U.hood, [0, 0, 0], [1, 1, 1.09], null, null, true);
+      P('head', PG.snout, v.snout || v.base, [0, 0.221, 0.214], [1.12, 1, 1], aimE(0, 0.05, -0.075), 'plain');
+      if (key === 'E') P('head', G.sphLo, '#F6F0F2', [0, 0.196, 0.25], [0.024, 0.021, 0.018], null, 'plain');
+      if (!BIBG[key]) BIBG[key] = [bibGeo(key, 1.86, 1.74), bibGeo(key, 1.74, 1.86 - (v.bibL || 0.36))];
+      tex('head', BIBG[key][0], U.bib, [0, -PH.neck, 0], [1, 1, 1]);
+      tex('chest', BIBG[key][1], U.bib, [0, -PH.waist, 0], [1, 1, 1]);
+      // лоскут сзади (затылок переходит на спину): полосы капюшона
+      tex('chest', FLAPG, U.hood, [0, -PH.waist, 0], [1, 1, 1]);
+      // --- рубаха: ворот, рукава ниже кольчужных; кольчуга с рукавами-колоколами ---
+      P('chest', G.cylO, '#F3EDE3', [0, 0.535, 0], [0.142, 0.035, 0.115], null, 'plain');
+      tex('chest', PG.mailUp, MAILR, [0, -PH.waist, 0], [1, 1, MZ], null, '#A8ACB3', true);
+      tex('body', PG.mailLo, MAILR, [0, -PH.hip, 0], [1, 1, MZ], null, '#A8ACB3', true);
+      const shirt = v.satin ? '#F0E2BE' : '#F3EDE3';
+      ['L', 'R'].forEach((s, i) => {
+        const sd = i ? -1 : 1;
+        tex('arm' + s, PG.sleeve, SLVR, [sd * 0.01, -0.165, 0], [1, 1, 1], null, '#A8ACB3', true);
+        P('arm' + s, cap(0.056, 0.2), shirt, [0, -0.18, 0], [1, 1, 1], null, 'plain');
+        if (v.satin) { P('fore' + s, G.sphLo, shirt, [0, -0.14, 0], [0.085, 0.17, 0.085], null, 'plain'); P('fore' + s, G.torus, '#E2CFA0', [0, -0.29, 0], [0.06, 0.06, 0.08], [PI / 2, 0, 0], 'plain'); }
+        else P('fore' + s, cap(0.063, 0.2), shirt, [0, -0.14, 0], [1, 1, 1], null, 'plain');
+        if (key === 'A') P('fore' + s, G.torus, '#F3EDE3', [0, -0.3, 0], [0.07, 0.07, 0.1], [PI / 2, 0, 0], 'plain');
+        // перчатки: ладонь, большой палец (на кисти), четыре пальца (на кости «пальцы» — сгиб и растопырка); манжета
+        const gk = v.glove, guv = { dots: PUV.gDots, cream: PUV.gCream, navy: PUV.gNavy }[gk], gcol = gk === 'yellow' ? '#F6D23C' : gk === 'bare' ? skin : '#FFFFFF';
+        const gp = (bone, geo, p, sc, r, k) => (guv ? tex(bone, geo, guv, p, sc, r) : P(bone, geo, gcol, p, sc, r, k || 'plain'));
+        gp('hand' + s, G.sphLo, [0, -0.05, 0.003], [0.033, 0.062, 0.058]);
+        gp('hand' + s, PG.finger, [-sd * 0.006, -0.065, 0.056], [0.019, 0.025, 0.019], aimE(-sd * 0.15, -0.6, 0.75));
+        const NF = HI ? 4 : 3;
+        for (let f = 0; f < NF; f++) {
+          const z = (f / (NF - 1) - 0.5) * (HI ? 0.08 : 0.07), len = 0.036 - Math.abs(f - (NF - 1) / 2) * 0.006;
+          gp('fing' + s, PG.finger, [0, -len * 1.4, z * 1.15], [0.0145, len, 0.0145], [-z * 3.2, 0, 0]);
+          if (gk === 'cream') P('fing' + s, PG.sph5, skin, [0, -len * 2.85, z * 1.15 + len * 1.45 * Math.sin(z * 3.2)], [0.0155, 0.018, 0.0155], null, 'plain');
+        }
+        if (gk === 'yellow') P('hand' + s, PG.cylO8, '#F0EBD6', [0, 0.005, 0], [0.058, 0.07, 0.058], null, 'plain');
+        else if (gk === 'navy') P('hand' + s, PG.cylO8, '#C9D1D6', [0, 0.06, 0], [0.066, 0.16, 0.066], null, 'plain');
+        else if (gk !== 'bare') gp('hand' + s, PG.cylO8, [0, 0.0, 0], [0.056, 0.06, 0.056]);
+        // ноги: штаны (бедро под подолом и голень), сапоги
+        P('leg' + s, cap(0.095, 0.3), '#E6DED0', [0, -0.25, 0], [1, 1, 1], null, 'plain');
+        P('shin' + s, cap(0.086, 0.14), '#E6DED0', [0, -0.07, 0], [1, 1, 1], null, 'plain');
+        P('shin' + s, PG.cyl8, '#3A2E28', [0, -0.32, 0.005], [0.085, 0.3, 0.09], null, 'ol');
+        P('shin' + s, G.sphLo, '#3A2E28', [0, -0.47, 0.055], [0.085, 0.06, 0.15], null, 'plain');
+      });
+      // пояс с пряжкой (A — тёплая коричневая кожа; B — железная бляха с треугольником; C, E — латунная прямоугольная пряжка)
+      P('body', G.cylO, v.belt, [0, 0.28, 0], [0.252, 0.065, 0.252 * MZ], null, 'plain');
+      if (v.buckle === 'brass') { P('body', G.box, '#C9A23F', [0, 0.28, 0.252 * MZ + 0.006], [0.085, 0.075, 0.015], null, 'plain'); P('body', G.box, '#7A5A20', [0, 0.28, 0.252 * MZ + 0.014], [0.05, 0.04, 0.006], null, 'plain'); }
+      if (v.buckle === 'iron') { P('body', G.box, '#55505A', [0, 0.28, 0.252 * MZ + 0.006], [0.07, 0.06, 0.012], null, 'plain'); P('body', G.cone, '#8E8A94', [0, 0.28, 0.252 * MZ + 0.013], [0.022, 0.035, 0.004], [PI / 2, 0, PI], 'plain'); }
+      P('body', G.box, v.belt, [0.2, 0.22, 0.12], [0.03, 0.11, 0.008], [0, 0.6, 0], 'plain');
+      // --- волосы, мех, бороды по видам ---
+      if (v.hair === 'pony') {
+        // A: чёрный хвост «конского волоса» с макушки — дугой назад и вниз, к правому плечу
+        P('hair0', PG.cyl6, '#6A4A3A', [0, 0.01, 0], [0.024, 0.035, 0.024], null, 'plain');
+        for (let i = 0; i < 12; i++) { const L2 = 0.2 + (i % 4) * 0.08, d = [-0.35 - (i % 3) * 0.2 + (i % 5 === 0 ? 0.6 : 0), 0.35 - (i % 4) * 0.35, -0.75 + (i % 2) * 0.2], dl = Math.hypot(d[0], d[1], d[2]); P('hair0', PG.cone5, i % 3 ? '#1A181C' : '#3E3A44', [d[0] / dl * L2 * 0.5, 0.03 + d[1] / dl * L2 * 0.5, d[2] / dl * L2 * 0.5], [0.032, L2, 0.032], aimE(d[0], d[1], d[2]), 'plain'); }
+      } else if (v.hair === 'plume') {
+        // B: белый султан на макушке и светлая коса от правого уха вниз по груди (у края нагрудника)
+        for (let i = 0; i < 9; i++) { const an = i / 9 * TAU, L2 = 0.14 + (i % 3) * 0.03; P('head', PG.cone5, i % 2 ? '#F4EFE6' : '#CFC6B8', [Math.sin(an) * 0.02, 0.45 + L2 * 0.45, Math.cos(an) * 0.02 - 0.02], [0.016, L2, 0.016], aimE(Math.sin(an) * 0.45, 1, Math.cos(an) * 0.45 - 0.35), 'plain'); }
+        const bp = [[-0.18, 2.0, -0.03], [-0.205, 1.89, 0.04], [-0.205, 1.79, 0.12]];
+        bp.forEach((q, i) => { P('hair0', PG.sph6, i % 2 ? '#B8936A' : '#DDB98E', [q[0] + 0.172, q[1] - PH.neck - 0.23, q[2] + 0.05], [0.025, 0.065, 0.022], aimE(q[0] - (bp[i + 1] || q)[0] + (i % 2 ? 0.25 : -0.25), 1, q[2] - (bp[i + 1] || q)[2] - 0.3), 'plain'); });
+        for (let i = 0; i < 5; i++) P('hair1', PG.sph6, i % 2 ? '#B8936A' : '#DDB98E', [0.004 * i, -0.06 - i * 0.09, 0.01 + i * 0.003], [0.023 - i * 0.0012, 0.062, 0.02], [0.12, 0, i % 2 ? 0.3 : -0.3], 'plain');
+        P('hair1', PG.cyl6, '#5E3E26', [0.02, -0.47, 0.025], [0.018, 0.02, 0.018], null, 'plain');
+        for (let i = 0; i < 3; i++) P('hair1', PG.cone5, '#DDB98E', [0.02 + (i - 1) * 0.01, -0.525, 0.025], [0.014, 0.08, 0.014], aimE((i - 1) * 0.2, -1, 0.1), 'plain');
+      } else if (v.hair === 'shag') {
+        // C: лохматая макушка, рыжеватый хохолок, меховые брови, борода и усы
+        // мех на макушке: мягкие клочья и короткие пряди, свисают в стороны (не «шипы»)
+        for (let i = 0; i < 10; i++) { const an = i / 10 * TAU + 0.3, rr = 0.1; P('head', PG.sph5, ['#DAD5C4', '#C9C2AE', '#EEE8DA'][i % 3], [Math.sin(an) * rr * 1.15, 0.385 + (i % 2) * 0.03, Math.cos(an) * rr - 0.025], [0.065, 0.04, 0.05], [0, an, (i % 2 ? 0.3 : -0.3)], 'plain'); }
+        for (let i = 0; i < 10; i++) { const an = i / 10 * TAU, rr = 0.15; P('head', PG.cone5, ['#DAD5C4', '#9C9682', '#EEE8DA'][i % 3], [Math.sin(an) * rr * 1.15, 0.33 - (i % 3) * 0.03, Math.cos(an) * rr * 0.95 - 0.03], [0.04, 0.1 + (i % 3) * 0.02, 0.03], aimE(Math.sin(an), -0.35, Math.cos(an) * 0.8 - 0.25), 'plain'); }
+        for (let i = 0; i < 5; i++) P('hair0', PG.cone5, i % 2 ? '#B0703E' : '#8E5A34', [(i - 2) * 0.012, 0.0, -0.03], [0.014, 0.12, 0.014], aimE((i - 2) * 0.25, 0.6, -0.8), 'plain');
+        [-1, 1].forEach(sd => { for (let i = 0; i < 5; i++) P('head', PG.cone5, i % 2 ? '#DAD5C4' : '#EEE8DA', [sd * (0.06 + i * 0.016), 0.305 + i * 0.002, 0.165 - i * 0.01], [0.014, 0.06 + i * 0.006, 0.01], aimE(sd * 0.7, -0.2, 0.7), 'plain'); });
+        tex('beard', G.sph, PUV.furC, [0, -0.13, 0.05], [0.09, 0.19, 0.045], [-0.2, 0, 0], '#E8DFC4');
+        for (let i = 0; i < 7; i++) P('beard', PG.cone5, ['#B5A585', '#C9BC9C', '#8A7A5C'][i % 3], [(i - 3) * 0.026, -0.26 - (3 - Math.abs(i - 3)) * 0.02, 0.075], [0.026, 0.13, 0.016], aimE((i - 3) * 0.12, -1, 0.25), 'plain');
+        [-1, 1].forEach(sd => P('head', PG.cone5, '#8A7A5C', [sd * 0.04, 0.155, 0.17], [0.012, 0.07, 0.012], aimE(sd * 0.8, -0.7, 0.2), 'plain'));
+      } else if (v.hair === 'beard') {
+        // D: длинная серая войлочная борода поверх нагрудника и один длинный ус-волос вбок от носа
+        tex('beard', G.sph, PUV.beardD, [0, -0.17, 0.05], [0.1, 0.2, 0.055], [-0.12, 0, 0], '#A89E96');
+        tex('beard', G.cone, PUV.beardD, [0, -0.34, 0.085], [0.075, 0.2, 0.035], [PI - 0.2, 0, 0], '#A89E96');
+        for (let i = 0; i < 5; i++) P('beard', PG.cone5, i % 2 ? '#8E7C68' : '#5E4E40', [(i - 2) * 0.035, -0.3 - Math.abs(i - 2) * -0.03, 0.07], [0.02, 0.16, 0.014], aimE((i - 2) * 0.12, -1, 0.25), 'plain');
+        P('head', PG.cone5, '#2A2018', [-0.15, 0.21, 0.215], [0.006, 0.3, 0.006], aimE(-1, 0.02, 0.05), 'plain');
+        P('head', PG.cone5, '#2E251E', [0, 0.46, -0.02], [0.016, 0.07, 0.016], aimE(0, 1, -0.3), 'plain');
+      } else if (v.hair === 'tuft') {
+        // E: рыжеватая кисточка, «ушки» на висках, пушистый малиновый ворот на плечах
+        for (let i = 0; i < 6; i++) P('hair0', PG.cone5, i % 2 ? '#C07A52' : '#9A5434', [(i - 2.5) * 0.008, 0.0, 0], [0.016, 0.13 + (i % 3) * 0.015, 0.016], aimE(0.25 + (i - 2.5) * 0.1, 0.8, -0.55), 'plain');
+        [-1, 1].forEach(sd => P('head', PG.cyl6, '#B83A5E', [sd * 0.178, 0.258, 0.0], [0.022, 0.03, 0.022], [0, 0, PI / 2], 'plain'));
+      }
+      if (v.ruff) tex('chest', PG.ruff, PUV.ruff, [0, 0.545, 0], [1, 1, 0.8], null, '#FFFFFF');
+      // --- плётка (D, E): рукоять с латунными кольцами в кулаке, косичка из 4 звеньев, кисточка; на поясе — свёрнутая ---
+      if (v.whip) {
+        tex('whip0', PG.cyl6, PUV.grip, [0, 0, 0.06], [0.016, 0.28, 0.016], [PI / 2, 0, 0]);
+        P('whip0', G.sphLo, '#C9A23F', [0, 0, -0.085], [0.022, 0.022, 0.022], null, 'plain');
+        P('whip0', G.torus, '#3A2A20', [0, -0.02, -0.07], [0.05, 0.05, 0.05], [0, PI / 2, 0], 'plain');
+        for (let i = 1; i <= 5; i++) tex('whip' + i, PG.cyl6, PUV.lash, [0, -0.05, 0], [0.012 - i * 0.0014, 0.105, 0.012 - i * 0.0014]);
+        const tc = key === 'E' ? '#2F4F7A' : '#8A5E3E';
+        for (let i = 0; i < 3; i++) P('whip5', PG.cone5, tc, [(i - 1) * 0.006, -0.13, 0], [0.008, 0.07, 0.008], aimE((i - 1) * 0.3, -1, 0), 'plain');
+        P('coil', PG.coil, '#7A5034', [0, 0, 0], [0.075, 0.075, 0.09], [0, PI / 2, 0], 'plain');
+        P('coil', PG.cyl6, '#3A2A20', [0.01, 0.1, 0.02], [0.015, 0.2, 0.015], [0, 0, 0.15], 'plain');
+      }
+      a.headR = [0.17, 0.25, 0.18];
+    }
 
     /* --- кто где: двор 20 × 12 (оси двора), всё ×S --- */
     const R0 = 2.5 * S, RC = [0, 0.4 * S];          // круг танца: радиус и центр
@@ -495,12 +886,14 @@
     SPEC.push({ id: 'wed_kid', sp: 'cat', face: 'kitten', role: 'kid', x: 1.6 * S, z: -HD + 3.1 * S, ry: PI * 0.9, scale: 0.85, outfit: 'shirt', fur: '#E8B07A', speaker: 'wed_kid' });
     SPEC.push({ id: 'kid2', sp: 'lamb', face: 'lambkid', role: 'kid', x: -1.4 * S, z: -HD + 3.3 * S, ry: PI * 1.1, scale: 0.8, outfit: 'shirt' });
     // пальтары
-    SPEC.push({ id: 'paltar0', sp: 'goat', role: 'paltar', x: 3.8 * S, z: 2.6 * S, ry: PI, tuft: '#2E2A30', speaker: 'paltar' });
-    SPEC.push({ id: 'paltar1', sp: 'fox', role: 'paltar', x: -3.8 * S, z: 2.8 * S, ry: PI, tuft: '#F2E6CC', must: '#B98A5E' });
-    if (HI) SPEC.push({ id: 'paltar2', sp: 'raccoon', role: 'paltar', x: 4.2 * S, z: -1.8 * S, ry: -PI / 2, tuft: '#2E2A30' });
+    // пальтары (виды по фото): B — чёрно-белый с султаном и косой (он и разговаривает), C — лохматый в жёлтых перчатках
+    // (зимой вместо него A — «вихрь» с чёрным хвостом), D — тёмный с золотом, бородой и плёткой; на high ещё E — малиновый
+    [[3.8, 2.6, PI], [-3.8, 2.8, PI], [4.2, -1.8, -PI / 2], [-4.2, -1.6, PI / 2]].slice(0, PSET.length).forEach(([x, z, ry], i) => {
+      SPEC.push({ id: 'paltar' + i, sp: 'paltar', variant: PSET[i], role: 'paltar', x: x * S, z: z * S, ry, scale: 1, speaker: i ? undefined : 'paltar' });
+    });
 
     SPEC.forEach(sp => {
-      const a = makeAnimal(Object.assign({ hipY: 0.22, shY: 0.56, neckY: 0.72 }, sp.role === 'paltar' ? { sp: 'paltar', kind: sp.sp } : {}, sp, sp.role === 'paltar' ? { sp: 'paltar', speciesUnder: sp.sp } : {}));
+      const a = makeAnimal(Object.assign({ hipY: 0.22, shY: 0.56, neckY: 0.72 }, sp));
       void a;
     });
     // одежда после тела (поверх): платья, жилеты, платки, папаха, фата невесты, инструменты
@@ -552,7 +945,7 @@
     };
     const meshBody = mkSkinned(partsBody, matBody); if (meshBody) { meshBody.castShadow = true; meshBody.name = 'wedding:crowd'; }
     const meshOl = mkSkinned(partsOl, matOl); if (meshOl) { meshOl.userData.outline = true; meshOl.raycast = () => {}; }
-    const meshTex = mkSkinned(partsTex, matTex, { uv: true }); if (meshTex) meshTex.castShadow = false;   // тени — только от тел (экономия на тенях)
+    const meshTex = mkSkinned(partsTex, matTex, { uv: true }); if (meshTex) { meshTex.castShadow = false; meshTex.name = 'wedding:crowdTex'; }   // тени — только от тел (экономия на тенях)
     const meshFace = mkSkinned(partsFace, matFace, { uv: true, idx: true }); if (meshFace) { meshFace.renderOrder = 2; meshFace.raycast = () => {}; }
 
     /* ---------------------------------------------------------------------
@@ -681,9 +1074,11 @@
       meshLit = new T.Mesh(g, litMat); meshLit.name = 'wedding:lights'; stage.add(meshLit);
     }
     // конфеты (осыпают невесту): разноцветные точки, падают и тают
-    const NCANDY = 36, candy = { pos: new Float32Array(NCANDY * 3), vel: new Float32Array(NCANDY * 3), life: new Float32Array(NCANDY), t: -1 };
+    // конфеты и искры пальтаров (вспышка фото, хлопок плётки, звёздочки) — одна сетка точек
+    const NCANDY = 36, NSPARK = 24, NPT = NCANDY + NSPARK, candy = { pos: new Float32Array(NPT * 3), vel: new Float32Array(NPT * 3), life: new Float32Array(NPT), t: -1 };
+    for (let i = 0; i < NPT; i++) candy.pos[i * 3 + 1] = -5;
     const candyGeo = keep(new T.BufferGeometry()); candyGeo.setAttribute('position', new T.BufferAttribute(candy.pos, 3));
-    { const cc = new Float32Array(NCANDY * 3); for (let i = 0; i < NCANDY; i++) cc.set(hex(['#E8455A', '#F2C94C', '#5FB3B3', '#8E3A7A', '#F7B9C4', '#5DAA6E'][i % 6]), i * 3); candyGeo.setAttribute('color', new T.BufferAttribute(cc, 3)); }
+    { const cc = new Float32Array(NPT * 3); for (let i = 0; i < NPT; i++) cc.set(hex(['#E8455A', '#F2C94C', '#5FB3B3', '#8E3A7A', '#F7B9C4', '#5DAA6E'][i % 6]), i * 3); candyGeo.setAttribute('color', new T.BufferAttribute(cc, 3)); }
     const dot = (() => { const [cv, c] = cnv(32, 32); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(16, 16, 13, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,255,255,0.0)'; return keep(new T.CanvasTexture(cv)); })();
     const candyMat = keep(new T.PointsMaterial({ size: 0.09, vertexColors: true, map: dot, alphaTest: 0.5, sizeAttenuation: true }));
     const candyPts = new T.Points(candyGeo, candyMat); candyPts.frustumCulled = false; candyPts.visible = false; stage.add(candyPts);
@@ -715,7 +1110,7 @@
       root.position.set(p.x, p.y + (a.spec.y || 0), p.z);
       const sp = SPEAKERS[spk];
       const lo = linesFor(spk);
-      const n = { id: aid === 'paltar0' ? 'paltar' : aid, speaker: spk, name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: (a.role === 'paltar' ? 1.45 : 1.15) * a.scale, talkR: a.role === 'sit' ? 2.4 : 2.0, lines: lo.map(l => l.text), lineObjs: lo, animal: a, faceHero: 0, wedding: true };
+      const n = { id: aid === 'paltar0' ? 'paltar' : aid, speaker: spk, name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: a.role === 'paltar' ? 2.3 : 1.15 * a.scale, talkR: a.role === 'sit' ? 2.4 : a.role === 'paltar' ? 2.2 : 2.0, lines: lo.map(l => l.text), lineObjs: lo, animal: a, faceHero: 0, wedding: true };
       a.npc = n; npcs.push(n);
     });
     // W5: остальные пальтары — тоже «жители» для возни понарошку; говорят те же шутки, что и первый (общий список реплик)
@@ -724,10 +1119,11 @@
       const root = new T.Object3D(); root.name = 'npc:' + a.id; group.add(root);
       const p = toW(a.x, a.z); root.position.set(p.x, p.y + (a.spec.y || 0), p.z);
       const sp = SPEAKERS.paltar;
-      const n = { id: a.id, speaker: 'paltar', name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: 1.45 * a.scale, talkR: 2.0, lines: palTalk ? palTalk.lines : [], lineObjs: palTalk ? palTalk.lineObjs : [], animal: a, faceHero: 0, wedding: true };
+      const n = { id: a.id, speaker: 'paltar', name: named || !sp.n ? sp.name : sp.n, icon: sp.icon, root, x: p.x, y: root.position.y, z: p.z, headY: 2.3, talkR: 2.2, lines: palTalk ? palTalk.lines : [], lineObjs: palTalk ? palTalk.lineObjs : [], animal: a, faceHero: 0, wedding: true };
       a.npc = n; npcs.push(n);
     });
-    npcs.forEach(n => { if (n.animal && n.animal.role === 'paltar') { n.pfBody = n.animal.B.pf; n.paltar = true; } });
+    // пальтары: кость возни, радиус для «Бум!», на «помахать»/разговор — большое приветствие
+    npcs.forEach(n => { const a = n.animal; if (a && a.role === 'paltar') { n.pfBody = a.B.pf; n.paltar = true; n.r = 0.38; n.hop = () => { if (!a.hold && !(st.prank && st.prank.a === a) && ['walk', 'clap', 'guard', 'jingle', 'dance', 'bow'].includes(a.mode)) palStart(a, 'wave'); }; } });
     const spotW = (id, lx, lz, r, label, icon) => { const p = toW(lx, lz); return { id, x: p.x, y: p.y, z: p.z, r, label, icon, wedding: true }; };
     const spots = [
       spotW('wedding_treat', tableX, tableL / 2 + 0.55, 1.2, 'Угоститься', '🥟'),
@@ -745,15 +1141,25 @@
     ring.forEach((a, i) => { a.ang = i / ring.length * TAU; a.angT = a.ang; });
     // маршрут ряженых: вокруг круга, мимо столов и музыкантов (оси двора)
     const PATH = [[0, R0 + 1.4], [3.2, 2.2], [4.3, -0.5], [3.0, -2.7], [0.9, -HD + 2.6], [-2.2, -HD + 2.9], [-4.4, -0.8], [-3.4, 2.2]].map(([x, z]) => [x * S, z * S]);
-    pal.forEach((a, i) => { a.path = i % 2 ? PATH.slice().reverse() : PATH; a.seg = (i * 3) % PATH.length; a.mode = 'walk'; a.modeT = 2 + i * 3; a.px = a.x; a.pz = a.z; a.pry = a.ry; a.spd = 0.75; });
+    pal.forEach((a, i) => { a.path = i % 2 ? PATH.slice().reverse() : PATH; a.seg = (i * 3) % PATH.length; a.px = a.x; a.pz = a.z; a.pry = a.ry; a.spd = 0.9; a.cool = { boo: 3 + i * 4, whip: 8 + i * 5 }; a.gph = i * 1.3; });
     const kids = animals.filter(a => a.role === 'kid');
-    kids.forEach(a => { a.home = [a.x, a.z]; a.px = a.x; a.pz = a.z; a.pry = a.ry; });
+    // дети: дом, свой кружок для догонялок (вне круга танца и не у помоста), состояние игры с ряжеными
+    kids.forEach((a, i) => { a.home = [a.x, a.z]; a.px = a.x; a.pz = a.z; a.pry = a.ry; a.ks = { mode: null, t: 0 }; a.loopC = i ? [-3.0 * S, -1.7 * S] : [2.4 * S, -2.3 * S]; a.loopR = 0.95 * S; });
     const emit = (type, data) => { const e = Object.assign({ type }, data || {}); (st.evCb || []).forEach(cb => { try { cb(e); } catch (er) { /* звук — не наш */ } }); return e; };
     const prankCbs = [];
     const prankEmit = (data) => { prankCbs.forEach(cb => { try { cb(data); } catch (er) { /* */ } }); emit('prank', data); };
 
+    // смотрит на героиню, когда с ней говорят
+    function lookUpd(a, dt) {
+      if (a.npc && a.npc.faceHero > 0 && st.heroPos) {
+        a.npc.faceHero -= dt;
+        const wp = toW(a.B.root.position.x, a.B.root.position.z), want = Math.atan2(st.heroPos.x - wp.x, st.heroPos.z - wp.z) - A.ry - a.B.root.rotation.y;
+        a.look += (clamp(angW(want), -1.0, 1.0) - a.look) * Math.min(1, dt * 5);
+      } else a.look *= Math.max(0, 1 - dt * 3);
+    }
     function pose(a, t, dt) {
       const B = a.B, s = a.spec, ph = a.ph, beat = (st.t / BEAT);
+      if (a.role === 'paltar') { lookUpd(a, dt); palPose(a, t, beat, dt); return; }
       // сброс к позе покоя
       B.body.rotation.set(0, 0, 0); B.body.position.y = a.rest.hipY; B.body.scale.set(1, 1, 1);
       B.head.rotation.set(0, 0, 0); B.head.scale.set(1, 1, 1);
@@ -794,45 +1200,460 @@
         if (male) { B.armL.rotation.z = side > 0 ? 2.5 : 1.45; B.armR.rotation.z = side > 0 ? -1.45 : -2.5; }
         else { B.armL.rotation.z = 1.25 + Math.sin(beat * PI * 0.5) * 0.25; B.armR.rotation.z = -1.25 + Math.sin(beat * PI * 0.5) * 0.25; B.armL.rotation.x = B.armR.rotation.x = -0.3; }
         B.head.rotation.z = -B.body.rotation.z * 0.6; B.head.rotation.y = -B.body.rotation.y * 0.5;
+      } else if (a.role === 'kid' && a.ks && a.ks.mode === 'pose') {
+        // «селфи» с ряженым: лапки перед мордочкой — держит воображаемый телефон
+        B.armL.rotation.set(-2.1, 0, -0.35); B.armR.rotation.set(-2.1, 0, 0.35); B.head.rotation.x = -0.12; B.head.rotation.z = 0.12;
+      } else if (a.role === 'kid' && a.ks && (a.ks.mode === 'flee' || a.ks.mode === 'cheer')) {
+        // убегает с визгом / радуется: подскоки, лапки вверх
+        const fl = a.ks.mode === 'flee', hop = Math.abs(Math.sin(t * (fl ? 9 : 7) + ph));
+        B.root.position.y = (a.spec.y || 0) + hop * (fl ? 0.08 : 0.14);
+        B.armL.rotation.z = 2.5 * (0.6 + 0.4 * hop); B.armR.rotation.z = -2.5 * (0.6 + 0.4 * hop);
+        B.legL.rotation.x = Math.sin(t * (fl ? 14 : 6) + ph) * (fl ? 0.7 : 0.3); B.legR.rotation.x = -B.legL.rotation.x;
       } else if (a.role === 'kid') {
         const k = st.shower >= 0 ? 1 : 0.25, hop = Math.abs(Math.sin(t * (st.shower >= 0 ? 7 : 3) + ph));
         B.root.position.y = (a.spec.y || 0) + hop * 0.12 * k;
         B.armL.rotation.z = (st.shower >= 0 ? 2.6 : 0.4) * (0.6 + 0.4 * hop); B.armR.rotation.z = -(st.shower >= 0 ? 2.6 : 0.4) * (0.6 + 0.4 * hop);
         B.legL.rotation.x = Math.sin(t * 6 + ph) * 0.4 * k; B.legR.rotation.x = -B.legL.rotation.x;
-      } else if (a.role === 'paltar') {
-        palPose(a, t, beat);
       }
-      // смотрит на героиню, когда с ней говорят
-      if (a.npc && a.npc.faceHero > 0 && st.heroPos) {
-        a.npc.faceHero -= dt;
-        const wp = toW(a.B.root.position.x, a.B.root.position.z), want = Math.atan2(st.heroPos.x - wp.x, st.heroPos.z - wp.z) - A.ry - a.B.root.rotation.y;
-        a.look += (clamp(angW(want), -1.0, 1.0) - a.look) * Math.min(1, dt * 5);
-      } else a.look *= Math.max(0, 1 - dt * 3);
+      lookUpd(a, dt);
       B.head.rotation.y += a.look;
     }
-    function palPose(a, t, beat) {
-      const B = a.B, m = a.mode;
-      if (m === 'walk' || m === 'approach' || m === 'back') {
-        const w = t * 7 + a.ph;
-        B.legL.rotation.x = Math.sin(w) * 0.55; B.legR.rotation.x = -Math.sin(w) * 0.55;
-        B.armL.rotation.x = -Math.sin(w) * 0.5; B.armR.rotation.x = Math.sin(w) * 0.5; B.armL.rotation.z = 0.35; B.armR.rotation.z = -0.35;
-        B.root.position.y = Math.abs(Math.sin(w)) * 0.05; B.body.rotation.z = Math.sin(w) * 0.08;
-        B.head.rotation.z = Math.sin(w * 0.5) * 0.12;   // кисточка мотается
-      } else if (m === 'tease') {
-        const k = Math.sin(clamp(a.modeT0 - a.modeT, 0, 1.6) / 1.6 * PI);
-        B.armL.rotation.z = 0.4 + 2.2 * k; B.armR.rotation.z = -0.4 - 2.2 * k; B.armL.rotation.x = B.armR.rotation.x = -0.6 * k;
-        B.root.position.y = Math.abs(Math.sin(t * 9)) * 0.06 * k; B.body.rotation.x = -0.15 * k; B.head.rotation.z = Math.sin(t * 10) * 0.15 * k;
-      } else if (m === 'dance') {
-        const step = Math.sin(beat * PI);
-        B.root.position.y = Math.abs(step) * 0.08; B.legL.rotation.x = step * 0.6; B.legR.rotation.x = -step * 0.6;
-        B.armL.rotation.z = 2.4 + step * 0.3; B.armR.rotation.z = -2.4 + step * 0.3; B.body.rotation.z = step * 0.12;
-      } else if (m === 'prank') {
-        const P = st.prank, ph = P ? P.phase : '';
-        if (ph === 'reach' || ph === 'take') { const k = sst(0, 0.5, P.t); B.armL.rotation.z = 0.3 + 2.4 * k; B.armL.rotation.x = -0.9 * k; B.armR.rotation.z = -0.3; }
-        else if (ph === 'show') { B.armL.rotation.z = 2.8; B.armR.rotation.z = -1.2 - Math.sin(t * 8) * 0.3; B.root.position.y = Math.abs(Math.sin(t * 8)) * 0.07; B.body.rotation.y = Math.sin(t * 4) * 0.5; }
-        else if (ph === 'return') { const k = 1 - sst(0.4, 1.0, P.t); B.armL.rotation.z = 0.3 + 2.4 * k; B.armL.rotation.x = -0.9 * k; B.body.rotation.x = 0.5 * sst(0.5, 1.0, P.t); B.head.rotation.x = 0.4 * sst(0.5, 1.0, P.t); }
-        else if (ph === 'bow') { const k = Math.sin(clamp(P.t / 1.2, 0, 1) * PI); B.body.rotation.x = 0.6 * k; B.head.rotation.x = 0.4 * k; B.armR.rotation.z = -1.2 * k; B.armL.rotation.z = 0.3; }
-        else if (ph === 'jingle') { B.armL.rotation.z = 1.2 + Math.sin(t * 16) * 0.3; B.armR.rotation.z = -1.2 - Math.sin(t * 16) * 0.3; B.body.rotation.z = Math.sin(t * 16) * 0.1; B.root.position.y = Math.abs(Math.sin(t * 8)) * 0.05; }
+    /* ---------------------------------------------------------------------
+       ПАЛЬТАРЫ: поза за кадр (направления плеча и предплечья — «мягкий IK» в осях груди), пружинки волос, бороды и плётки,
+       выступления по очереди (хлопают в такт, пляшут «орла», «Бу-у!», звенят кольчугой, прыгают с поворотом, догоняют
+       котёнка понарошку, щёлкают плёткой в воздух, шуточная борьба, фото с ребёнком, прятки, поклон, приветствие)
+       --------------------------------------------------------------------- */
+    const RP = rng(4242);
+    const _qa = new T.Quaternion(), _qb = new T.Quaternion(), _va = new T.Vector3(), _vb = new T.Vector3(), _vc = new T.Vector3(), _vd = new T.Vector3(), _ve = new T.Vector3();
+    const _NY = new T.Vector3(0, -1, 0), _X = new T.Vector3(1, 0, 0);
+    // рука: up — от плеча к локтю, fo — от локтя к кисти, palm — куда смотрит ладонь (оси груди, x «наружу» уже со знаком стороны)
+    function aimArm(B, s, A, sd) {
+      const arm = B['arm' + s], fore = B['fore' + s], hand = B['hand' + s], fing = B['fing' + s];
+      const up = _va.set(A.up[0], A.up[1], A.up[2]).normalize(), fo = _vb.set(A.fo[0], A.fo[1], A.fo[2]).normalize();
+      _qa.setFromUnitVectors(_NY, up);
+      _vc.copy(fo).addScaledVector(up, -fo.dot(up));
+      if (_vc.lengthSq() < 1e-4) { _vc.set(0, 0, 1).addScaledVector(up, -up.z); if (_vc.lengthSq() < 1e-4) _vc.set(0, 1, 0); }
+      _vc.normalize();
+      _vd.set(0, 0, 1).applyQuaternion(_qa);
+      const tw = Math.atan2(_ve.crossVectors(_vd, _vc).dot(up), _vd.dot(_vc));
+      _qb.setFromAxisAngle(up, tw); arm.quaternion.multiplyQuaternions(_qb, _qa);
+      fore.quaternion.setFromAxisAngle(_X, -Math.acos(clamp(up.dot(fo), -1, 1)));
+      if (A.palm) {
+        _qa.copy(arm.quaternion).multiply(fore.quaternion).invert();
+        _vd.set(A.palm[0], A.palm[1], A.palm[2]).applyQuaternion(_qa);
+        hand.rotation.set(0, sd > 0 ? Math.atan2(_vd.z, -_vd.x) : Math.atan2(-_vd.z, _vd.x), sd * (A.flex || 0));
+      } else hand.rotation.set(0, 0, sd * (A.flex || 0));
+      fing.rotation.set(0, 0, -sd * (A.curl || 0)); fing.scale.set(1, 1 + (A.spread || 0) * 0.08, 1 + (A.spread || 0) * 0.3);
+    }
+    // поза: рука стороны s (+1 левая, −1 правая); векторы — x «наружу», ладонь [−1,0,0] — «внутрь, к телу»
+    const ARM0 = () => ({ up: [0, -1, 0], fo: [0, -1, 0], palm: [-1, 0, 0], curl: 0, spread: 0, flex: 0 });
+    // flex — кисть отогнута к тыльной стороне (ладонь «вперёд» при руке к зрителю); palm тогда — куда смотрела бы ладонь до сгиба
+    function arm(q, s, up, fo, palm, curl, spread, flex) {
+      const A = s > 0 ? q.L : q.R;
+      A.up[0] = up[0] * s; A.up[1] = up[1]; A.up[2] = up[2]; A.fo[0] = fo[0] * s; A.fo[1] = fo[1]; A.fo[2] = fo[2];
+      if (palm) { A.palm = A.palm || [0, 0, 0]; A.palm[0] = palm[0] * s; A.palm[1] = palm[1]; A.palm[2] = palm[2]; } else A.palm = null;
+      A.curl = curl || 0; A.spread = spread || 0; A.flex = flex || 0;
+    }
+    const mixV = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+    function armMix(q, s, A1, A2, k) { arm(q, s, mixV(A1[0], A2[0], k), mixV(A1[1], A2[1], k), A1[2] && A2[2] ? mixV(A1[2], A2[2], k) : (k < 0.5 ? A1[2] : A2[2]), lerp(A1[3] || 0, A2[3] || 0, k), lerp(A1[4] || 0, A2[4] || 0, k)); }
+    // готовые положения рук: [up, fo, palm, curl, spread]
+    const AP = {
+      hang: [[0.12, -1, 0.03], [0.1, -1, 0.15], [-1, 0, 0.3], 0.35, 0],
+      chest: [[0.3, -0.5, 0.55], [-0.75, 0.55, 0.25], [-0.3, 0, -1], 0.5, 0],
+      boo: [[0.95, 0.32, 0.5], [0.12, 1, 0.22], [0, 0, 1], 0, 1],
+      up: [[0.42, 0.92, 0.05], [0.25, 1, 0.05], [0, 0, 1], 0, 0.6],
+      guard: [[0.22, -0.45, 0.75], [-0.35, 0.92, 0.3], [-0.6, 0, 0.4], 1, 0],
+      cross: [[0.32, -0.6, 0.55], [-1, 0.12, 0.2], [0, -1, 0], 0.6, 0],
+      out: [[0.85, -0.5, 0.15], [0.9, -0.42, 0.15], [0, -1, 0.2], 0.2, 0.5],
+      side: [[1, 0.06, 0.1], [1, 0.12, 0.18], [0, -0.3, 1], 0.1, 0.4],
+      over: [[0.45, 0.9, 0.05], [-0.85, 0.5, 0.05], [0, -1, 0], 0.2, 0.3],
+      hip: [[0.55, -0.75, -0.15], [-0.7, -0.15, 0.45], [-1, 0, 0], 1, 0],
+      thumb: [[0.25, -0.35, 0.85], [0.05, 0.8, 0.6], [-1, 0, 0], 1, 0],
+      back: [[0.3, -0.75, -0.6], [0.25, -0.9, -0.35], [0, -1, 0], 0.2, 0.3],
+      face: [[0.3, 0.05, 0.92], [-0.58, 0.78, -0.12], [0, 0, -1], 0.3, 0],
+    };
+    const setArm = (q, s, k) => arm(q, s, k[0], k[1], k[2], k[3], k[4], k[5]);
+    const leg = (q, s, sw, kn, ab) => { if (s > 0) { q.lx = sw; q.lk = kn; q.lz = ab || 0; } else { q.rx = sw; q.rk = kn; q.rz = ab || 0; } };
+    function palReset(a) {
+      const q = a.q || (a.q = { L: ARM0(), R: ARM0() });
+      q.y = 0; q.drop = 0; q.lean = 0; q.twist = 0; q.side = 0; q.bx = 0; q.by = 0; q.bz = 0; q.sq = 1;
+      q.hx = -0.04; q.hy = 0; q.hz = 0; q.lx = q.rx = q.lk = q.rk = q.lz = q.rz = 0; q.whip = 'hand'; q.lash = null;
+      setArm(q, 1, AP.hang); setArm(q, -1, AP.hang);
+      return q;
+    }
+    // ходьба «важным шагом»: фаза — по пройденному пути (ноги не скользят)
+    function gait(a, q, k, amp) {
+      const ph = a.gph || 0, sw = Math.sin(ph) * (amp || 0.36) * k, ks = Math.max(0, Math.sin(ph + 1.9)), kr = Math.max(0, Math.sin(ph + 1.9 + PI));
+      leg(q, 1, -sw, (0.08 + 0.75 * ks) * k); leg(q, -1, sw, (0.08 + 0.75 * kr) * k);
+      q.y = Math.abs(Math.cos(ph)) * 0.035 * k; q.twist = Math.sin(ph) * 0.09 * k; q.lean = -0.05 * k; q.hx = -0.07;
+      const as = Math.sin(ph) * 0.5 * k;
+      arm(q, 1, [0.16, -1, as], [0.12, -1, as + 0.4], [-1, 0, 0.3], 0.75); arm(q, -1, [0.16, -1, -as], [0.12, -1, -as + 0.4], [-1, 0, 0.3], 0.75);
+    }
+    // присесть на d метров (бедро и голень поровну)
+    function crouch(q, d) { const al = Math.acos(clamp(1 - d, -1, 1)); q.drop += d; q.lx -= al; q.rx -= al; q.lk += 2 * al; q.rk += 2 * al; q.lean += al * 0.35; }
+    // сидит на земле (упал понарошку)
+    function sitPose(q, k) { q.drop += 0.82 * k; q.lx = q.rx = -1.5 * k; q.lk = q.rk = 0.12 * k; q.lz = 0.12 * k; q.rz = 0.12 * k; q.lean = -0.25 * k; setArm(q, 1, AP.back); setArm(q, -1, AP.back); }
+    function bowPose(q, k) { q.lean = 0.85 * k; q.hx = 0.3 * k; armMix(q, -1, AP.hang, AP.chest, k); armMix(q, 1, AP.hang, AP.out, k); }
+    function palApply(a, dt) {
+      const B = a.B, q = a.q;
+      B.root.position.y = q.y - q.drop;
+      B.body.rotation.set(q.bx, q.by, q.bz); B.body.scale.set(1, q.sq, 1);
+      B.chest.rotation.set(q.lean, q.twist, q.side);
+      B.head.rotation.set(q.hx, q.hy + a.look, q.hz);
+      aimArm(B, 'L', q.L, 1); aimArm(B, 'R', q.R, -1);
+      B.legL.rotation.set(q.lx, 0, q.lz); B.legR.rotation.set(q.rx, 0, -q.rz); B.shinL.rotation.set(q.lk, 0, 0); B.shinR.rotation.set(q.rk, 0, 0);
+      // пружинки: разгон, подскок, поворот, наклон — пряди и борода отстают
+      const sp = a.spr || (a.spr = { x: 0, vx: 0, z: 0, vz: 0, x2: 0, vx2: 0, z2: 0, vz2: 0, py: 0, vy: 0, pry: a.pry, v0: 0, wl: [0, 0, 0, 0, 0] });
+      if (dt > 0) {
+        const vy = (B.root.position.y - sp.py) / dt, ay = clamp((vy - sp.vy) / dt, -60, 60), sv = a.vel || 0, af = clamp((sv - sp.v0) / dt, -8, 8), tr = clamp(angW(a.pry - sp.pry) / dt, -6, 6);
+        sp.py = B.root.position.y; sp.vy = vy; sp.v0 = sv; sp.pry = a.pry;
+        const tx = clamp(-q.lean * 0.7 - af * 0.05 + ay * 0.006 + sv * 0.12, -0.9, 0.9), tz = clamp(-tr * 0.18 - q.side * 0.8, -0.7, 0.7);
+        const st2 = Math.min(dt, 0.033);
+        sp.vx += (40 * (tx - sp.x) - 6 * sp.vx) * st2; sp.x += sp.vx * st2; sp.vz += (40 * (tz - sp.z) - 6 * sp.vz) * st2; sp.z += sp.vz * st2;
+        sp.vx2 += (28 * (sp.x - sp.x2) - 4 * sp.vx2) * st2; sp.x2 += sp.vx2 * st2; sp.vz2 += (28 * (sp.z - sp.z2) - 4 * sp.vz2) * st2; sp.z2 += sp.vz2 * st2;
+      }
+      if (B.hair0) B.hair0.rotation.set(sp.x * 0.8, 0, sp.z * 0.8);
+      if (B.hair1) B.hair1.rotation.set(-Math.abs(sp.x2) * 0.25 + q.lean * -0.4, 0, sp.z2 * 0.5);
+      if (B.beard) B.beard.rotation.set(clamp(-q.lean * 0.6 + sp.x * 0.4, -0.5, 0.15), 0, sp.z * 0.4);
+      // плётка: в руке (косичка висит вниз по миру и пружинит) или свёрнута на поясе
+      if (B.whip0) {
+        const inHand = q.whip === 'hand';
+        B.whip0.scale.setScalar(inHand ? 1 : 1e-3); B.coil.scale.setScalar(inHand ? 1e-3 : 1);
+        if (inHand) {
+          if (q.lash) { for (let i = 1; i <= 5; i++) B['whip' + i].rotation.set(q.lash[i - 1], 0, q.lashZ ? q.lashZ[i - 1] : 0); }
+          else {
+            B.whip0.updateWorldMatrix(true, false); B.whip0.getWorldQuaternion(_qa).invert();
+            B.whip1.quaternion.copy(_qa); _qb.setFromEuler(_eu.set(sp.x * 0.6, 0, sp.z * 0.6)); B.whip1.quaternion.multiply(_qb);
+            for (let i = 2; i <= 5; i++) B['whip' + i].rotation.set(sp.x2 * 0.25, 0, sp.z2 * 0.2 + Math.sin(st.t * 3 + i) * 0.04);
+          }
+        }
+      }
+    }
+    // ---- кто где: герой, дети, гости (оси двора) ----
+    const HEROC = { x: 0, z: 0, ok: false, still: 0, lx: 0, lz: 0 };
+    function heroUpdate(dt) {
+      const hl = heroLocal(); HEROC.ok = !!hl && Math.abs(hl.x) < HW + 0.5 && Math.abs(hl.z) < HD + 0.5;
+      if (!hl) return;
+      const mv = Math.hypot(hl.x - HEROC.lx, hl.z - HEROC.lz);
+      HEROC.still = mv < 0.3 * Math.max(dt, 0.016) ? HEROC.still + dt : 0;
+      HEROC.lx = HEROC.x = hl.x; HEROC.lz = HEROC.z = hl.z;
+    }
+    const dist2 = (a, x, z) => Math.hypot(x - a.px, z - a.pz);
+    const facing = (a, x, z) => Math.abs(angW(Math.atan2(x - a.px, z - a.pz) - a.pry));
+    const turnTo = (a, x, z, dt, k) => { a.pry += angW(Math.atan2(x - a.px, z - a.pz) - a.pry) * Math.min(1, dt * (k || 6)); };
+    // флажки над двором: сколько места над головой (м) в точке — для прыжков
+    function headroom(x, z) {
+      let h = 9;
+      flagMeta.forEach(f => { if (!f || Math.abs(z - f.z) > 1.1) return; const tt = (x + HW + 0.6) / (A.w + 1.2); h = Math.min(h, f.h - Math.sin(clamp(tt, 0, 1) * PI) * 0.65 - 0.28); });
+      return h;
+    }
+    // свободное место для плётки: в конусе ±60° на 2,5 м и вокруг на 1,5 м никого (гости, дети, танцоры, героиня, ряженые)
+    function whipDir(a, pref) {
+      const pts = animals.filter(b => b !== a && b.B).map(b => [b.B.root.position.x, b.B.root.position.z]);
+      if (HEROC.ok) pts.push([HEROC.x, HEROC.z]);
+      if (pts.some(p => Math.hypot(p[0] - a.px, p[1] - a.pz) < 1.5)) return null;
+      for (const da of [0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4, PI]) {
+        const ang = (pref === undefined || pref === null ? a.pry : pref) + da, bx = a.px + Math.sin(ang) * 1.2, bz = a.pz + Math.cos(ang) * 1.2;
+        if (Math.abs(bx) > HW - 0.3 || Math.abs(bz) > HD - 0.3) continue;
+        if (!pts.some(p => { const d = Math.hypot(p[0] - a.px, p[1] - a.pz); return d < 2.5 && Math.abs(angW(Math.atan2(p[0] - a.px, p[1] - a.pz) - ang)) < PI / 3; })) return ang;
+      }
+      return null;
+    }
+    // перед каждым щелчком: героиня не ближе 3 м, вокруг никого ближе 1,5 м, в конусе ±60° на 2,5 м — никого
+    function whipClear(a) {
+      if (HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 3) return false;
+      return !animals.some(b => { if (b === a || !b.B) return false; const x = b.B.root.position.x, z = b.B.root.position.z, d = dist2(a, x, z); return d < 1.5 || (d < 2.5 && Math.abs(angW(Math.atan2(x - a.px, z - a.pz) - a.wdir)) < PI / 3); });
+    }
+    const busyKid = k => k.ks && k.ks.mode;
+    const freeKid = (a, r) => kids.filter(k => !busyKid(k) && st.shower < 0 && dist2(a, k.px, k.pz) < r).sort((p, q) => dist2(a, p.px, p.pz) - dist2(a, q.px, q.pz))[0];
+    // свободное место вне круга танца и не у столов
+    function freeSpot(x, z) {
+      let dx = x - RC[0], dz = z - RC[1], d = Math.hypot(dx, dz) || 1;
+      if (d < R0 + 1.0) { x = RC[0] + dx / d * (R0 + 1.0); z = RC[1] + dz / d * (R0 + 1.0); }
+      return [clamp(x, -tableX + 1.9, tableX - 1.9), clamp(z, -HD + 2.4, HD - 1.2)];
+    }
+    const say = (a, key) => { const l = pick(EV.palSay[key], named); if (l) emit('say', { who: a.id, text: l.text }); };
+    // ---- выступления ----
+    const ACTS = {
+      // важный шаг по маршруту (мимо круга, столов и музыкантов) — один отрезок
+      walk: { go: a => a.path[a.seg], dur: () => 0, done(a) { a.seg = (a.seg + 1) % a.path.length; } },
+      // хлопают в такт на краю круга
+      clap: {
+        go(a) { const d = Math.atan2(a.px - RC[0], a.pz - RC[1]); return [RC[0] + Math.sin(d) * (R0 + 1.05), RC[1] + Math.cos(d) * (R0 + 1.05)]; },
+        dur: () => 4 + RP() * 3, face: () => RC,
+        pose(a, q, t, beat) {
+          const k = Math.pow(0.5 + 0.5 * Math.cos(beat * TAU), 3), w = 0.08 + 0.42 * (1 - k);
+          arm(q, 1, [0.18, -0.5, 0.82], [-w, 0.25, 0.85], [-1, 0, 0], 0.05); arm(q, -1, [0.18, -0.5, 0.82], [-w, 0.25, 0.85], [-1, 0, 0], 0.05);
+          crouch(q, 0.025 * k); q.hx = -0.05 + 0.08 * Math.max(0, Math.sin(beat * TAU + PI));
+          if (Math.floor(beat) % 16 === 0 && Math.floor(beat) !== a.heyB) { a.heyB = Math.floor(beat); say(a, 'hey'); }
+        },
+      },
+      // круговой танец «орёл»: шаг-подскок, одна рука в сторону, другая над головой, каждые 8 ударов — поворот
+      dance: {
+        go(a) { const others = pal.filter(b => b !== a && b.mode === 'dance').length; return [RC[0] + (others ? -0.8 : 0.8), RC[1] + 0.2]; },
+        dur: () => (8 + Math.floor(RP() * 3) * 4) * BEAT,
+        pose(a, q, t, beat) {
+          const bi = Math.floor(beat), f = beat - bi, sdL = bi % 2 ? 1 : -1, hop = Math.sin(f * PI);
+          leg(q, sdL, -0.65 * hop, 1.2 * hop); leg(q, -sdL, 0.05, 0.1);
+          q.y = 0.06 * hop; q.lean = -0.08; q.hx = -0.15;
+          const sw = Math.floor(beat / 4) % 2 ? 1 : -1, blend = sst(0, 0.12 / BEAT, beat % 4);
+          armMix(q, sw, AP.over, AP.side, Math.floor(beat / 4) > 0 ? 1 - blend : 1); armMix(q, -sw, AP.side, AP.over, Math.floor(beat / 4) > 0 ? 1 - blend : 1);
+          if (bi % 8 === 6) a.pry += TAU / (2 * BEAT) * (a.dtLast || 0);
+          q.twist = Math.sin(beat * PI) * 0.1;
+        },
+      },
+      // «Бу-у!»: руки в стороны и вверх, пальцы растопырены, потом смеётся; цель — героиня, ребёнок или гость впереди
+      boo: {
+        dur: () => 2.2,
+        start(a) { a.cool.boo = st.t + 12; st.booT = st.t + 25; },
+        face: a => a.tgt,
+        pose(a, q, t) {
+          if (t < 0.35) { const k = sst(0, 0.3, t); armMix(q, 1, AP.hang, AP.chest, k); armMix(q, -1, AP.hang, AP.chest, k); crouch(q, 0.07 * k); q.hx = 0.18 * k; }
+          else if (t < 1.25) {
+            const k = sst(0.35, 0.5, t), wg = t > 0.55 ? Math.sin(t * 9 * TAU) * 0.06 : 0;
+            armMix(q, 1, AP.chest, AP.boo, k); armMix(q, -1, AP.chest, AP.boo, k); q.L.fo[0] += wg; q.R.fo[0] -= wg;
+            q.y = 0.05 * k * (1 - sst(0.9, 1.25, t)); q.hz = 0.22 * k; q.lean = -0.1 * k;
+            if (t > 0.45 && !a.saidBoo) { a.saidBoo = true; say(a, 'boo'); }
+          } else {
+            const u = t - 1.25, hop = Math.abs(Math.sin(u / 0.3 * PI));
+            q.y = 0.06 * hop * (1 - sst(0.75, 0.95, u)); q.side = Math.sin(u * 12 * TAU / 2) * 0.06; q.hx = -0.15;
+            arm(q, 1, [0.35, -0.75, 0.45], [-0.55, -0.2, 0.75], [-1, 0, 0], 0.6); arm(q, -1, [0.35, -0.75, 0.45], [-0.55, -0.2, 0.75], [-1, 0, 0], 0.6);
+          }
+        },
+        tick(a, dt, t) { if (t > 1.3 && t < 1.9 && a.tgt) { const d = dist2(a, a.tgt[0], a.tgt[1]); if (d < 1.35) { const dx = a.px - a.tgt[0], dz = a.pz - a.tgt[1]; a.px += dx / d * 0.25 * dt; a.pz += dz / d * 0.25 * dt; } } },
+        end(a) { a.saidBoo = false; },
+      },
+      // «Звяк-звяк!» — трясёт плечами, кольчуга звенит
+      jingle: {
+        dur: () => 1.4, start(a) { emit('jingle', { who: a.id }); emit('bell', { who: a.id }); },
+        pose(a, q, t) { setArm(q, 1, AP.out); setArm(q, -1, AP.out); q.side = Math.sin(t * 12 * TAU / 2) * 0.12; q.twist = Math.sin(t * 6 * TAU / 2) * 0.08; crouch(q, 0.03 * Math.abs(Math.sin(t * 8))); q.hz = -q.side * 0.6; },
+      },
+      // высокий прыжок с поворотом (не выше флажков)
+      jump: {
+        dur: () => 1.25, start(a) { a.jh = clamp(headroom(a.px, a.pz) - 2.47, 0, 0.3); },
+        pose(a, q, t) {
+          if (t < 0.25) { crouch(q, 0.12 * sst(0, 0.2, t)); setArm(q, 1, AP.hang); setArm(q, -1, AP.hang); q.L.up[2] = q.R.up[2] = -0.4; }
+          else if (t < 0.75) { const u = (t - 0.25) / 0.5; q.y = a.jh * 4 * u * (1 - u) + 0.02; leg(q, 1, -0.55, 1.0); leg(q, -1, -0.55, 1.0); setArm(q, 1, AP.up); setArm(q, -1, AP.up); }
+          else { const u = t - 0.75; q.sq = 1 - 0.08 * Math.max(0, 1 - u / 0.12); crouch(q, 0.08 * Math.max(0, 1 - u / 0.3)); armMix(q, 1, AP.up, AP.out, sst(0, 0.3, u)); armMix(q, -1, AP.up, AP.out, sst(0, 0.3, u)); if (!a.landed) { a.landed = true; emit('jingle', { who: a.id }); } }
+        },
+        tick(a, dt, t) { if (t > 0.25 && t < 0.75) a.pry += TAU / 0.5 * dt; },
+        end(a) { a.landed = false; },
+      },
+      // стоит на страже: руки скрещены, поглядывает; в конце — прыжок-поворот с распахнутыми руками и смех
+      guard: {
+        dur: () => 4.5 + RP() * 2, face: () => RC,
+        pose(a, q, t) {
+          const T2 = a.actDur - 1.3;
+          if (t < T2) { setArm(q, 1, AP.cross); setArm(q, -1, AP.cross); q.L.up[2] += 0.05; leg(q, 1, 0, 0, 0.1); leg(q, -1, 0, 0, 0.1); q.hy = Math.sin(t * 0.9) * 0.55; q.lean = -0.06; }
+          else { const u = t - T2, k = sst(0, 0.2, u); q.y = Math.sin(clamp(u / 0.4, 0, 1) * PI) * 0.12; armMix(q, 1, AP.cross, AP.boo, k); armMix(q, -1, AP.cross, AP.boo, k); q.hz = 0.2 * k; if (u > 0.5) q.side = Math.sin(u * 30) * 0.05; }
+        },
+      },
+      // догонялки с котёнком понарошку: крадётся на цыпочках, ребёнок с визгом убегает по кругу, ряженый «спотыкается» и садится
+      chase: {
+        go(a) { const k = a.kid; if (!k) return null; const d = dist2(a, k.px, k.pz) || 1; return freeSpot(k.px + (a.px - k.px) / d * 1.8, k.pz + (a.pz - k.pz) / d * 1.8); },
+        dur: () => 10.5, face: a => (a.kid ? [a.kid.px, a.kid.pz] : null),
+        start(a) { st.chaseT = st.t + 40; },
+        tick(a, dt, t) {
+          const k = a.kid; if (!k) return true;
+          if (t > 1.5 && t < 8 && !k.ks.mode) { k.ks.mode = 'flee'; k.ks.t = 0; k.ks.c = k.loopC; k.ks.ang = Math.atan2(k.px - k.loopC[0], k.pz - k.loopC[1]); emit('say', { who: k.id, text: pick(EV.palSay.squeal, named).text }); }
+          if (t > 1.5 && t < 7.8 && k.ks.mode === 'flee') {
+            const tx = k.loopC[0] + Math.sin(k.ks.ang - 1.35 / k.loopR) * k.loopR, tz = k.loopC[1] + Math.cos(k.ks.ang - 1.35 / k.loopR) * k.loopR;
+            walkTo(a, tx, tz, dt, 1.25);
+          }
+          if (t >= 7.8 && k.ks.mode === 'flee') { k.ks.mode = 'cheer'; k.ks.t = 0; }
+          if (t > 8.0 && !a.sat) { a.sat = true; emit('jingle', { who: a.id }); sparks(a.px, 2.2, a.pz, 6, '#F2C94C', 0.5); }
+          return false;
+        },
+        pose(a, q, t) {
+          if (t < 1.5) { const ph = t * PI; leg(q, 1, -0.7 * Math.max(0, Math.sin(ph)), 1.3 * Math.max(0, Math.sin(ph))); leg(q, -1, -0.7 * Math.max(0, -Math.sin(ph)), 1.3 * Math.max(0, -Math.sin(ph))); arm(q, 1, [0.5, 0.45, 0.65], [0.1, 1, 0.3], [0, 0, 1], 0, 0.5 + 0.5 * Math.sin(t * 20)); arm(q, -1, [0.5, 0.45, 0.65], [0.1, 1, 0.3], [0, 0, 1], 0, 0.5 + 0.5 * Math.cos(t * 20)); q.lean = 0.2; crouch(q, 0.06); }
+          else if (t < 7.8) { gait(a, q, 1, 0.5); arm(q, 1, [0.55, 0.4, 0.6], [0.1, 1, 0.35], [0, 0, 1], 0, 1); arm(q, -1, [0.55, 0.4, 0.6], [0.1, 1, 0.35], [0, 0, 1], 0, 1); q.lean = 0.12; }
+          else if (t < 9.3) sitPose(q, sst(7.8, 8.05, t));
+          else { const u = t - 9.3; sitPose(q, 1 - sst(0, 0.4, u)); if (u > 0.4) bowPose(q, Math.sin(clamp((u - 0.4) / 0.8, 0, 1) * PI)); }
+        },
+        end(a) { a.sat = false; if (a.kid && a.kid.ks.mode === 'flee') a.kid.ks.mode = null; a.kid = null; },
+      },
+      // щелчок плёткой в воздух (D, E): только в пустую сторону, высоко и от людей; дважды, потом «лассо» над головой и поклон
+      whip: {
+        // выходит на свободное место у ворот и щёлкает в сторону ворот — от людей; если кто-то оказался рядом — только кланяется
+        go(a) {
+          const ok = WHIPSPOTS.filter(p => !(HEROC.ok && Math.hypot(p[0] - HEROC.x, p[1] - HEROC.z) < 4) && !animals.some(b => b !== a && b.B && Math.hypot(b.B.root.position.x - p[0], b.B.root.position.z - p[1]) < 2));
+          const sp = (ok.length ? ok : WHIPSPOTS).slice().sort((p, q) => dist2(a, p[0], p[1]) - dist2(a, q[0], q[1]))[0];
+          a.wdir = Math.atan2(sp[0] - RC[0], sp[1] - RC[1]); return sp;
+        },
+        dur: () => 3.0, start(a) { a.cool.whip = st.t + 22; const d = whipDir(a, a.wdir); if (d === null) { a.actDur = 1.3; a.noCrack = true; } else { a.wdir = d; a.noCrack = !whipClear(a); if (a.noCrack) a.actDur = 1.3; } },
+        face: a => [a.px + Math.sin(a.wdir) * 3, a.pz + Math.cos(a.wdir) * 3],
+        tick(a, dt, t) { if (!a.noCrack && t < 2.3 && !whipClear(a)) { a.noCrack = true; a.at = 0; a.actDur = 1.3; } return false; },
+        pose(a, q, t) {
+          const crack = (u) => {
+            // u: 0..1 — замах за голову → бросок вперёд-вверх → волна по косичке
+            const wind = sst(0, 0.35, u) * (1 - sst(0.38, 0.5, u)), snap = sst(0.36, 0.5, u);
+            arm(q, -1, mixV(mixV([0.3, -0.6, 0.4], [0.35, 0.85, -0.45], wind), [0.25, 0.55, 0.8], snap), mixV(mixV([0.1, -0.7, 0.7], [0.1, 0.5, -0.85], wind), [0.05, 0.2, 1], snap), [-1, 0, 0], 1);
+            q.twist = 0.3 * wind - 0.25 * snap; q.lean = -0.12 * wind + 0.12 * snap;
+            const L = []; for (let i = 0; i < 5; i++) { const w = sst(0.45 + i * 0.05, 0.62 + i * 0.05, u); L.push(lerp(i ? 0.5 : -1.2 + 2.0 * wind, i ? -0.12 : -1.57, w) + Math.sin((u - 0.5) * 30 - i) * 0.25 * w * (1 - sst(0.8, 1, u))); }
+            q.lash = L;
+          };
+          setArm(q, 1, AP.hip);
+          if (a.noCrack) { bowPose(q, Math.sin(clamp(t / 1.2, 0, 1) * PI)); q.whip = 'tuck'; return; }
+          if (t < 1.25) crack(t / 1.25);
+          else if (t < 2.4) crack((t - 1.25) / 1.15);
+          else { const u = t - 2.4, k = Math.sin(clamp(u / 0.6, 0, 1) * PI); bowPose(q, k); q.lash = [0.9, 0.3, 0.3, 0.2, 0.2]; }
+          const cr = t < 1.25 ? t / 1.25 : (t - 1.25) / 1.15;
+          if (t < 2.4 && cr > 0.62 && cr < 0.7 && !a.cracked && !a.noCrack) { a.cracked = true; emit('crack', { who: a.id }); const tip = a.B.whip5.getWorldPosition(_vd); sparks(tip.x, tip.y, tip.z, 7, '#FFFFFF', 0.45, true); }
+          if (cr < 0.3) a.cracked = false;
+        },
+      },
+      // шуточная борьба двух ряженых: круги, «грудью» — отскок со звоном, мимо-махи, один падает, победитель поднимает, оба кланяются
+      fight: {
+        go(a) { const F = a.fight; if (!F) return null; return [F.M[0] + Math.sin(F.ang + a.fside * PI) * 0.75, F.M[1] + Math.cos(F.ang + a.fside * PI) * 0.75]; },
+        dur: () => 8.8, face: a => (a.fight ? a.fight.M : null),
+        tick(a, dt, t) {
+          const F = a.fight, o = F && (F.a0 === a ? F.a1 : F.a0); if (!F || !o || o.mode !== 'fight' || o.fight !== F) return true;
+          if (a.fside === 0) F.t = t;
+          const ft = F.t, ang = F.ang + (ft < 2 ? ft * 0.8 : 1.6), r = ft < 2 ? 0.7 : ft < 2.6 ? lerp(0.7, 0.24, sst(2, 2.6, ft)) : ft < 3.0 ? lerp(0.24, 0.42, sst(2.6, 3, ft)) : ft < 6.4 ? 0.42 : 0.42;
+          a.px = F.M[0] + Math.sin(ang + a.fside * PI) * r; a.pz = F.M[1] + Math.cos(ang + a.fside * PI) * r;
+          a.pry = Math.atan2(F.M[0] - a.px, F.M[1] - a.pz);
+          if (ft > 2.6 && !F.bump) { F.bump = true; emit('jingle', { who: a.id }); sparks(F.M[0], 1.5, F.M[1], 8, '#E8DCCB', 0.6); }
+          if (ft > 5.0 && !F.fall && a === F.loser) { F.fall = true; sparks(a.px, 1.0, a.pz, 6, '#F2C94C', 0.5); emit('say', { who: F.winner.id, text: pick(EV.palSay.win, named).text }); }
+          return false;
+        },
+        pose(a, q, t) {
+          const F = a.fight; if (!F) return; const ft = F.t || 0, me = a === F.loser;
+          if (ft < 2.6) { setArm(q, 1, AP.guard); setArm(q, -1, AP.guard); q.y = Math.abs(Math.sin(ft * 5)) * 0.05; leg(q, 1, Math.sin(ft * 5) * 0.2, 0.3); leg(q, -1, -Math.sin(ft * 5) * 0.2, 0.3); q.lean = ft > 2 ? -0.15 : 0.08; }
+          else if (ft < 3.0) { setArm(q, 1, AP.out); setArm(q, -1, AP.out); q.lean = -0.25 + 0.2 * sst(2.6, 3, ft); }
+          else if (ft < 5.0) {
+            const u = (ft - 3.0 + (a.fside ? 0.5 : 0)) % 1.0, s = Math.floor((ft - 3 + (a.fside ? 0.5 : 0)) / 1.0) % 2 ? 1 : -1;
+            setArm(q, -s, AP.guard);
+            const w = sst(0, 0.5, u) * (1 - sst(0.5, 0.65, u)), hit = sst(0.5, 0.65, u) * (1 - sst(0.75, 1, u));
+            arm(q, s, mixV(mixV(AP.guard[0], [0.6, 0.3, -0.3], w), [0.6, 0.1, 0.8], hit), mixV(mixV(AP.guard[1], [0.2, 0.8, -0.5], w), [0.9, 0.1, 0.4], hit), null, 1);
+            q.twist = s * (0.3 * w - 0.4 * hit); crouch(q, 0.05);
+          } else if (ft < 6.4) {
+            if (me) sitPose(q, sst(5.0, 5.4, ft)); else { setArm(q, 1, AP.up); setArm(q, -1, AP.up); q.y = Math.abs(Math.sin(ft * 7)) * 0.08; }
+          } else if (ft < 7.6) {
+            if (me) { sitPose(q, 1 - sst(6.9, 7.5, ft)); arm(q, 1, [0.1, 0.1, 1], [0.1, 0.2, 1], [0, 0, -1], 0.8); }
+            else { arm(q, 1, [0.1, -0.45, 0.9], [0.1, -0.55, 0.8], [0, 0, 1], 0.8); q.lean = 0.35 * (1 - sst(7.0, 7.5, ft)); }
+          } else bowPose(q, Math.sin(clamp((ft - 7.6) / 1.2, 0, 1) * PI));
+        },
+        end(a) { a.fight = null; },
+      },
+      // фото на память с ребёнком (или с героиней): встаёт рядом, наклоняется, «класс!», вспышка
+      selfie: {
+        go(a) {
+          const k = a.kid;
+          if (k) return freeSpotNear(k.px + Math.cos(a.sfFace) * 0.62, k.pz - Math.sin(a.sfFace) * 0.62);
+          if (a.withHero && HEROC.ok) return [HEROC.x + a.sfSide[0] * 0.78, HEROC.z + a.sfSide[1] * 0.78];
+          return null;
+        },
+        dur: () => 3.4, face: a => [a.px + Math.sin(a.sfFace) * 3, a.pz + Math.cos(a.sfFace) * 3],
+        start(a) { st.selfieT = st.t + 25; if (a.kid) { a.kid.ks.mode = 'pose'; a.kid.ks.t = 0; a.kid.ks.face = a.sfFace; } say(a, 'smile'); },
+        tick(a, dt, t) { if (t > 2.0 && !a.flashed) { a.flashed = true; emit('flash', { who: a.id }); const k = a.kid; if (k) sparks(k.B.root.position.x + Math.sin(a.sfFace) * 0.3, 1.0, k.B.root.position.z + Math.cos(a.sfFace) * 0.3, 8, '#FFFFFF', 0.35, true); else sparks(a.px + Math.sin(a.sfFace) * 0.6, 2.1, a.pz + Math.cos(a.sfFace) * 0.6, 8, '#FFFFFF', 0.35, true); } return false; },
+        pose(a, q, t) {
+          const k = sst(0, 0.5, t) * (1 - sst(2.7, 3.2, t)), ts = a.sfTilt || 1;
+          q.lean = 0.42 * k * (a.kid ? 1 : 0.4); q.side = 0.17 * k * ts; q.hz = 0.2 * k * ts; q.hx = 0.1 * k;
+          // ближняя к ребёнку рука (правая, если он справа) — над его плечом, не касаясь; другая — «класс!»
+          const near = ts > 0 ? -1 : 1;
+          armMix(q, near, AP.hang, [[0.6, -0.75, 0.25], [0.55, -0.8, 0.2], [0, -1, 0], 0.2, 0.3], k);
+          armMix(q, -near, AP.hang, AP.thumb, k);
+          if (t > 2.3) { const w = sst(2.3, 2.5, t); armMix(q, -near, AP.thumb, AP.up, w); q.R.fo[0] += Math.sin(t * 18) * 0.25 * w; q.L.fo[0] += Math.sin(t * 18) * 0.25 * w; }
+        },
+        end(a) { a.flashed = false; if (a.kid && a.kid.ks.mode === 'pose') { a.kid.ks.mode = 'cheer'; a.kid.ks.t = 0; } a.kid = null; a.withHero = false; },
+      },
+      // прятки: ладони на глаза — наклон к малышу — «бу!»
+      peek: {
+        go(a) { const k = a.kid; if (!k) return null; const d = dist2(a, k.px, k.pz) || 1; return freeSpotNear(k.px + (a.px - k.px) / d * 1.05, k.pz + (a.pz - k.pz) / d * 1.05); },
+        dur: () => 1.8, face: a => (a.kid ? [a.kid.px, a.kid.pz] : null),
+        pose(a, q, t) {
+          const cover = sst(0, 0.4, t) * (1 - sst(1.0, 1.15, t)), open = sst(1.0, 1.15, t) * (1 - sst(1.5, 1.8, t));
+          armMix(q, 1, AP.hang, AP.face, cover); armMix(q, -1, AP.hang, AP.face, cover);
+          if (open > 0) { armMix(q, 1, AP.face, AP.boo, open); armMix(q, -1, AP.face, AP.boo, open); }
+          q.lean = 0.35 * sst(0.3, 0.9, t) * (1 - sst(1.2, 1.7, t)); q.hx = 0.25 * cover;
+        },
+        tick(a, dt, t) { if (t > 1.05 && a.kid && !a.kid.ks.mode) { a.kid.ks.mode = 'cheer'; a.kid.ks.t = 0; } return false; },
+        end(a) { a.kid = null; },
+      },
+      // поклон (после выступлений и когда героиня хлопает или здоровается)
+      bow: { dur: () => 1.3, face: a => a.tgt, pose(a, q, t) { bowPose(q, Math.sin(clamp(t / 1.2, 0, 1) * PI)); } },
+      // стенд/снимки: поза по описанию a.photo { L, R: [up, fo, palm, curl, spread], lean, side, twist, hx, hy, hz, whip }
+      photo: {
+        dur: () => 1e9,
+        pose(a, q) { const o = a.photo || {}; if (o.L) setArm(q, 1, o.L); if (o.R) setArm(q, -1, o.R); ['lean', 'side', 'twist', 'hx', 'hy', 'hz', 'y', 'whip'].forEach(k => { if (o[k] !== undefined) q[k] = o[k]; }); if (o.legs) { leg(q, 1, o.legs[0], o.legs[1], o.legs[2]); leg(q, -1, o.legs[3], o.legs[4], o.legs[5]); } },
+      },
+      // большое приветствие: обе руки вверх, машет, звенит
+      wave: {
+        dur: () => 1.6, face: a => (HEROC.ok ? [HEROC.x, HEROC.z] : a.tgt), start(a) { emit('jingle', { who: a.id }); say(a, 'hi'); },
+        pose(a, q, t) { const w = Math.sin(t * 3 * TAU) * 0.45; arm(q, 1, AP.up[0], [0.25 + w, 1, 0.05], [0, 0, 1], 0, 0.8); arm(q, -1, AP.up[0], [0.25 - w, 1, 0.05], [0, 0, 1], 0, 0.8); q.y = Math.abs(Math.sin(t * 6)) * 0.04; q.hz = Math.sin(t * 3) * 0.1; },
+      },
+    };
+    // места у ворот, где для щелчка плёткой просторно (оси двора)
+    const WHIPSPOTS = [[-2.9 * S, HD - 1.35], [2.9 * S, HD - 1.35], [0, HD - 1.1], [4.5 * S, 2.9 * S], [-4.5 * S, 2.9 * S], [4.6 * S, -1.2 * S], [-4.7 * S, -0.6 * S]];
+    function freeSpotNear(x, z) { return [clamp(x, -tableX + 1.9, tableX - 1.9), clamp(z, -HD + 2.3, HD - 1.0)]; }
+    // начать выступление
+    function palStart(a, name, o) {
+      const prev = a.mode; if (prev && ACTS[prev] && ACTS[prev].end && prev !== name) ACTS[prev].end(a);
+      a.mode = name; a.act = name; a.at = 0; Object.assign(a, o || {});
+      const Ac = ACTS[name];
+      a.goal = Ac.go ? Ac.go(a) : null; a.goT = 0; a.actDur = Ac.dur ? Ac.dur(a) : 2;
+      a.phase = a.goal ? 'go' : 'do';
+      if (a.phase === 'do' && Ac.start) Ac.start(a);
+    }
+    // что дальше: после прогулки — номер; после номера — отрезок маршрута
+    function palNext(a) {
+      if (a.mode !== 'walk' && a.mode !== 'bow' && RP() < 0.25) { palStart(a, 'bow', { tgt: HEROC.ok ? [HEROC.x, HEROC.z] : [dais.x, dais.z] }); return; }
+      if (a.mode !== 'walk') { palStart(a, 'walk'); return; }
+      const busy = n => pal.some(b => b !== a && b.mode === n), opts = [];
+      const add = (n, w) => { if (w > 0) opts.push([n, w]); };
+      add('clap', busy('clap') ? 0 : 20);
+      add('dance', pal.filter(b => b.mode === 'dance').length >= 2 ? 0 : 20);
+      add('jingle', busy('jingle') ? 0 : 10);
+      add('jump', busy('jump') ? 0 : 10);
+      add('guard', busy('guard') ? 0 : 5);
+      // «бу» гостю впереди (за столом или в кругу)
+      const g = animals.filter(b => b.role !== 'paltar' && b.B && dist2(a, b.B.root.position.x, b.B.root.position.z) < 3 && facing(a, b.B.root.position.x, b.B.root.position.z) < 1.0)[0];
+      if (g && !busy('boo') && st.t > (a.cool.boo || 0) && st.t > (st.booT || 0) - 13) add('boo', 15);
+      const kid = freeKid(a, 7);
+      if (kid && st.t > (st.chaseT || 0) && !busy('chase')) add('chase', 8);
+      if (kid && !busy('peek') && dist2(a, kid.px, kid.pz) < 4) add('peek', 5);
+      if (kid && !busy('selfie') && st.t > (st.selfieT || 0)) add('selfie', 5);
+      if (a.pv.whip && st.t > (a.cool.whip || 0) && !busy('whip') && !(HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 3)) add('whip', 13);
+      const mate = pal.filter(b => b !== a && b.mode === 'walk' && !b.hold && (!st.prank || st.prank.a !== b) && dist2(a, b.px, b.pz) < 8)[0];
+      if (mate && !busy('fight') && st.t > (st.fightT || 0)) add('fight', 7);
+      let sum = 0; opts.forEach(o => { sum += o[1]; });
+      let r = RP() * sum, name = 'clap'; for (const o of opts) { r -= o[1]; if (r <= 0) { name = o[0]; break; } }
+      if (name === 'boo') palStart(a, 'boo', { tgt: [g.B.root.position.x, g.B.root.position.z] });
+      else if (name === 'chase') { kid.ks.mode = null; palStart(a, 'chase', { kid }); }
+      else if (name === 'peek') palStart(a, 'peek', { kid });
+      else if (name === 'selfie') { const fc = HEROC.ok ? Math.atan2(HEROC.x - kid.px, HEROC.z - kid.pz) : 0; palStart(a, 'selfie', { kid, sfFace: fc, sfTilt: 1 }); }
+      else if (name === 'whip') palStart(a, 'whip');
+      else if (name === 'fight') {
+        st.fightT = st.t + 35;
+        const M = freeSpot((a.px + mate.px) / 2, (a.pz + mate.pz) / 2), F = { M, ang: Math.atan2(a.px - M[0], a.pz - M[1]), a0: a, a1: mate, loser: RP() < 0.5 ? a : mate, t: 0 };
+        F.winner = F.loser === a ? mate : a;
+        palStart(a, 'fight', { fight: F, fside: 0 }); palStart(mate, 'fight', { fight: F, fside: 1 });
+      } else palStart(a, name, name === 'bow' ? { tgt: [dais.x, dais.z] } : null);
+    }
+    // реакции на героиню: «Бу-у!» вблизи, фото, если она стоит рядом, приветствие при входе во двор
+    function palReact(dt) {
+      if (!HEROC.ok || st.prank || dance.active) return;
+      const free = a => !a.hold && ['walk', 'clap', 'guard', 'jingle', 'dance'].includes(a.mode);
+      if (!st.greeted && st.heroIn > 0.6) {
+        st.greeted = true; const a = pal.filter(free).sort((p, q) => dist2(p, HEROC.x, HEROC.z) - dist2(q, HEROC.x, HEROC.z))[0];
+        if (a && dist2(a, HEROC.x, HEROC.z) < 9) palStart(a, 'wave', { tgt: [HEROC.x, HEROC.z] });
+      }
+      if (st.t > (st.booT || 0)) {
+        const a = pal.find(b => free(b) && st.t > (b.cool.boo || 0) && dist2(b, HEROC.x, HEROC.z) < 2.5 && dist2(b, HEROC.x, HEROC.z) > 0.9 && facing(b, HEROC.x, HEROC.z) < 1.3);
+        if (a) { palStart(a, 'boo', { tgt: [HEROC.x, HEROC.z] }); return; }
+      }
+      // фото с героиней: только если она стоит без дела (рядом нет другого жителя — не мешаем ей угощаться, болтать, бупать)
+      // и ряженый уже недалеко; не чаще раза в 45 с
+      const busyHero = animals.some(b => b.role !== 'paltar' && b.B && Math.hypot(b.B.root.position.x - HEROC.x, b.B.root.position.z - HEROC.z) < 2.4);
+      if (HEROC.still > 3 && !busyHero && st.t > (st.selfieT || 0) && st.t > (st.selfieHeroT || 0) && !pal.some(b => b.mode === 'selfie')) {
+        const a = pal.filter(free).sort((p, q) => dist2(p, HEROC.x, HEROC.z) - dist2(q, HEROC.x, HEROC.z))[0];
+        if (a && dist2(a, HEROC.x, HEROC.z) < 3.4) {
+          // встаёт сбоку от героини — справа в кадре (не между камерой и героиней), лицом к камере
+          let cx = 0, cz = 1;
+          if (st.camL) { cx = st.camL.x - HEROC.x; cz = st.camL.z - HEROC.z; const l = Math.hypot(cx, cz) || 1; cx /= l; cz /= l; }
+          const side = [cz, -cx], face = Math.atan2(cx, cz);
+          st.selfieHeroT = st.t + 45; palStart(a, 'selfie', { withHero: true, kid: null, sfSide: side, sfFace: face, sfTilt: 1 });
+        }
       }
     }
     // шаг ряженого к точке (оси двора); true — пришёл
@@ -840,9 +1661,21 @@
       const dx = x - a.px, dz = z - a.pz, d = Math.hypot(dx, dz);
       if (d < 0.08) return true;
       const v = Math.min(d, (spd || a.spd) * dt);
-      a.px += dx / d * v; a.pz += dz / d * v;
+      a.px += dx / d * v; a.pz += dz / d * v; a.gph = (a.gph || 0) + v / 1.15 * TAU;
       const want = Math.atan2(dx, dz); a.pry += angW(want - a.pry) * Math.min(1, dt * 6);
       return false;
+    }
+    // искры (общий пул с конфетами): вспышка фото, хлопок плётки, звёздочки после падения
+    function sparks(x, y, z, n, col, life, burst) {
+      const c = hex(col), C2 = candyGeo.attributes.color;
+      for (let k = 0; k < n; k++) {
+        const i = NCANDY + (st.spk = ((st.spk || 0) + 1) % NSPARK);
+        const an = RP() * TAU, el = (RP() - 0.3) * 1.4, sp = burst ? 1.6 + RP() : 0.5 + RP() * 0.6;
+        candy.pos[i * 3] = x; candy.pos[i * 3 + 1] = y; candy.pos[i * 3 + 2] = z;
+        candy.vel[i * 3] = Math.cos(an) * Math.cos(el) * sp; candy.vel[i * 3 + 1] = Math.sin(el) * sp + (burst ? 0 : 0.6); candy.vel[i * 3 + 2] = Math.sin(an) * Math.cos(el) * sp;
+        candy.life[i] = life * (0.7 + RP() * 0.6); C2.setXYZ(i, c[0], c[1], c[2]);
+      }
+      C2.needsUpdate = true; candyPts.visible = st.lod === 0; if (candy.t < 0) candy.t = 0;
     }
     // голова героини в осях двора (для розыгрыша): по кости головы, если героиню дали, иначе — над позицией
     const _hv = new T.Vector3(), _inv = new T.Matrix4();
@@ -855,26 +1688,36 @@
     }
     function heroLocal() { if (!st.heroPos) return null; _inv.copy(stage.matrixWorld).invert(); return new T.Vector3(st.heroPos.x, st.heroPos.y || A.y, st.heroPos.z).applyMatrix4(_inv); }
     function updatePaltars(t, dt) {
+      heroUpdate(dt);
+      palReact(dt);
       pal.forEach(a => {
-        a.modeT -= dt;
-        if (a.hold) { if (a.mode !== 'hold') a.mode = 'hold'; return; }   // W5: возится с героиней понарошку — маршрут на паузе
-        if (a.mode === 'hold') a.mode = 'walk';
-        if (a.mode === 'walk') {
-          const p = a.path[a.seg];
-          if (walkTo(a, p[0], p[1], dt)) {
-            a.seg = (a.seg + 1) % a.path.length;
-            if (R2() < 0.45) { a.mode = 'tease'; a.modeT = a.modeT0 = 1.8; emit('bell', { who: a.id }); }
-            else if (R2() < 0.25 && !pal.some(b => b.mode === 'dance')) { a.mode = 'dance'; a.modeT = 6; }
+        const x0 = a.px, z0 = a.pz; a.dtLast = dt;
+        if (!a.mode) palStart(a, 'walk');
+        // стенд: застывшая поза
+        if (a.freeze) { a.mode = a.freeze.name; a.phase = 'do'; a.at = a.freeze.t; a.vel = a.freeze.vel || 0; return; }
+        // W5: возится с героиней понарошку — маршрут на паузе (двигает его слой возни: скорость — по сдвигу за кадр)
+        if (a.hold) { if (a.mode !== 'hold') { if (ACTS[a.mode] && ACTS[a.mode].end) ACTS[a.mode].end(a); a.mode = 'hold'; } a.vel = a.lpx === undefined ? 0 : Math.hypot(a.px - a.lpx, a.pz - a.lpz) / Math.max(dt, 1e-3); a.lpx = a.px; a.lpz = a.pz; return; }
+        a.lpx = a.px; a.lpz = a.pz;
+        if (a.mode === 'hold') palStart(a, 'walk');
+        if (st.prank && st.prank.a === a) { a.vel = Math.hypot(a.px - x0, a.pz - z0) / Math.max(dt, 1e-3); return; }
+        if (a.mode === 'approach' || a.mode === 'prank') palStart(a, 'walk');
+        // с ним разговаривают (окно диалога) — стоит, слушает, смотрит на героиню; номер ждёт
+        a.listen = !!(a.npc && a.npc.faceHero > 3 && HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 4 && a.mode !== 'fight');
+        if (a.listen) { turnTo(a, HEROC.x, HEROC.z, dt, 4); a.vel = 0; return; }
+        const Ac = ACTS[a.mode] || ACTS.walk;
+        if (a.phase === 'go') {
+          a.goT += dt;
+          if (!a.goal || walkTo(a, a.goal[0], a.goal[1], dt, a.mode === 'walk' ? 0.9 : 1.1) || a.goT > 7) {
+            if (a.mode === 'walk' || (a.goT > 7 && a.mode !== 'fight')) { if (Ac.done) Ac.done(a); palNext(a); }
+            else { a.phase = 'do'; a.at = 0; if (Ac.start) Ac.start(a); }
           }
-        } else if (a.mode === 'tease') {
-          // повернуться к ближайшему гостю и «напугать» понарошку
-          const g = animals.filter(b => b !== a && b.role !== 'paltar').reduce((best, b) => { const bx = b.role === 'dance' ? b.B.root.position.x : b.x, bz = b.role === 'dance' ? b.B.root.position.z : b.z, d = Math.hypot(bx - a.px, bz - a.pz); return !best || d < best.d ? { b, d, x: bx, z: bz } : best; }, null);
-          if (g) a.pry += angW(Math.atan2(g.x - a.px, g.z - a.pz) - a.pry) * Math.min(1, dt * 6);
-          if (a.modeT <= 0) a.mode = 'walk';
-        } else if (a.mode === 'dance') {
-          walkTo(a, RC[0], RC[1], dt, 0.9); a.pry += dt * 1.6;
-          if (a.modeT <= 0) a.mode = 'walk';
+        } else {
+          a.at += dt;
+          const f = Ac.face ? Ac.face(a) : null; if (f && a.mode !== 'fight') turnTo(a, f[0], f[1], dt, 5);
+          const stop = Ac.tick ? Ac.tick(a, dt, a.at) : false;
+          if (stop || a.at >= a.actDur) palNext(a);
         }
+        a.vel = Math.hypot(a.px - x0, a.pz - z0) / Math.max(dt, 1e-3);
       });
       // розыгрыш
       const P = st.prank;
@@ -882,24 +1725,67 @@
         const a = P.a, hl = heroLocal(), hh = heroHeadLocal();
         P.t += dt; P.T += dt;
         if (!hl || P.T > 14) { endPrank(); return; }
-        const fx = hl.x + Math.sin(P.side) * 0.75, fz = hl.z + Math.cos(P.side) * 0.75;
+        const fx = hl.x + Math.sin(P.side) * 0.72, fz = hl.z + Math.cos(P.side) * 0.72;
         if (P.phase === 'approach') { a.mode = 'approach'; if (walkTo(a, fx, fz, dt, 1.1)) { setPhase(P.kind === 'beret' ? 'reach' : 'jingle'); a.mode = 'prank'; } }
         else { a.pry += angW(Math.atan2(hl.x - a.px, hl.z - a.pz) - a.pry) * Math.min(1, dt * 6); }
+        P.head = hh;
         if (P.phase === 'reach' && P.t > 0.55) { setPhase('take'); if (st.hero && V.kaz && V.kaz.hideBeret) P.hid = V.kaz.hideBeret(st.hero, true); prankEmit({ type: 'beret', phase: 'take', who: a.id, text: pick(EV.prankBeret, named).text }); }
         if (P.phase === 'take' && P.t > 0.45) setPhase('show');
         if (P.phase === 'show' && P.t > 1.6) setPhase('return');
         if (P.phase === 'return' && P.t > 1.0) { if (P.hid && V.kaz) V.kaz.hideBeret(st.hero, false); P.hid = false; setPhase('bow'); prankEmit({ type: 'beret', phase: 'return', who: a.id }); }
         if (P.phase === 'jingle' && P.t > 1.8) { setPhase('bow'); emit('bell', { who: a.id }); }
         if (P.phase === 'bow' && P.t > 1.3) endPrank();
-        // берет-копия: летит с головы героини в лапу ряженого и обратно
-        if (beretMesh) {
-          const paw = new T.Vector3(); a.B.armL.updateWorldMatrix(true, false); paw.set(0, -0.26, 0.04).applyMatrix4(a.B.armL.matrixWorld);
-          const head = hh ? hh.clone().applyMatrix4(stage.matrixWorld) : paw.clone();
-          let k = -1;
-          if (P.phase === 'take') k = sst(0, 0.45, P.t); else if (P.phase === 'show') k = 1; else if (P.phase === 'return') k = 1 - sst(0, 0.9, P.t);
-          beretMesh.visible = k >= 0 && !!P.hid;
-          if (beretMesh.visible) { beretMesh.position.lerpVectors(head, paw, k); beretMesh.position.y += Math.sin(k * PI) * 0.25; beretMesh.rotation.set(0.25 * Math.sin(t * 6), A.ry + a.pry, 0.1); }
-        }
+      }
+    }
+    // поза ряженого за кадр (после движения): номер, розыгрыш, возня
+    function palPose(a, t, beat, dt) {
+      const q = palReset(a), m = a.mode;
+      if (a.hold) {
+        // возня понарошку: стойка «боксёра», пружинит, плётка на поясе
+        setArm(q, 1, AP.guard); setArm(q, -1, AP.guard); q.y = Math.abs(Math.sin(t * 6)) * 0.04; crouch(q, 0.05); q.whip = 'tuck'; q.lean = 0.08;
+        if (a.vel > 0.2) { const k = Math.min(1, a.vel / 1.5), w = t * 11; q.lx += Math.sin(w) * 0.45 * k; q.rx -= Math.sin(w) * 0.45 * k; q.lk += Math.max(0, Math.sin(w)) * 0.6 * k; q.rk += Math.max(0, -Math.sin(w)) * 0.6 * k; }
+      } else if (a.listen) {
+        // слушает: руки в боки, кивает, чуть пружинит
+        setArm(q, 1, AP.hip); setArm(q, -1, AP.hip); q.hx = 0.08 + Math.sin(t * 2.4) * 0.07; q.hz = Math.sin(t * 0.9) * 0.08; q.y = Math.abs(Math.sin(t * 2.4)) * 0.015; q.whip = 'tuck';
+      } else if (m === 'approach') { gait(a, q, 1); q.whip = 'tuck'; }
+      else if (m === 'prank') prankPose(a, q, t);
+      else {
+        const Ac = ACTS[m];
+        if (a.phase === 'go' || !Ac || !Ac.pose) { if (a.vel > 0.05) gait(a, q, clamp(a.vel / 0.9, 0.3, 1.2)); else { q.hx = -0.05; } }
+        else Ac.pose(a, q, a.at, beat);
+        // плётка в руке — только на прогулке и на страже, и то если рядом нет детей и героини; щёлкают ею только в номере «whip»;
+        // во всех остальных номерах (хлопки, пляска, «бу», борьба, фото, прятки, поклон, приветствие) — за поясом
+        const nearKid = kids.some(k => dist2(a, k.px, k.pz) < 3) || (HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 3);
+        if (m !== 'whip' && (nearKid || !['walk', 'guard'].includes(m) || (m === 'guard' && a.at > a.actDur - 1.4))) q.whip = 'tuck';
+      }
+      if (!a.pv.whip) q.whip = null;
+      palApply(a, dt);
+    }
+    const _bw = new T.Vector3(), _bh = new T.Vector3();
+    function prankPose(a, q, t) {
+      const P = st.prank, ph = P ? P.phase : ''; q.whip = 'tuck';
+      // левая рука тянется к берету героини (точка в осях груди)
+      const reachTo = (k) => {
+        if (!P || !P.head || k <= 0) return;
+        _bw.copy(P.head).applyMatrix4(stage.matrixWorld); a.B.chest.updateWorldMatrix(true, false); a.B.chest.worldToLocal(_bw);
+        _bw.x -= PH.shX; _bw.y -= PH.shY - PH.waist; _bw.normalize();
+        armMix(q, 1, AP.hang, [[_bw.x + 0.15, _bw.y + 0.35, _bw.z], [_bw.x, _bw.y - 0.25, _bw.z], [0, -1, 0], 0, 0.6], k);
+        q.lean = 0.32 * k;
+      };
+      if (ph === 'reach' || ph === 'take') { reachTo(sst(0, 0.5, P.t)); if (ph === 'take') { q.L.curl = 0.6 * sst(0, 0.3, P.t); } }
+      else if (ph === 'show') { arm(q, 1, [0.25, 1, 0.05], [0.1, 1, 0.05], [0, 0, 1], 0.7); arm(q, -1, [0.8, -0.3, 0.3], [0.6, 0.5, 0.4], [0, 0, 1], 0, 1); q.y = Math.abs(Math.sin(t * 8)) * 0.07; q.twist = Math.sin(t * 4) * 0.35; leg(q, 1, Math.sin(t * 8) * 0.25, 0.4 * Math.max(0, Math.sin(t * 8))); }
+      else if (ph === 'return') { reachTo(1 - sst(0.5, 1.0, P.t)); q.L.curl = 0.6; if (P.t > 0.5) bowPose(q, sst(0.5, 1.0, P.t)); }
+      else if (ph === 'bow') bowPose(q, Math.sin(clamp(P.t / 1.2, 0, 1) * PI));
+      else if (ph === 'jingle') { setArm(q, 1, AP.out); setArm(q, -1, AP.out); q.side = Math.sin(t * 16) * 0.12; q.y = Math.abs(Math.sin(t * 8)) * 0.05; }
+      // берет-копия: с головы героини в левую руку ряженого и обратно
+      if (beretMesh && P) {
+        palApply(a, 0);
+        a.B.fingL.updateWorldMatrix(true, false); a.B.fingL.getWorldPosition(_bh); _bh.y += 0.02;
+        const head = P.head ? _bw.copy(P.head).applyMatrix4(stage.matrixWorld) : _bh;
+        let k = -1;
+        if (ph === 'take') k = sst(0, 0.45, P.t); else if (ph === 'show') k = 1; else if (ph === 'return') k = 1 - sst(0, 0.9, P.t);
+        beretMesh.visible = k >= 0 && !!P.hid;
+        if (beretMesh.visible) { beretMesh.position.lerpVectors(head, _bh, k); beretMesh.position.y += Math.sin(k * PI) * 0.25; beretMesh.rotation.set(0.25 * Math.sin(t * 6), A.ry + a.pry, 0.1); }
       }
     }
     function setPhase(ph) { const P = st.prank; P.phase = ph; P.t = 0; }
@@ -909,6 +1795,8 @@
       const a = pal.slice().sort((p, q) => Math.hypot(p.px - hl.x, p.pz - hl.z) - Math.hypot(q.px - hl.x, q.pz - hl.z))[0];
       const kazOn = !!(V.kaz && V.kaz.isWorn && V.kaz.isWorn());
       const kind = st.hero && !kazOn && V.kaz && V.kaz.hideBeret ? 'beret' : 'jingle';
+      if (a.mode === 'fight' && a.fight) { const F = a.fight, o = F.a0 === a ? F.a1 : F.a0; a.fight = null; if (o.mode === 'fight') palStart(o, 'walk'); }
+      if (ACTS[a.mode] && ACTS[a.mode].end) ACTS[a.mode].end(a);
       st.prank = { a, kind, phase: 'approach', t: 0, T: 0, side: Math.atan2(a.px - hl.x, a.pz - hl.z), hid: false };
       a.mode = 'approach';
       prankEmit({ type: kind, phase: 'start', who: a.id, text: kind === 'jingle' ? pick(EV.prankJingle, named).text : '' });
@@ -918,7 +1806,7 @@
       const P = st.prank; if (!P) return;
       if (P.hid && V.kaz) V.kaz.hideBeret(st.hero, false);
       if (beretMesh) beretMesh.visible = false;
-      P.a.mode = 'walk'; st.prank = null; st.prankDone = true;
+      st.prank = null; st.prankDone = true; palStart(P.a, 'walk');
       prankEmit({ type: P.kind, phase: 'end', who: P.a.id, text: P.kind === 'jingle' ? '' : pick(EV.prankBeret, named).text });
     }
     // круг: равные промежутки; во время танца героини — «окошко» для неё
@@ -940,16 +1828,18 @@
       if (candy.t < 0) return;
       candy.t += dt;
       const P = candy.pos, Vv = candy.vel;
-      let alive = 0;
-      for (let i = 0; i < NCANDY; i++) {
+      let alive = 0, sweets = 0;
+      for (let i = 0; i < NPT; i++) {
         if (candy.life[i] <= 0) continue;
         candy.life[i] -= dt; alive++;
-        if (P[i * 3 + 1] > 0.05) { Vv[i * 3 + 1] -= 6.5 * dt; P[i * 3] += Vv[i * 3] * dt; P[i * 3 + 1] += Vv[i * 3 + 1] * dt; P[i * 3 + 2] += Vv[i * 3 + 2] * dt; if (P[i * 3 + 1] < 0.05) P[i * 3 + 1] = 0.05; }
+        if (i >= NCANDY) { const dr = Math.max(0, 1 - dt * 3); Vv[i * 3] *= dr; Vv[i * 3 + 1] = Vv[i * 3 + 1] * dr - 0.6 * dt; Vv[i * 3 + 2] *= dr; P[i * 3] += Vv[i * 3] * dt; P[i * 3 + 1] += Vv[i * 3 + 1] * dt; P[i * 3 + 2] += Vv[i * 3 + 2] * dt; }
+        else { sweets++; if (P[i * 3 + 1] > 0.05) { Vv[i * 3 + 1] -= 6.5 * dt; P[i * 3] += Vv[i * 3] * dt; P[i * 3 + 1] += Vv[i * 3 + 1] * dt; P[i * 3 + 2] += Vv[i * 3 + 2] * dt; if (P[i * 3 + 1] < 0.05) P[i * 3 + 1] = 0.05; } }
         if (candy.life[i] <= 0) P[i * 3 + 1] = -5;
       }
       candyGeo.attributes.position.needsUpdate = true;
-      candyPts.visible = alive > 0;
-      if (!alive) { candy.t = -1; st.shower = -1; }
+      candyPts.visible = alive > 0 && st.lod === 0;
+      if (!sweets) st.shower = -1;
+      if (!alive) candy.t = -1;
     }
     function shower() {
       for (let i = 0; i < NCANDY; i++) {
@@ -1057,6 +1947,7 @@
       if (meshCloth) meshCloth.visible = st.lod < 2;
       // гирлянда в 3 м от камеры (камера за спиной героини над галереей) — прячем: флажки у самого объектива закрывали четверть экрана
       if (flagMeshes.length && cam && cam.position) { _inv.copy(stage.matrixWorld).invert(); const lc = _cam.copy(cam.position).applyMatrix4(_inv); flagMeshes.forEach(m => { const f = m.userData.flag; m.visible = st.lod < 2 && !(Math.abs(lc.z - f.z) < 3.2 && Math.abs(lc.x) < HW + 2.5 && lc.y > f.h - 2.4 && lc.y < f.h + 3.0); }); }
+      st.camL = cam && cam.position ? (_inv.copy(stage.matrixWorld).invert(), (st._cl || (st._cl = new T.Vector3())).copy(cam.position).applyMatrix4(_inv)) : null;
       // героиня во дворе — розыгрыш один раз за визит (через 6 с)
       if (heroPos) {
         const hl = heroLocal(), inYard = hl && Math.abs(hl.x) < HW + 0.5 && Math.abs(hl.z) < HD + 0.5;
@@ -1076,10 +1967,15 @@
       updatePaltars(t, dt);
       pal.forEach(a => { a.B.root.position.x = a.px; a.B.root.position.z = a.pz; a.B.root.rotation.y = a.pry; });
       kids.forEach(a => {
-        let tx = a.home[0], tz = a.home[1];
-        if (st.shower >= 0) { tx = dais.x + Math.sin(t * 1.3 + a.idx * 2) * 1.2; tz = dais.z + 1.6 + Math.cos(t * 1.1 + a.idx) * 0.5; }
+        let tx = a.home[0], tz = a.home[1], spd = 1.2;
+        const ks = a.ks; ks.t += dt;
+        // догонялки: бежит по своему кружку; «селфи» — стоит лицом к «камере»; радуется 2 с и идёт домой
+        if (ks.mode === 'flee') { ks.ang += 1.75 / a.loopR * dt; tx = a.loopC[0] + Math.sin(ks.ang) * a.loopR; tz = a.loopC[1] + Math.cos(ks.ang) * a.loopR; spd = 2.2; if (ks.t > 9) ks.mode = null; }
+        else if (ks.mode === 'pose') { tx = a.px; tz = a.pz; a.pry += angW((ks.face || 0) - a.pry) * Math.min(1, dt * 5); if (ks.t > 6) ks.mode = null; }
+        else if (ks.mode === 'cheer') { tx = a.px; tz = a.pz; if (ks.t > 2) ks.mode = null; }
+        else if (st.shower >= 0) { tx = dais.x + Math.sin(t * 1.3 + a.idx * 2) * 1.2; tz = dais.z + 1.6 + Math.cos(t * 1.1 + a.idx) * 0.5; }
         const dx = tx - a.px, dz = tz - a.pz, dd = Math.hypot(dx, dz);
-        if (dd > 0.05) { const v = Math.min(dd, 1.2 * dt); a.px += dx / dd * v; a.pz += dz / dd * v; a.pry += angW(Math.atan2(dx, dz) - a.pry) * Math.min(1, dt * 5); }
+        if (dd > 0.05) { const v = Math.min(dd, spd * dt); a.px += dx / dd * v; a.pz += dz / dd * v; a.pry += angW(Math.atan2(dx, dz) - a.pry) * Math.min(1, dt * 5); }
         a.B.root.position.x = a.px; a.B.root.position.z = a.pz; a.B.root.rotation.y = a.pry;
       });
       animals.forEach(a => {
@@ -1107,7 +2003,9 @@
       paltarHold(idOrNpc, on) {
         const n = typeof idOrNpc === 'object' && idOrNpc ? idOrNpc : npcs.find(q => q.id === idOrNpc || (q.animal && q.animal.id === idOrNpc));
         const a = n && n.animal; if (!a || a.role !== 'paltar') return false;
-        a.hold = !!on; if (on && st.prank && st.prank.a === a) endPrank(); return true;
+        a.hold = !!on; if (on && st.prank && st.prank.a === a) endPrank();
+        if (on && a.mode !== 'hold') { if (a.mode === 'fight' && a.fight) { const F = a.fight, o2 = F.a0 === a ? F.a1 : F.a0; if (o2.mode === 'fight') palStart(o2, 'walk'); } if (ACTS[a.mode] && ACTS[a.mode].end) ACTS[a.mode].end(a); a.mode = 'hold'; }
+        return true;
       },
       // сдвинуть зверька двора (отлёт при кувырке, «вежливое расстояние»): мир → оси двора; в пределах двора
       moveNpc(n, dx, dz) {
@@ -1118,11 +2016,22 @@
         if (a.role !== 'paltar' && a.role !== 'kid') { a.x = a.px; a.z = a.pz; a.B.root.position.x = a.px; a.B.root.position.z = a.pz; }
         return true;
       },
-      stopPrank() { if (st.prank) { endPrank(); return true; } return false; },   // например, героиня ушла танцевать или в диалог
+      stopPrank() { if (st.prank) { endPrank(); return true; } return false; },
+      // для стенда и снимков: застывшая поза ряженого (name — выступление, t — время в нём; o — x, z, ry, данные номера); name = null — отпустить
+      paltarPose(id, name, t, o) {
+        const a = pal.find(b => b.id === id || (b.npc && b.npc.id === id)); if (!a) return false;
+        if (!name) { a.freeze = null; palStart(a, 'walk'); return true; }
+        o = o || {}; a.freeze = { name, t: t || 0, vel: o.vel || 0 };
+        if (o.x !== undefined) { a.px = o.x; a.pz = o.z; } if (o.ry !== undefined) a.pry = o.ry;
+        ['tgt', 'kid', 'wdir', 'fight', 'fside', 'sfFace', 'sfTilt', 'gph', 'jh', 'actDur', 'withHero', 'photo'].forEach(k => { if (o[k] !== undefined) a[k] = o[k]; });
+        return true;
+      },   // например, героиня ушла танцевать или в диалог
       get lod() { return st.lod; },
+      // для стенда: внутренности (зверята, ряженые, дети, состояние)
+      dbg() { return { animals, pal, kids, st, PG, PV }; },
       get paltars() { return pal.map(a => ({ id: a.id, mode: a.mode, x: +a.px.toFixed(2), z: +a.pz.toFixed(2), ry: +a.pry.toFixed(2), seg: a.seg })); },
       get prankState() { return st.prank ? { kind: st.prank.kind, phase: st.prank.phase, who: st.prank.a.id } : null; },
-      animals: animals.map(a => ({ id: a.id, role: a.role, sp: a.spec.speciesUnder || a.spec.sp, bone: a.B.root })),
+      animals: animals.map(a => ({ id: a.id, role: a.role, sp: a.variant ? 'paltar:' + a.variant : a.spec.sp, bone: a.B.root })),
       speakers: SPEAKERS, lines: LINES, events: EV,
       info: { calls: [meshBody, meshOl, meshTex, meshFace, meshProps, meshCloth, meshLit, candyPts, ...flagMeshes].filter(Boolean).length, tris: Math.round(tris), animals: animals.length, bones: bones.length, buildMs: Math.round(performance.now() - t0) },
       dispose() {

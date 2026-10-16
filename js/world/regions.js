@@ -1210,7 +1210,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (blob) blob.visible = S.mode === 'walk';
       if (shadowProxy) shadowProxy.attach(scene);
       // W4A: свадьба — героиня модулю (розыгрыш с беретом), облачка пальтара
-      if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); } catch (e) { console.warn('region wedding hero', e); } }
+      if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); if (h.wedding.onEvent) h.wedding.onEvent(onWedEvent); } catch (e) { console.warn('region wedding hero', e); } }
       // день и ночь (R2): свет, жители, небо, окна и фонари региона
       if (dn) { try { dn.apply(id === 'serpentine' ? 'road' : 'village'); dn.attachRegion(h); dn.attach(scene); } catch (e) { console.warn('region daynight', e); } }
       ui.root.classList.toggle('drive', S.mode === 'drive');
@@ -1833,6 +1833,17 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (ev.phase === 'end') later(300, () => heroSay2(ev.type === 'beret' ? SAY.beretBack : SAY.jingle, 1500));
       if (ev.phase === 'start' || ev.phase === 'take') sfx('chime', { f: 1568 });
       S.prankLog.push(ev.type + ':' + ev.phase);
+    }
+    // пальтары: звон кольчуги, щелчок плёткой в воздухе, «вспышка» фото, короткие возгласы — только рядом с героиней (≤ 14 м)
+    function onWedEvent(ev) {
+      if (!ev || !S.h || !S.h.wedding || !/^(jingle|bell|crack|flash|say)$/.test(ev.type)) return;
+      const n = ev.who ? S.h.npcs.find(q => q.ext && q.animal && q.animal.id === ev.who) : null;
+      if (!n || Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz) > 14) return;
+      const pf = k => { try { if (window.PlayFight && PlayFight.synth) PlayFight.synth(k); } catch (e) { /* звук не главное */ } };
+      if (ev.type === 'jingle' || ev.type === 'bell') pf('jingle');
+      else if (ev.type === 'crack') { pf('slap'); later(60, () => pf('pop')); }
+      else if (ev.type === 'flash') sfx('chime', { f: 2093 });
+      else if (ev.type === 'say' && ev.text && onScreen(npcHead(n)())) bubble(npcHead(n), ev.text, n.name, 1500);
     }
     // камера во дворе свадьбы — со стороны середины двора (у ворот и стен галереи коллайдеров камеры нет: створка ворот закрывала кадр)
     function yardYaw(x, z, fallback) { const W0 = S.h && S.h.places && S.h.places.wedding; return W0 && isFinite(W0.x) ? Math.atan2(x - W0.x, z - W0.z) : fallback; }
