@@ -1153,7 +1153,7 @@
       S.kick = 0; S.goals = 0; S.res = []; S.outcome = null; timers.length = 0;
       bunny.root.visible = S.variant === 'pass';
       C.line(S.variant === 'pass' ? LINES.footPassStart : LINES.footStart, null, 3.2);
-      C.hint(S.variant === 'pass' ? 'Зайка катит мяч — жми, когда он в кольце' : 'Проведи пальцем к воротам — куда и как сильно. Или «Удар!» по метке', 5.5);
+      C.hint(S.variant === 'pass' ? 'Зайка катит мяч — жми, когда он в кольце' : 'Проведи к воротам: куда и как сильно. Или «Удар!»', 5.5);
       C.mainBtn('⚽', 'Удар!');
       C.sideBtn(S.variant === 'pass' ? 'Пенальти' : 'Пас-пас', true);
       C.ui.side.classList.add('low'); C.ui.side.style.right = '132px';
@@ -1527,7 +1527,7 @@
     // стойка: боком к линии удара, мяч перед носками (цель — слева от героини)
     function stance(a) { C.heroPlace(Bb.x + Math.cos(a) * 0.52, Bb.z - Math.sin(a) * 0.52, a - PI / 2); }
 
-    function reset() { S.hole = 0; S.strokes = [0, 0, 0]; S.total = 0; S.aces = 0; timers.length = 0; S.sandSaid = false; startHole(true); C.line(LINES.golfStart, null, 3.2); C.hint('Потяни назад и отпусти — как рогатку. Длиннее линия — сильнее удар', 5.5); C.mainBtn('', '', false); C.sideBtn('↺ Заново', true); }
+    function reset() { S.hole = 0; S.strokes = [0, 0, 0]; S.total = 0; S.aces = 0; timers.length = 0; S.sandSaid = false; startHole(true); C.line(LINES.golfStart, null, 3.2); C.hint('Потяни и отпусти: длиннее линия — сильнее удар', 5.5); C.mainBtn('', '', false); C.sideBtn('↺ Заново', true); }
     function startHole(first) {
       Bb.x = TEES[S.hole][0]; Bb.z = TEES[S.hole][1]; Bb.vx = Bb.vz = 0; Bb.rolling = false; Bb.holed = false; Bb.y = 0;
       S.phase = 'aim'; S.t = 0; S.aimA = holeDir(); S.power = 0; S.drag = null; S.camDir = holeDir(); putt.on = false;

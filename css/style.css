@@ -534,6 +534,7 @@ p { margin: 0; line-height: 1.45; }
 .ff { position: relative; }
 .ff::after { content: ''; position: absolute; inset: -8px -4px; }
 .go-arrow { border: 0; cursor: pointer; font-family: inherit; pointer-events: auto; }
+.go-arrow::before { content: ''; position: absolute; inset: -7px -6px; }   /* HUD v2: зона касания стрелки «в кинотеатр» ≥ 44 px (::after — хвостик) */
 .puzzle-bar { align-items: flex-start; }
 .puzzle-bar .hint-col { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: none; }
 .puzzle-bar .paw-cap { font-size: 10.5px; font-weight: 900; opacity: .75; }
@@ -808,7 +809,7 @@ body.sheet-on .town-dot, body.sheet-on .town-bark { display: none !important; }
 .t2-count { font-size: 13px; font-weight: 800; color: var(--ink-2); }
 .t2-list { display: flex; flex-direction: column; gap: 9px; }
 .t2-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
-.t2-chips .chip { font-size: 14px; min-height: 40px; padding: 8px 12px; }
+.t2-chips .chip { font-size: 14px; min-height: 44px; padding: 8px 12px; }   /* HUD v2: цель касания ≥ 44 px */
 .t2-foot { text-align: center; font-weight: 700; margin: 4px 0 0; }
 .town-card {
   --band: #FBE1E7; appearance: none; border: 0; cursor: pointer; width: 100%; text-align: left; display: flex; align-items: center; gap: 12px;

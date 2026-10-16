@@ -493,7 +493,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         let d = Math.hypot(ex.x - px, ex.z - pz);
         if (!branch && ex.s != null && h.road && h.road.project) { try { const pr = h.road.project(px, pz); if (pr && isFinite(pr.s)) d = Math.abs(ex.s - pr.s); } catch (e) { /* по прямой */ } }
         const name = id === 'toCity' ? 'Город' : id === 'toHotel' ? 'Отель на вершине' : (titleOf() || ex.label || '');
-        return { icon: id === 'toCity' ? '🏙' : id === 'toHotel' ? '🏨' : '⛰', text: name, title: down ? 'Дорога вниз' : 'Дорога наверх', d,
+        return { icon: id === 'toCity' ? '🏙' : id === 'toHotel' ? '🏨' : '⛰️', text: name, title: down ? 'Дорога вниз' : 'Дорога наверх', d,
           full: (down ? 'Вниз по серпантину — в город.' : branch ? 'По ветке — к отелю на вершине.' : 'Вверх по серпантину, за облака.') + (touchUi() ? ' Газ и тормоз — справа, кружок внизу — руль.' : '') };
       }
       if (S.rid === 'kubachi' && S.flags.jug && !S.flags.granny) {

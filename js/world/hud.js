@@ -349,7 +349,8 @@
     el.dataset.side = o.side;
     el.style.left = Math.round(o.x) + 'px'; el.style.top = Math.round(o.y) + 'px';
     el.querySelector('.hud-chev-c').style.setProperty('--rot', (o.rot || 0).toFixed(1) + 'deg');
-    const d = el.querySelector('.hud-chev-d'); const t = o.dist == null ? '' : (typeof o.dist === 'number' ? Math.round(o.dist) + ' м' : String(o.dist));
+    // ближе 4 м пилюля цели пишет «ты на месте» — у шеврона тогда без числа (только направление)
+    const d = el.querySelector('.hud-chev-d'); const t = o.dist == null ? '' : (typeof o.dist === 'number' ? (o.dist < 4 ? '' : Math.round(o.dist) + ' м') : String(o.dist));
     if (d.textContent !== t) d.textContent = t;
     d.classList.toggle('hidden', !t);
     if (o.label) el.setAttribute('aria-label', o.label);
@@ -414,17 +415,18 @@
       haptic('select'); tapSfx(); it.news = false;
       const f = it.onTap || it.onClick;
       if (it.keepOpen || it.toggle) { try { if (f) f(); } catch (er) { console.warn('hud menu', er); } menuDraw(); return; }
-      menuClose();
-      setTimeout(() => { try { if (f) f(); } catch (er) { console.warn('hud menu', er); } }, 60);
+      // действие — когда лист меню уже убран из #layer: пока он там (уезжает 230 мс), город и регион считают экран занятым
+      // (blocked() видит #layer .modal) — и, например, «🗺 Карта» не открывалась
+      menuClose(() => { try { if (f) f(); } catch (er) { console.warn('hud menu', er); } });
     });
     L.appendChild(m); document.body.classList.add('sheet-on');
     news(false);
     return m;
   }
-  function menuClose() {
+  function menuClose(after) {
     const m = menuEl; menuEl = null;
-    if (!m || !m.isConnected) return;
-    m.classList.add('out'); setTimeout(() => { m.remove(); if (!document.querySelector('#layer .modal.sheet')) document.body.classList.remove('sheet-on'); }, 230);
+    if (!m || !m.isConnected) { if (after) after(); return; }
+    m.classList.add('out'); setTimeout(() => { m.remove(); if (!document.querySelector('#layer .modal.sheet')) document.body.classList.remove('sheet-on'); if (after) after(); }, 230);
   }
   function news(on) {
     const b = document.getElementById('hudMenu'); if (b) b.classList.toggle('news', !!on);
