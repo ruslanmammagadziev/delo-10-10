@@ -834,7 +834,9 @@
     const el = document.createElement('div'); el.className = 'mv-btns';
     if (o.bottom) el.style.setProperty('--mv-bottom', o.bottom);
     if (o.right) el.style.setProperty('--mv-right', o.right);
-    el.innerHTML = '<button type="button" class="mv-jump" aria-label="Прыжок"><i>⤒</i>Прыжок</button><button type="button" class="mv-run" aria-label="Бег" aria-pressed="false"><i>»</i>Бег</button>';
+    // HUD v2: две маленькие круглые кнопки дуги справа внизу — «Прыжок» в слоте s1 (над P), «Бег» в s3 (слева от P);
+    // контейнер .mv-btns — display: contents (style.css), подпись — aria-label и скрытое <b>
+    el.innerHTML = '<button type="button" class="mv-jump" data-hud-slot="s1" aria-label="Прыжок" title="Прыжок"><i>🦘</i><b>Прыжок</b></button><button type="button" class="mv-run" data-hud-slot="s3" aria-label="Бег" title="Бег" aria-pressed="false"><i>👟</i><b>Бег</b></button>';
     const jump = el.querySelector('.mv-jump'), run = el.querySelector('.mv-run');
     host.appendChild(el);
     let bound = o.move || null;

@@ -21,7 +21,7 @@
   --finale-date 2026-12-10   сборка 19.11: у финала появляется дата, «в декабре» убирается
   Каждая замена должна найти ровно одно место, иначе — громкая остановка.
 STORY_ONLY=1 — промежуточная сборка без прогулки (только сюжет серии 1), работает и с --prod.
---no-world — сборка без открытого города (js/world/* кроме hub.js, missions.js и trip2d.js; без js/village/*): серия 1
+--no-world — сборка без открытого города (js/world/* кроме hub.js, missions.js, trip2d.js и hud.js; без js/village/*): серия 1
   и прогулка идут на улице с теми же миссиями (правило отката 26.10), работает и с --prod.
 Волна 3:
   --unlock-all      ПРЕДПРОСМОТР АВТОРА: в сборке CONFIG.UNLOCK.all = true (машина, велосипед, собачка, поездка — сразу),
@@ -83,7 +83,7 @@ def build_html(script_hook=None, css_hook=None):
     if os.environ.get('STORY_ONLY') == '1':
         html = re.sub(r'\s*<script src="js/(town|places/[^"]+)\.js"></script>', '', html)
     if NO_WORLD['on']:   # WORLD-CORE: --no-world — без открытого города (остаются WorldHub и таблица миссий, улица ведёт серию)
-        html = re.sub(r'\s*<script src="js/world/(?!hub\.js|missions\.js|trip2d\.js)[^"]+\.js"></script>', '', html)
+        html = re.sub(r'\s*<script src="js/world/(?!hub\.js|missions\.js|trip2d\.js|hud\.js)[^"]+\.js"></script>', '', html)
         html = re.sub(r'\s*<script src="js/village/[^"]+\.js"></script>', '', html)   # поездка в 3D — вместе с городом
         html = re.sub(r'\s*<script src="js/vehicles/[^"]+\.js"></script>', '', html)  # волна 4: седан — тоже только с городом (interact/daynight остаются)
         html = html.replace('<script src="js/config.js"></script>', '<script>window.WORLD_OFF = true;</script>\n  <script src="js/config.js"></script>', 1)
