@@ -412,7 +412,7 @@
     const el = document.createElement('div'); el.className = 'fact-chip'; el.textContent = '📒 Новый факт';
     G.app.appendChild(el);
     setTimeout(() => {
-      const nb = document.querySelector('#hudNb');
+      const nb = document.querySelector('#hudMenu') || document.querySelector('#hudNb');   // HUD v2: блокнот — в меню ☰
       if (nb && !document.querySelector('#hud.hidden')) {
         const b = nb.getBoundingClientRect(), c = el.getBoundingClientRect();
         el.style.transform = `translate(${b.left + b.width / 2 - (c.left + c.width / 2)}px, ${b.top + b.height / 2 - (c.top + c.height / 2)}px) scale(.3)`;
@@ -1321,6 +1321,7 @@
         sess().jump = id;
         const b = document.querySelector('#hudExit');
         if (b) b.click();
+        else if (window.HUD && HUD.topBar) { const f = HUD.topBar.opts().onExit; if (f) f(); }   // HUD v2: выход с улицы — строка меню
         return true;
       },
       spot(id) {
