@@ -323,7 +323,7 @@
   function menuRow(it) {
     const on = it.toggle ? !!val(it.on, false) : null;
     const lab = val(it.label, ''), sub = val(it.sub, ''), value = val(it.value, ''), badge = val(it.badge, '');
-    return `<button type="button" class="hud-mrow${it.tint ? ' t-' + esc(it.tint) : ''}${on ? ' on' : ''}" data-id="${esc(it.id)}"${it.toggle ? ` role="switch" aria-checked="${on}"` : ''}>` +
+    return `<button type="button" class="hud-mrow${it.tint ? ' t-' + esc(it.tint) : ''}${on ? ' on' : ''}" data-id="${esc(it.id)}"${it.elId ? ` id="${esc(it.elId)}"` : ''}${it.toggle ? ` role="switch" aria-checked="${on}"` : ''}>` +
       `<span class="hud-mi" aria-hidden="true">${esc(val(it.icon, '•'))}</span>` +
       `<span class="hud-mt"><b>${esc(lab)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>` +
       (badge !== '' && badge != null && badge !== 0 ? `<span class="hud-mb">${esc(badge)}</span>` : '') +
@@ -361,7 +361,7 @@
       const r = rowOf(e); if (!r) return;
       if (long) { long = false; return; }
       const it = ITEMS.get(r.dataset.id); if (!it) return;
-      haptic('select'); tapSfx();
+      haptic('select'); tapSfx(); it.news = false;
       const f = it.onTap || it.onClick;
       if (it.keepOpen || it.toggle) { try { if (f) f(); } catch (er) { console.warn('hud menu', er); } menuDraw(); return; }
       menuClose();
@@ -444,6 +444,7 @@
     if (!OBJ) return;
     objEnsure(); objPaint();
     cardEl.classList.remove('hidden'); document.body.classList.add('hud-card-on');
+    try { document.body.style.setProperty('--hud-card-h', Math.round(cardEl.offsetHeight || 96) + 'px'); } catch (e) { /* ignore */ }
     clearTimeout(cardT); cardT = setTimeout(objCollapse, ms || 4000);
   }
   function objCollapse() { clearTimeout(cardT); if (cardEl) cardEl.classList.add('hidden'); document.body.classList.remove('hud-card-on'); }
@@ -543,7 +544,7 @@
 
   /* ---------- Встроенные строки меню: блокнот, звук, как играть ---------- */
   function builtins() {
-    HUD.menu.add({ id: 'nb', icon: '📒', label: 'Блокнот', order: 20, badge: () => { const g = G_(); return g && g.nbCount ? g.nbCount() || '' : ''; }, onTap: () => { const g = G_(); if (g && g.notebook) g.notebook(); } });
+    HUD.menu.add({ id: 'nb', elId: 'hudNb', icon: '📒', label: 'Блокнот', order: 20, badge: () => { const g = G_(); return g && g.nbCount ? g.nbCount() || '' : ''; }, onTap: () => { const g = G_(); if (g && g.notebook) g.notebook(); } });
     HUD.menu.add({ id: 'sound', icon: () => { const g = G_(); return g ? g.soundIcon() : '🔊'; }, label: 'Звук', sub: 'долгое нажатие — настройки', order: 30, toggle: true,
       on: () => { const g = G_(); return !!(g && g.state && g.state().sound); },
       onTap: () => { const g = G_(); if (g && g.toggleSound) g.toggleSound(null); },

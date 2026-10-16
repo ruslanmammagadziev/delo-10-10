@@ -38,7 +38,7 @@
      WORLD.Minimap.travelDefault(poi, spot) — перенос по умолчанию (api.travelTo сессии, иначе placeAt): для своего onTravel.
      WORLD.Minimap.openSheet(opts) → sheet — большая карта без мини-карты (2D-город: рисунок + список мест);
        opts как выше + travelLabel ('Поехать сюда'), clouds (false), title. sheet.close().
-   Классы: .w-mini.wmm (контракт .w-mini из css/style.css), .wmm-wrap, .wmm-fold, .modal.wm-sheet, .wm-cloud.
+   Классы: .w-mini.wmm (контракт .w-mini из css/style.css), .wmm-wrap (угол HUD v2; свернуть — строкой меню ☰), .modal.wm-sheet, .wm-cloud.
    Большая карта — .modal в #layer: пока она открыта, город сам стоит (его blocked() видит .modal).
 
    ВОЛНА 4B (MAP): «карта как в GTA»
@@ -149,7 +149,7 @@
 
   /* ---------- CSS (свой; вид .w-mini может перекрыть css/style.css) ---------- */
   const CSS = `
-:where(.wmm-wrap){position:absolute;left:12px;bottom:calc(160px + var(--safe-bottom,0px));width:110px;height:110px;z-index:15;pointer-events:none}
+:where(.wmm-wrap){position:absolute;left:var(--hud-l,12px);bottom:var(--hud-b,calc(12px + var(--safe-bottom,0px)));width:var(--hud-radar,96px);height:var(--hud-radar,96px);z-index:18;pointer-events:none;transition:opacity .18s}
 :where(.wmm-wrap) > *{pointer-events:auto}
 :where(.wmm){position:absolute;inset:0;padding:0;border:0;border-radius:50%;overflow:hidden;background:rgba(255,253,249,.9);box-shadow:0 0 0 1.5px rgba(176,122,142,.5),0 5px 16px rgba(58,46,63,.2);cursor:pointer;touch-action:manipulation;transition:opacity .25s,transform .3s cubic-bezier(.2,1.3,.4,1),width .3s,height .3s;-webkit-tap-highlight-color:transparent}
 .wmm canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -157,16 +157,13 @@
 .wmm:active{transform:scale(.95)}
 .wmm .wmm-ic{position:absolute;inset:0;display:none;place-items:center;pointer-events:none}
 .wmm-wrap.off .wmm{opacity:.38;pointer-events:none}
-.wmm-wrap.off .wmm-fold{display:none}
 .wmm-wrap.hide{display:none}
-:where(.wmm-fold){position:absolute;right:-5px;top:-3px;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:rgba(255,253,249,.95);color:#B07A8E;font:900 13px/22px system-ui,sans-serif;box-shadow:0 2px 0 rgba(58,46,63,.12);cursor:pointer;touch-action:manipulation}
-.wmm-fold::before{content:'';position:absolute;inset:-10px}
 .wmm-wrap.collapsed{width:44px;height:44px}
 .wmm-wrap.collapsed .wmm canvas{display:none}
 .wmm-wrap.collapsed .wmm .wmm-ic{display:grid}
-.wmm-wrap.collapsed .wmm-fold{display:none}
 :where(.w-root.busy) .wmm-wrap{display:none}
 :where(.w-reg.zip) .wmm-wrap,:where(.w-reg.look) .wmm-wrap{display:none}
+:where([data-hud-mode="zip"]) .wmm-wrap,:where([data-hud-mode="look"]) .wmm-wrap,:where([data-hud-mode="sport"]) .wmm-wrap,:where([data-hud-mode="dance"]) .wmm-wrap{display:none}
 .wmm-wrap.wmm-off{display:none!important}
 .wm-tabs{display:flex;gap:4px;margin:0 10px 8px;padding:4px;border-radius:16px;background:#F8EEF1;flex:none}
 .wm-tab{flex:1;min-width:0;height:36px;border:0;border-radius:12px;background:transparent;color:#8A6E7E;font:inherit;font-weight:900;font-size:14px;cursor:pointer;touch-action:manipulation;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1896,10 +1893,14 @@
   //        items(X), key() → строка «что ещё сдвинулось», radius: {walk, drive}, onTap(), sheetOpen(), paper }
   function makeRadar(cfg) {
     ensureCss();
-    const SIZE = cfg.size || 110, HZ = cfg.hz || 10;
+    // HUD v2: радар в углу слева внизу (12 px от краёв, Ø --hud-radar: 89 · 96 · 104 при 360 · 390 · 430); свернуть — строкой меню ☰
+    const autoSize = () => { try { return window.HUD ? Math.round(HUD.metrics().radar.d) : 110; } catch (e) { return 110; } };
+    let SIZE = cfg.size || autoSize();
+    const HZ = cfg.hz || 10;
     const wrap = document.createElement('div'); wrap.className = 'wmm-wrap' + (cfg.cls ? ' ' + cfg.cls : '');
-    wrap.innerHTML = `<button type="button" class="w-mini wmm" aria-label="${esc(cfg.label || 'Карта')}"><canvas></canvas><span class="wmm-ic">${MAP_SVG}</span></button><button type="button" class="wmm-fold" aria-label="Свернуть карту">–</button>`;
-    const btn = wrap.querySelector('.wmm'), mcv = wrap.querySelector('canvas'), fold = wrap.querySelector('.wmm-fold');
+    wrap.innerHTML = `<button type="button" class="w-mini wmm" aria-label="${esc(cfg.label || 'Карта')}"><canvas></canvas><span class="wmm-ic">${MAP_SVG}</span></button>`;
+    if (window.HUD) HUD.radarSlot(wrap);
+    const btn = wrap.querySelector('.wmm'), mcv = wrap.querySelector('canvas');
     let MC = null; const mctx = () => MC || (MC = mcv.getContext('2d'));
     let mountedIn = null;
     const mount = () => { const r = cfg.root(); if (r && wrap.parentNode !== r) { r.appendChild(wrap); mountedIn = r; } };
@@ -1907,12 +1908,11 @@
     let collapsed = !!lsGet().fold, visible = true, disposed = false, busy = false, under = false;
     wrap.classList.toggle('collapsed', collapsed);
     let D = 1, NB = null, lastKey = '';
-    const sizeCanvas = () => { D = Math.min(DPR(), cfg.maxDpr || 2); mcv.width = mcv.height = Math.round(SIZE * D); NB = null; };
+    const sizeCanvas = () => { if (!cfg.size) SIZE = autoSize(); D = Math.min(DPR(), cfg.maxDpr || 2); mcv.width = mcv.height = Math.round(SIZE * D); NB = null; };
     sizeCanvas();
     try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { NB = null; lastKey = ''; }); } catch (e) { /* без шрифтов */ }
     const northBadge = () => { if (NB) return NB; const r = 6.5 * D, c = cnv(r * 2 + 2, r * 2 + 2), x = c.getContext('2d'); x.fillStyle = 'rgba(255,253,249,.95)'; x.beginPath(); x.arc(r + 1, r + 1, r, 0, TAU); x.fill(); x.fillStyle = '#C2405B'; x.font = `900 ${8.5 * D}px 'Comfortaa', 'Nunito', sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('С', r + 1, r + 1.5 * D / 2); NB = c; return c; };
     btn.addEventListener('click', e => { e.stopPropagation(); if (collapsed) { R.collapse(false); return; } if (cfg.onTap) cfg.onTap(); });
-    fold.addEventListener('click', e => { e.stopPropagation(); haptic('light'); R.collapse(true); });
     const onResize = () => { if (!disposed) { sizeCanvas(); lastDraw = lastCheck = -1e9; if (cfg.onDpr) cfg.onDpr(D); } };
     window.addEventListener('resize', onResize);
 
@@ -1981,14 +1981,8 @@
         if ((busyT -= dt) <= 0) {
           busyT = 0.2;
           const bz = !!cfg.busy(); if (bz !== busy) { busy = bz; wrap.classList.toggle('off', bz); }
-          let un = false;
-          try {
-            const j = mountedIn && mountedIn.querySelector('.w-joy:not(.ghost):not(.hidden)');
-            if (j && j.style.left && getComputedStyle(j).display !== 'none') {
-              const jx = parseFloat(j.style.left), jy = parseFloat(j.style.top), r = wrap.getBoundingClientRect(), pr = mountedIn.getBoundingClientRect();
-              un = jx > r.left - pr.left - 56 && jx < r.right - pr.left + 56 && jy > r.top - pr.top - 56 && jy < r.bottom - pr.top + 56;
-            }
-          } catch (e) { un = false; }
+          // HUD v2: джойстик под пальцем на радар не заезжает (HUD.joyPlace) — бледнеть не нужно
+          const un = false;
           if (un !== under) { under = un; btn.style.opacity = un ? '.45' : ''; }
         }
         // поворот: к камере (плавно) или север сверху
@@ -2020,6 +2014,7 @@
       resetMotion() { lastHero = null; lastDraw = lastCheck = -1e9; },
       setVisible(b) { visible = !!b; wrap.classList.toggle('hide', !visible); wasOn = visible ? null : false; if (visible) lastDraw = lastCheck = -1e9; },
       collapse(b) { collapsed = !!b; wrap.classList.toggle('collapsed', collapsed); lsSet({ fold: collapsed }); lastDraw = lastCheck = -1e9; },
+      isCollapsed: () => collapsed,
       rotate(mode) { rotMode = mode === 'north' ? 'north' : 'camera'; lastDraw = lastCheck = -1e9; },
       get rot() { return rotMode; },
       stats: () => ({ calls: stats.calls, avgMs: stats.calls ? stats.sumMs / stats.calls : 0, maxMs: stats.maxMs, draws: stats.draws, drawAvgMs: stats.draws ? stats.drawMs / stats.draws : 0, drawMaxMs: stats.drawMax, frames: stats.frames }),
@@ -2109,7 +2104,7 @@
       if (tg && typeof tg.x === 'number') rimDrop(X, tg.x, tg.z, KINDS.mission.col, 'case', '@target', 'target');
     }
     const R = makeRadar({
-      root: rootEl, label: 'Карта города', size: o.size || 110, hz: o.hz || 10, maxDpr: o.maxDpr, rotate: o.rotate,
+      root: rootEl, label: 'Карта города', size: o.size, hz: o.hz || 10, maxDpr: o.maxDpr, rotate: o.rotate,
       hero: () => env.hero(), yaw: () => env.yaw(), busy: () => env.busy(),
       base: D => ensureBase(D), items, key: () => { const hh = env.hero(); if (hh) wpArrive(hh, 'city'); return iconKey(); },
       radius: { walk: 42, drive: 66 }, onTap: () => api.open(), sheetOpen: () => { if (sheet) { if (env.busy() && !sheet._busyOk) api.close(true); return true; } return false; },
@@ -2136,6 +2131,7 @@
       sheet: () => sheet,
       setVisible(b) { R.setVisible(b); },
       collapse(b) { R.collapse(b); },
+      isCollapsed: () => R.isCollapsed(),
       rotate(mode) { R.rotate(mode); },
       rebuild() { A = null; base = null; api._pois = null; R.redraw(); },
       // «Поехать сюда» по id точки (для проверок и интегратора); false — замок или нет точки
@@ -2242,7 +2238,7 @@
     };
     const host = () => (o.host && o.host.isConnected ? o.host : null);
     const Rd = makeRadar({
-      root: host, label: 'Карта: ' + (rid === 'kubachi' ? villageTitle(named) : rid === 'hotel' ? 'отель на вершине' : 'дорога наверх'), size: o.size || 110, hz: o.hz || 10, maxDpr: o.maxDpr,
+      root: host, label: 'Карта: ' + (rid === 'kubachi' ? villageTitle(named) : rid === 'hotel' ? 'отель на вершине' : 'дорога наверх'), size: o.size, hz: o.hz || 10, maxDpr: o.maxDpr,
       hero, yaw: () => safe(o.getCamYaw), busy: () => !!safe(o.isBusy),
       base: D => ensureBase(D), items,
       key: () => {
@@ -2290,7 +2286,7 @@
       pois: () => pois.slice(),
       stats: () => Rd.stats(), resetStats: () => Rd.resetStats(),
       debug: () => Object.assign(Rd.debug(), { rid, raster: !!M.raster, pois: pois.length }),
-      setVisible: b => Rd.setVisible(b), collapse: b => Rd.collapse(b),
+      setVisible: b => Rd.setVisible(b), collapse: b => Rd.collapse(b), isCollapsed: () => Rd.isCollapsed(),
       dispose() { if (disposed) return; disposed = true; M.stop(); if (sheet) sheet.close(true); Rd.dispose(); base = null; hidden.forEach(e => e.classList.remove('wmm-off')); hidden.length = 0; },
     };
     if (/debug=1/.test(location.search)) window.__radar = api;

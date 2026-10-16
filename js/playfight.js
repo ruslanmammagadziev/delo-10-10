@@ -1643,7 +1643,7 @@
        КНОПКИ
        ===================================================================== */
     const host = o.buttonsHost || null;
-    const UI = { bonk: null, toss: null, chip: null, bl: '', tl: '', cl: '', ck: null };
+    const UI = { bonk: null, toss: null, chip: null, bl: '', tl: '', cl: '', ck: null, hudOn: false, hudN: 0, saved: null };
     const HAM_SVG = '<svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><rect x="14.2" y="12" width="3.6" height="17" rx="1.8" fill="#8ED3E6" stroke="#4A3A48" stroke-width="1.6"/><rect x="5" y="4" width="22" height="10" rx="4" fill="#F2667F" stroke="#4A3A48" stroke-width="1.6"/><rect x="3" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/><rect x="24" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/></svg>';
     const HAM_BTN = '<i>' + HAM_SVG + '</i><b>Пиу!</b>';
     const CSS = `
@@ -1666,6 +1666,8 @@
     function ensureCss() { if (document.getElementById('pfCss')) return; const st = document.createElement('style'); st.id = 'pfCss'; st.textContent = CSS; document.head.insertBefore(st, document.head.firstChild); }
     function mkBtn(cls, fn) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'pf-btn ' + cls + ' hidden';
+      // HUD v2: маленькая круглая кнопка дуги (значок; подпись — aria-label): «Бум!» — s2 (по диагонали от P), «Листья»/«Снежок» — s4
+      if (!(o.slots && o.slots[cls === 'pf-bonk' ? 'bonk' : 'toss'])) b.dataset.hudSlot = cls === 'pf-bonk' ? 's2' : 's4';
       const go = e => { e.preventDefault(); e.stopPropagation(); b.classList.add('go'); setTimeout(() => b.classList.remove('go'), 120); fn(); };
       b.addEventListener('pointerdown', go);
       b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (e.detail === 0) fn(); });   // клавиатура (Enter/пробел)
@@ -1685,7 +1687,7 @@
       if (b.dataset.k === k) return; b.dataset.k = k;
       b.classList.toggle('hidden', !show); if (!show) return;
       b.innerHTML = html; b.classList.toggle('pet', cls === 'pet'); b.classList.toggle('snow', cls === 'snow'); b.classList.toggle('leaf', cls === 'leaf');
-      b.setAttribute('aria-label', key);
+      b.setAttribute('aria-label', key); b.title = key;
     }
     let uiT = 0, lastTg = null;
     function updUI(dt) {
@@ -1714,6 +1716,21 @@
         else html = `❄️ Снежная битва · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} · ты <u>${b.me}</u> : <em>${b.them}</em> они`;
       }
       if (html === UI.cl) return; UI.cl = html;
+      // HUD v2: счёт битвы — пилюля цели в верхней полосе («❄️ 0:45 · 3 : 2»), итог — тостом; прежняя цель вернётся после битвы
+      const HUD = window.HUD;
+      if (HUD && HUD.objective) {
+        UI.chip.classList.add('hidden');
+        if (show && battle && !battle.ended) {
+          const b = battle, left = Math.max(0, Math.ceil(b.dur - b.t));
+          if (!UI.hudOn) { UI.hudOn = true; UI.saved = HUD.objective.get(); }
+          HUD.objective.set({ icon: '❄️', text: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} · ${b.me} : ${b.them}`, title: 'Снежная битва', full: `Ты ${b.me} : ${b.them} они`, bounce: UI.hudN++ === 0, expand: false });
+        } else if (UI.hudOn) {
+          UI.hudOn = false; UI.hudN = 0;
+          if (show && battle && battle.ended) HUD.toast(html.replace(/<[^>]+>/g, ''), 3600);
+          HUD.objective.set(UI.saved ? Object.assign({}, UI.saved, { bounce: false, expand: false }) : null); UI.saved = null;
+        }
+        return;
+      }
       UI.chip.innerHTML = html; UI.chip.classList.toggle('hidden', !html); UI.chip.classList.toggle('end', !!(battle && battle.ended));
     }
     const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; };

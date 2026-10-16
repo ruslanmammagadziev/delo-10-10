@@ -1016,7 +1016,7 @@ body.sheet-on .town-dot, body.sheet-on .town-bark { display: none !important; }
   display: flex; flex-direction: column; gap: 3px; z-index: 2; animation: hudCardIn .3s cubic-bezier(.2,1.3,.4,1) both;
 }
 #hud .hud-card.hidden { display: none !important; }
-@keyframes hudCardIn { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes hudCardIn { from { transform: translateY(-6px) scale(.98); } }
 /* лист меню ☰ */
 .hud-menu .sheet-head { align-items: flex-start; }
 .hud-mhead { flex: 1; min-width: 0; }

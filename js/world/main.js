@@ -818,9 +818,12 @@
     /* ---------- ввод ---------- */
     const keys = {};
     const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', KeyQ: 'q', KeyE: 'e' };
+    // HUD v2: джойстик снизу по центру (HUD.joystick, ui.joyCtl) — зона касания: нижняя половина левее дуги кнопок; круг встаёт
+    // под палец (зажат: радар, дуга, низ), отпустила — уезжает на место. Выше середины и справа — камера; короткий тап — «идти туда».
     const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0, used: false };
     const looks = new Map(); let pinch0 = null;
-    const isUI = el => !!(el && el.closest && el.closest('button, .w-case, .stats, .modal, .w-dnbox'));
+    const isUI = el => !!(el && el.closest && el.closest('button, .w-case, .stats, .modal, .wmm-wrap, [data-hud-slot]:not(.hud-joy)'));
+    const joyZone = (x, y, r) => (window.HUD ? HUD.joyZone(x, y, r.width, r.height) : x < r.width * 0.5);
     const canInput = () => s.active && !s.finished && !s.busy && !blocked() && !s.anim;
     const onKeyDown = e => {
       if (s.finished || blocked()) return;
@@ -832,14 +835,16 @@
       if (e.code === 'KeyH') { if (s.mode === 'drive') doHorn(); else if (s.mode === 'ride') { if (w.bike) w.bike.ring(); } else doWave(); }
     };
     const onKeyUp = e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && w.mv) w.mv.holdRun(false); };
-    const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joy.id = null; ui.show(ui.joy, false); if (w.mv) w.mv.holdRun(false); };
+    const joyEnd = () => { joy.id = null; joy.x = joy.y = 0; if (ui.joyCtl) ui.joyCtl.end(); };
+    const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joyEnd(); if (w.mv) w.mv.holdRun(false); };
     const onDown = e => {
       if (isUI(e.target) || s.finished || s.benching) return;
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-      if (x < r.width * 0.5 && joy.id === null && e.pointerType !== 'mouse') {
-        joy.id = e.pointerId; joy.cx = clamp(x, 70, r.width * 0.5 - 60); joy.cy = clamp(y, 80, r.height - 60); joy.x = joy.y = 0;   // волна 5: круг не заходит на «Бег» справа
+      if (joyZone(x, y, r) && joy.id === null && e.pointerType !== 'mouse') {
+        joy.id = e.pointerId; joy.x = joy.y = 0;
         joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
-        if (canInput()) { ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; ui.show(ui.joy, true); ui.show(ui.ghost, false); ui.knob.style.transform = ''; }
+        if (canInput() && ui.joyCtl) { const c = ui.joyCtl.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; joy.x = ui.joyCtl.x; joy.y = ui.joyCtl.y; ui.joyCtl.show(true); }
+        else { joy.cx = x; joy.cy = y; }
       } else {
         looks.set(e.pointerId, { x, y, x0: x, y0: y, t0: performance.now(), moved: 0 });
         if (looks.size === 2) { const [a, b] = [...looks.values()]; pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: s.dist }; }
@@ -850,11 +855,7 @@
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        let dx = x - joy.cx, dy = y - joy.cy; const d = Math.hypot(dx, dy), R0 = 46;
-        if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
-        ui.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        joy.x = d < 8 ? 0 : dx / R0; joy.y = d < 8 ? 0 : dy / R0;
-        if (d >= 8 && s.moveTo && !s.moveTo.script) s.moveTo = null;
+        if (ui.joyCtl && ui.joyCtl.active) { const v = ui.joyCtl.drag(x, y); joy.x = v.x; joy.y = v.y; if (v.m > 0 && s.moveTo && !s.moveTo.script) s.moveTo = null; }
         return;
       }
       const p = looks.get(e.pointerId); if (!p) return;
@@ -864,7 +865,7 @@
     };
     const onUp = e => {
       if (e.pointerId === joy.id) {
-        joy.id = null; joy.x = joy.y = 0; ui.show(ui.joy, false);
+        joyEnd();
         if (e.type === 'pointerup' && joy.moved < 10 && performance.now() - joy.t0 < 320) onTap(joy.x0, joy.y0);
         return;
       }
@@ -874,27 +875,25 @@
     };
     const onWheel = e => { s.dist = clamp(s.dist + e.deltaY * 0.01, 6, 15); s.manualT = 4; e.preventDefault(); };
     const onCtx = e => e.preventDefault();
-    const onAct = e => { e.stopPropagation(); doAction(); };
-    const onWaveBtn = e => { e.stopPropagation(); doWave(); };
-    const onCase = e => { e.stopPropagation(); const card = s.card; if (!card || card.tap === 'none') return; const d = card.door ? doors.get(card.door) : tgtDoor; if (d) focusDoor(d.id, 1300); haptic('light'); };
+    // главная кнопка P: действие рядом; без действия — «👋 Помахать» (бывшая отдельная кнопка)
+    const onAct = e => { e.stopPropagation(); if (s.actWave) doWave(); else doAction(); };
+    // тап по раскрытой карточке дела — камера показывает дверь цели (как раньше тап по карточке)
+    const onCase = () => { const card = s.card; if (!card || card.tap === 'none' || s.finished) return; const d = card.door ? doors.get(card.door) : tgtDoor; if (d) focusDoor(d.id, 1300); haptic('light'); };
     const onHorn = e => { e.stopPropagation(); doHorn(); };
     const onBell = e => { e.stopPropagation(); if (s.mode === 'ride' && w.bike) w.bike.ring(); };
-    const onColor = e => { e.stopPropagation(); w.carColor = (w.carColor + 1) % WORLD.CAR_COLORS.length; car.setColor(WORLD.CAR_COLORS[w.carColor][1]); toast('Цвет: ' + WORLD.CAR_COLORS[w.carColor][0], 1400); };
+    const onColor = e => { e.stopPropagation(); w.carColor = (w.carColor + 1) % WORLD.CAR_COLORS.length; car.setColor(WORLD.CAR_COLORS[w.carColor][1]); toast('Цвет: ' + WORLD.CAR_COLORS[w.carColor][0], 1400, { replace: true }); };
     const onReset = e => { e.stopPropagation(); car.reset(L.loopPath); ui.show(ui.reset, false); };
     const onSwap = e => { e.stopPropagation(); haptic('light'); pickCar(); };
-    const onDnText = e => { e.stopPropagation(); dnToggle(); };
-    const onDnIcon = e => { e.stopPropagation(); dnIconTap(); };
     const onResize = () => { if (w.root.isConnected) resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844); };
     function bindInput(on) {
       const f = on ? 'addEventListener' : 'removeEventListener';
       window[f]('keydown', onKeyDown); window[f]('keyup', onKeyUp); window[f]('blur', onBlur); window[f]('resize', onResize);
       w.root[f]('pointerdown', onDown); w.root[f]('pointermove', onMove); w.root[f]('pointerup', onUp); w.root[f]('pointercancel', onUp);
       w.root[f]('wheel', onWheel, { passive: false }); w.root[f]('contextmenu', onCtx);
-      ui.act[f]('click', onAct); ui.wave[f]('click', onWaveBtn); ui.card[f]('click', onCase);
+      ui.act[f]('click', onAct); ui.onCaseTap = on ? onCase : null;
       ui.horn[f]('click', onHorn); ui.color[f]('click', onColor); ui.reset[f]('click', onReset);
       if (ui.bell) ui.bell[f]('click', onBell);
       if (ui.swap) ui.swap[f]('click', onSwap);
-      if (ui.dnText) { ui.dnText[f]('click', onDnText); ui.dnIcon[f]('click', onDnIcon); }
       if (!on) onBlur();
     }
 
@@ -1056,8 +1055,10 @@
       w.root.dataset.idx = LI;
       w.root.style.background = SKY3D[s.lookI !== undefined ? s.lookI : LI];
       if (g) {
-        if (FREE) g.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню' });
-        else g.setHud({ label: o.hudLabel });
+        if (FREE) g.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню', exitPlace: 'menu', menuSub: FO.menuSub });
+        else g.setHud({ label: o.hudLabel, menuSub: o.menuSub });
+        menuItems();
+        ui.setCase(s.card); s.distDirty = true;
         try { g.tgHeader && g.tgHeader('#FFF4EC'); } catch (e) { /* ignore */ }
       }
       resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844);
@@ -1114,7 +1115,30 @@
       if (!story || !tgtDoor) return null;
       return { title: 'Сегодняшнее дело', text: o.hudLabel ? String(o.hudLabel).replace(/^[^\wА-Яа-яЁё«]+/, '') : tgtDoor.label, door: tgtDoor.id, progress: typeof o.idx === 'number' ? [o.idx, 4] : null, tap: 'focus', icon: '🔍' };
     }
-    function setHud(card) { s.card = card || null; ui.setCase(s.card); s.distDirty = true; }
+    // карточка дела → пилюля цели (короткое имя — у двери цели: «🔍 Бюро · 25 м»), полный текст — в карточке по тапу
+    function setHud(card) {
+      s.card = card || null;
+      if (s.card && !s.card.short && !s.card.lock) {
+        const d = s.card.door ? doors.get(s.card.door) : null;
+        let sh = (d && d.short) || (s.card.door && tgtDoor && s.card.door === tgtDoor.id && o.arrowText) || '';
+        if (sh) { sh = String(sh).charAt(0).toUpperCase() + String(sh).slice(1); s.card = Object.assign({}, s.card, { short: sh }); }
+      }
+      ui.setCase(s.card); s.distDirty = true;
+    }
+    // строки меню ☰ от города: карта, время суток, мини-карта (видны, пока идёт эта прогулка)
+    function menuItems() {
+      const HUD = window.HUD; if (!HUD) return;
+      const mine = () => S === s && !s.finished && !s.paused && !s.inTrip;
+      if (w.minimap) {
+        HUD.menu.add({ id: 'map', icon: '🗺', label: 'Карта', order: 10, tint: 'mint', when: () => mine() && !!w.minimap, onTap: () => { if (mine() && w.minimap && w.minimap.open) w.minimap.open(); } });
+        HUD.menu.add({ id: 'radar', icon: '🧭', order: 70, tint: 'sky', when: () => mine() && !!w.minimap,
+          label: () => (w.minimap && w.minimap.isCollapsed && w.minimap.isCollapsed() ? 'Мини-карта: показать' : 'Мини-карта: спрятать'),
+          onTap: () => { if (w.minimap && w.minimap.collapse) w.minimap.collapse(!(w.minimap.isCollapsed && w.minimap.isCollapsed())); }, keepOpen: true });
+      }
+      if (w.dn && window.DayNight && DayNight.menuItem) {
+        HUD.menu.add(Object.assign(DayNight.menuItem({ onSet: (to, line) => { haptic('light'); toast(line, 2400, { replace: true }); s.dnDirty = true; } }), { id: 'dn', order: 40, when: () => mine() && !!w.dn }));
+      }
+    }
     function focusDoor(id, ms = 1200) {
       const d = doors.get(id); if (!d) return Promise.resolve();
       const yawOut = Math.atan2(d.nx, d.nz);
@@ -1465,8 +1489,9 @@
       if (w.minimap) { try { w.minimap.close(true); } catch (e) { /* ignore */ } }
       loopStop(); bindInput(false);
       ui.sayClear(); ui.setAct(null); ui.setCase(null); ui.setEdge(false); ui.setTag(false); ui.setNear(false); ui.hintOff();
-      [ui.wave, ui.horn, ui.bell, ui.color, ui.reset, ui.ghost, ui.swap].forEach(el => ui.show(el, false));
-      ui.setDayNight(false);
+      [ui.horn, ui.bell, ui.color, ui.reset, ui.swap].forEach(el => ui.show(el, false));
+      if (ui.joyCtl) { ui.joyCtl.end(); ui.joyCtl.show(false); }
+      s.actWave = false; ui.setDayNight(false);
       w5Off(); if (w.mv) w.mv.setRun(false);
       if (IA) { try { IA.cancel(); } catch (e) { /* ignore */ } }
       w.root.classList.remove('busy');
@@ -1886,7 +1911,7 @@
       const p = cam.position, D = s.overview ? 999 : w.Q.detail;
       w.DETAIL.forEach(m => { const b = m.geometry.boundingBox, dx = Math.max(b.min.x - p.x, 0, p.x - b.max.x), dz = Math.max(b.min.z - p.z, 0, p.z - b.max.z); m.visible = Math.hypot(dx, dz) < D; });
     }
-    /* ---------- день и ночь (волна 4): чип ☀️/🌙 и «Вернуться в утро» / «Как на часах», фары, шапка Telegram ---------- */
+    /* ---------- день и ночь (волна 4): строка меню ☰ (HUD v2) «Сейчас вечер · 21:40» + «Вернуться в утро» / «Как на часах», фары, шапка Telegram ---------- */
     const DN_ICON = { morning: '🌄', day: '☀️', golden: '🌅', evening: '🌆', night: '🌙' };
     function dnTick() {
       s.dnDirty = false;
@@ -1900,9 +1925,12 @@
         try { const g = G_(); if (g && g.tgHeader) g.tgHeader(lamps ? '#1E2A5E' : '#FFF4EC'); } catch (e) { /* ignore */ }
         if (s.mode === 'drive') carLights(w, w.cars[w.carKind], true);
       }
-      // первая ночь за сессию игры — подсказка (без имени, не озвучивается)
-      if (lamps && dark && s.active && !blocked() && !WORLD._nightHinted) { WORLD._nightHinted = true; toast(D.LINES.nightHint, 4200); }
-      hudLayout();
+      // первая ночь за сессию игры — подсказка (без имени, не озвучивается) и точка на ☰ (там «Вернуться в утро»)
+      if (lamps && dark && s.active && !blocked() && !WORLD._nightHinted) {
+        WORLD._nightHinted = true; toast(D.LINES.nightHint, 4200);
+        if (window.HUD && text) HUD.menu.news('dn', true);
+      }
+      if (window.HUD && HUD.menu.isOpen()) HUD.menu.redraw();
     }
     function dnToggle() {
       const D = window.DayNight; if (!D) return;
@@ -1911,13 +1939,7 @@
       toast(to ? D.LINES.toMorning : D.LINES.toClock, 2400);
       s.dnDirty = true;
     }
-    function dnIconTap() {
-      const D = window.DayNight; if (!D) return;
-      if (!ui.dnText.classList.contains('hidden')) { dnToggle(); return; }
-      haptic('light');
-      toast(`Сейчас ${D.PHASE_RU[D.phase()] || 'день'} · ${D.label(D.hour())}`, 1800);
-    }
-    // где радар (мини-карта) и чип: радар справа сверху (волна 3) — чип под ним; радар слева снизу (GTA, волна 4) — чип под кнопками шапки
+    // радар (мини-карта) в углу: прямоугольник для проверок (тесты, старые вызовы)
     let hudR = { t: -1, mm: null };
     function hudRects() {
       const now = performance.now(); if (now - hudR.t < 1000) return hudR;
@@ -1927,42 +1949,6 @@
         if (el && el.isConnected) { const r = el.getBoundingClientRect(), rr = w.root.getBoundingClientRect(); if (r.width > 4 && r.height > 4) hudR.mm = { x0: r.left - rr.left, y0: r.top - rr.top, x1: r.right - rr.left, y1: r.bottom - rr.top }; }
       } catch (e) { /* без радара */ }
       return hudR;
-    }
-    // тост движка встаёт под карточку дела — ровно туда, где чип под радаром: пока тост виден, чип уступает и съезжает под него
-    function hudLayout() {
-      const mr = hudRects().mm, Wd = w.root.clientWidth || 390, trR = !!(mr && mr.y0 < 200 && mr.x1 > Wd - 150);
-      // по умолчанию (CSS) чип стоит под радаром волны 3 — пока радар не найден, кнопку сворачивания он не закрывает;
-      // радар в другом углу (GTA, слева снизу) — чип поднимается под кнопки шапки (.hdr)
-      let top = trR ? mr.y1 + 10 : null;
-      if (mr) ui.dnBox.classList.toggle('hdr', !trR);
-      // радар слева снизу: чип и «☀️ Вернуться в утро» — справа под шапкой, в одной полосе с карточкой дела слева;
-      // на 390 px карточка (до 250 px) и кнопка (≈150 px) наезжают друг на друга — тогда чип встаёт под карточку
-      if (top == null && mr && !trR && !ui.dnBox.classList.contains('hidden')) {
-        try {
-          const c = w.root.querySelector('.w-case');
-          if (c && c.offsetParent !== null && !c.classList.contains('hidden')) {
-            const rr = w.root.getBoundingClientRect(), cr = c.getBoundingClientRect(), br = ui.dnBox.getBoundingClientRect();
-            if (cr.height > 4 && cr.right > br.left - 6) top = cr.bottom - rr.top + 8;
-          }
-        } catch (e) { /* без карточки */ }
-      }
-      if (!ui.dnBox.classList.contains('hidden')) {
-        try {
-          const t = document.querySelector('.toast:not(.out)');
-          if (t) {
-            const rr = w.root.getBoundingClientRect(), tr = t.getBoundingClientRect(), br = ui.dnBox.getBoundingClientRect();
-            // обычное место чипа: под радаром (top) или по CSS — его запоминаем, пока чип не сдвинут
-            if (top == null && !ui.dnBox.dataset.dodge) ui.dnBox.dataset.base = String(br.top - rr.top);
-            const base = top != null ? top : +(ui.dnBox.dataset.base || 62);
-            // по вертикали — место тоста без анимации появления (offsetTop/offsetHeight не видят transform: scale и сдвиг)
-            const op = t.offsetParent || t.parentElement, opT = op ? op.getBoundingClientRect().top : tr.top - t.offsetTop;
-            const ty0 = opT + t.offsetTop - rr.top, ty1 = ty0 + t.offsetHeight, tx0 = tr.left - rr.left, tx1 = tr.right - rr.left;
-            if (ty1 > base - 4 && ty0 < base + 44 && tx1 > br.left - rr.left - 4 && tx0 < br.right - rr.left + 4) { ui.placeDayNight(ty1 + 8); ui.dnBox.dataset.dodge = '1'; return; }
-          }
-        } catch (e) { /* ниже — обычное место */ }
-      }
-      delete ui.dnBox.dataset.dodge;
-      ui.placeDayNight(top);
     }
 
     // интерфейс: кнопка действия, подпись у двери, карточка дела, стрелка у края, ярлык метки
@@ -1996,7 +1982,12 @@
           }
         }
       }
-      ui.setAct(lbl, soft); s.actLbl = lbl;
+      // HUD v2: без действия рядом P — «👋 Помахать» (пока идёт пешком); s.actLbl — только настоящее действие (пробел — прыжок)
+      s.actLbl = lbl;
+      s.actWave = !lbl && !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting;
+      if (s.actWave) { lbl = 'Помахать'; soft = true; }
+      ui.setAct(lbl, soft);
+      if (ui.joyCtl) ui.joyCtl.show(!busy && !blk && !s.anim && !s.benching && !(s.sitting && !s.sitting.car) && (s.mode === 'walk' || s.mode === 'ride' || (s.mode === 'drive' && (!w.carCtl || w.carCtl.mode === 'drive'))));
       // волна 5: «Бег»/«Прыжок» и «Бум!» — только пешком, вне диалогов, мест, лавок и посадки (в машине и на велосипеде — нет)
       { const walkFree = !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting && !s.pickBusy;
         if (w.mvUi) w.mvUi.setVisible(walkFree);
@@ -2006,10 +1997,7 @@
       ui.show(ui.horn, drv); ui.show(ui.color, drv && car.kind !== 'sedan');   // седан — красный: перекрашивать не даём
       ui.show(ui.swap, !busy && !blk && !s.anim && s.mode === 'walk' && !s.sitting && !iaBusy() && !nearGarage() && nearCar() && canPickCar() && carAtHome());
       if (w.dn && (uiF % 15 === 0 || s.dnDirty)) dnTick();
-      else if (w.dn && uiF % 4 === 0) hudLayout();
       ui.show(ui.bell, s.mode === 'ride' && !busy && !blk && !!w.bike && !w.bike.busy);
-      ui.show(ui.wave, !busy && !blk && s.mode === 'walk');
-      ui.show(ui.card, !!s.card && !s.busy && !s.finished);
       // карточка: расстояние; стрелка у края и ярлык — у главной метки
       const mm = w.markers.main();
       const cardDoor = s.card && s.card.door ? doors.get(s.card.door) : null;
@@ -2019,16 +2007,15 @@
         const name = mm.spec.label || mm.door.short || '';
         if (p.on) { ui.setEdge(false); ui.setTag(dm > 6, p.x, p.y - 26, name); }
         else {
+          // HUD v2: шеврон только у левого/правого края и только в верхней половине (не встречается с кластером, джойстиком, тостом)
           ui.setTag(false);
           let vx = p.x - Wd / 2, vy = p.y - Ht / 2; if (p.behind) { vx = -vx; vy = -vy; if (Math.abs(vy) < 1) vy = 1; }
-          const k = Math.min((Wd / 2 - 70) / Math.max(1e-3, Math.abs(vx)), (Ht / 2 - 110) / Math.max(1e-3, Math.abs(vy)));
-          const ex = Wd / 2 + vx * k, ey = Ht / 2 + vy * k;
-          const side = Math.abs(ex - Wd / 2) > Wd / 2 - 75 ? (ex < Wd / 2 ? 'l' : 'r') : (ey < Ht / 2 ? 't' : 'b');
-          let ey2 = clamp(ey, 120, Ht - 150);
-          if (ex > Wd - 150 && ey2 > Ht - 450) ey2 = Ht - 450;   // волна 5: стрелка справа — над столбиком кнопок (действие, 👋, «Прыжок»/«Бег», «Бум!», «Листья»)
-          const mr = hudRects().mm;   // радар (мини-карта): стрелка не ложится на него, где бы он ни стоял
-          if (mr && ex > mr.x0 - 80 && ex < mr.x1 + 80 && ey2 > mr.y0 - 26 && ey2 < mr.y1 + 26) ey2 = mr.y0 > Ht / 2 ? mr.y0 - 28 : mr.y1 + 28;
-          ui.setEdge(true, ex, ey2, side, Math.atan2(vy, vx) * 180 / PI, `${name} · ${dm} м`);
+          const side = vx < 0 ? 'l' : 'r';
+          const ey = Ht / 2 + vy * Math.min(1e4, (Wd / 2 - 26) / Math.max(1e-3, Math.abs(vx)));
+          const sx = window.HUD ? HUD.metrics(Wd, Ht) : null;
+          const ex = side === 'l' ? 26 + (sx ? sx.safe.l : 0) : Wd - 26 - (sx ? sx.safe.r : 0);
+          const ey2 = window.HUD ? HUD.chevY(ey, Ht) : clamp(ey, 120, Ht / 2 - 60);
+          ui.setEdge(true, ex, ey2, side, Math.atan2(vy, vx) * 180 / PI, `${name} · ${dm} м`, dm);
         }
       } else { ui.setEdge(false); ui.setTag(false); }
       ui.placeSay(projObj, Wd, Ht);
@@ -2111,19 +2098,10 @@
       host();
       w.root.classList.add('busy');
       bindInput(true); loopStart();
-      // чип дня и ночи уступает тосту сразу, а не по счётчику кадров (на слабом телефоне 4 кадра — это секунда-две)
-      try {
-        const app = G_() && G_().app;
-        if (app && window.MutationObserver && w.dn) {
-          s.toastObs = new MutationObserver(() => { if (S !== s) return; hudLayout(); setTimeout(() => { if (S === s) hudLayout(); }, 400); });
-          s.toastObs.observe(app, { childList: true });
-        }
-      } catch (e) { /* без наблюдателя — по кадрам */ }
       if (w.life) {
         if (w.life.companion) { w.life.companion.noMeet = w.life.companion.noOffer = !compLock.ok; }
         try { w.life.session(lifeCtx()); } catch (e) { console.warn('world life session', e); }
       }
-      if (matchMedia && matchMedia('(pointer: coarse)').matches) ui.show(ui.ghost, false);
       emit('world:walk', { mode: FREE ? 'free' : 'story', target: o.target || null });
       // раскрытый дом вливается цветом, город теплеет (как улица)
       if (story && o.justLit) {
@@ -2139,8 +2117,7 @@
       }
       if (s.finished) return;
       s.active = true; w.root.classList.remove('busy');
-      if (matchMedia && matchMedia('(pointer: coarse)').matches) ui.show(ui.ghost, true);
-      if (o.showHint) ui.hintShow(matchMedia('(pointer: coarse)').matches ? 'Палец слева — идти · тап по двери — войти' : 'WASD — идти · Enter — войти · Q/E — камера', 5000);
+      if (o.showHint) ui.hintShow(matchMedia('(pointer: coarse)').matches ? 'Кружок внизу — идти · тап по двери — войти' : 'WASD — идти · Enter — действие · Q/E — камера', 4000);
     };
     s.api = api;
     s.dbg = { regionTrip, onEdge, rideOn, nearBike, doorState, tryDoor, goDoor, useSpot, spots, pickups, greet, doWave, enterCar, exitCar, doHorn, collect, setLit, focusDoor, placeAt, setHud, speak, lifeCtx, get bikeMode() { return bikeMode; }, get vehicles() { return vehicles; },

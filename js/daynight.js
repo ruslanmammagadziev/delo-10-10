@@ -745,7 +745,7 @@ void main() {
 
   /* ---------- кнопка «Вернуться в утро» / «Как на часах» (для интерфейса игры) ---------- */
   const LINES = {
-    nightHint: 'Стемнело — зажглись фонарики. Можно «Вернуться в утро».',
+    nightHint: 'Стемнело — зажглись фонарики. Утро — в меню ☰',
     toMorning: 'Доброе утро! Солнышко снова встало.',
     toClock: 'Теперь время — как на часах.',
   };
@@ -775,8 +775,31 @@ void main() {
     return { el: b, refresh, destroy() { clearInterval(iv); off(cb); if (b.parentNode) b.parentNode.removeChild(b); } };
   }
 
+  // HUD v2: строка меню ☰ «Время суток» вместо кнопки на экране (mountToggle остаётся для стендов).
+  // → объект для HUD.menu.add: значок фазы, «Вернуться в утро» / «Как на часах» (когда уместно), подпись «Сейчас вечер · 21:40».
+  // o = { onSet(to, line) — после переключения (по умолчанию — тост G.toast), always — кнопка и днём }
+  const PH_ICON = { morning: '🌄', day: '☀️', golden: '🌅', evening: '🌆', night: '🌙' };
+  function menuItem(o) {
+    o = o || {};
+    const can = () => o.always || OVR !== null || ['night', 'evening', 'golden'].indexOf(phaseAt(clockHour())) >= 0;
+    const now = () => `Сейчас ${PHASE_RU[phaseAt(effHour())] || 'день'} · ${label(effHour())}`;
+    return {
+      id: 'dn', order: 40, tint: 'sun', keepOpen: true,
+      icon: () => PH_ICON[phaseAt(effHour())] || '☀️',
+      label: () => (!can() ? 'Время суток' : OVR !== null ? (o.clockText || 'Как на часах') : (o.morningText || 'Вернуться в утро')),
+      sub: now,
+      onTap: () => {
+        if (!can()) { try { if (window.G) G.toast(now(), 1800, { replace: true }); } catch (e) { /* ignore */ } return; }
+        const to = OVR !== null ? null : 'morning';
+        setGlobal(to);
+        const line = to ? LINES.toMorning : LINES.toClock;
+        if (o.onSet) { try { o.onSet(to, line); } catch (er) { /* ignore */ } } else { try { if (window.G) G.toast(line, 2400); } catch (e) { /* ignore */ } }
+      },
+    };
+  }
+
   window.DayNight = {
-    __v: 1, create, phaseAt, label, clockHour, PHASES, PHASE_RU, PHASE_HOUR, PRESETS, LINES, mountToggle,
+    __v: 1, create, phaseAt, label, clockHour, PHASES, PHASE_RU, PHASE_HOUR, PRESETS, LINES, mountToggle, menuItem,
     hour: effHour, phase: () => phaseAt(effHour()),
     set: (ov, o) => setGlobal(ov, o), override: () => OVR,
     onChange: cb => { GL.add(cb); return () => GL.delete(cb); },

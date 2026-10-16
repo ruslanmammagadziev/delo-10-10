@@ -279,8 +279,9 @@
     state.sound = !state.sound; save(); haptic('select');
     if (btn) btn.textContent = soundIcon();
     const hb = $('#hudSound'); if (hb) hb.textContent = soundIcon();
+    if (window.HUD && HUD.topBar) HUD.topBar.refreshSound();
     if (state.sound) { audio(); sfx('ok'); if (window.Voice) Voice.warm(); } else if (window.Voice) Voice.stop(0.05);
-    toast(state.sound ? 'Звук включён (на iPhone — если не стоит беззвучный режим). Долгое нажатие на 🔊 — голоса' : 'Звук выключен', 2000);
+    toast(state.sound ? 'Звук включён (на iPhone — если не стоит беззвучный режим)' + (voicesOff() ? '' : '. Долгое нажатие на 🔊 — голоса') : 'Звук выключен', 2000, { replace: true });
   }
   // кнопка звука: тап — вкл/выкл, долгое нажатие — настройки (звук, голоса)
   function bindSoundBtn(btn) {
@@ -553,19 +554,26 @@
   }
 
   /* ---------- Тосты, «подозрительность», частицы ---------- */
-  // Тост. По умолчанию новый заменяет старый (как в серии 1). С { queue: true } — очередь:
-  // текущий тост держится не меньше 1,4 с, ждут не больше двух, новый никогда не стирает текущий.
+  // HUD v2 (plan2/hud_spec.md §3.3): один тост за раз, по центру под верхней полосой (место — CSS, токен --hud-bar-b).
+  // По умолчанию — очередь: текущий держится не меньше 1,4 с, ждут не больше трёх (лишний старый выпадает), новый никогда
+  // не стирает текущий. { replace: true } — заменить сразу («Звук выключен» и т. п.). { kind: 'place' | 'sticker' | 'sus' } —
+  // вид: название места при въезде (вторая строка текста — подпись), наклейка, шкала «Подозрительность».
+  // Время: 1,2 с + 40 мс на знак, от 2,5 до 3,5 с (длинный текст — до 4,5 с).
   const TQ = []; let tCur = null;
+  function toastMs(text, ms) {
+    const n = String(text).length, cap = n > 64 ? 4500 : 3500;
+    return Math.max(2500, Math.min(cap, Math.max(ms || 0, 1200 + 40 * n)));
+  }
   function toastShow(item) {
-    const t = document.createElement('div'); t.className = 'toast'; t.textContent = item.text;
-    // карточка «Сегодняшнее дело» (город / улица) сверху слева — тост встаёт под неё, а не поверх
-    try {
-      const c = app.querySelector('.screen:not(.out) .w-case:not(.hidden)');
-      const r = c && c.getBoundingClientRect(), a = app.getBoundingClientRect();
-      if (r && r.height > 20 && r.bottom > a.top) t.style.top = Math.round(r.bottom - a.top + 10) + 'px';
-    } catch (e) { /* без карточки — как обычно */ }
+    const t = document.createElement('div'); t.className = 'toast' + (item.kind ? ' ' + item.kind : '');
+    t.setAttribute('role', 'status');
+    if (item.kind === 'place') {
+      const [ttl, sub] = String(item.text).split('\n');
+      t.textContent = ttl;
+      if (sub || item.sub) { const sp = document.createElement('span'); sp.className = 'sub'; sp.textContent = sub || item.sub; t.appendChild(sp); }
+    } else if (item.html) t.innerHTML = item.html; else t.textContent = item.text;
     app.appendChild(t);
-    const cur = { el: t, at: Date.now(), ms: item.ms, timer: 0, queued: !!item.queue };
+    const cur = { el: t, at: Date.now(), ms: item.ms, timer: 0 };
     tCur = cur;
     const end = () => {
       if (tCur === cur) tCur = null;
@@ -577,32 +585,29 @@
     if (item.onShow) { try { item.onShow(); } catch (e) { /* ignore */ } }
   }
   function toast(text, ms = 2600, o = {}) {
-    // длинный текст держится не меньше, чем нужно, чтобы его прочитать (≈45 мс на знак, до 4,2 с)
-    ms = Math.max(ms, Math.min(4200, 1200 + 45 * String(text).length));
-    if (!o.queue) {
+    if (text == null || text === '') return;
+    ms = toastMs(text, ms);
+    const item = { text, ms, kind: o.kind || '', sub: o.sub || '', html: o.html || '', onShow: o.onShow };
+    if (o.replace || o.queue === false) {
       if (tCur) { clearTimeout(tCur.timer); tCur = null; }
+      TQ.length = 0;
       app.querySelectorAll('.toast').forEach(t => t.remove());
-      toastShow({ text, ms, onShow: o.onShow });
+      toastShow(item);
       return;
     }
-    const item = { text, ms, queue: true, onShow: o.onShow };
     if (!tCur) { toastShow(item); return; }
-    if (TQ.length >= 2) TQ.shift();
+    // тот же текст уже на экране или в очереди — не повторять
+    if (tCur.el.textContent === String(text) || TQ.some(q => q.text === text)) return;
+    if (TQ.length >= 3) TQ.shift();
     TQ.push(item);
     // кто-то ждёт — текущий уступает, но не раньше чем через 1,4 с после появления
     const c = tCur; clearTimeout(c.timer);
     c.timer = setTimeout(c.end, Math.max(0, Math.min(c.ms, 1400) - (Date.now() - c.at)));
   }
-  let susEl = null, susTimer = null;
+  // шкала серии 1 — строкой тоста (тем же местом под полосой)
   function suspicion(pct, caption) {
     if (C.ENABLE_SUSPICION_METER === false) return;
-    if (susEl) susEl.remove();
-    clearTimeout(susTimer);
-    susEl = document.createElement('div'); susEl.className = 'sus';
-    susEl.innerHTML = `Подозрительность: <b>${pct}%</b>. ${esc(caption)}`;
-    app.appendChild(susEl);
-    const el = susEl;
-    susTimer = setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 420); }, 3400);
+    toast(`Подозрительность: ${pct}%. ${caption}`, 3400, { kind: 'sus', html: `Подозрительность: <b>${esc(String(pct))}%</b>. ${esc(caption)}` });
   }
   const SPARK = {
     star: c => `<svg viewBox="0 0 20 20"><path d="M10,0 L12.5,7.5 L20,10 L12.5,12.5 L10,20 L7.5,12.5 L0,10 L7.5,7.5 Z" fill="${c}"/></svg>`,
@@ -664,32 +669,42 @@
   const SEASON_SLOTS = ['film', 'scroll', 'desserts', 'note', 'secret', 'pockets']
     .concat(C.EPISODES.filter(e => e.n > 1).flatMap(e => [`${e.n}a`, `${e.n}b`]));
 
-  // opts: { label, onExit, exitText = '← на улицу', top (по умолчанию — когда есть выход), hidden }
+  // opts: { label, onExit, exitText = '← на улицу', top, hidden } и HUD v2: exitPlace ('menu' | 'bar'; по умолчанию «на улицу» —
+  // 🚪 в правом слоте полосы, остальное — строкой меню ☰), menuSub (строка под заголовком меню), status, menu: [строки]
+  // Полосу рисует js/world/hud.js (HUD.topBar): ☰ · цель · один значок. Без модуля — та же полоса попроще: ☰ (блокнот) · выход/звук.
   function setHud(opts = {}) {
-    if (opts.hidden) { hud.classList.add('hidden'); hud.classList.remove('hud-top'); return; }
+    if (opts.hidden) {
+      hud.classList.add('hidden'); hud.classList.remove('hud-top');
+      if (window.HUD && HUD.objective) HUD.objective.set(null);
+      return;
+    }
     hud.classList.remove('hidden');
-    // с кнопкой выхода HUD — над слоем диалогов и окон: выйти можно всегда
+    if (window.HUD && HUD.topBar) {
+      if (window.HUD.objective && !('objective' in opts)) HUD.objective.set(null);
+      HUD.topBar.render(hud, opts);
+      if ('objective' in opts && HUD.objective) HUD.objective.set(opts.objective);
+      return;
+    }
+    hud.classList.add('hud2');
     hud.classList.toggle('hud-top', opts.top !== undefined ? !!opts.top : !!opts.onExit);
-    hud.innerHTML = `
-      ${opts.onExit ? `<div class="hud-left"><button class="hud-pill hud-exit" id="hudExit">${esc(opts.exitText || '← на улицу')}</button>${opts.label ? `<div class="hud-pill hud-chip">${esc(opts.label)}</div>` : ''}</div>` : `<div class="hud-pill">🕵️‍♀️ ${esc(opts.label || 'Серия 1')}</div>`}
-      <div class="hud-right">
-        <button class="hud-btn" id="hudSound" aria-label="Звук">${soundIcon()}</button>
-        <button class="hud-btn" id="hudNb" aria-label="Блокнот">📒${nbCount() ? `<span class="badge">${nbCount()}</span>` : ''}</button>
-      </div>`;
-    bindSoundBtn($('#hudSound'));
+    hud.innerHTML = `<button class="hud-ib" id="hudMenu" type="button" aria-label="Блокнот">📒</button><div class="hud-sp"></div><div id="hudStatus">${opts.onExit
+      ? `<button class="hud-ib exit" id="hudExit" type="button" aria-label="${esc(String(opts.exitText || '← на улицу').replace(/^[←\s]+/, ''))}">🚪</button>`
+      : `<button class="hud-ib" id="hudSound" type="button" aria-label="Звук">${soundIcon()}</button>`}</div>`;
     if (opts.onExit) $('#hudExit').addEventListener('click', () => { haptic('light'); opts.onExit(); });
-    $('#hudNb').addEventListener('click', () => { haptic('light'); notebook(); });
+    else bindSoundBtn($('#hudSound'));
+    $('#hudMenu').addEventListener('click', () => { haptic('light'); notebook(); });
   }
   const nbCount = () => {
     let n = state.stickers.length + (Array.isArray(state.finds) ? state.finds.length : 0);
     try { if (window.G && window.G.nbExtraCount) n += Math.max(0, window.G.nbExtraCount() || 0); } catch (e) { /* ignore */ }
     return n;
   };
+  // новое в блокноте: точка на ☰ (строка «Блокнот» в меню — со счётчиком); quiet — только счётчик, без точки
   function bumpNb(quiet) {
-    const b = $('#hudNb'); if (!b) return;
-    const n = nbCount();
-    b.innerHTML = `📒${n ? `<span class="badge">${n}</span>` : ''}`;
+    if (window.HUD && HUD.menu) HUD.menu.redraw();
+    const b = $('#hudMenu'); if (!b) return;
     if (quiet) return;
+    if (window.HUD && HUD.menu) HUD.menu.news('nb', true);
     b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump');
   }
   function stickerModal(id, caption, had) {
@@ -711,7 +726,7 @@
       m.querySelector('.btn').addEventListener('click', () => {
         if (closed) return; closed = true;
         haptic('light');
-        const stEl = m.querySelector('.sticker'), nb = $('#hudNb');
+        const stEl = m.querySelector('.sticker'), nb = $('#hudMenu');
         if (nb && !had) {
           const a = stEl.getBoundingClientRect(), b = nb.getBoundingClientRect();
           stEl.classList.add('fly');
