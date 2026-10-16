@@ -38,8 +38,11 @@ STORY_ONLY=1 — промежуточная сборка без прогулки
   --embed-voices    «ВСЁ В ОДНОМ»: голоса (voice/manifest.json и все записи из него) встраиваются внутрь файла как
                     window.__VOICE_INLINE (base64) перед js/voice.js; voice.js берёт их оттуда без сети — файл работает
                     и по file:// (двойной клик, отправка файлом). Папка voice/ рядом не копируется. Имя файла — с суффиксом
-                    .all-in-one (например, dist/delo-10-10.preview.all-in-one.html). Файл большой (≈ +20 МБ)."""
-import argparse, base64, json, os, re, shutil, subprocess, sys, tempfile, time
+                    .all-in-one (например, dist/delo-10-10.preview.all-in-one.html). Файл большой (≈ +20 МБ).
+Метка сборки (любая сборка, dev и --prod): первым встроенным скриптом идёт window.BUILD_INFO = { id, at }: id — первые 8 знаков
+  sha1 всех скриптов собранного файла (считается до вставки метки: тот же код → тот же id), at — время сборки по Москве
+  «ДД.ММ ЧЧ:ММ». Внизу меню ☰ — «версия 16.10 14:05 · 1a2b3c4d» (js/world/hud.js); без сборки (index.html/world.html) — «версия dev»."""
+import argparse, base64, datetime, hashlib, json, os, re, shutil, subprocess, sys, tempfile, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, 'tools')
@@ -130,7 +133,24 @@ def build_html(script_hook=None, css_hook=None):
         assert html.count('</body>') == 1, 'нет </body> для плашки предпросмотра'
         html = html.replace('</body>', badge + '\n</body>', 1)
     assert '<script src="js/' not in html, 'не все скрипты встроены'
-    return html
+    return build_stamp(html)
+
+
+def build_stamp(html):
+    """Метка сборки: <script>window.BUILD_INFO = { id, at }</script> перед первым скриптом страницы.
+    id — от содержимого всех скриптов готового файла (до вставки метки), at — время сборки по Москве."""
+    code = ''.join(re.findall(r'<script\b[^>]*>(.*?)</script>', html, re.S))
+    bid = hashlib.sha1(code.encode('utf-8')).hexdigest()[:8]
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo('Europe/Moscow')
+    except Exception:  # noqa — нет tzdata: Москва живёт без перевода часов (UTC+3) с 2014 года
+        tz = datetime.timezone(datetime.timedelta(hours=3))
+    at = datetime.datetime.now(tz).strftime('%d.%m %H:%M')
+    i = html.find('<script')
+    assert i >= 0, 'метка сборки: в файле нет ни одного <script>'
+    print(f'метка сборки: версия {at} · {bid} (window.BUILD_INFO, внизу меню ☰)')
+    return html[:i] + f"<script>window.BUILD_INFO = {{ id: '{bid}', at: '{at}' }};</script>\n  " + html[i:]
 
 
 DATES = {}   # заполняется из --ep2-date / --finale-date

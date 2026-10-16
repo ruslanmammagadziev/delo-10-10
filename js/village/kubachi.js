@@ -781,6 +781,41 @@
     return out;
   }
 
+  // ROAD2 («деревья висят в воздухе»): высота видимой земли под точками — по треугольникам самих сеток (что нарисовано,
+  // то и земля). Аналитика (G, bgY) расходится с грубыми сетками (полярное ядро, фон, проступи террас) на метры.
+  // pts — [{ x, z }] (сюда пишутся top — верхняя земля под точкой или −∞ — и ny — её наклон, 1 = горизонталь);
+  // srcs — [{ P: позиции, I: индексы | null, ds: двусторонняя }]. Отвесные стенки (|ny| < minNy) — не земля. Точки — в сетку 8 м,
+  // треугольники — один проход
+  function dropOnto(pts, srcs, minNy = 0.1) {
+    const CS = 8, cell = new Map(), key = (i, j) => (i + 4096) * 8192 + j + 4096;
+    let X0 = 1e9, X1 = -1e9, Z0 = 1e9, Z1 = -1e9;
+    pts.forEach((p, k) => { p.top = -Infinity; p.ny = 0; X0 = Math.min(X0, p.x); X1 = Math.max(X1, p.x); Z0 = Math.min(Z0, p.z); Z1 = Math.max(Z1, p.z);
+      const kk = key(Math.floor(p.x / CS), Math.floor(p.z / CS)); let l = cell.get(kk); if (!l) cell.set(kk, l = []); l.push(k); });
+    if (!pts.length) return;
+    srcs.forEach(({ P, I, ds }) => {
+      const n = I ? I.length : P.length / 3;
+      for (let t = 0; t + 2 < n; t += 3) {
+        const a = (I ? I[t] : t) * 3, b = (I ? I[t + 1] : t + 1) * 3, c = (I ? I[t + 2] : t + 2) * 3;
+        const ax = P[a], az = P[a + 2], bx = P[b], bz = P[b + 2], cx = P[c], cz = P[c + 2];
+        const x0 = Math.min(ax, bx, cx), x1 = Math.max(ax, bx, cx), z0 = Math.min(az, bz, cz), z1 = Math.max(az, bz, cz);
+        if (x1 < X0 || x0 > X1 || z1 < Z0 || z0 > Z1) continue;
+        const ay = P[a + 1], by = P[b + 1], cy = P[c + 1], ux = bx - ax, uy = by - ay, uz = bz - az, wx = cx - ax, wy = cy - ay, wz = cz - az;
+        // изнанка (грань вниз) — земля только у двусторонней сетки (ds): сверху её не видно
+        const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx, nk = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
+        if (nk < minNy || Math.abs(ny) < 1e-9 || (ny < 0 && !ds)) continue;
+        const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+        for (let i = Math.floor(x0 / CS); i <= Math.floor(x1 / CS); i++) for (let j = Math.floor(z0 / CS); j <= Math.floor(z1 / CS); j++) {
+          const l = cell.get(key(i, j)); if (!l) continue;
+          for (let q = 0; q < l.length; q++) {
+            const p = pts[l[q]], l1 = ((bz - cz) * (p.x - cx) + (cx - bx) * (p.z - cz)) / d; if (l1 < -1e-6 || l1 > 1 + 1e-6) continue;
+            const l2 = ((cz - az) * (p.x - cx) + (ax - cx) * (p.z - cz)) / d; if (l2 < -1e-6 || l1 + l2 > 1 + 1e-6) continue;
+            const y = l1 * ay + l2 * by + (1 - l1 - l2) * cy; if (y > p.top) { p.top = y; p.ny = nk; }
+          }
+        }
+      }
+    });
+  }
+
   /* =====================================================================
      5. СБОРКА РЕГИОНА
      ===================================================================== */
@@ -814,6 +849,8 @@
     const chunk = (x, z) => { const k = FAR ? 'all' : Math.floor(x / CHS) + ',' + Math.floor(z / CHS); if (!chunks.has(k)) chunks.set(k, new K.Baker('atlas')); return chunks.get(k); };   // издалека — один кусок (1 вызов)
     const detail = new K.Baker('atlas');          // мелочь у троп (прячем издалека)
     const glaz = [], sheets = [], pipes = [], crowns = [], trunks = [], bare = [], rocks = [];
+    // ROAD2: GQ — треугольники земли ядра (как нарисованы), HB — пятна домов, TREES — деревья (посадка на видимую землю в конце)
+    const GQ = [], HB = [], TREES = [];
     const colliders = houseColliders(houses);
     const props = { glints: [], puffs: [], laundry: [], water: [], bench: [], bread: [], carved: [], jugs: [], lamps: [], signs: [], vitrine: [] };
     // коробки только для луча камеры (QA 14.10): галереи на выносе, дома с ходибельной крышей, свод арки, вывески над головой
@@ -842,7 +879,7 @@
       rs.sort((a, b) => a - b); rs = rs.filter((r, i) => i === 0 || r - rs[i - 1] > 0.05);
       // делим длинные интервалы ≤ 2,2 м
       const rr = []; rs.forEach((r, i) => { if (i) { const a = rs[i - 1], n = Math.ceil((r - a) / (FAR ? 4.6 : 2.2)); for (let q = 1; q < n; q++) rr.push(a + (r - a) * q / n); } rr.push(r); }); rs = rr;
-      const blend = (r, ph) => Math.max(sst(118, 136, r), sst(0.84, 1.0, Math.abs(ph)), sst(27, 20.5, r));
+      const blend = (r, ph) => Math.max(sst(118, 136, r), sst(0.84, 1.0, Math.abs(ph)), sst(27, 20.5, r)), FARB = 0.999;
       const GT = (x, z) => (Math.hypot(x - TOWER.x, z - TOWER.z) < TOWER.rB + 0.2 ? TOWER.y0 : G(x, z));   // внутри башни — низ, а не площадка 16,9
       const vy = (x, z, r, ph) => { const w = blend(r, ph) * padFree(x, z) * (1 - keepG(x, z)); const m = w < 1 ? GT(x, z) : 0; return w > 0 ? lerp(m, oppV(x, z) + 0.15, w) : m; };
       const nr = rs.length - 1, np = phs.length - 1, eps = 0.03;
@@ -886,7 +923,9 @@
         const kind = cellK[i * np + j], xc = (x0 + x2) / 2, zc = (z0 + z2) / 2;
         if (!FAR && (pitSkip(xc, zc) || inUPL(xc, zc))) continue;   // волна 4: яма родника с крышкой (свою площадку рисует springPitGeo); волна 6: верхнее плато — своя сетка
         if (FAR) {
-          const keepAt = (ii, jj) => ii >= 0 && jj >= 0 && ii < nr && jj < np && blend((rs[ii] + rs[ii + 1]) / 2, (phs[jj] + phs[jj + 1]) / 2) <= 0.001;
+          // ROAD2: издалека — и переходная полоса к фону (blend < 1), как вблизи: иначе на плечах и у гребня земля проваливалась
+          // к грубому фону (на 10–15 м ниже), и дома восточного плеча, башня и кроны висели в воздухе
+          const keepAt = (ii, jj) => ii >= 0 && jj >= 0 && ii < nr && jj < np && blend((rs[ii] + rs[ii + 1]) / 2, (phs[jj] + phs[jj + 1]) / 2) < FARB;
           if (!keepAt(i, j)) continue;
           // юбка по краю ядра: под ней рельеф региона дороги опущен
           const skirt = (A, Bq, ha, hb) => chunk(xc, zc).quad([A[0], ha - 7, A[1]], [Bq[0], hb - 7, Bq[1]], [Bq[0], hb, Bq[1]], [A[0], ha, A[1]], p => mul(mix(rgb('#B8B09C'), C('grass2'), 0.45), 1.0), S.BIG);   // polish: юбка края — травянистый камень (со смотровой читалась бурой плитой)
@@ -902,6 +941,7 @@
         const bk = chunk(xc, zc);
         // порядок вершин: от центра C (низ) к краю — против часовой сверху
         bk.quad([x0, h[0], z0], [x1, h[1], z1], [x2, h[2], z2], [x3, h[3], z3], colF, s);
+        GQ.push(x0, h[0], z0, x1, h[1], z1, x2, h[2], z2, x0, h[0], z0, x2, h[2], z2, x3, h[3], z3);
         // стенки к соседям (по r и по φ)
         const NAT = { field: 1, far: 1, crest: 1, lot: 1, knoll: 1, rock: 1, ledge: 1 };
         const riser = (pA, pB, hA0, hA1, hB0, hB1, cx, cz, ncx, ncz, kB) => {
@@ -919,7 +959,7 @@
           const col = (p) => mul(wallC, 0.82 + 0.18 * clamp((p[1] - Math.min(bot0, bot1)) / Math.max(0.5, big), 0, 1));
           chunk((pA[0] + pB[0]) / 2, (pA[1] + pB[1]) / 2).quad(a, b, c, d, col, S.BIG);
         };
-        const farSkip = (ii, jj) => FAR && blend((rs[ii] + rs[ii + 1]) / 2, (phs[jj] + phs[jj + 1]) / 2) > 0.001;
+        const farSkip = (ii, jj) => FAR && blend((rs[ii] + rs[ii + 1]) / 2, (phs[jj] + phs[jj + 1]) / 2) >= FARB;
         const uplSkip = (ii, jj) => { if (FAR) return false; const [ux, uz] = P((rs[ii] + rs[ii + 1]) / 2, (phs[jj] + phs[jj + 1]) / 2); return inUPL(ux, uz); };
         if (i + 1 < nr && !farSkip(i + 1, j) && !uplSkip(i + 1, j)) { const q2 = ((i + 1) * np + j) * 4; const [nx2, nz2] = P((rs[i + 1] + rs[i + 2]) / 2, (pa + pb) / 2); riser([x3, z3], [x2, z2], h[3], h[2], cellH[q2], cellH[q2 + 1], xc, zc, nx2, nz2, cellK[(i + 1) * np + j]); }
         if (j + 1 < np && !farSkip(i, j + 1) && !uplSkip(i, j + 1)) { const q2 = (i * np + j + 1) * 4; const [nx2, nz2] = P((ra + rb) / 2, (phs[j + 1] + phs[j + 2]) / 2); riser([x1, z1], [x2, z2], h[1], h[2], cellH[q2], cellH[q2 + 3], xc, zc, nx2, nz2, cellK[i * np + j + 1]); }
@@ -1067,6 +1107,7 @@
       const bk = o.bk || chunk(h.x, h.z);
       const wl = wallLook(h, R), side = wl.side || wl;
       const crest = h.row < 0, lod = !!o.lod;
+      HB.push({ x: h.x, z: h.z, w: W, d: D + (h.gallery && h.gallery.proj > 0 ? 2 * h.gallery.proj : 0), ry: h.ry, top: h.y0 + H });
       // подошва: стены уходят вниз до земли (на краях рядов и у полей — глубоко)
       let low = h.y0;
       if (!o.flatFoot) { const GY = o.footY || G; boxCorners({ x: h.x, z: h.z, w: W + 0.6, d: D + 0.6, ry: h.ry }).forEach(([x, z]) => { low = Math.min(low, GY(x, z)); }); }
@@ -1590,14 +1631,14 @@
     // ствол на проходимом месте — коллайдер для ходьбы; крона рядом с проходимым — коробка только для луча камеры
     // (камера не залезает в крону; QA 14.10: на парковке и у выезда камера оказывалась внутри кроны)
     const camColliders = [];
-    function treeCol(x, z, gy, s, crownOf) {
+    function treeCol(x, z, gy, s, crownOf, rec) {
       if (FAR || x < -84 || x > 88 || z < -116 || z > 90) return;
       const inf = model.info(x, z), near = allowedAt(x, z, inf) || allowedAt(x + 3, z, model.info(x + 3, z)) || allowedAt(x - 3, z, model.info(x - 3, z)) || allowedAt(x, z + 3, model.info(x, z + 3)) || allowedAt(x, z - 3, model.info(x, z - 3));
-      if (allowedAt(x, z, inf)) colliders.push({ type: 'circle', x, z, r: 0.35 * s + 0.05, y0: gy - 1, y1: gy + 5, id: 'tree' });
+      if (allowedAt(x, z, inf)) { const c = { type: 'circle', x, z, r: 0.35 * s + 0.05, y0: gy - 1, y1: gy + 5, id: 'tree' }; colliders.push(c); rec.cols.push(c); }
       if (!near) return;
       const cr = crownOf(); if (!cr) return;
-      const hw = cr.s[0] * 0.95, hy = cr.s[1] * 0.95;
-      camColliders.push({ type: 'box', x: cr.p[0], z: cr.p[2], w: hw * 2, d: hw * 2, ry: 0, y0: cr.p[1] - hy, y1: cr.p[1] + hy, id: 'crown', cam: true });
+      const hw = cr.s[0] * 0.95, hy = cr.s[1] * 0.95, c = { type: 'box', x: cr.p[0], z: cr.p[2], w: hw * 2, d: hw * 2, ry: 0, y0: cr.p[1] - hy, y1: cr.p[1] + hy, id: 'crown', cam: true };
+      camColliders.push(c); rec.cols.push(c);
     }
     const W6MOVED = houses.filter(h => h.id === 'h081' || h.id === 'h082' || h.id === 'h083');   // волна 6: дома, переехавшие ради дорог
     function addTree(x, z, s, kind, y, outer) {
@@ -1605,12 +1646,17 @@
       if (laneDist(x, z) < 2.0 + 1.2 * s) return;   // и не над коровьей тропой (камера за героиней не упирается в кроны)
       { const q = model.roadNear(x, z); if (q && q.d < q.hw + VERGE + 0.8 + 1.1 * s) return; }   // волна 6: и не на проездах (машина, кроны над дорогой)
       for (let i = 0; i < W6MOVED.length; i++) { const h = W6MOVED[i], c = Math.cos(h.ry), sn = Math.sin(h.ry), dx = x - h.x, dz = z - h.z, lx = dx * c - dz * sn, lz = dx * sn + dz * c; if (Math.abs(lx) < h.w / 2 + 0.9 + s && Math.abs(lz) < h.d / 2 + 0.9 + s) return; }   // и не в переехавших домах
+      // ROAD2: и не внутри домов (стволы стояли в домах, кроны торчали из крыш); false — случайный посев ищет другое место
+      if (houseHit(x, z, 0, -1e9)) return false;
       const gy = y !== undefined ? y : outer ? visY(x, z) : G(x, z), R = rng(Math.floor(x * 1000) ^ Math.floor(z * 777));
       if (FAR && outer && kind !== 'fruit' && R() < 0.35) return;   // издалека рощи реже (дешевле); сады — рядами, целиком
       if (FAR && opts.lite && R() < 0.45) return;   // 4B: из отеля (через долину) — ещё реже
-      if (WIN && kind !== 'poplarDark') { bare.push({ p: [x, gy - 0.1, z], r: [0, R() * 6, 0], s: [s, s * (kind === 'poplar' ? 1.6 : 1), s], c: [1, 1, 1] }); treeCol(x, z, gy, s, () => ({ p: [x, gy + 1.7 * s, z], s: [1.1 * s, 0.9 * s, 1.1 * s] })); return; }
+      // ROAD2: запись дерева — в конце сборки его сажают на видимую землю (groundTrees) или убирают (кроной в доме, под облаками)
+      const rec = { x, z, y: gy, items: [], cols: [], crown: null };
+      TREES.push(rec);
+      if (WIN && kind !== 'poplarDark') { const it = { p: [x, gy - 0.1, z], r: [0, R() * 6, 0], s: [s, s * (kind === 'poplar' ? 1.6 : 1), s], c: [1, 1, 1] }; bare.push(it); rec.items.push(it); rec.cr = 1.1 * s; treeCol(x, z, gy, s, () => ({ p: [x, gy + 1.7 * s, z], s: [1.1 * s, 0.9 * s, 1.1 * s] }), rec); return; }
       const h = kind === 'poplar' || kind === 'poplarDark' ? 1.4 * s : 1.5 * s;
-      trunks.push({ p: [x, gy - 0.1, z], r: [0, 0, 0], s: [s, h + 0.2, s], c: [1, 1, 1] });
+      { const it = { p: [x, gy - 0.1, z], r: [0, 0, 0], s: [s, h + 0.2, s], c: [1, 1, 1] }; trunks.push(it); rec.items.push(it); }
       const nCr = crowns.length;
       if (kind === 'poplarDark') crowns.push({ p: [x, gy + h + 2.6 * s, z], r: [0, R() * 6, 0], s: [0.95 * s, 3.4 * s, 0.95 * s], c: R() < 0.5 ? C('poplar') : C('poplar2') });
       else if (kind === 'poplar') crowns.push({ p: [x, gy + h + 1.9 * s, z], r: [0, R() * 6, 0], s: [1.1 * s, 2.4 * s, 1.1 * s], c: C('leafC') });
@@ -1618,7 +1664,55 @@
       else if (kind === 'lone') crowns.push({ p: [x, gy + h + 1.5 * s, z], r: [0, R() * 6, 0], s: [2.0 * s, 1.75 * s, 2.0 * s], c: mul(rgb(VK.TPAL.tree[Math.floor(R() * VK.TPAL.tree.length)]), 0.95 + R() * 0.12) });   // волна 6: одинокое тёмное дерево на террасе (p11)
       else if (kind === 'fruit') crowns.push({ p: [x, gy + h * 0.8 + 1.0 * s, z], r: [0, R() * 6, 0], s: [1.45 * s, 1.1 * s, 1.45 * s], c: mul(rgb(FRUIT[Math.floor(R() * FRUIT.length)]), 0.95 + R() * 0.1) });   // яблони, груши, абрикосы осенью
       else crowns.push({ p: [x, gy + h + 1.05 * s, z], r: [0, R() * 6, 0], s: [1.35 * s, 1.15 * s, 1.35 * s], c: mul(C(LEAF[Math.floor(R() * LEAF.length)]), 0.95 + R() * 0.1) });
-      treeCol(x, z, gy, s, () => crowns[nCr]);
+      rec.crown = crowns[nCr]; rec.items.push(rec.crown); rec.cr = rec.crown.s[0];
+      treeCol(x, z, gy, s, () => crowns[nCr], rec);
+    }
+    // ROAD2: постройки для деревьев — дома (HB, из houseGeo) и прочие пятна; ствол ближе 0,35 м к стене (или в доме) — нельзя,
+    // крона радиуса cr, что по высоте доходит до карниза (ctop выше верха стен) и заходит в дом, — тоже нельзя
+    const HB2 = [...SHEDS.map(([x, z, ry, w, d, y]) => ({ x, z, w, d, ry, top: y + 2.4 })), ...[MUSEUM, BAKERY].map(b => ({ x: b.x, z: b.z, w: b.w, d: b.d, ry: b.ry, top: b.h })),
+      { x: SCHOOL.x, z: SCHOOL.z, w: SCHOOL.w, d: SCHOOL.d, ry: 0, top: SCHOOL.y + 3 * ST }, { x: TOWER.x, z: TOWER.z, w: 2 * TOWER.rB, d: 2 * TOWER.rB, ry: 0, top: TOWER.floor }];
+    function houseHit(x, z, cr, ctop) {
+      for (let k = 0; k < 2; k++) {
+        const L = k ? HB2 : HB;
+        for (let i = 0; i < L.length; i++) {
+          const b = L[i], dx = x - b.x, dz = z - b.z; if (dx > 30 || dx < -30 || dz > 30 || dz < -30) continue;
+          if (b.c === undefined) { b.c = Math.cos(b.ry); b.s = Math.sin(b.ry); }
+          const lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c, d = Math.hypot(Math.max(0, Math.abs(lx) - b.w / 2), Math.max(0, Math.abs(lz) - b.d / 2));
+          if (d < 0.35 || (d < 0.75 * cr && ctop > b.top - 0.3)) return true;
+        }
+      }
+      return false;
+    }
+    // ROAD2 («деревья висят в воздухе», «кроны сквозь крыши»): в конце сборки каждое дерево — на верхнюю видимую землю под
+    // стволом (треугольники ядра, фона и проступей террас — dropOnto), а не на аналитику G/bgY, что расходится с сетками на метры.
+    // Кроной в доме или сарае (стволы во дворах у стен, кроны сквозь крыши на плече) и под морем облаков — убираем.
+    // Издалека (FAR) стволов нет: крона садится на землю, иначе «шарики» висят на высоте ствола
+    function groundTrees() {
+      const srcs = [{ P: GQ, I: null }, { P: TERR.near.P, I: TERR.near.I }];
+      if (BG.terrain) { const g = BG.terrain.geometry; srcs.push({ P: g.attributes.position.array, I: g.index ? g.index.array : null, ds: BG.terrain.material.side === T.DoubleSide }); }
+      dropOnto(TREES, srcs);
+      const dead = new Set();
+      TREES.forEach(t => {
+        // верхнее плато — своя сетка по модели (G), там дерево уже на земле; под морем облаков (верх −90) и на круче ~65°
+        // (ствол повис бы над обрывом) деревьев не сажаем
+        if ((FAR || !inUPL(t.x, t.z)) && t.top > -1e6) {
+          if (t.top < -96 || t.ny < 0.42) { dead.add(t); return; }
+          const dy = t.top - t.y;
+          t.items.forEach(it => { it.p[1] += dy; });
+          t.cols.forEach(c => { c.y0 += dy; c.y1 += dy; });
+          t.y = t.top;
+          // издалека крона без ствола — на землю, на склоне глубже (нижний край шара не висит над откосом)
+          if (FAR && t.crown) t.crown.p[1] = t.top + 0.72 * t.crown.s[1] - 0.45 * t.crown.s[0] * Math.min(1.8, Math.sqrt(1 - t.ny * t.ny) / t.ny);
+        }
+        // у дома (все дома уже построены): крона по пояс крыши и выше заходит в дом — сквозь крышу; убираем
+        if (houseHit(t.x, t.z, t.cr, t.crown ? t.crown.p[1] + t.crown.s[1] : t.y + 2.4 * t.cr)) dead.add(t);
+      });
+      // треугольники ядра и записи деревьев больше не нужны (сетка ядра — в кусках): память телефона
+      GQ.length = 0; TREES.length = 0;
+      if (!dead.size) return;
+      const gone = new Set(); dead.forEach(t => { t.items.forEach(it => gone.add(it)); t.cols.forEach(c => gone.add(c)); });
+      const prune = A => { let k = 0; for (let i = 0; i < A.length; i++) if (!gone.has(A[i])) A[k++] = A[i]; A.length = k; };
+      [trunks, crowns, bare, colliders, camColliders].forEach(prune);
     }
     const allowedAt = allowedFn(model);
     function treesGeo() {
@@ -1638,7 +1732,7 @@
         const walk = allowedAt(x, z, inf);
         if (walk && inf.kind === 'field' && R() < 0.3) continue;    // на лугу — реже
         if (Math.abs(ph - 0.06) * r < 5 && r < 60) continue;        // у главной лестницы
-        const s = 0.8 + R() * 0.55; addTree(x, z, s, R() < 0.12 ? 'poplar' : 'round'); n++;
+        const s = 0.8 + R() * 0.55; if (addTree(x, z, s, R() < 0.12 ? 'poplar' : 'round') !== false) n++;
       }
       // отрог и склоны ниже села (над облаками)
       for (let i = 0; i < 90; i++) { const a = (R() - 0.5) * 0.9, d = 70 + R() * 300; const x = -11 + Math.sin((2 + a * 57) * PI / 180) * d + (R() - 0.5) * 50, z = -15 + Math.cos((2 + a * 57) * PI / 180) * d; const y = visY(x, z); if (y < -96) continue; const [rr, pp] = polar(x, z); if (rr < 136 && Math.abs(pp) < 1) continue; addTree(x, z, 1.0 + R() * 0.6, 'round', y); }
@@ -2069,7 +2163,9 @@
         pos.push(x, y, z); col.push(...bgCol(x, z, y, rho, bgDisp(x, z)));
       }
       for (let i = 0; i < rhos.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-      if (farMax) { const last = (rhos.length - 1) * (NA + 1), sk0 = pos.length / 3; for (let j = 0; j <= NA; j++) { const k = last + j; pos.push(pos[k * 3], pos[k * 3 + 1] - 10, pos[k * 3 + 2]); col.push(col[k * 3], col[k * 3 + 1], col[k * 3 + 2]); } for (let j = 0; j < NA; j++) idx.push(last + j, sk0 + j, last + j + 1, last + j + 1, sk0 + j, sk0 + j + 1); }
+      // юбка по краю чаши издалека — до дна долины (−152): край чаши местами на 60–70 м выше рельефа дороги за ним, и короткая
+      // юбка (10 м) висела в воздухе (ROAD2)
+      if (farMax) { const last = (rhos.length - 1) * (NA + 1), sk0 = pos.length / 3; for (let j = 0; j <= NA; j++) { const k = last + j; pos.push(pos[k * 3], Math.min(pos[k * 3 + 1] - 10, -152), pos[k * 3 + 2]); col.push(col[k * 3], col[k * 3 + 1], col[k * 3 + 2]); } for (let j = 0; j < NA; j++) idx.push(last + j, sk0 + j, last + j + 1, last + j + 1, sk0 + j, sk0 + j + 1); }
       // склон напротив с серпантином — тот же рельеф, что в регионе дороги (врезка полотна), частой сеткой: лента дороги ложится на место (p5)
       if (SERP && !farMax) {
         const base0 = pos.length / 3, NR = HI ? 61 : 49, NB = HI ? 99 : 79, R0 = 280, R1 = 552, B0 = -10, B1 = 68;   // 4B: на low заплатка реже (−4,6 тыс. тр.)
@@ -2884,6 +2980,7 @@
     // 4B: террасы — кусками по 30° азимута вокруг оси башни (вне кадра куски не рисуются)
     const sector = (x, z) => String(Math.floor((Math.atan2(x - OPP.TX, z - OPP.TZ) / D2R + 360) / 30));
     { const g = TERR.near.build(); if (g) K.split(g, FAR ? () => 'a' : sector).forEach(gg => { const m = new T.Mesh(gg, K.vcMat); m.name = 'terraces'; add(litMesh(m), { cast: false }); }); }
+    groundTrees();
     { snowify(TERR.wall); const g = TERR.wall.build(); if (g) K.split(g, sector).forEach(gg => { const m = new T.Mesh(gg, K.atlasMat); m.name = 'terraceWalls'; add(litMesh(m), { cast: false }); }); }
     { const g = TERR.far.build(); if (g) { const fm = K.keep(new T.MeshBasicMaterial({ vertexColors: true, fog: false })); TERR.farMeshes = K.split(g, sector).map(gg => { const m = new T.Mesh(gg, fm); m.name = 'terracesFar'; m.renderOrder = 6; root.add(m); return { mesh: m, base: Float32Array.from(gg.attributes.color.array) }; }); } }
     // волна 6: кусты вдоль откосов террас — точки-спрайты (ближние поля и дальние, 1–2 вызова, 0 треугольников)

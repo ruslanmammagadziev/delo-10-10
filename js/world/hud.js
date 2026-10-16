@@ -31,6 +31,7 @@
    HUD.coach(el, text, key)               — первая подсказка у маленькой кнопки (3 раза за всё время)
    HUD.chev(el, { on, x, y, side, rot, dist }) — шеврон у края; HUD.chevY(y, H), HUD.labelY(y, H) — зажим по высоте
    HUD.rects(root?)                       → [{ k, el, x0, y0, x1, y1, round }] видимых элементов HUD — для тестов перекрытий
+   HUD.build()                            → «версия 16.10 14:05 · 1a2b3c4d» (window.BUILD_INFO из tools/build_single.py) | «версия dev»
    body.hud-quiet — сам модуль, пока в #layer открыт диалог, лист или карта.
    ===================================================================== */
 (function () {
@@ -383,6 +384,10 @@
       (it.news ? '<span class="hud-dot" aria-hidden="true"></span>' : '') + '</button>';
   }
   function menuList() { return [...ITEMS.values()].filter(visibleItem).sort((a, b) => (a.order || 50) - (b.order || 50)); }
+  // метка сборки внизу листа: мелко и тихо, в нижнем отступе списка (лист выше всего на 7 px); автор читает её и пересылает нам
+  const buildText = () => { const b = window.BUILD_INFO; return b && b.id ? 'версия ' + (b.at ? b.at + ' · ' : '') + b.id : 'версия dev'; };
+  HUD.build = buildText;
+  const VER_CSS = 'margin:-1px 0 -10px;font-size:10.5px;font-weight:700;line-height:12px;text-align:center;color:var(--ink-2);opacity:.85;letter-spacing:.02em';
   function menuDraw() {
     if (!menuEl) return;
     const info = val(menuInfo, ''), note = val(menuNote, '');
@@ -390,7 +395,7 @@
     const sub = menuEl.querySelector('.hud-msub');
     sub.innerHTML = (info ? `<div>${esc(info)}</div>` : '') + (note ? `<div class="hud-mnote">${esc(note)}</div>` : '');
     sub.classList.toggle('hidden', !info && !note);
-    menuEl.querySelector('.hud-mlist').innerHTML = menuList().map(menuRow).join('');
+    menuEl.querySelector('.hud-mlist').innerHTML = menuList().map(menuRow).join('') + `<div class="hud-mver" style="${VER_CSS}">${esc(buildText())}</div>`;
   }
   function menuOpen() {
     if (menuEl && menuEl.isConnected) return menuEl;
@@ -676,7 +681,7 @@
   }
   HUD.tgSafe = tgSafe;
 
-  function boot() { watch(); builtins(); tgSafe(); HUD.layout(); }
+  function boot() { watch(); builtins(); tgSafe(); HUD.layout(); console.info('[delo1010] build', buildText().replace(/^версия /, '')); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   if (window.WORLD) window.WORLD.hud = HUD;
 })();

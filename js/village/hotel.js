@@ -275,6 +275,39 @@
     return { collide, rayHit };
   }
 
+  // ROAD2 («деревья висят в воздухе»): высота видимой земли под точками — по треугольникам самих сеток (как в kubachi.js).
+  // pts — [{ x, z }] (сюда пишется top — верхняя земля под точкой или −∞); srcs — [{ P: позиции, I: индексы | null, minNy }]:
+  // грани круче minNy (отвесные стенки) и изнанка — не земля. Точки — в сетку 8 м, треугольники — один проход
+  function dropOnto(pts, srcs) {
+    const CS = 8, cell = new Map(), key = (i, j) => (i + 4096) * 8192 + j + 4096;
+    let X0 = 1e9, X1 = -1e9, Z0 = 1e9, Z1 = -1e9;
+    pts.forEach((p, k) => { p.top = -Infinity; X0 = Math.min(X0, p.x); X1 = Math.max(X1, p.x); Z0 = Math.min(Z0, p.z); Z1 = Math.max(Z1, p.z);
+      const kk = key(Math.floor(p.x / CS), Math.floor(p.z / CS)); let l = cell.get(kk); if (!l) cell.set(kk, l = []); l.push(k); });
+    if (!pts.length) return;
+    srcs.forEach(({ P, I, minNy = 0.1 }) => {
+      const n = I ? I.length : P.length / 3;
+      for (let t = 0; t + 2 < n; t += 3) {
+        const a = (I ? I[t] : t) * 3, b = (I ? I[t + 1] : t + 1) * 3, c = (I ? I[t + 2] : t + 2) * 3;
+        const ax = P[a], az = P[a + 2], bx = P[b], bz = P[b + 2], cx = P[c], cz = P[c + 2];
+        const x0 = Math.min(ax, bx, cx), x1 = Math.max(ax, bx, cx), z0 = Math.min(az, bz, cz), z1 = Math.max(az, bz, cz);
+        if (x1 < X0 || x0 > X1 || z1 < Z0 || z0 > Z1) continue;
+        const ay = P[a + 1], by = P[b + 1], cy = P[c + 1], ux = bx - ax, uy = by - ay, uz = bz - az, wx = cx - ax, wy = cy - ay, wz = cz - az;
+        const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+        // изнанка (грань вниз — сверху её не видно, материал односторонний) — не земля
+        if (ny < minNy * Math.hypot(nx, ny, nz) || ny < 1e-9) continue;
+        const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+        for (let i = Math.floor(x0 / CS); i <= Math.floor(x1 / CS); i++) for (let j = Math.floor(z0 / CS); j <= Math.floor(z1 / CS); j++) {
+          const l = cell.get(key(i, j)); if (!l) continue;
+          for (let q = 0; q < l.length; q++) {
+            const p = pts[l[q]], l1 = ((bz - cz) * (p.x - cx) + (cx - bx) * (p.z - cz)) / d; if (l1 < -1e-6 || l1 > 1 + 1e-6) continue;
+            const l2 = ((cz - az) * (p.x - cx) + (ax - cx) * (p.z - cz)) / d; if (l2 < -1e-6 || l1 + l2 > 1 + 1e-6) continue;
+            const y = l1 * ay + l2 * by + (1 - l1 - l2) * cy; if (y > p.top) p.top = y;
+          }
+        }
+      }
+    });
+  }
+
   /* =====================================================================
      3. СБОРКА РЕГИОНА
      ===================================================================== */
@@ -451,7 +484,8 @@
        (точки-спрайты), редкие одинокие деревья; стожки — изредка. Уровни — на сетке HGRID (как полосы шейдера на рельефе) ---------- */
     const TB = new K.Baker('vc'); let nBands = 0, nStacks = 0, nShrubs = 0;
     const TWb = new K.Baker('atlas');   // (прежние стенки сухой кладки; в стиле 'soft' пусто)
-    const HGRID = { step: 2.1, phase: 0.3 }, SHR = [], SHRF = [];
+    // STACKS — стожки [x, z, r] (ROAD2: в них деревья и камни не ставим)
+    const HGRID = { step: 2.1, phase: 0.3 }, SHR = [], SHRF = [], STACKS = [];
     function terraces() {
       const snowT = rgb('#F2F5F9');
       const ok = (x, z, f) => { if (f && (f.near ? !inNear(x, z) : f.outer && inNear(x, z))) return false; if (padAt(x, z) || sdUnion(x, z) < 2.5) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 13) return false; return hillY(x, z) > -84; };   // волна 6: ниже по склону — до облаков (−90)
@@ -464,7 +498,7 @@
         onBand: ({ pts }) => {
           const wide = pts.filter(q => q.okp && q.ww > 3.2);
           if (wide.length && R() < 0.05 && nStacks < 10) { const q = wide[Math.floor(R() * wide.length)], x = q.xm, z = q.zm, hh = 1.9 + R() * 0.6, rr = 0.85 + R() * 0.2, yy = q.y - 0.05;
-            TB.cyl(x, yy, z, rr, 0.06, hh, { seg: 7, col: p => (WIN && p[1] > yy + hh * 0.45 ? snowT : mul(C('hay'), 0.82 + 0.22 * (p[1] - yy) / hh)) }); TB.cyl(x, yy + hh - 0.25, z, 0.04, 0.04, 0.7, { seg: 4, col: C('woodD') }); nStacks++; }
+            TB.cyl(x, yy, z, rr, 0.06, hh, { seg: 7, col: p => (WIN && p[1] > yy + hh * 0.45 ? snowT : mul(C('hay'), 0.82 + 0.22 * (p[1] - yy) / hh)) }); TB.cyl(x, yy + hh - 0.25, z, 0.04, 0.04, 0.7, { seg: 4, col: C('woodD') }); nStacks++; STACKS.push([x, z, rr]); }
           if (wide.length > 2 && R() < 0.16) { const q = wide[Math.floor(R() * wide.length)], t2 = 0.35 + R() * 0.3; addTree(lerp(q.xi, q.xo, t2), lerp(q.zi, q.zo, t2), 0.9 + R() * 0.45, 'lone', q.y - 0.1); }
         } });
       nBands = res.bands; nShrubs += res.shrubs;
@@ -497,7 +531,9 @@
     /* ---------- 3.3 деревья, камни ---------- */
     const TREE_COL = { lone: ['#2F5523', '#3A6229', '#284A1F'], fruit: ['#D9A23A', '#C8702A', '#B9A04A'], rowan: ['#D9682E', '#C8502A', '#E08A3A'], pine: ['#3E5E40', '#36533A', '#46684A'], birch: ['#E0B040', '#D9C050', '#C8A040'] };
     function treeItem(x, y, z, s, kind) { const c = WIN ? (kind === 'pine' ? rgb('#E9EEF3') : rgb('#9A8E84')) : rgb(TREE_COL[kind][Math.floor(R() * 3)]); return { p: [x, y, z], s: [s, s, s], r: [0, R() * TAU, 0], c, kind }; }
-    function addTree(x, z, s, kind, y) { const yy = y !== undefined ? y : groundY(x, z); crowns.push(treeItem(x, yy, z, s, kind)); trunks.push({ p: [x, yy, z], s: [s, s * (kind === 'pine' ? 0.8 : 1.6), s], c: [1, 1, 1] }); }
+    // ROAD2: пары крона+ствол (лоза перголы — крона без ствола, по индексу не сопоставить) — для посадки на видимую землю
+    const TREES = [];
+    function addTree(x, z, s, kind, y) { const yy = y !== undefined ? y : groundY(x, z), c = treeItem(x, yy, z, s, kind), t = { p: [x, yy, z], s: [s, s * (kind === 'pine' ? 0.8 : 1.6), s], c: [1, 1, 1] }; crowns.push(c); trunks.push(t); TREES.push({ c, t }); }
 
     /* ---------- 3.4 главный корпус (волна 4B): уютный горный отель — сливочная штукатурка на тёплом каменном цоколе,
        деревянные балконы с цветами, окна в деревянных наличниках, черепичные скаты, средняя часть выше (мансарда
@@ -1245,8 +1281,32 @@
     const meshVC = addSplit(vc.mesh(K.vcMat), { cast: true, name: 'hotelVC' });
     const meshVCD = addSplit(vcD.mesh(K.vcMatD), { cast: false, name: 'hotelVCD' }, null);
     const meshT = add(litMesh(terrainNear()), { cast: false, name: 'terrainNear' });
-    add(terrainFar(), { receive: false });
+    const meshTF = add(terrainFar(), { receive: false });
     const meshTB = addSplit(TB.mesh(K.vcMat), { cast: false, name: 'terraces' }, QUAD);
+    // ROAD2 («деревья висят в воздухе», щель под камнями у дороги): деревья и камни вне площадок — на видимую землю. Полярная
+    // сетка холма (кольца до 9 м) расходится с hillY на метры (у выемки дороги — до 5,5 м), проступи террас лежат над склоном
+    // на ступень. На площадках, лестницах и башне — как было
+    {
+      const nat = (x, z) => !padAt(x, z) && Math.hypot(x - TW.x, z - TW.z) >= TW.rT, g = meshT.geometry, items = [], pts = [], gone = new Set();
+      // под каждым — центр и 4 точки по кругу (ствол 0,4 м, камень — полрадиуса): на кромке ступени (разброс высот больше
+      // ~0,8 м) половина основания висела бы над откосом — такое дерево или камень не ставим
+      const probe = (x, z, rr, it) => { const o = { it, s: [] }; items.push(o); [[0, 0], [rr, 0], [-rr, 0], [0, rr], [0, -rr]].forEach(([dx, dz]) => { const p = { x: x + dx, z: z + dz }; o.s.push(p); pts.push(p); }); };
+      TREES.forEach(q => { if (nat(q.t.p[0], q.t.p[2])) probe(q.t.p[0], q.t.p[2], 0.4, { q }); });
+      rocks.forEach(r => { if (nat(r.x, r.z)) probe(r.x, r.z, 0.5 * r.r, { r }); });
+      // проступи и откосы террас — земля (и дальний рельеф за 300 м, куда заходят крайние поля); в стожке дерево или камень не ставим
+      dropOnto(pts, [{ P: g.attributes.position.array, I: g.index ? g.index.array : null }, { P: TB.P, I: TB.I }, { P: meshTF.geometry.attributes.position.array, I: meshTF.geometry.index.array }]);
+      const drop = it => { if (it.r) gone.add(it.r); else { gone.add(it.q.t); gone.add(it.q.c); } };
+      items.forEach(({ it, s: S }) => {
+        const c = S[0], x = c.x, z = c.z;
+        if (STACKS.some(([sx, sz, r]) => Math.hypot(x - sx, z - sz) < r + 0.6)) { drop(it); return; }
+        if (!S.every(p => p.top > -1e6)) return;
+        const lo = Math.min(...S.map(p => p.top)), hi = Math.max(...S.map(p => p.top));
+        if (hi - lo > (it.r ? 0.5 + 0.4 * it.r.r : 0.8)) { drop(it); return; }
+        if (it.r) { it.r.y = c.top; return; }
+        const dy = c.top - 0.1 - it.q.t.p[1]; it.q.t.p[1] += dy; it.q.c.p[1] += dy;
+      });
+      if (gone.size) [crowns, trunks, rocks].forEach(A => { let k = 0; for (let i = 0; i < A.length; i++) if (!gone.has(A[i])) A[k++] = A[i]; A.length = k; });
+    }
     addSplit(TWb.mesh(K.atlasMat), { cast: false, name: 'terraceWalls' }, QUAD);
     { const m = farFields(); if (m) { K.keep(m.geometry); add(litMesh(m), { cast: false, receive: false }); } }
     // волна 6: кусты вдоль откосов террас — точки-спрайты (холм и дальние поля: 2 вызова, 0 треугольников)
@@ -1280,7 +1340,7 @@
     const flowerG = (() => { const g = new T.OctahedronGeometry(1, 0); const n = g.attributes.position.count, c = new Float32Array(n * 3).fill(1); g.setAttribute('color', new T.BufferAttribute(c, 3)); return K.keep(g); })();
     if (flowers.length) addSplit(K.merged(flowerG, K.instMat, flowers), { name: 'flowers' });
     const rockG = (() => { const g = new T.DodecahedronGeometry(1, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); p.setY(i, yy < 0 ? yy * 0.4 : yy); } g.computeVertexNormals(); const n = p.count, c = new Float32Array(n * 3); const rc = C('rock'); for (let i = 0; i < n; i++) c.set(mul(rc, 0.9 + 0.2 * (p.getY(i) > 0 ? 1 : 0)), i * 3); g.setAttribute('color', new T.BufferAttribute(c, 3)); return K.keep(g); })();
-    addSplit((K.merged(rockG, K.instMat, rocks.map(r => ({ p: [r.x, hillY(r.x, r.z) - 0.15, r.z], r: [0, r.x * 3.1, 0], s: [r.r, r.h, r.r * 0.8], c: WIN ? [1.12, 1.14, 1.16] : [1, 1, 1] })))), { name: 'rocks' }, null);
+    addSplit((K.merged(rockG, K.instMat, rocks.map(r => ({ p: [r.x, (r.y !== undefined ? r.y : hillY(r.x, r.z)) - 0.15, r.z], r: [0, r.x * 3.1, 0], s: [r.r, r.h, r.r * 0.8], c: WIN ? [1.12, 1.14, 1.16] : [1, 1, 1] })))), { name: 'rocks' }, null);
     add(signsMesh(), { cast: false, receive: false });
     // трос зиплайна (от мачты на башне до стойки у края села)
     const ZR = route();
