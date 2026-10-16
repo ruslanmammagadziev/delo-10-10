@@ -1,6 +1,6 @@
 /* =====================================================================
    ОТЕЛЬ НА ВЕРШИНЕ (регион VILLAGE.regions.hotel): горный курорт на холме через долину от горного села. Корпус — по фото автора
-   (h1–h5, 16.10): сливочный объём 40 × 17 м, широкий фронтон к двору, коралловая кровля с терракотовой кромкой, тёмные рамы,
+   (h1–h5, 16.10, чертёж v2): сливочный объём 39,7 × 21 м, широкий фронтон к двору, бледно-розовая кровля с терракотовой кромкой, тёмные рамы,
    балконы во фронтоне, LED-контур «домика» ночью; ниже двора — длинная лестница по газонному склону к пруду. Без бренда.
    Желания автора (волна 4): отель высоко на холме, к нему можно подъехать; белый, с красивым двором; гольф; крытый бассейн;
    снаружи футбольное поле и падел; большой банный комплекс с джакузи (только смотреть); костровая зона; виды на горы
@@ -120,7 +120,7 @@
      2. РАСКЛАДКА (локальные оси): три уровня-террасы на вершине, лестницы, парковка
      ===================================================================== */
   const PADS = [
-    { id: 'top', x0: -34, x1: 54, z0: -30, z1: 34, y: 0, kind: 'yard' },
+    { id: 'top', x0: -34, x1: 54, z0: -30, z1: 40, y: 0, kind: 'yard' },
     { id: 'park', x0: -68, x1: -34, z0: -4, z1: 30, y: 0, kind: 'park' },
     { id: 'mid', x0: -4, x1: 86, z0: -94, z1: -40, y: -4, kind: 'sport' },
     { id: 'low', x0: -98, x1: -12, z0: -102, z1: -46, y: -8, kind: 'relax' },
@@ -136,8 +136,12 @@
   // профиль лестницы: доля высоты по доле длины (с площадкой — два марша)
   const stairK = (s, t) => (s.land ? (t < s.land[0] ? t / s.land[0] * 0.5 : t < s.land[1] ? 0.5 : 0.5 + (t - s.land[1]) / (1 - s.land[1]) * 0.5) : t);
   const TW = { x: GEO.tower.x, z: GEO.tower.z, rB: 1.85, rT: 1.7, floor: GEO.tower.floor, rIn: 1.38 };
-  // корпус по фото: 40 × 17 м, фронтон к двору (z0), карниз и конёк фронтона
-  const MAIN = { x0: -22, x1: 18, z0: 15, z1: 32, eave: 11.15, apex: 19.1 };
+  // корпус по фото (чертёж v2 по h1–h5): стены 39,7 × 21 м, фронтон к двору (z0), карниз 12,0 м; apex — верх стены фронтона
+  // под ветровой доской (уклон 20°: 12,0 + 19,85 · tg 20°)
+  const MAIN = { x0: -21.85, x1: 17.85, z0: 15, z1: 36, eave: 12.0, apex: 19.22 };
+  // кровля корпуса (общая для mainBuilding и distant): свес по бокам ov и над фронтонами og, толщина th; трубы chim —
+  // [X от оси (вправо, если смотреть на фронтон снаружи), расстояние от фронтона назад, ширина поперёк ската, высота над скатом]
+  const MROOF = { ov: 1.5, og: 0.9, th: 0.45, chim: [[-11.0, 8, 0.9, 1.7], [-6.2, 14, 1.6, 1.5], [4.3, 14, 0.9, 1.5], [10.1, 8, 1.6, 1.7]] };
   // пруд под лестницей (нижняя площадка): линза rx × rz, вода чуть ниже каменного борта
   const POND = { x: -22, z: -80, rx: 8, rz: 5.2 };
   const POOL = { x0: 24, x1: 48, z0: 6, z1: 30, h: 6.4, px0: 27, px1: 45, pz0: 15, pz1: 22 };
@@ -367,7 +371,7 @@
       const q = (x0, z0, x1, z1, y, col, s = S.FLAT, bk = vc) => bk.quad([x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], col, s);
       // верх: двор — светлая плитка (атлас «плиты»), газон по бокам, деревянная терраса у бассейна
       const PAVE = WIN ? rgb('#E9EDF2') : rgb('#E4DACA');
-      q(-34, -30, 54, 34, 0.0, LAWN, S.FLAT);
+      q(-34, -30, 54, 40, 0.0, LAWN, S.FLAT);
       q(-27, -21, 23, 15.5, 0.04, PAVE, S.SLAB, at);            // двор
       q(-34, -30, 24, -21, 0.04, PAVE, S.SLAB, at);             // смотровая
       q(-34, 1, -27, 11, 0.04, PAVE, S.SLAB, at);               // дорожка от парковки
@@ -549,10 +553,12 @@
       const ok = (x, z, f) => { if (f && (f.near ? !inNear(x, z) : f.outer && inNear(x, z))) return false; if (padAt(x, z) || sdUnion(x, z) < 2.5 || lawn(x, z)) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 13) return false; return hillY(x, z) > -84; };   // волна 6: ниже по склону — до облаков (−90)
       // волна 6: одно поле по настоящим горизонталям вокруг холма (±300 м): ступени и на пологих холмах вокруг, как на p11
       // ближе к холму (±140 м) — полный профиль со скруглённой бровкой; дальше (до ±300 м) — проще (2 квада, реже точки)
+      // (low: шаг ступени вдоль горизонтали 6,4 м у холма и 8,5 м дальше — виды со смотровой и с лестницы ≤ 200 тыс. треугольников
+      // вместе с селом вдали)
       const NB = 140, inNear = (x, z) => Math.abs(x - HC.x) < NB && Math.abs(z - HC.z) < NB;
       const fields = [{ contour: { x0: HC.x - NB - 6, z0: HC.z - NB - 6, x1: HC.x + NB + 6, z1: HC.z + NB + 6, cell: 3 }, octaves: HI ? 2 : 1, near: true },
-        { contour: { x0: HC.x - 300, z0: HC.z - 300, x1: HC.x + 300, z1: HC.z + 300, cell: 4 }, octaves: 2, far: true, lift: 0.3, segL: HI ? 6 : 7, outer: true }];
-      const res = VK.terraces({ cx: HC.x, cz: HC.z, fields, surf: hillY, ok, tread: TB, wall: TB, winter: WIN, seed: 4343, segL: HI ? 4.0 : 5.8, dr: 1.5, lift: 0.3, shrubFar: true, wallDrop: 1.1, grid: HGRID, shrubs: SHR, shrubEvery: 8, pathEvery: 0,
+        { contour: { x0: HC.x - 300, z0: HC.z - 300, x1: HC.x + 300, z1: HC.z + 300, cell: 4 }, octaves: 2, far: true, lift: 0.3, segL: HI ? 6 : 8.5, outer: true }];
+      const res = VK.terraces({ cx: HC.x, cz: HC.z, fields, surf: hillY, ok, tread: TB, wall: TB, winter: WIN, seed: 4343, segL: HI ? 4.0 : 6.4, dr: 1.5, lift: 0.3, shrubFar: true, wallDrop: 1.1, grid: HGRID, shrubs: SHR, shrubEvery: 8, pathEvery: 0,
         onBand: ({ pts }) => {
           const wide = pts.filter(q => q.okp && q.ww > 3.2);
           if (wide.length && R() < 0.05 && nStacks < 10) { const q = wide[Math.floor(R() * wide.length)], x = q.xm, z = q.zm, hh = 1.9 + R() * 0.6, rr = 0.85 + R() * 0.2, yy = q.y - 0.05;
@@ -646,28 +652,36 @@
           [[x0 - o, -1], [x1 + o, 1]].forEach(([xe]) => { const zz = z + s * 0.62 * o; vc.quadF([xe, ye - th, zz], [xm, y1 - th, zz], [xm, y1 + 0.02, zz], [xe, ye + 0.02, zz], WOODW, S.FLAT, [0, 0, s]); }); });
       }
     }
-    /* ---------- 3.4 главный корпус по фото (h1–h5): один сливочный объём 40 × 17 м, широкий фронтон — к двору (−z), конёк
-       вдоль z. По бокам три этажа (карниз 11,15 м), во фронтоне ещё два уровня (конёк 19,1 м, уклон 21,7°). Светло-коралловая
-       фальцевая кровля, терракотовые карнизные и ветровые доски, водостоки, 4 кирпичные трубы. Тёмно-серые рамы без наличников,
-       у французских окон внизу решётка-ограждение; во фронтоне 4 широких окна с тёмными балконами; внизу — только 2 стеклянных
-       портала. Светло-серые рельефы: ступенчатый «домик», медальон, ромбовые решётки, сбоку ромб-узел; пилястры и «домик» —
-       с LED-линией (ночью тёплое золото, свой материал ledMat). Без надписей, эмблем и знаков на фасаде ---------- */
-    const HWALL = HI ? (WIN ? [1.0, 0.99, 0.97] : [1.0, 0.96, 0.88]) : WIN ? [1.2, 1.19, 1.16] : [1.24, 1.2, 1.11], HREL = WIN ? [0.99, 0.98, 0.96] : [1.0, 0.95, 0.86], HPLI = WIN ? [0.95, 0.94, 0.92] : [0.97, 0.92, 0.83];
-    const HFRAME = rgb('#46464E'), HDOOR = rgb('#3E3D38'), HROOF = rgb('#DC9484'), HFASC = rgb('#D85E45'), HSOFF = rgb('#9A4F3C'), HRAIL = rgb('#3F3432'), HBRICK = rgb('#8E4E40');
+    /* ---------- 3.4 главный корпус по фото (h1–h5, чертёж v2): один сливочный объём 39,7 × 21 м, широкий фронтон — к двору (−z),
+       конёк вдоль z. По бокам три полных этажа (0–3,8 / 3,8–7,2 / 7,2–10,55 м, карниз 12,0 м), во фронтоне ещё два уровня
+       (балконы 10,55 м, мансарда 13,95 м; стена до 19,2 м, конёк 19,7 м, уклон 20°). Бледно-розовая фальцевая кровля со
+       снегозадержателями, терракотовые карнизные и ветровые доски 0,4 м, тёмный софит, желоба, 4 водостока на боковых стенах,
+       4 кирпичные трубы с бетонными шапками. Тёмно-серые рамы без наличников, светлые отливы, у французских окон внизу
+       решётка-ограждение; поясок над первым этажом; во фронтоне 4 широких окна с тёмными балконами; внизу — только 2 стеклянных
+       портала со ступенями. Светло-серые рельефы: ступенчатый «домик» с плоским верхом, овальный медальон, ромбовые решётки,
+       сбоку ромб-узел; пилястры и «домик» — с LED-линией (ночью тёплое золото, свой материал ledMat; углы не светятся).
+       Без надписей, эмблем и знаков на фасаде ---------- */
+    // штукатурка (множитель белой плитки атласа; на low свет запечён — множитель выше), рельефы и цоколь — в долях штукатурки
+    const HWALL = HI ? (WIN ? [0.98, 0.97, 0.95] : [0.96, 0.92, 0.86]) : WIN ? [1.18, 1.17, 1.14] : [1.16, 1.12, 1.05];
+    const HREL = WIN ? mul(HWALL, 0.95) : [HWALL[0] * 0.95, HWALL[1] * 0.97, HWALL[2] * 1.0], HPLI = WIN ? mul(HWALL, 0.92) : [HWALL[0] * 0.88, HWALL[1] * 0.86, HWALL[2] * 0.8], HSILL = mix(HREL, [1.1, 1.1, 1.1], 0.4);
+    const HFRAME = rgb('#3A393F'), HDOOR = rgb('#3A3934'), HROOF = rgb('#E2B3A9'), HFASC = rgb('#CF6249'), HSOFF = rgb('#8A4A3B'), HGUT = rgb('#9C5B45');
+    const HRAIL = rgb('#3F3432'), HSLAT = rgb('#5A4E46'), HBRICK = rgb('#B07468'), HCAP = rgb('#9A8F88');
     // стекло (цвет инстанса × плитка 3 атласа окон): небо в стекле; дверь балкона темнее; портал — тёмный холл; остеклённый низ — бирюзово-серый
-    const GLASS = [1.32, 1.08, 1.14], GLASS_D = [0.92, 0.82, 0.88], PORTAL = [0.78, 0.8, 0.76], GLASS_CY = [1.0, 1.2, 1.25];
+    const GLASS = [1.28, 1.1, 1.14], GLASS_D = [0.86, 0.8, 0.88], PORTAL = [0.95, 0.92, 0.78], GLASS_CY = [0.95, 1.18, 1.22];
     const LEDC = [1, 1, 1], LEDGLOW = rgb('#FFB347');
     // LED-линии корпуса: днём светлый рельеф, ночью тёплое золото (setNight); мягкий ореол LED (сложение, только ночью)
     const ledB = new K.Baker('vc'), ledGlowB = new K.Baker('vc');
     function mainBuilding() {
       const M = MAIN, cx = (M.x0 + M.x1) / 2, zf = M.z0, zb = M.z1, HW = (M.x1 - M.x0) / 2, DEP = zb - zf, EV = M.eave, AP = M.apex, KP = (AP - EV) / HW;
+      // свой генератор (какие окна горят ночью): число окон не сдвигает случайную раскладку двора и склонов
+      const RB = rng(1610);
       // стены: P(u, v, k) — u вдоль стены (фронтон и тыл — от оси вправо, если смотреть снаружи; бока — от переднего угла назад),
-      // v — вверх, k — наружу; n — нормаль (x, z); ry — поворот рамки (её +z — наружу); su — куда по u смотрит +x плоскости стекла
+      // v — вверх, k — наружу; n — нормаль (x, z); ry — поворот рамки (её +z — наружу)
       const FACE = {
-        front: { P: (u, v, k = 0) => [cx - u, v, zf - k], n: [0, -1], ry: PI, su: 1 },
-        back: { P: (u, v, k = 0) => [cx + u, v, zb + k], n: [0, 1], ry: 0, su: 1 },
-        west: { P: (u, v, k = 0) => [M.x0 - k, v, zf + u], n: [-1, 0], ry: -PI / 2, su: 1 },
-        east: { P: (u, v, k = 0) => [M.x1 + k, v, zf + u], n: [1, 0], ry: PI / 2, su: -1 },
+        front: { P: (u, v, k = 0) => [cx - u, v, zf - k], n: [0, -1], ry: PI },
+        back: { P: (u, v, k = 0) => [cx + u, v, zb + k], n: [0, 1], ry: 0 },
+        west: { P: (u, v, k = 0) => [M.x0 - k, v, zf + u], n: [-1, 0], ry: -PI / 2 },
+        east: { P: (u, v, k = 0) => [M.x1 + k, v, zf + u], n: [1, 0], ry: PI / 2 },
       };
       const DIR = f => [f.n[0], 0, f.n[1]];
       const nrm3 = (a, b, c) => { const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; return [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx]; };
@@ -686,18 +700,21 @@
         const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, px = -dy / L * 0.45, py = dx / L * 0.45, z0 = [0, 0, 0];
         [1, -1].forEach(sg => ledGlowB.quad(f.P(a[0], a[1], k + 0.01), f.P(b[0], b[1], k + 0.01), f.P(b[0] + sg * px, b[1] + sg * py, k + 0.01), f.P(a[0] + sg * px, a[1] + sg * py, k + 0.01), [LEDGLOW, LEDGLOW, z0, z0]));
       };
-      // цоколь 0,45 м (на 3 см вперёд), с разрывами под порталами и дверями
-      const plinth = (f, u0, u1, holes = []) => { let a = u0; holes.concat([[u1, u1]]).forEach(([h0, h1]) => { if (h0 - a > 0.05) fb(vc, f, (a + h0) / 2, 0, 0.015, h0 - a, 0.45, 0.03, { col: HPLI, skip: { nz: true, ny: true } }); a = h1; }); };
+      // цоколь высотой h (на 3 см вперёд), с разрывами под порталами и дверями
+      const plinth = (f, u0, u1, holes = [], h = 0.6) => { let a = u0; holes.concat([[u1, u1]]).forEach(([h0, h1]) => { if (h0 - a > 0.05) fb(vc, f, (a + h0) / 2, 0, 0.015, h0 - a, h, 0.03, { col: HPLI, skip: { nz: true, ny: true } }); a = h1; }); };
 
       // стены — гладкая сливочная штукатурка; фронтоны — пятиугольник
       ['front', 'back'].forEach(id => { const f = FACE[id]; fq(at, f, -HW, 0, HW, EV, 0, HWALL, S.FLAT); ftri(at, f, [-HW, EV], [HW, EV], [0, AP], 0, HWALL, S.FLAT); });
       ['west', 'east'].forEach(id => fq(at, FACE[id], 0, 0, DEP, EV, 0, HWALL, S.FLAT));
-      plinth(FACE.front, -HW - 0.03, HW + 0.03, [[-9.95, -4.85], [4.85, 9.95]]); plinth(FACE.back, -HW - 0.03, HW + 0.03);
-      plinth(FACE.west, -0.03, DEP + 0.03, [[4.4, 6.6], [11.2, 12.9]]); plinth(FACE.east, -0.03, DEP + 0.03, [[1.2, 15.8]]);
+      plinth(FACE.front, -HW - 0.03, HW + 0.03, [[-9.7, -4.5], [4.5, 9.7]]); plinth(FACE.back, -HW - 0.03, HW + 0.03);
+      plinth(FACE.west, -0.03, DEP + 0.03, [[5.7, 8.3], [14.5, 16.7]], 0.7); plinth(FACE.east, -0.03, DEP + 0.03, [], 0.4);
+      // поясок над первым этажом (только фронтон): тонкая тяга в цвет стены — читается линией тени
+      fb(vc, FACE.front, 0, 3.8, 0.02, 2 * HW, 0.15, 0.04, { col: HWALL, cols: { ny: mul(HWALL, 0.6) }, skip: { nz: true } });
 
-      // кровля: два ската от конька (x = cx), свес 1,1 м по бокам и 1,0 м над фронтонами, толщина 0,32; стоячие фальцы каждые 0,5 м
-      // вниз по скату (полоса ROOF, своя развёртка: u — вдоль z); снизу тёмный терракотовый софит; по кромкам терракотовые доски 0,45 м
-      const OV = 1.1, OG = 1.0, TH = 0.32, FD = 0.45, za = zf - OG, zz = zb + OG, yR = AP + TH, xE = HW + OV, yE = yR - KP * xE, sl = Math.hypot(xE, yR - yE);
+      // кровля: два ската от конька (x = cx), свесы MROOF (1,5 м по бокам, 0,9 м над фронтонами), толщина 0,45; стоячие фальцы
+      // каждые 0,5 м вниз по скату (полоса ROOF, своя развёртка: u — вдоль z); снизу тёмный терракотовый софит; по кромкам
+      // терракотовые доски 0,5 м
+      const OV = MROOF.ov, OG = MROOF.og, TH = MROOF.th, FD = 0.5, za = zf - OG, zz = zb + OG, yR = AP + TH, xE = HW + OV, yE = yR - KP * xE, sl = Math.hypot(xE, yR - yE);
       const roofY = x => yR - KP * Math.abs(x - cx);
       const quv = (bk, a, b, c, d, col, s, uv, dir) => { const n = nrm3(a, b, c); if (n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2] < 0) bk.quad(d, c, b, a, col, s, [uv[3], uv[2], uv[1], uv[0]]); else bk.quad(a, b, c, d, col, s, uv); };
       [-1, 1].forEach(sx => {
@@ -708,146 +725,169 @@
         vc.quadF([xe, yE - FD, za], [xe, yE - FD, zz], [xe, yE + 0.03, zz], [xe, yE + 0.03, za], HFASC, S.FLAT, [sx, 0, 0]);
         vc.quadF([xi, yE - FD, za], [xi, yE - FD, zz], [xi, yE - TH, zz], [xi, yE - TH, za], fc2, S.FLAT, [-sx, 0, 0]);
         vc.quadF([xi, yE - FD, za], [xi, yE - FD, zz], [xe, yE - FD, zz], [xe, yE - FD, za], fc3, S.FLAT, [0, -1, 0]);
-        box(vc, F0, xe + sx * 0.11, yE - 0.62, (za + zz) / 2, 0.2, 0.17, zz - za - 0.1, mul(HFASC, 0.95), { skip: { pz: true, nz: true } });
+        box(vc, F0, xe + sx * 0.11, yE - 0.5, (za + zz) / 2, 0.2, 0.17, zz - za - 0.1, HGUT, { skip: { pz: true, nz: true } });
         // ветровые доски над фронтонами (спереди и сзади), тоже с изнанкой и кромкой
         [[za, -1], [zz, 1]].forEach(([z, sz]) => { const zi = z - sz * 0.04;
           vc.quadF([xe, yE - FD, z], [cx, yR - FD, z], [cx, yR + 0.03, z], [xe, yE + 0.03, z], HFASC, S.FLAT, [0, 0, sz]);
           vc.quadF([xe, yE - FD, zi], [cx, yR - FD, zi], [cx, yR - TH, zi], [xe, yE - TH, zi], fc2, S.FLAT, [0, 0, -sz]);
           vc.quadF([xe, yE - FD, z], [cx, yR - FD, z], [cx, yR - FD, zi], [xe, yE - FD, zi], fc3, S.FLAT, [-sx * KP, -1, 0]); });
-        // водосточные трубы на боковых стенах (у переднего и заднего угла) с коленом к желобу
-        [zf + 0.45, zb - 0.45].forEach(z => { const x = cx + sx * (HW + 0.14), xg = xe + sx * 0.11;
-          vc.cyl(x, 0.15, z, 0.08, 0.08, yE - 1.05, { seg: 6, col: mul(HFASC, 0.92), cap: false });
-          box(vc, F0, (x + xg) / 2, yE - 0.95, z, Math.abs(xg - x) + 0.12, 0.12, 0.12, mul(HFASC, 0.92)); });
+        // водосточные трубы на боковых стенах (в 0,4 м от углов) с коленом к желобу
+        [zf + 0.4, zb - 0.4].forEach(z => { const x = cx + sx * (HW + 0.14), xg = xe + sx * 0.11;
+          vc.cyl(x, 0.15, z, 0.08, 0.08, yE - 0.95, { seg: 6, col: HGUT, cap: false });
+          box(vc, F0, (x + xg) / 2, yE - 0.85, z, Math.abs(xg - x) + 0.12, 0.12, 0.12, HGUT); });
+        // снегозадержатели: светлая трубка вдоль ската в ~3 м от карниза
+        { const d = xE - 2.8; box(vc, F0, cx + sx * d, roofY(cx + sx * d) + 0.06, (za + zz) / 2, 0.06, 0.06, zz - za - 0.8, rgb('#DAD6D0'), { skip: { pz: true, nz: true, ny: true } }); }
       });
       // конёк — тонкая планка чуть темнее кровли
-      box(at, F0, cx, yR - 0.04, (za + zz) / 2, 0.34, 0.12, zz - za + 0.04, mul(HROOF, 0.86), { s: S.FLAT, skip: { ny: true } });
-      // кирпичные трубы: по две на скат, тёмная шапка, два пояска
-      [[-11.0, 6], [-6.8, 11], [4.6, 6], [10.4, 11]].forEach(([X, dz]) => { const x = cx - X, z = zf + dz, ys = roofY(x);
-        box(vc, F0, x, ys - 0.5, z, 0.9, 2.1, 0.9, HBRICK, { skip: { ny: true } }); box(vc, F0, x, ys + 1.6, z, 1.1, 0.2, 1.1, mul(HBRICK, 0.74));
-        [0.55, 1.05].forEach(h => box(vc, F0, x, ys + h, z, 0.92, 0.05, 0.92, mul(HBRICK, 0.8), { skip: { ny: true, py: true } })); });
+      box(at, F0, cx, yR - 0.04, (za + zz) / 2, 0.34, 0.12, zz - za + 0.04, mul(HROOF, 0.84), { s: S.FLAT, skip: { ny: true } });
+      // кирпичные трубы: по две на скат (одна — вытянутая), бетонная шапка с выносом, поясок под ней
+      MROOF.chim.forEach(([X, dz, w, hh]) => { const x = cx - X, z = zf + dz, ys = roofY(x) + KP * w / 2;
+        box(vc, F0, x, ys - 0.9, z, w, hh + 0.9, 0.9, HBRICK, { skip: { ny: true } });
+        box(vc, F0, x, ys + hh, z, w + 0.2, 0.15, 1.1, HCAP);
+        box(vc, F0, x, ys + hh - 0.3, z, w + 0.04, 0.07, 0.94, mul(HBRICK, 0.8), { skip: { ny: true, py: true } }); });
 
-      // ---- окна: стекло — плитка 3 атласа окон (фрамуга + большое стекло; ночью ~30 % теплеют), рамы и решётки — тёмно-серые поверх ----
-      const lit = () => (R() < 0.3 ? 1 : 0);
+      // ---- окна: стекло — плитка 3 атласа окон (ночью ~15 % теплеют), рамы, решётки и отливы — поверх ----
+      const lit = () => (RB() < 0.15 ? 1 : 0);
       // рама по краю проёма — закрывает белую кромку плитки
       const frame4 = (f, u, v0, w, h, t, k, col) => { const u0 = u - w / 2, u1 = u + w / 2, v1 = v0 + h; fq(vc, f, u0, v0, u1, v0 + t, k, col); fq(vc, f, u0, v1 - t, u1, v1, k, col); fq(vc, f, u0, v0 + t, u0 + t, v1 - t, k, col); fq(vc, f, u1 - t, v0 + t, u1, v1 - t, k, col); };
       // flip — плитка повёрнута на 180° (её фрамуга внизу, за ограждением)
       const glass = (f, u, v0, w, h, flip, col, glow) => glaz.push({ p: f.P(u, v0 + h / 2, 0.02), r: [0, f.ry, flip ? PI : 0], s: [w, h, 1], tile: 3, c: col || GLASS, glow: glow === undefined ? lit() : glow });
-      // перемычка поверх линии фрамуги плитки (25,5–27,8 % высоты от её верха)
+      // перемычка поверх линии фрамуги плитки (25–28 % высоты от её верха)
       const tileBar = (f, u, v0, w, h, flip, t, k, col) => { const a = flip ? v0 + h * 0.25 : v0 + h * 0.718, b = flip ? v0 + h * 0.282 : v0 + h * 0.75; fq(vc, f, u - w / 2 + t, a, u + w / 2 - t, b, k, col); };
-      // французское окно (h1): рама, импост, низкая фрамуга, решётка-ограждение до 1,03 м
+      // светлый отлив под окном
+      const sill = (f, u, v0, w) => fq(vc, f, u - w / 2 - 0.05, v0 - 0.06, u + w / 2 + 0.05, v0, 0.055, HSILL);
+      // французское окно (h1): рама, импост, низкая фрамуга, решётка-ограждение до bars м (5 прутьев на low, 9 на high)
       function frWin(f, u, v0, w, h, o = {}) {
-        const t = 0.1, k = 0.045, fl = o.flip !== false;
+        const t = 0.09, k = 0.045, fl = o.flip !== false;
         glass(f, u, v0, w, h, fl, o.glass, o.glow);
         frame4(f, u, v0, w, h, t, k, HFRAME); tileBar(f, u, v0, w, h, fl, t, k, HFRAME);
         if (o.mull !== false) fq(vc, f, u - 0.035, v0 + t, u + 0.035, v0 + h - t, k, HFRAME);
-        if (o.tr) fq(vc, f, u - w / 2 + t, v0 + o.tr - 0.035, u + w / 2 - t, v0 + o.tr + 0.035, k, HFRAME);
         if (o.bars) { const gh = o.bars, nb = HI ? 9 : 5; fq(vc, f, u - w / 2 + t, v0 + gh - 0.03, u + w / 2 - t, v0 + gh + 0.03, k + 0.012, HRAIL);
           for (let i = 1; i <= nb; i++) { const ub = u - w / 2 + t + (w - 2 * t) * i / (nb + 1); fq(vc, f, ub - 0.014, v0 + t, ub + 0.014, v0 + gh, k + 0.012, HRAIL); } }
+        if (o.sill !== false) sill(f, u, v0, w);
       }
-      // маленькое горизонтальное окно (колонки c3): плитка повёрнута на 90°, её фрамуга — импост (створки 27/73)
+      // маленькое горизонтальное окно (колонки C/L): две равные створки (по плитке на створку, фрамуга плитки — вверху), импост посередине
       function smWin(f, u, v0, w, h) {
-        glaz.push({ p: f.P(u, v0 + h / 2, 0.02), r: [0, f.ry, PI / 2], s: [h, w, 1], tile: 3, c: GLASS, glow: lit() });
-        frame4(f, u, v0, w, h, 0.08, 0.045, HFRAME); const um = u - f.su * 0.2335 * w; fq(vc, f, um - 0.05, v0 + 0.08, um + 0.05, v0 + h - 0.08, 0.045, HFRAME);
+        const g = lit();
+        [-1, 1].forEach(sg => { glass(f, u + sg * w / 4, v0, w / 2, h, false, GLASS, g); tileBar(f, u + sg * w / 4, v0, w / 2, h, false, 0.06, 0.045, HFRAME); });
+        frame4(f, u, v0, w, h, 0.08, 0.045, HFRAME); fq(vc, f, u - 0.045, v0 + 0.08, u + 0.045, v0 + h - 0.08, 0.045, HFRAME); sill(f, u, v0, w);
       }
-      // широкое окно уровня 4: n створок, вторая — дверь на балкон (темнее)
+      // широкое окно уровня 4: n створок, вторая слева — дверь на балкон (темнее)
       function wideWin(f, u, v0, w, h, n) {
-        const wl = w / n;
-        for (let i = 0; i < n; i++) glass(f, u - w / 2 + wl * (i + 0.5), v0, wl, h, true, i === 1 ? GLASS_D : GLASS);
+        const wl = w / n, g = lit();
+        for (let i = 0; i < n; i++) glass(f, u - w / 2 + wl * (i + 0.5), v0, wl, h, true, i === 1 ? GLASS_D : GLASS, g);
         frame4(f, u, v0, w, h, 0.1, 0.045, HFRAME);
-        for (let i = 1; i < n; i++) fq(vc, f, u - w / 2 + wl * i - 0.065, v0 + 0.1, u - w / 2 + wl * i + 0.065, v0 + h - 0.1, 0.045, HFRAME);
+        for (let i = 1; i < n; i++) fq(vc, f, u - w / 2 + wl * i - 0.06, v0 + 0.1, u - w / 2 + wl * i + 0.06, v0 + h - 0.1, 0.045, HFRAME);
         for (let i = 0; i < n; i++) tileBar(f, u - w / 2 + wl * (i + 0.5), v0, wl, h, true, 0.05, 0.045, HFRAME);
       }
-      // стеклянная дверь (тёплый свет ночью) со светильником над ней
+      // стеклянная дверь (ночью тёплая, фрамуга светится) со светильником над ней
       function doorGl(f, u, v0, w, h, dbl) {
         glass(f, u, v0, w, h, false, PORTAL, 1); frame4(f, u, v0, w, h, 0.1, 0.05, HDOOR); tileBar(f, u, v0, w, h, false, 0.1, 0.05, HDOOR);
         if (dbl) fq(vc, f, u - 0.04, v0 + 0.1, u + 0.04, v0 + h * 0.72, 0.05, HDOOR);
         fb(vc, f, u, v0 + h + 0.28, 0.08, 0.16, 0.07, 0.16, { col: HFRAME, skip: { nz: true } }); NIGHT.lamps.push(f.P(u, v0 + h + 0.24, 0.35));
       }
-      // балкон: плита, ограждение из горизонтальных планок спереди и по бокам, стойки, поручень (тёмный металл)
-      function balcony(f, u, v, w, d, col, n) {
+      // балкон: плита (низ v), ограждение высотой H из n горизонтальных планок спереди и по бокам, стойки, поручень (тёмный металл)
+      function balcony(f, u, v, w, d, col, n, H) {
         fb(vc, f, u, v, d / 2, w, 0.15, d, { col: mul(col, 1.3), skip: { nz: true } });
-        const y0 = v + 0.15, H = 1.05, sh = 0.1, st = (H - 0.14) / n;
-        for (let i = 0; i < n; i++) { const yy = y0 + 0.08 + i * st;
+        const y0 = v + 0.15, sh = 0.11, st = (H - 0.16) / n;
+        for (let i = 0; i < n; i++) { const yy = y0 + 0.1 + i * st;
           fb(vc, f, u, yy, d - 0.02, w, sh, 0.04, { col, skip: { nz: true, ny: true } });
           [-1, 1].forEach(sg => fb(vc, f, u + sg * (w / 2 - 0.02), yy, d / 2, 0.04, sh, d - 0.04, { col, skip: { nz: true, ny: true } })); }
         fb(vc, f, u, y0 + H - 0.06, d - 0.03, w + 0.04, 0.06, 0.07, { col: mul(col, 0.9), skip: { nz: true } });
         [-1, 1].forEach(sg => fb(vc, f, u + sg * (w / 2 - 0.02), y0 + H - 0.06, d / 2, 0.06, 0.06, d, { col: mul(col, 0.9), skip: { nz: true } }));
         [-1, 0, 1].forEach(sg => fb(vc, f, u + sg * (w / 2 - 0.03), y0, d - 0.02, 0.05, H - 0.06, 0.05, { col, skip: { nz: true, py: true, ny: true } }));
       }
-      // ---- рельефы (светло-серые, чуть выступают): рамка, эллипс-кольцо, ромб ----
-      const rring = (f, u, v, rx, ry, t, n, k, col) => { for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; fq4(f, [u + Math.cos(a) * rx, v + Math.sin(a) * ry], [u + Math.cos(b) * rx, v + Math.sin(b) * ry], [u + Math.cos(b) * (rx - t), v + Math.sin(b) * (ry - t)], [u + Math.cos(a) * (rx - t), v + Math.sin(a) * (ry - t)], k, col); } };
-      const rdiamond = (f, u, v, r0, r1, k, col) => { const P4 = r => [[u, v + r], [u + r, v], [u, v - r], [u - r, v]], A = P4(r0), B = P4(r1); for (let i = 0; i < 4; i++) fq4(f, A[i], A[(i + 1) % 4], B[(i + 1) % 4], B[i], k, col); };
-      // ромбовая решётка: серое поле, рамка, светлые ромбы в шахматном порядке
+      // ---- рельефы (светло-серые, чуть выступают; под каждым — тёмная кайма-тень, иначе светлое на сливочном не читается):
+      // эллипс-кольцо, ромб ----
+      const RSH = mul(HWALL, 0.84);
+      const rring = (f, u, v, rx, ry, t, n, k, col, sh = true) => { if (sh) rring(f, u, v, rx + 0.04, ry + 0.04, t + 0.08, n, k - 0.025, RSH, false); for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; fq4(f, [u + Math.cos(a) * rx, v + Math.sin(a) * ry], [u + Math.cos(b) * rx, v + Math.sin(b) * ry], [u + Math.cos(b) * (rx - t), v + Math.sin(b) * (ry - t)], [u + Math.cos(a) * (rx - t), v + Math.sin(a) * (ry - t)], k, col); } };
+      const rdiamond = (f, u, v, r0, r1, k, col, sh = true) => { if (sh) rdiamond(f, u, v, r0 + 0.06, Math.max(0, r1 - 0.06), k - 0.025, RSH, false); const P4 = r => [[u, v + r], [u + r, v], [u, v - r], [u - r, v]], A = P4(r0), B = P4(r1); for (let i = 0; i < 4; i++) fq4(f, A[i], A[(i + 1) % 4], B[(i + 1) % 4], B[i], k, col); };
+      // ромбовая решётка: серое поле, светлые ромбы в шахматном порядке
       function lattice(f, u, v, w, h) {
-        fq(vc, f, u - w / 2, v - h / 2, u + w / 2, v + h / 2, 0.03, mix(HWALL, HREL, 0.7));
+        fq(vc, f, u - w / 2, v - h / 2, u + w / 2, v + h / 2, 0.03, mul(HWALL, 0.88));
         const u0 = u - w / 2 + 0.12, u1 = u + w / 2 - 0.12, v0 = v - h / 2 + 0.12, v1 = v + h / 2 - 0.12, hx = 0.21, hy = 0.21;
-        for (let j = 0; v0 + hy + j * 0.25 + hy <= v1 + 1e-6; j++) for (let i = 0; ; i++) { const cu = u0 + hx + (j % 2) * 0.25 + i * 0.5, cv = v0 + hy + j * 0.25; if (cu + hx > u1 + 1e-6) break; fq4(f, [cu, cv + hy], [cu + hx, cv], [cu, cv - hy], [cu - hx, cv], 0.045, HWALL); }
+        for (let j = 0; v0 + hy + j * 0.25 + hy <= v1 + 1e-6; j++) for (let i = 0; ; i++) { const cu = u0 + hx + (j % 2) * 0.25 + i * 0.5, cv = v0 + hy + j * 0.25; if (cu + hx > u1 + 1e-6) break; fq4(f, [cu, cv + hy], [cu + hx, cv], [cu, cv - hy], [cu - hx, cv], 0.045, HREL); }
       }
 
-      // ---- фронтон к двору (фото h1, симметричен) ----
-      const Fr = FACE.front;
+      // ---- фронтон к двору (фото h1, симметричен; колонки — по чертежу v2) ----
+      const Fr = FACE.front, L2 = 4.3, L3 = 7.65, WH = 2.45;
       [-1, 1].forEach(s => {
-        // этажи 2–3: французские окна — 4 пары в середине и колонки c2 (±14,4), c1 (±18,1)
-        [1.15, 3.5, 6.05, 8.65, 14.4, 18.1].forEach(X => [4.35, 7.75].forEach(v0 => frWin(Fr, s * X, v0, 1.6, 2.45, { tr: 1.03, bars: 1.03 })));
-        // колонка c3: по два маленьких окна на этажах 2, 3 и на уровне 4
-        [[4.4, 5.15], [6.05, 6.85], [7.8, 8.55], [9.45, 10.2], [11.15, 11.9], [12.8, 13.6]].forEach(([a, b]) => smWin(Fr, s * 11.5, a, 2.1, b - a));
-        // уровень 4: короткое окно c2 под скатом; широкие окна с балконами над парами окон
-        frWin(Fr, s * 14.4, 11.2, 1.6, 1.85, {});
-        [2.35, 7.4].forEach(X => { wideWin(Fr, s * X, 10.65, 4.1, 2.55, 4); balcony(Fr, s * X, 10.45, 4.5, 1.1, HRAIL, 5); });
-        // портал под внешним балконом: светлое обрамление, 5 стёкол в тёмной раме, фрамуга; ночью тёплый холл и два светильника
-        { const u = s * 7.4, w = 4.5, v0 = 0.15, h = 3.15;
-          fq(vc, Fr, u - w / 2 - 0.25, 0.45, u + w / 2 + 0.25, v0 + h + 0.25, 0.012, HREL);
-          for (let i = 0; i < 5; i++) glass(Fr, u - w / 2 + w / 5 * (i + 0.5), v0, w / 5, h, false, PORTAL, 1);
-          frame4(Fr, u, v0, w, h, 0.15, 0.05, HDOOR);
-          for (let i = 1; i < 5; i++) fq(vc, Fr, u - w / 2 + w / 5 * i - 0.06, v0 + 0.15, u - w / 2 + w / 5 * i + 0.06, v0 + h - 0.15, 0.05, HDOOR);
-          for (let i = 0; i < 5; i++) tileBar(Fr, u - w / 2 + w / 5 * (i + 0.5), v0, w / 5, h, false, 0.06, 0.05, HDOOR);
-          [-1.35, 1.35].forEach(du => fb(vc, Fr, u + du, v0 + h + 0.3, 0.08, 0.18, 0.07, 0.16, { col: HFRAME, skip: { nz: true } })); }
-        // пилястра с LED-линией (в 3,7 м от угла; сам угол не светится) и светильник у подножия
-        { const u = s * 16.3; fb(vc, Fr, u, 0.7, 0.03, 0.4, 11.5, 0.06, { col: HREL, skip: { nz: true } }); led(Fr, [u, 0.78], [u, 12.12], 0.068);
+        // этажи 2–3: французские окна 1,6 × 2,45 — 4 пары в середине (D–I) и колонки B/M, A/N; решётка-ограждение по нижний 1,0 м
+        [1.15, 3.5, 6.0, 8.55, 14.1, 17.9].forEach(X => [L2, L3].forEach(v0 => frWin(Fr, s * X, v0, 1.6, WH, { bars: 1.0 })));
+        // колонки C/L: по два малых окна 2,1 × 0,8 на этажах 2, 3 и на уровне 4
+        [[4.3, 5.1], [5.95, 6.75], [7.65, 8.5], [9.25, 10.1], [11.1, 11.9], [12.7, 13.5]].forEach(([a, b]) => smWin(Fr, s * 11.35, a, 2.1, b - a));
+        // уровень 4: короткое окно B/M под скатом; широкие окна с балконами 4,3 × 1,1 над парами окон
+        frWin(Fr, s * 14.1, 11.0, 1.6, 2.0, { bars: 1.0 });
+        [[2.3, 4.0], [7.3, 4.15]].forEach(([X, w]) => { wideWin(Fr, s * X, 10.9, w, 2.6, 4); balcony(Fr, s * X, 10.55, 4.3, 1.1, HRAIL, HI ? 6 : 5, 1.15); });
+        // портал под парой D–E: светлое обрамление 0,25, 4 стекла в тёмной раме (двери — средняя пара), тёмная фрамуга 0,5 м;
+        // две ступени по 0,17 и площадка 5,3 × 1,5 (коллайдер — к стеклу не подходим); ночью тёплый холл и два светильника
+        { const u = s * 7.1, w = 4.7, v0 = 0.4, h = 2.9, hg = h - 0.5;
+          fq(vc, Fr, u - w / 2 - 0.25, 0.3, u + w / 2 + 0.25, v0 + h + 0.25, 0.012, HREL);
+          for (let i = 0; i < 4; i++) glass(Fr, u - w / 2 + w / 4 * (i + 0.5), v0, w / 4, hg, true, PORTAL, 1);
+          fq(vc, Fr, u - w / 2, v0 + hg, u + w / 2, v0 + h, 0.04, HDOOR);
+          frame4(Fr, u, v0, w, h, 0.12, 0.05, HDOOR);
+          for (let i = 1; i < 4; i++) fq(vc, Fr, u - w / 2 + w / 4 * i - 0.05, v0 + 0.12, u - w / 2 + w / 4 * i + 0.05, v0 + hg, 0.05, HDOOR);
+          for (let i = 0; i < 4; i++) tileBar(Fr, u - w / 2 + w / 4 * (i + 0.5), v0, w / 4, hg, true, 0.05, 0.05, HDOOR);
+          [-1.4, 1.4].forEach(du => fb(vc, Fr, u + du, v0 + h + 0.36, 0.08, 0.18, 0.07, 0.16, { col: HFRAME, skip: { nz: true } }));
+          const stc = snowTop(mix(HPLI, [1.05, 1.05, 1.05], 0.35), 0.9);
+          fb(vc, Fr, u, 0, 0.75, 5.3, 0.34, 1.5, { col: stc, skip: { nz: true, ny: true } });
+          fb(vc, Fr, u, 0, 1.675, 5.3, 0.17, 0.35, { col: stc, skip: { nz: true, ny: true } });
+          const c = Fr.P(u, 0, 0.93); colBox(c[0], c[2], 5.4, 1.9, -1, 0.4, 'steps'); }
+        // пилястра с LED-линией (в 3,9 м от угла; сам угол не светится) и светильник у подножия
+        { const u = s * 16.0; fb(vc, Fr, u, 1.1, 0.03, 0.5, 11.9, 0.06, { col: HREL, skip: { nz: true } }); led(Fr, [u, 1.18], [u, 12.92], 0.068);
           fb(vc, Fr, u, 0, 0.2, 0.32, 0.16, 0.32, { col: HFRAME, skip: { nz: true } }); }
-        // ромбовые решётки во фронтоне
-        lattice(Fr, s * 7.3, 14.65, 2.0, 1.5);
+        // ромбовые решётки 2,1 × 1,3 во фронтоне над внешними широкими окнами
+        lattice(Fr, s * 7.45, 14.95, 2.1, 1.3);
       });
-      // ступенчатый «домик» (полоса 0,35 м) с LED-линией по оси; ореолы — над ним (высоко: без пятен на земле)
-      const HOUSE = [[-4.2, 13.9], [-4.2, 14.8], [-1.25, 16.25], [-1.25, 17.55], [-0.4, 17.55], [0, 17.9], [0.4, 17.55], [1.25, 17.55], [1.25, 16.25], [4.2, 14.8], [4.2, 13.9]];
-      for (let i = 0; i < HOUSE.length - 1; i++) { fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.35, 0.05, HREL); led(Fr, HOUSE[i], HOUSE[i + 1], 0.066); }
-      [[0, 17.9], [-2.7, 15.55], [2.7, 15.55], [-4.2, 14.2], [4.2, 14.2]].forEach(([u, v]) => NIGHT.lamps.push(Fr.P(u, v, 0.25)));
-      // овальный медальон: поле, два кольца и лепестки (обычный орнамент, без букв)
-      { const u = 0, v = 14.7, rx = 1.9, ry = 0.65, fill = mix(HWALL, HREL, 0.5);
+      // ступенчатый «домик» (полоса 0,4 м, плоский верх) с LED-линией по оси; ореолы — над ним (высоко: без пятен на земле)
+      const HOUSE = [[-4.2, 13.95], [-4.2, 15.1], [-1.3, 16.4], [-1.3, 17.7], [1.3, 17.7], [1.3, 16.4], [4.2, 15.1], [4.2, 13.95]];
+      for (let i = 0; i < HOUSE.length - 1; i++) { fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.52, 0.02, mul(HWALL, 0.84)); fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.4, 0.05, HREL); led(Fr, HOUSE[i], HOUSE[i + 1], 0.066); }
+      [[0, 17.7], [-2.75, 15.75], [2.75, 15.75], [-4.2, 14.3], [4.2, 14.3]].forEach(([u, v]) => NIGHT.lamps.push(Fr.P(u, v, 0.25)));
+      // овальный медальон под «башенкой» домика: поле, два кольца и лепестки (обычный орнамент, без букв)
+      { const u = 0, v = 15.0, rx = 1.9, ry = 0.85, fill = mul(HWALL, 0.93);
         for (let i = 0; i < 20; i++) { const a = i / 20 * TAU, b = (i + 1) / 20 * TAU; ftri(vc, Fr, [u, v], [u + Math.cos(a) * rx, v + Math.sin(a) * ry], [u + Math.cos(b) * rx, v + Math.sin(b) * ry], 0.035, fill); }
-        rring(Fr, u, v, rx, ry, 0.12, 20, 0.05, HREL); rring(Fr, u, v, rx * 0.4, ry * 0.4, 0.07, 12, 0.05, HREL);
-        for (let i = 0; i < 12; i++) { const a = (i + 0.5) / 12 * TAU; fseg(vc, Fr, [u + Math.cos(a) * rx * 0.44, v + Math.sin(a) * ry * 0.44], [u + Math.cos(a) * rx * 0.84, v + Math.sin(a) * ry * 0.84], 0.07, 0.05, HREL); } }
+        rring(Fr, u, v, rx, ry, 0.13, 20, 0.05, HREL); rring(Fr, u, v, rx * 0.42, ry * 0.42, 0.08, 12, 0.05, HREL);
+        for (let i = 0; i < 12; i++) { const a = (i + 0.5) / 12 * TAU; fseg(vc, Fr, [u + Math.cos(a) * rx * 0.46, v + Math.sin(a) * ry * 0.46], [u + Math.cos(a) * rx * 0.84, v + Math.sin(a) * ry * 0.84], 0.07, 0.05, HREL); } }
 
       // ---- тыл (фото нет): та же сетка окон, без порталов, балконов и рельефов ----
       const Bk = FACE.back;
       [-1, 1].forEach(s => {
-        [1.15, 3.5, 6.05, 8.65, 14.4, 18.1].forEach(X => [4.35, 7.75].forEach(v0 => frWin(Bk, s * X, v0, 1.6, 2.45, { tr: 1.03 })));
-        [[4.4, 5.15], [6.05, 6.85], [7.8, 8.55], [9.45, 10.2]].forEach(([a, b]) => smWin(Bk, s * 11.5, a, 2.1, b - a));
-        [2.35, 7.4].forEach(X => { wideWin(Bk, s * X, 10.9, 4.1, 2.2, 4); frWin(Bk, s * X, 0.9, 1.6, 2.1, {}); });
-        frWin(Bk, s * 14.4, 11.2, 1.6, 1.85, {});
+        [1.15, 3.5, 6.0, 8.55, 14.1, 17.9].forEach(X => [L2, L3].forEach(v0 => frWin(Bk, s * X, v0, 1.6, WH, {})));
+        [[4.3, 5.1], [5.95, 6.75], [7.65, 8.5], [9.25, 10.1]].forEach(([a, b]) => smWin(Bk, s * 11.35, a, 2.1, b - a));
+        [[2.3, 4.0], [7.3, 4.15]].forEach(([X, w]) => { wideWin(Bk, s * X, 11.0, w, 2.3, 4); frWin(Bk, s * X, 0.9, 1.6, 2.1, {}); });
+        frWin(Bk, s * 14.1, 11.0, 1.6, 2.0, {});
       });
 
-      // ---- бок к парковке (фото h2): ромб-узел, колонка окон с балконом, две стеклянные двери; места под надпись — пусто ----
+      // ---- бок к парковке (фото h2, u — от переднего угла): ромб-узел, колонка окон с балконом, две стеклянные двери;
+      // место надписи под ромбом — пустая штукатурка; LED на этом боку нет ----
       const Wf = FACE.west;
-      { const u = 3.9, v = 8.0; rdiamond(Wf, u, v, 1.4, 1.25, 0.05, HREL); rdiamond(Wf, u, v, 1.05, 0.93, 0.05, HREL);
-        [[0.42, 0], [-0.42, 0], [0, 0.42], [0, -0.42]].forEach(([du, dv]) => rring(Wf, u + du, v + dv, 0.3, 0.3, 0.07, 12, 0.05, HREL));
-        rdiamond(Wf, u, v, 0.2, 0.0, 0.05, HREL); }
-      frWin(Wf, 9.3, 6.9, 1.1, 2.4, { tr: 1.0, bars: 1.0 });
-      frWin(Wf, 9.3, 3.85, 1.1, 2.25, {});
-      balcony(Wf, 9.3, 3.7, 3.0, 1.0, rgb('#5A5650'), 5);
-      doorGl(Wf, 5.5, 0.05, 2.0, 2.75, true); doorGl(Wf, 12.05, 0.05, 1.5, 2.8, false);
+      { const u = 4.8, v = 9.25; rdiamond(Wf, u, v, 1.5, 1.32, 0.05, HREL); rdiamond(Wf, u, v, 1.17, 1.02, 0.05, HREL);
+        [[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]].forEach(([du, dv]) => rring(Wf, u + du, v + dv, 0.32, 0.32, 0.07, 12, 0.05, HREL));
+        rdiamond(Wf, u, v, 0.22, 0.0, 0.05, HREL); }
+      frWin(Wf, 10.3, 7.9, 1.6, 2.4, { bars: 1.0 });
+      frWin(Wf, 10.3, 4.0, 1.6, 2.9, {});
+      balcony(Wf, 11.2, 3.65, 3.6, 1.2, HSLAT, HI ? 6 : 4, 1.2);
+      doorGl(Wf, 7.0, 0.15, 2.4, 3.15, true); doorGl(Wf, 15.6, 0.15, 2.0, 3.15, true);
 
-      // ---- бок к бассейну (фото h4/h5): остеклённый низ (5 стёкол), две колонки окон, две LED-пилястры на простенках ----
+      // ---- бок к бассейну (фото h4/h5, u — от переднего угла): остеклённый низ во всю длину (5 пролётов, светлые импосты,
+      // ночью тёплый), две колонки окон, две LED-пилястры у углов — до софита ----
       const Ef = FACE.east;
-      [5.5, 11.5].forEach(u => [4.35, 7.75].forEach(v0 => frWin(Ef, u, v0, 1.2, 2.35, {})));
-      for (let i = 0; i < 5; i++) { const u = 2.5 + i * 3.0; glass(Ef, u, 0.3, 2.6, 2.7, false, GLASS_CY, i % 2); frame4(Ef, u, 0.3, 2.6, 2.7, 0.1, 0.045, HFRAME); tileBar(Ef, u, 0.3, 2.6, 2.7, false, 0.1, 0.045, HFRAME); fq(vc, Ef, u - 0.04, 0.4, u + 0.04, 0.3 + 2.7 * 0.72, 0.045, HFRAME); }
-      [4.0, 13.0].forEach(u => { fb(vc, Ef, u, 0.7, 0.03, 0.4, 9.7, 0.06, { col: HREL, skip: { nz: true } }); led(Ef, [u, 0.78], [u, 10.32], 0.068); });
+      [7.5, 13.5].forEach(u => [L2, L3].forEach(v0 => frWin(Ef, u, v0, 1.5, WH, {})));
+      { const CW = (19.8 - 1.2) / 5, LGT = mix(HREL, [1.1, 1.1, 1.1], 0.3);
+        for (let i = 0; i < 5; i++) { const u = 1.2 + CW * (i + 0.5);
+          glass(Ef, u, 0.4, CW, 3.0, false, GLASS_CY, 1); frame4(Ef, u, 0.4, CW, 3.0, 0.08, 0.045, LGT); tileBar(Ef, u, 0.4, CW, 3.0, false, 0.08, 0.045, LGT);
+          fq(vc, Ef, u - 0.04, 0.48, u + 0.04, 0.4 + 3.0 * 0.718, 0.045, LGT); } }
+      [2.2, 18.8].forEach(u => { fb(vc, Ef, u, 1.0, 0.07, 0.45, 10.6, 0.06, { col: HREL, skip: { nz: true } }); led(Ef, [u, 1.08], [u, 11.52], 0.108); });
 
       // ---- у фасада (фото h1): газонные полосы с бордюром, колоновидные туи, молодая ель; к порталам — мощение двора ----
-      const lawnC = WIN ? rgb('#EEF2F6') : rgb('#83A444'), kerbC = WIN ? rgb('#DDE3E9') : rgb('#D8D4CA'), thC = WIN ? rgb('#5E7060') : rgb('#45603A');
-      [[-21.6, -12.4], [-6.4, 2.4], [8.4, 17.6]].forEach(([x0, x1]) => { vc.quad([x0, 0.075, zf - 0.04], [x1, 0.075, zf - 0.04], [x1, 0.075, zf - 1.6], [x0, 0.075, zf - 1.6], lawnC); box(vc, F0, (x0 + x1) / 2, 0, zf - 1.64, x1 - x0, 0.11, 0.1, kerbC); });
+      const lawnC = WIN ? rgb('#EEF2F6') : rgb('#7E9E3E'), kerbC = WIN ? rgb('#DDE3E9') : rgb('#D2CBBE'), thC = WIN ? rgb('#5E7060') : rgb('#3E5A34');
+      const pg = s => cx - s * 7.1;
+      [[M.x0 + 0.25, Math.min(pg(1), pg(-1)) - 2.9], [Math.min(pg(1), pg(-1)) + 2.9, Math.max(pg(1), pg(-1)) - 2.9], [Math.max(pg(1), pg(-1)) + 2.9, M.x1 - 0.25]].forEach(([x0, x1]) => {
+        vc.quad([x0, 0.075, zf - 0.04], [x1, 0.075, zf - 0.04], [x1, 0.075, zf - 1.6], [x0, 0.075, zf - 1.6], lawnC); box(vc, F0, (x0 + x1) / 2, 0, zf - 1.64, x1 - x0, 0.11, 0.1, kerbC); });
       [-14, -20, 10, 16].forEach(x => { const z = zf - 0.8; vc.cyl(x, 0.07, z, 0.3, 0.03, 1.7, { seg: 7, col: p => mul(thC, 0.82 + 0.3 * clamp((p[1] - 0.07) / 1.7, 0, 1)) }); colCirc(x, z, 0.3, -1, 1.8, 'thuja'); });
       addTree(cx + 0.5, zf - 0.8, 0.62, 'pine', 0.07); colCirc(cx + 0.5, zf - 0.8, 0.45, -1, 2.5, 'fir');
+      // вдоль бока к парковке — мощёная полоса 3,6 м к двум дверям (фото h2), от двора до заднего угла
+      at.quadF([M.x0 - 3.6, 0.045, zf - 0.6], [M.x0, 0.045, zf - 0.6], [M.x0, 0.045, zb + 0.5], [M.x0 - 3.6, 0.045, zb + 0.5], WIN ? rgb('#E9EDF2') : rgb('#D9CDB8'), S.SLAB, [0, 1, 0]);
 
       // один коллайдер на корпус (id 'main' — его рисует карта региона)
       colBox(cx, (zf + zb) / 2, 2 * HW + 0.6, DEP + 0.6, -1, AP + 1, 'main');
@@ -959,10 +999,11 @@
             for (let k = 0; k < 4; k++) flowers.push({ p: [x + (R() - 0.5) * 1.2, hh + 0.42 + R() * 0.12, z + (R() - 0.5) * 1.4], s: [0.12, 0.1, 0.12], c: rgb(['#E87A9A', '#FFFFFF', '#D9455A'][k % 3]) }); });
           [[xs[0], 1.4], [xs[2], 10.6], [xs[0], 10.6], [xs[2], 1.4]].forEach(([x, z]) => { crowns.push({ p: [x, -0.4, z], s: [0.3, 0.85, 0.3], r: [0, 1, 0], c: rgb('#5E8A4E'), kind: 'vine' }); }); }
         festoon([xs[0], hh + 0.05, 1.4], [xs[2], hh + 0.05, 1.4], 0.3); festoon([xs[0], hh + 0.05, 10.6], [xs[2], hh + 0.05, 10.6], 0.3); }
-      // гирлянды над двором: две нити между деревянными столбами (у фасада нити нет — фронтон виден целиком)
-      { const poles = [[[-26.6, -14], [22.6, -14]], [[-26.6, -3.2], [22.6, -6.6]]], hp = 4.3;
+      // гирлянды над двором: две нити между деревянными столбами вдоль боковых краёв двора (поперёк двора нитей нет — фронтон
+      // с площади виден целиком, как на фото h1)
+      { const poles = [[[-26.6, -14], [-26.6, -3.2]], [[22.6, -14], [22.6, -6.6]]], hp = 4.3;
         poles.forEach(([a, b]) => { [a, b].forEach(([x, z]) => { vc.cyl(x, 0, z, 0.09, 0.07, hp + 0.15, { seg: 6, col: WOODK }); vc.cyl(x, 0, z, 0.16, 0.14, 0.35, { seg: 6, col: STONEW }); colCirc(x, z, 0.14, -1, hp, 'festoonPole'); });
-          festoon([a[0], hp, a[1]], [b[0], hp, b[1]], 1.1); }); }
+          festoon([a[0], hp, a[1]], [b[0], hp, b[1]], 0.45); }); }
       // смотровая у переднего края: лавка «вид на село» и бинокль на стойке
       bench(-5, 0, -36.9, PI, 'view');
       { const x = -2.4, z = -37.7; vc.cyl(x, 0, z, 0.07, 0.07, 1.25, { seg: 6, col: DARK }); vc.box(F0, x, 1.32, z, 0.34, 0.2, 0.3, { col: rgb('#4A90D8') }); [-1, 1].forEach(s => vc.cyl(x + s * 0.08, 1.32, z - 0.18, 0.06, 0.07, 0.12, { seg: 8, col: DARK })); colCirc(x, z, 0.25, -1, 1.5, 'binoc'); }
@@ -1258,14 +1299,15 @@
     /* ---------- 3.10б окрестности по фото (h3–h5): фонари по краю двора, ряды саженцев на газонном склоне у лестницы,
        пруд-линза под холмом — каменный борт, тёмная вода с отражением неба, низкие перила, кольцевая дорожка, шары-фонари ---------- */
     function photoGrounds() {
-      // фонари по краю двора у ограды (ночью — цепочка огней, как на h5)
+      // фонари по краю двора у ограды и столбики-огоньки между ними (ночью — пунктир огней по краю плато, как на h5)
       [[-28, -28.6], [-12.9, -28.6], [12, -28.6], [27, -28.6], [47, -28.6]].forEach(([x, z]) => lampPost(x, 0, z));
+      [-31.5, -24, 2, 7, 19.5, 31, 44, 51.5].forEach(x => { bollard(x, 0.04, -29.35); colCirc(x, -29.35, 0.12, -1, 0.7, 'bollard'); });
       // саженцы рядами по склону по обе стороны лестницы: тонкий ствол, два кола с жёлтой подвязкой, редкая крона
       const xm = (ST_TOP.x0 + ST_TOP.x1) / 2, stake = rgb('#B9A27E'), tie = rgb('#E8C547'), bark = rgb('#7A6A55');
       for (let j = 0; j < 5; j++) for (const i of [-3, -2, -1, 1, 2, 3]) {
         const x = xm + i * 3.2 + Math.sign(i) * 0.6 + (R() - 0.5) * 0.5, z = -32.6 - j * 3.0 + (R() - 0.5) * 0.5, y = hillY(x, z) - 0.05, h = 2.3 + R() * 0.7;
         vc.cyl(x, y, z, 0.05, 0.03, h, { seg: 4, col: bark, cap: false });
-        [-1, 1].forEach(sg => vc.cyl(x + sg * 0.22, y, z + sg * 0.05, 0.025, 0.025, 1.35, { seg: 3, col: stake, cap: false }));
+        [-1, 1].forEach(sg => vcD.quad([x + sg * 0.22 - 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y + 1.35, z + sg * 0.05], [x + sg * 0.22 - 0.025, y + 1.35, z + sg * 0.05], stake));
         vcD.quad([x - 0.24, y + 1.06, z], [x + 0.24, y + 1.06, z + 0.1], [x + 0.24, y + 1.11, z + 0.1], [x - 0.24, y + 1.11, z], tie);
         if (!WIN) vc.sph(x, y + h - 0.05, z, 0.42, 0.58, 0.42, R() < 0.5 ? rgb('#8FB04A') : rgb('#AFBE52'), { seg: 5, rings: 2 });
       }
@@ -1451,8 +1493,8 @@
     { let k = 0; for (let tries = 0; tries < 2600 && k < (HI ? 170 : 120); tries++) { const a = R() * TAU, r = 30 + Math.pow(R(), 0.8) * 200, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r;
         if (sdUnion(x, z) < 4) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 5) continue; if (Math.abs(x - TW.x) < 12 && z < -20 && z > -200 && Math.abs(x + 20) < 30) continue;   // под тросом — пусто
         const y = hillY(x, z); if (y < -60) continue; addTree(x, z, 0.9 + R() * 0.6, R() < 0.45 ? 'pine' : R() < 0.5 ? 'rowan' : 'birch', y - 0.1); k++; }
-      // камни на склоне
-      for (let i = 0; i < 70; i++) { const a = R() * TAU, r = 25 + R() * 160, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r; if (sdUnion(x, z) < 3) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 3.4) continue; rocks.push({ x, z, r: 0.4 + R() * 0.9, h: 0.35 + R() * 0.6 }); }
+      // камни на склоне (low — реже: бюджет видов со смотровой и с лестницы)
+      for (let i = 0; i < (HI ? 70 : 50); i++) { const a = R() * TAU, r = 25 + R() * 160, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r; if (sdUnion(x, z) < 3) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 3.4) continue; rocks.push({ x, z, r: 0.4 + R() * 0.9, h: 0.35 + R() * 0.6 }); }
       // камни на обочине дороги (старая горная дорога, без ограждений — только камни по краю)
       for (let i = 0; i < ROAD.N; i += 7) { const s = R() < 0.5 ? 1 : -1, d = ROAD.w + 0.6 + R() * 1.4, x = ROAD.x[i] + Math.cos(ROAD.th[i]) * s * d, z = ROAD.z[i] - Math.sin(ROAD.th[i]) * s * d; if (sdUnion(x, z) < 2) continue; rocks.push({ x, z, r: 0.25 + R() * 0.45, h: 0.2 + R() * 0.3 }); }
     }
@@ -1528,7 +1570,7 @@
     const lanternMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, color: new T.Color(0.78, 0.76, 0.72) })); NIGHT.mats.push(lanternMat);
     const meshLant = add(lantB.mesh(lanternMat), { cast: false, receive: false, name: 'lanterns' }); if (meshLant) meshLant.userData.dn = 'lamp';
     // LED-линии корпуса: днём — светлая полоса рельефа, ночью — тёплое золото (DayNight: 'lamp' — не темнеет); ореол — сложением, только ночью
-    const LED_DAY = [0.88, 0.84, 0.7], LED_NIGHT = [1.0, 0.8, 0.3];
+    const LED_DAY = WIN ? [0.93, 0.93, 0.92] : [0.9, 0.87, 0.8], LED_NIGHT = [1.0, 0.8, 0.3];
     const ledMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, color: new T.Color(...LED_DAY) })); ledMat.userData.dn = 'lamp'; NIGHT.mats.push(ledMat);
     add(ledB.mesh(ledMat), { cast: false, receive: false, name: 'led' });
     const ledGlowMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: false })); ledGlowMat.userData.dn = 'none';
@@ -1658,7 +1700,7 @@
     const walkable = (x, z) => { const p = padAt(x, z); if (!p) return false; const [cx, cz] = COL.collide(x, z, 0.05, p.y); return Math.hypot(cx - x, cz - z) < 0.02; };
     // A* по сетке 0,5 м внутри площадок (для «иди туда»)
     function path(x0, z0, x1, z1) {
-      const CS = 0.5, X0 = -100, Z0 = -104, NX = 380, NZ = 280, idx = (i, j) => j * NX + i, ix = x => Math.round((x - X0) / CS), iz = z => Math.round((z - Z0) / CS);
+      const CS = 0.5, X0 = -100, Z0 = -104, NX = 380, NZ = 290, idx = (i, j) => j * NX + i, ix = x => Math.round((x - X0) / CS), iz = z => Math.round((z - Z0) / CS);
       const s = [ix(x0), iz(z0)], g = [ix(x1), iz(z1)]; if (s[0] < 0 || s[0] >= NX || g[0] < 0 || g[0] >= NX || s[1] < 0 || s[1] >= NZ || g[1] < 0 || g[1] >= NZ) return null;
       const ok = new Map(), okAt = (i, j) => { const k = idx(i, j); if (!ok.has(k)) ok.set(k, walkable(X0 + i * CS, Z0 + j * CS)); return ok.get(k); };
       if (!okAt(g[0], g[1])) return null;
@@ -1735,8 +1777,8 @@
       winter_overview: { pos: [86, 64, 64], target: [-12, -10, -40], fov: 50, season: 'winter' },
       village_far: { pos: [-5, 1.8, -37.0], target: [vT.x, vT.y - 14, vT.z], fov: 9 },
       // по фото: фронтон с двора (h1), угол со стороны парковки (h2), пруд и лестница снизу (h4)
-      hotel_front: { pos: [-2, 2.2, -27], target: [-2, 9.2, MAIN.z0], fov: 52 },
-      hotel_corner: { pos: [-37, 1.4, -1.5], target: [-17, 8.5, 19], fov: 52 },
+      hotel_front: { pos: [-2, 4.5, -64], target: [-2, 9.5, MAIN.z0], fov: 64 },
+      hotel_corner: { pos: [-38, 1.6, -12], target: [-17, 9, 20], fov: 56 },
       pond: { pos: [-14.5, -5.6, -99], target: [-21, 3, -8], fov: 50 },
     };
 
@@ -1931,16 +1973,27 @@
     const rings = [0, 20, 40, 60, 80, 100, 125, 150, 180, 210], NA = 48;
     for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i]; const p = padAt(x, z); const y = p ? p.y : Math.max(hillRaw(x, z), natLocal(x, z)) - (i === rings.length - 1 ? 8 : 0); const c = WIN ? rgb('#EEF2F6') : p ? (p.id === 'mid' || p.id === 'low' ? rgb('#93A65A') : rgb('#D9D0BE')) : mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), 0.5 + 0.5 * Math.sin(x * 0.07 + z * 0.05)); H.put([x, y, z], c); }   // волна 6: зелёный холм (полосы террас — шейдером)
     for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; H.I.push(a, b, a + 1, a + 1, b, b + 1); }
-    // корпус по фото: сливочный объём 40 × 17 × 11,15, широкий коралловый фронтон (конёк вдоль z, свесы), терракотовые кромки, 4 трубы
-    const M = MAIN, cxm = (M.x0 + M.x1) / 2, HW = (M.x1 - M.x0) / 2, KP = (M.apex - M.eave) / HW, yR = M.apex + 0.33, xE = HW + 1.1, yE = yR - KP * xE;
-    const W = WIN ? rgb('#FFFFFF') : rgb('#FFF6E6'), roofC = WIN ? rgb('#F4F7FA') : rgb('#E0806C'), fasc = rgb('#D04A32');
+    // корпус по фото (чертёж v2): сливочный объём 39,7 × 21 × 12, низкий бледно-розовый фронтон 20° к двору (конёк вдоль z, свесы
+    // MROOF), терракотовые кромки, 4 трубы; LED-линии («домик» и 4 вертикали) — своей сеткой Ld: днём светлый рельеф, ночью
+    // DayNight села теплит её как окна ('window') — золотой контур виден через долину (h5)
+    const M = MAIN, cxm = (M.x0 + M.x1) / 2, HW = (M.x1 - M.x0) / 2, KP = (M.apex - M.eave) / HW, yR = M.apex + MROOF.th, xE = HW + MROOF.ov, yE = yR - KP * xE;
+    const W = WIN ? rgb('#FFFFFF') : rgb('#F4ECDD'), roofC = WIN ? rgb('#F4F7FA') : rgb('#E2B3A9'), fasc = rgb('#CF6249');
     Bd.box(M.x0, M.x1, 0, M.eave, M.z0, M.z1, W, W);
     [M.z0, M.z1].forEach(z => Bd.tri([M.x0, M.eave, z], [M.x1, M.eave, z], [cxm, M.apex, z], W));
-    { const za = M.z0 - 1.0, zz = M.z1 + 1.0; Bd.prismZ(cxm - xE, cxm + xE, za, zz, yE, yR, roofC);
+    { const za = M.z0 - MROOF.og, zz = M.z1 + MROOF.og; Bd.prismZ(cxm - xE, cxm + xE, za, zz, yE, yR, roofC);
       // терракотовые доски по скатам фронтонов и карнизам
-      [za, zz].forEach(z => [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.5, z], [cxm, yR - 0.5, z], [cxm, yR + 0.05, z], [cxm + sx * xE, yE + 0.05, z], fasc)));
-      [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.5, za], [cxm + sx * xE, yE - 0.5, zz], [cxm + sx * xE, yE + 0.05, zz], [cxm + sx * xE, yE + 0.05, za], fasc));
-      [[-11.0, 6], [-6.8, 11], [4.6, 6], [10.4, 11]].forEach(([X, dz]) => { const x = cxm - X, z = M.z0 + dz, ys = yR - KP * Math.abs(X); Bd.box(x - 0.45, x + 0.45, ys - 0.4, ys + 1.6, z - 0.45, z + 0.45, rgb('#8E4E40')); }); }
+      [za, zz].forEach(z => [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.45, z], [cxm, yR - 0.45, z], [cxm, yR + 0.05, z], [cxm + sx * xE, yE + 0.05, z], fasc)));
+      [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.45, za], [cxm + sx * xE, yE - 0.45, zz], [cxm + sx * xE, yE + 0.05, zz], [cxm + sx * xE, yE + 0.05, za], fasc));
+      MROOF.chim.forEach(([X, dz, w, hh]) => { const x = cxm - X, z = M.z0 + dz, ys = yR - KP * (Math.abs(X) - w / 2); Bd.box(x - w / 2, x + w / 2, ys - 0.6, ys + hh, z - 0.45, z + 0.45, rgb('#B07468')); }); }
+    // LED-линии (шире настоящих: издалека — 1–2 пикселя)
+    const Ld = mk(), ledC = WIN ? rgb('#F2F0EC') : rgb('#E2DACB');
+    { const seg = (P, a, b, wd) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, px = -dy / L * wd / 2, py = dx / L * wd / 2, ex = dx / L * wd / 2, ey = dy / L * wd / 2;
+        Ld.quad(P(a[0] - ex + px, a[1] - ey + py), P(a[0] - ex - px, a[1] - ey - py), P(b[0] + ex - px, b[1] + ey - py), P(b[0] + ex + px, b[1] + ey + py), ledC); };
+      const Pf = (u, v) => [cxm - u, v, M.z0 - 0.08], Pe = (u, v) => [M.x1 + 0.08, v, M.z0 + u];
+      const HOUSE = [[-4.2, 13.95], [-4.2, 15.1], [-1.3, 16.4], [-1.3, 17.7], [1.3, 17.7], [1.3, 16.4], [4.2, 15.1], [4.2, 13.95]];
+      for (let i = 0; i < HOUSE.length - 1; i++) seg(Pf, HOUSE[i], HOUSE[i + 1], 0.8);
+      [-16, 16].forEach(u => seg(Pf, [u, 1.1], [u, 13.0], 0.8));
+      [2.2, 18.8].forEach(u => seg(Pe, [u, 1.0], [u, 11.6], 0.8)); }
     Bd.box(POOL.x0, POOL.x1, 0, POOL.h, POOL.z0, POOL.z1, WIN ? rgb('#D6E6EE') : rgb('#9CC8DC'), WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
     Bd.box(SPA.x0, SPA.x1, -8, -8 + SPA.h, SPA.z0, SPA.z1, W, WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
     COTT.forEach(([x, z]) => { Bd.box(x - 4, x + 4, -8, -3.6, z - 4.5, z + 4.5, WIN ? rgb('#E9E2DA') : rgb('#B07A4E'), rgb('#5E4A44')); Bd.prismZ(x - 4.5, x + 4.5, z - 5, z + 5, -3.6, 0.4, WIN ? rgb('#F4F7FA') : rgb('#5E4A44'), rgb('#9FC0D6')); });
@@ -1950,15 +2003,17 @@
     // башня-копия (12 граней) с поясом зубцов
     { const seg = 12, tc = WIN ? rgb('#E6E2DA') : rgb('#D8C29A'); for (let i = 0; i < seg; i++) { const a = i / seg * TAU, b = (i + 1) / seg * TAU; Bd.quad([TW.x + Math.sin(a) * TW.rB, 0, TW.z + Math.cos(a) * TW.rB], [TW.x + Math.sin(b) * TW.rB, 0, TW.z + Math.cos(b) * TW.rB], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.92 + 0.1 * Math.cos(a)));
         if (i % 2 === 0) Bd.quad([TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.95 + 0.1 * Math.cos(a))); } }
-    const gH = H.geo(), gB = Bd.geo();
+    const gH = H.geo(), gB = Bd.geo(), gL = Ld.geo();
     const matH = new T.MeshLambertMaterial({ vertexColors: true }), matB = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide });
     VK.terraceStripes(matH, { THREE: T, step: 2.5, phase: 0.3, far: 1400, dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });   // волна 6: ступени террас на холме отеля
     const grp = new T.Group(); grp.name = 'hotel:distant';
     const mesh = new T.Mesh(gH, matH); mesh.name = 'hotelDistant'; grp.add(mesh);
     const meshB = new T.Mesh(gB, matB); meshB.name = 'hotelDistantBuildings'; grp.add(meshB);
+    const matL = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide }); matL.userData.dn = 'window';
+    const meshL = new T.Mesh(gL, matL); meshL.name = 'hotelDistantLed'; grp.add(meshL);
     // трос — линия до площадки у села
     let cm = null; if (V.zipline && V.zipline.route) { const R = V.zipline.route('macro'); cm = V.zipline.cableMesh(T, V.zipline.cable(R.from, R.to, R.sag), { color: '#4E4A52' }); grp.add(cm); }
-    grp.userData = { tris: (H.I.length + Bd.I.length) / 3, dispose() { gH.dispose(); gB.dispose(); matH.dispose(); matB.dispose(); if (cm && cm.userData.dispose) cm.userData.dispose(); } };
+    grp.userData = { tris: (H.I.length + Bd.I.length + Ld.I.length) / 3, dispose() { gH.dispose(); gB.dispose(); gL.dispose(); matH.dispose(); matB.dispose(); matL.dispose(); if (cm && cm.userData.dispose) cm.userData.dispose(); } };
     return grp;
   }
 
@@ -1966,6 +2021,6 @@
   V.regions.hotel = {
     id: 'hotel', build, distant,
     title: () => 'Отель на вершине',
-    data: { FRAME: FR, toMacro, toLocal, PADS, STAIRS, TOWER: TW, ground: groundY, road: () => ROAD },
+    data: { FRAME: FR, toMacro, toLocal, PADS, STAIRS, TOWER: TW, MAIN, POND, ground: groundY, road: () => ROAD },
   };
 })();
