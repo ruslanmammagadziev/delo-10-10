@@ -74,7 +74,7 @@
    car.dims.length > 4,95, bike), Move.version. Своя машина — { type:'car', src, profile: [[…], …] }.
 
    Цифры (Move.CFG): прыжок 1,1 м за 0,6 с (g ≈ 24,4 м/с², v0 ≈ 7,3 м/с) — достаёт до 1,0 м (скамейка 0,45, ящик 0,9, капот
-   0,93–0,97, с капота — на крышу седана 1,78), 1,3 м — нет; шаг без бега до 2,2 м/с (HeroAnim — шаг), «Бег» — 3,4 (трусца);
+   0,93–0,97, с капота — на крышу седана 1,78), 1,3 м — нет; шаг без бега до 2,2 м/с (HeroAnim — шаг), «Бег» — 6,8 (W6+: вдвое быстрее прежней трусцы 3,4);
    рельеф: подъём шагом ≤ 0,7 м (как раньше в регионах), коробки — бордюр ≤ 0,3 м сама; вниз ≤ 0,45 м за подшаг — идёт,
    больше — падает; падение < 1,5 м — мягкое приземление, 1,5–2,5 — приседание и пыль, 2,5–7,5 м — кувырок «Ух!» и встаёт
    (прыжок с крыши-двора села на улицу ряда ниже: 4,8 + 1,1 м), ≥ 7,5 м или на «нельзя» — «Ой!», шторка 0,4 с и мягко на последнюю безопасную точку (≈ 1 с назад). Подшаги ≤ 0,1 м — сквозь
@@ -192,7 +192,7 @@
     for (const k in CFG) if (o[k] !== undefined) cfg[k] = o[k];
     const R = cfg.radius;
     const G = 8 * cfg.apex / (cfg.air * cfg.air), V0 = 4 * cfg.apex / cfg.air;
-    const SPEEDS = () => (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 3.4 };
+    const SPEEDS = () => (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 6.8 };
     const heroRoot = o.hero ? (o.hero.root || (o.hero.isObject3D ? o.hero : null)) : null;
     const heroBody = o.hero && o.hero.body ? o.hero.body : null;
     const anim = o.anim || null, B = anim && anim.bones ? anim.bones : null;
@@ -535,7 +535,7 @@
       }
       // курс
       const mvx = (x - ox) / Math.max(1e-4, dt), mvz = (z - oz) / Math.max(1e-4, dt), msp = Math.hypot(mvx, mvz);
-      st.speed = dt > 0 ? lerp(st.speed, Math.min(msp, 6), 1 - Math.exp(-14 * dt)) : st.speed;
+      st.speed = dt > 0 ? lerp(st.speed, Math.min(msp, 8), 1 - Math.exp(-14 * dt)) : st.speed;   // W6+: бег 6,8 м/с — анимации нужна настоящая скорость
       if (o.face !== false && !locked) {
         const hv = Math.hypot(vx, vz);
         if (hv > 0.25 && mag > 0.05) ang += angW(Math.atan2(vx, vz) - ang) * Math.min(1, dt * (grounded ? 11 : 6));

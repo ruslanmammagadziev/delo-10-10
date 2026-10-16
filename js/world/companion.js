@@ -259,7 +259,7 @@
           if (b) { const rx = -Math.cos(b[2]), rz = Math.sin(b[2]); target = [b[0] + rx * 0.42, b[1] + rz * 0.42]; }
           else { target = [hx - Math.sin(ha) * 1.2 - Math.cos(ha) * 0.4, hz - Math.cos(ha) * 1.2 + Math.sin(ha) * 0.4]; }
           const dt2 = Math.hypot(target[0] - n.x, target[1] - n.z);
-          speed = clamp(CTX.hs * 1.05 + dt2 * 1.6, 0, 4.6);
+          speed = clamp(CTX.hs * 1.05 + dt2 * 1.6, 0, 8.2);   // W6+: она бегает 6,8 м/с — собачка не отстаёт
           // иногда забегает вперёд и оглядывается
           if (walkT > 5 && aheadCd <= 0 && CTX.hs < 3) {
             aheadCd = rnd(14, 24);

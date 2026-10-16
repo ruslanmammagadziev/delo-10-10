@@ -6,6 +6,13 @@
    по горизонталям — в лощины и вокруг отрогов. Справа по ходу вверх — слоистая скальная стенка 8–16 м с навесами, кустами и
    осыпью, слева — травяная бровка, обрыв и зелёные террасы долины. Камушки со скалы (handle.pebbles), щит «Осторожно,
    камушки». Описание ниже (волны 3–5) — про прежние места и ручку; где говорится о шпильках и плечах — см. README «Волна 6».
+   W6+ (скрины автора с телефона, «текстуры пропадают, резко обрывается туман, щель между склоном и дорогой, склон должен быть
+   крутой в подъём»): плоская пелена облаков больше не режет кадр — у неё свой шейдер, рядом с камерой (до 16 м) её нет,
+   к 120 м густеет (CLOUD_FADE), клубы тают вблизи; туман у подножия реже (долина видна, а не «пустота»), в облаке «молоко»
+   мягче, переходы растянуты по высоте. Справа по ходу вверх стенка выше (10,5–18,5 м, у начала ≈ 6 м) и над ней ещё ≈ 16 м
+   крутого скального склона ≈ 55° (UPK, UPL); слева — почти ровная бровка 2,4 м и скруглённая кромка обрыва (dropOf),
+   её видно с камеры за машиной. Террасы долины — по настоящим горизонталям, только на склонах средней крутизны и не ближе
+   ≈ 45 м к дороге (клинья-«плавники» у дороги убраны). Камень на крутом — без мелких пластов на крупной сетке (полосы-«лучи»).
    ---------------------------------------------------------------------
    (история) серпантин из города в горное село.
    Мягкий toon, как в городе. Дорога начинается у края города (указатель «Кубачи ↑» и «Город ↓»),
@@ -215,8 +222,10 @@
     for (let i = 0; i < N; i++) { const a = Math.max(0, i - 2), b = Math.min(N - 1, i + 2); A.k[i] = angDiff(A.th[b], A.th[a]) / Math.max(DS, (b - a) * DS); }
     for (let i = 0; i < N; i++) { let m = 0; for (let k = -4; k <= 4; k++) m = Math.max(m, Math.abs(A.k[clamp(i + k, 0, N - 1)])); A.kabs[i] = m; }
     // высота скальной стенки справа (по ходу вверх): 8,5–15,5 м, ниже у начала (подножие в тумане) и к воротам (бровка)
+    // W6+ (автор: «склон должен быть крутой в подъём»): стенка выше — 10,5–18,5 м, и уже у начала ≈ 6 м (была 3,5 м — у подножия
+    // справа выходил пологий бугор)
     A.hc = new Float32Array(N);
-    for (let i = 0; i < N; i++) { const s = i * DS; let h = 8.5 + 7 * vnoise(s * 0.011 + 2.3, 4.1); h = lerp(3.5, h, sm(8, 70, s)); h = lerp(h, 3.2, sm(A.len - 150, A.len - 70, s)); A.hc[i] = h; }
+    for (let i = 0; i < N; i++) { const s = i * DS; let h = 10.5 + 8 * vnoise(s * 0.011 + 2.3, 4.1); h = lerp(6, h, sm(4, 44, s)); h = lerp(h, 3.2, sm(A.len - 150, A.len - 70, s)); A.hc[i] = h; }
     PATH = A;
     return A;
   }
@@ -241,15 +250,28 @@
     return T;
   }
   const W0 = 3.4;   // полоса дороги с обочиной (м от оси, по радиусу)
-  // рельеф около дороги: справа (выше по склону) — скальная стенка 8–16 м (≈ 70°), над ней склон 0,72 до плато;
-  // слева — травяная бровка 2 м, крутой обрыв ≈ 28 м (1,1), ниже — пологие склоны 0,6 (террасы) до дна долины −150
+  // рельеф около дороги: справа (выше по склону) — скальная стенка 10–18 м (≈ 70°), над ней КРУТОЙ склон UPK до плато;
+  // слева — травяная бровка 2,4 м, скруглённая кромка, обрыв ≈ 24 м (1,05), ниже — пологие склоны 0,6 (террасы) до дна долины −150
+  // W6+: склон над стенкой был 0,72 (≈ 36°) — с дороги справа читался пологий травяной бок; теперь над стенкой ещё ≈ 16 м
+  // (по горизонтали) крутого скального склона ≈ 55° (подъём ≈ 23 м), выше — прежние 0,72 до плато (не стена до неба:
+  // дальняя сетка рельефа крупная, высокий крутой бок на ней расплывался полосами)
+  const UPK = 1.45, UPL = 16;
+  // обрыв слева: раньше сразу за бровкой 2 м шёл уклон 1,1 — с камеры за машиной он не виден (круче луча взгляда), и рядом
+  // с полотном казалось «пусто». Теперь бровка почти ровная (0,12) 2,4 м, потом уклон плавно растёт до 1,05 на 5 м
+  // (скруглённая кромка видна сверху), дальше обрыв 23 м и пологие склоны. Перепад до низа обрыва — прежний (≈ 28 м).
+  function dropOf(d) {
+    const a = 2.4, b = 7.4, s0 = 0.12, s1 = 1.05, Ls = 23;
+    if (d <= a) return s0 * d;
+    if (d <= b) { const t = d - a; return s0 * d + (s1 - s0) * t * t / (2 * (b - a)); }
+    return s0 * b + (s1 - s0) * (b - a) / 2 + s1 * Math.min(d - b, Ls) + 0.6 * Math.max(0, d - b - Ls);
+  }
   function roadTerrain(x, z, rho, beta) {
     const T = roadTab(), f = clamp((beta - T.b0) / T.db, 0, T.n - 1.0001), i = Math.floor(f), t = f - i;
     const rR = T.r[i] + (T.r[i + 1] - T.r[i]) * t, yR = T.y[i] + (T.y[i + 1] - T.y[i]) * t, hc = T.h[i] + (T.h[i + 1] - T.h[i]) * t;
     const q = rho - rR;
     let y;
-    if (q > W0) { const d = q - W0; y = yR + smin(2.8 * d, hc + 0.72 * Math.max(0, d - hc / 2.8), 1.5); y = smin(y, plateauY(x, z, rho, beta), 6); }
-    else if (q < -W0) { const d = -q - W0; y = yR - (0.16 * Math.min(d, 2) + 1.1 * clamp(d - 2, 0, 25) + 0.6 * Math.max(0, d - 27)); y = smax(y, FLOOR(rho, beta), 8); }
+    if (q > W0) { const d = q - W0, d2 = Math.max(0, d - hc / 2.8); y = yR + smin(2.8 * d, hc + smin(UPK * d2, UPK * UPL + 0.72 * (d2 - UPL), 6), 1.5); y = smin(y, plateauY(x, z, rho, beta), 6); }
+    else if (q < -W0) { const d = -q - W0; y = yR - dropOf(d); y = smax(y, FLOOR(rho, beta), 8); }
     else y = yR;
     // ручей: узкий овраг вдоль оси лощины — под дорогой (там мостик) и ниже, до дна долины; в скале — выемка-водоскат
     const sg = T.stream;
@@ -327,8 +349,8 @@
     const quality = opts.quality === 'high' ? 'high' : 'low', HI = quality === 'high';
     const PAL = palette();
     VSINK = V.regions.kubachi && V.regions.kubachi.distantFull ? 6 : 0;
-    const Q = HI ? { near: 1.5, far: 9, trees: 96, rocks: 44, tufts: 380, clouds: 2, puffs: 28, snow: 800, shadow: true }
-      : { near: 2.4, far: 16, trees: 48, rocks: 26, tufts: 90, clouds: 1, puffs: 8, snow: 400, shadow: false };
+    const Q = HI ? { near: 1.5, far: 8, trees: 96, rocks: 44, tufts: 380, clouds: 2, puffs: 28, snow: 800, shadow: true }
+      : { near: 2.4, far: 12, trees: 48, rocks: 26, tufts: 90, clouds: 1, puffs: 8, snow: 400, shadow: false };
     const t0 = performance.now();
     const own = [];
     const keep = x => { own.push(x); return x; };
@@ -808,7 +830,7 @@ void main() {
       if (WIN) {
         out.copy(cc.snowGround).lerp(cc.snowShade, 0.18 + 0.25 * n2 * (1 - ny));
         if (far) { const rv = XZ2RV(x, z), forest = sm(0.52, 0.66, vnoise(x * 0.012, z * 0.012)) * sm(470, 520, rv[0]); if (forest > 0) out.lerp(cFW[Math.floor(n2 * 3) % 3], forest * 0.9); }
-        if (rock > 0) { cTmp.copy(((y * 0.8 + n2 * 0.7) % 1 + 1) % 1 < 0.5 ? cc.rock : cc.rock2); out.lerp(cTmp, rock * 0.85); }
+        if (rock > 0) { if (far) cTmp.copy(cc.rock).lerp(cc.rock2, sm(0.3, 0.7, vnoise(x * 0.013 + 5, z * 0.013 - 2))); else cTmp.copy(((y / 3.2 + n2 * 0.35) % 1 + 1) % 1 < 0.5 ? cc.rock : cc.rock2); out.lerp(cTmp, rock * 0.85); }
         if (verge === 1) out.lerp(cSnowV, 0.6);
         return out;
       }
@@ -829,8 +851,11 @@ void main() {
         if (forest > 0) { cTmp.copy(cc.forestA).lerp(cc.forestB, sm(0.3, 0.7, f2)).lerp(cc.forestC, sm(0.62, 0.8, f2) * 0.7); out.lerp(cTmp, forest * 0.7); }
       }
       if (rock > 0) {
-        const band = ((y / 1.15 + n2 * 0.5) % 1 + 1) % 1;
-        cTmp.copy(band < 0.55 ? cc.rock : cc.rock2); if (n1 > 0.74) cTmp.lerp(cc.lichen, 0.35);
+        // W6+: склон над стенкой стал крутым — пласты по высоте шагом 1,15 м на клетках 9–16 м (дальняя сетка) и 1,5–2,4 м
+        // (ближняя) рвались в косые полосы-«лучи». Вдали — ровный камень пятнами, вблизи — пласты шагом 3,2 м
+        if (far) cTmp.copy(cc.rock).lerp(cc.rock2, sm(0.3, 0.7, vnoise(x * 0.013 + 5, z * 0.013 - 2)));
+        else { const band = ((y / 3.2 + n2 * 0.35) % 1 + 1) % 1; cTmp.copy(band < 0.55 ? cc.rock : cc.rock2); }
+        if (n1 > 0.74) cTmp.lerp(cc.lichen, 0.35);
         out.lerp(cTmp, rock);
       }
       if (verge === 1) out.lerp(cVerge, 0.75); else if (verge === 2) out.lerp(cGravel, 0.18);
@@ -1034,15 +1059,22 @@ void main() {
       const rAt = b => { const f = clamp((b - RTB.b0) / RTB.db, 0, RTB.n - 1); return RTB.r[Math.round(f)]; };
       const okT = (x, z) => {
         const rho = Math.hypot(x - TX, z - TZ), b = Math.atan2(x - TX, z - TZ) / D2R; if (rho < 304) return false;
-        if (rho > rAt(b) - W0 - 24) return false;   // только ниже обрыва (слева по ходу вверх)
-        const l = hq(x, z); if (l) for (const i of l) { segP(i, x, z); if (SP.d2 < 121) return false; }
-        return true;
+        if (rho > rAt(b) - W0 - 45) return false;   // только ниже обрыва (слева по ходу вверх); W6+: не ближе ≈ 45 м к дороге
+        const l = hq(x, z); if (l) for (const i of l) { segP(i, x, z); if (SP.d2 < 576) return false; }
+        // W6+ (скрин автора: зелёные «плавники» у дороги): с камеры на дороге ступени на крутом и у самого дна долины
+        // (где склон почти ровный и полка торчит над ним) читались торчащими клиньями. Только склоны средней крутизны,
+        // выше дна долины
+        const e = 2.5, y0 = surfT(x, z); if (y0 < -137) return false;
+        const gx = (surfT(x + e, z) - surfT(x - e, z)) / (2 * e), gz = (surfT(x, z + e) - surfT(x, z - e)) / (2 * e), g2 = gx * gx + gz * gz;
+        return g2 >= 0.0144 && g2 <= 0.42;
       };
-      const fields = [];
-      for (let b = Math.ceil(RTB.b0 - 4); b < RTB.b1 + 4; b += 26) { const b1 = Math.min(RTB.b1 + 4, b + 26); let rm = 0; for (let bb = b; bb <= b1; bb += 1) rm = Math.max(rm, rAt(bb)); fields.push({ b0: b, b1, r0: 302, r1: Math.min(560, rm - 20) }); }
+      // W6+: поле — по настоящим горизонталям рельефа (как напротив села в kubachi.js), а не полосами поперёк радиуса:
+      // у дороги горизонтали петляют за лощинами и отрогами, и радиальные полосы ломались в клинья
+      const fields = [{ contour: { x0: TX - 575, z0: TZ - 15, x1: TX + 415, z1: TZ + 575, cell: HI ? 4 : 5, blur: 6, smooth: 5 }, far: !HI, lift: 0.2 }];
       terrStats = VK.terraces({ cx: TX, cz: TZ, fields, surf: surfT, ok: okT, tread: adapt, wall: adapt, winter: WIN, seed: 5151,
-        segL: HI ? 5 : 6.5, dr: 2, step: 2.4, stepVar: 0.8, kant: HI, two: HI, pathEvery: 14, stone: 0.12,
-        palette: [['#9DC25C', '#86AD4C'], ['#8DB752', '#78A043'], ['#A9C866', '#93B456'], ['#7FAE4E', '#6C9A40'], ['#B3CC6E', '#9CB85C'], ['#94BC58', '#7EA64A']] });
+        segL: HI ? 5 : 7, step: 2.4, pathEvery: 0,
+        // W6+: тон ближе к траве долины (были кислотно-салатовые полосы на оливковом склоне — «чужие» пластины)
+        palette: [['#97B25A', '#84A04E'], ['#8AAA54', '#789748'], ['#A0B862', '#8EA656'], ['#82A250', '#718F45'], ['#A6BC68', '#93AA5A'], ['#90AC56', '#7E9A4A']] });
       if (TB2.n) { const m = TB2.mesh(vcMat); const mc = chunked(m.geometry, vcMat, { cell: 160, renderOrder: -3, name: 'terraces' }); root.add(mc); meshes.terraces = mc; }
     }
 
@@ -1656,20 +1688,29 @@ void main() {
     let villageFull = true;
 
     /* ---------- облака: море облаков (2–3 слоя) и облачные клубы у склона ---------- */
+    // W6+ (скрин автора с телефона): плоская пелена на CLOUD_TOP, когда дорога ныряет в облако, резала кадр ровной белой
+    // кромкой и накрывала полотно и машину (камера уже над пеленой, машина — ещё под ней), а в щели у скалы просвечивала белым.
+    // Теперь у пелены свой шейдер: рядом с камерой её нет вовсе (до fadeR.x м), дальше она плавно густеет (к fadeR.y м) —
+    // сверху «море облаков» вдали остаётся, а у машины и на дороге ни кромки, ни белой плёнки. «Молоко» внутри облака — туман.
+    const CLOUD_FADE = new T.Vector2(16, 120);
+    const CLOUD_V = 'uniform vec2 rep; uniform vec2 off; varying vec2 vUv; varying vec3 vW;\n#include <fog_pars_vertex>\nvoid main(){ vUv = uv * rep + off; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}';
+    const CLOUD_F = 'uniform sampler2D map; uniform vec3 color; uniform float opacity; uniform vec2 fadeR; varying vec2 vUv; varying vec3 vW;\n#include <fog_pars_fragment>\nvoid main(){ vec4 t = texture2D(map, vUv); float k = smoothstep(fadeR.x, fadeR.y, distance(vW, cameraPosition)); gl_FragColor = vec4(color * t.rgb, t.a * opacity * k);\n#include <fog_fragment>\n}';
     const clouds = [];
     {
       const layers = [[CLOUD_TOP, 0.95, 5], [CLOUD_TOP - 4, 0.75, 7], [CLOUD_TOP - 8, 0.65, 4]].slice(0, Q.clouds);
       layers.forEach(([y, op, rep], k) => {
-        const t = cloudTex.clone(); t.needsUpdate = true; keep(t); t.repeat.set(rep, rep); t.offset.set(k * 0.37, k * 0.21);
-        const mat = keep(new T.MeshBasicMaterial({ map: t, color: C(WIN ? '#FFFFFF' : k ? '#F0F3F7' : '#FFFFFF'), transparent: true, opacity: op * (WIN ? 1 : 0.95), depthWrite: false, side: T.DoubleSide }));
+        const u = { map: { value: cloudTex }, color: { value: C(WIN ? '#FFFFFF' : k ? '#F0F3F7' : '#FFFFFF') }, opacity: { value: op * (WIN ? 1 : 0.95) }, rep: { value: new T.Vector2(rep, rep) }, off: { value: new T.Vector2(k * 0.37, k * 0.21) }, fadeR: { value: CLOUD_FADE } };
+        const mat = keep(new T.ShaderMaterial({ uniforms: T.UniformsUtils.merge([T.UniformsLib.fog]), vertexShader: CLOUD_V, fragmentShader: CLOUD_F, transparent: true, depthWrite: false, side: T.DoubleSide, fog: true }));
+        Object.assign(mat.uniforms, u);   // свои uniform-ы — без копии (текстура общая, смещение двигает update)
         const m = new T.Mesh(keep(new T.PlaneGeometry(3000, 3000)), mat); m.rotation.x = -PI / 2; m.position.set(100, y, 220); m.renderOrder = 3 + k; m.name = 'cloud' + k; root.add(m);
-        clouds.push({ m, t, sp: 0.0016 + k * 0.0007 });
+        clouds.push({ m, u, sp: 0.0016 + k * 0.0007 });
       });
     }
+    // клубы: так же тают у камеры (вблизи — по расстоянию до центра клуба), чтобы не застилать машину белым
     const puffMat = keep(new T.ShaderMaterial({
       uniforms: T.UniformsUtils.merge([T.UniformsLib.fog, { map: { value: null }, color: { value: C('#FFFFFF') }, opacity: { value: 0.85 } }]),
-      vertexShader: 'attribute vec3 offset; attribute float size; varying vec2 vUv;\n#include <fog_pars_vertex>\nvoid main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(offset, 1.0); mvPosition.xy += position.xy * size; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
-      fragmentShader: 'uniform sampler2D map; uniform vec3 color; uniform float opacity; varying vec2 vUv;\n#include <fog_pars_fragment>\nvoid main(){ vec4 t = texture2D(map, vUv); gl_FragColor = vec4(color * t.rgb, t.a * opacity);\n#include <fog_fragment>\n}',
+      vertexShader: 'attribute vec3 offset; attribute float size; varying vec2 vUv; varying float vNear;\n#include <fog_pars_vertex>\nvoid main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(offset, 1.0); vNear = smoothstep(0.35, 1.3, -mvPosition.z / max(size, 1.0)); mvPosition.xy += position.xy * size; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
+      fragmentShader: 'uniform sampler2D map; uniform vec3 color; uniform float opacity; varying vec2 vUv; varying float vNear;\n#include <fog_pars_fragment>\nvoid main(){ vec4 t = texture2D(map, vUv); gl_FragColor = vec4(color * t.rgb, t.a * opacity * vNear);\n#include <fog_fragment>\n}',
       transparent: true, depthWrite: false, fog: true,
     }));
     puffMat.uniforms.map.value = puffTex;
@@ -1871,12 +1912,12 @@ void main() {
 
     /* ---------- настроение: долина в облаке → внутри облака → над облаками ---------- */
     const MOODS = WIN ? {
-      valley: { top: '#C9D3DE', hor: '#E4E9EF', fog: '#E3E8EE', near: 12, far: 95, hs: '#E6EEF7', hg: '#CBD3DC', hi: 0.8, sun: '#FFF6EC', si: 0.22 },
-      cloud: { top: '#EEF2F6', hor: '#F2F5F8', fog: '#EEF2F6', near: 1, far: 24, hs: '#EEF3F8', hg: '#D6DDE4', hi: 0.86, sun: '#FFFFFF', si: 0.14 },
+      valley: { top: '#C9D3DE', hor: '#E4E9EF', fog: '#E3E8EE', near: 30, far: 250, hs: '#E6EEF7', hg: '#CBD3DC', hi: 0.8, sun: '#FFF6EC', si: 0.22 },
+      cloud: { top: '#EEF2F6', hor: '#F2F5F8', fog: '#EEF2F6', near: 3, far: 52, hs: '#EEF3F8', hg: '#D6DDE4', hi: 0.86, sun: '#FFFFFF', si: 0.14 },
       clear: { top: '#AFC4DC', hor: '#E6EDF4', fog: '#E3EAF2', near: 160, far: 2100, hs: '#E6EEF7', hg: '#DCE3EA', hi: 0.7, sun: '#FFF1E0', si: 0.5 },
     } : {
-      valley: { top: '#BCC8D6', hor: '#DCE2E9', fog: '#DAE0E7', near: 16, far: 140, hs: '#D6DEE6', hg: '#B8AE9C', hi: 0.78, sun: '#FFF4E6', si: 0.24 },
-      cloud: { top: '#E9EEF3', hor: '#EEF2F6', fog: '#EAEFF4', near: 1, far: 26, hs: '#E6ECF2', hg: '#C8C2B6', hi: 0.86, sun: '#FFF6EA', si: 0.15 },
+      valley: { top: '#BCC8D6', hor: '#DCE2E9', fog: '#DAE0E7', near: 36, far: 300, hs: '#D6DEE6', hg: '#B8AE9C', hi: 0.78, sun: '#FFF4E6', si: 0.24 },
+      cloud: { top: '#E9EEF3', hor: '#EEF2F6', fog: '#EAEFF4', near: 3, far: 56, hs: '#E6ECF2', hg: '#C8C2B6', hi: 0.86, sun: '#FFF6EA', si: 0.15 },
       clear: { top: '#3F78C2', hor: '#A6C8EA', fog: '#BCD2E6', near: 210, far: 3000, hs: '#CFE0F0', hg: '#A39C84', hi: 0.62, sun: '#FFE2BE', si: 0.64 },
     };
     const MC = {}; Object.keys(MOODS).forEach(k => { const m = MOODS[k]; MC[k] = { top: C(m.top), hor: C(m.hor), fog: C(m.fog), hs: C(m.hs), hg: C(m.hg), sun: C(m.sun), near: m.near, far: m.far, hi: m.hi, si: m.si }; });
@@ -1892,7 +1933,9 @@ void main() {
     const tmpM = { top: new T.Color(), hor: new T.Color(), fog: new T.Color(), hs: new T.Color(), hg: new T.Color(), sun: new T.Color(), near: 0, far: 0, hi: 0, si: 0 };
     const gateP = { x: R.x[exitI], z: R.z[exitI] }, startP = { x: R.x[0], z: R.z[0] }, hotelP = { x: GX[NG2 - 1], z: GZ[NG2 - 1] };
     function applyMood(camY, hx, hz) {
-      const t1 = sm(-107, -99, camY), t2 = sm(-93, -85, camY);
+      // W6+: туман у подножия реже (долина внизу видна, а не «пустота» за кромкой), в облаке — «молоко», но дорога видна дальше;
+      // переходы растянуты по высоте, чтобы туман не «обрывался»
+      const t1 = sm(-110, -98, camY), t2 = sm(-95, -82, camY);
       blend(MC.valley, MC.cloud, t1, tmpM); blend(tmpM, MC.clear, t2, cur);
       // облачная шторка у ворот въезда
       const dG = Math.hypot(hx - gateP.x, hz - gateP.z), dH = Math.hypot(hx - hotelP.x, hz - hotelP.z), kG = Math.max(1 - sm(10, 46, dG), 1 - sm(6, 30, dH)) * 0.8;
@@ -2053,7 +2096,7 @@ void main() {
       }
       const hx = heroPos ? heroPos.x : cp.x, hz = heroPos ? heroPos.z : cp.z;
       mood = applyMood(cp.y, hx, hz);
-      clouds.forEach((c, k) => { c.t.offset.x += dt * c.sp; c.t.offset.y += dt * c.sp * 0.4 * (k % 2 ? -1 : 1); });
+      clouds.forEach((c, k) => { const o = c.u.off.value; o.x = (o.x + dt * c.sp) % 1; o.y = (o.y + dt * c.sp * 0.4 * (k % 2 ? -1 : 1)) % 1; });
       if (meshes.streamTex) meshes.streamTex.offset.y -= dt * 0.35;
       // птицы
       { const P = birds.P; birds.list.forEach((b, j) => { const a = time * b.w + b.ph, x = b.c[0] + Math.sin(a) * b.r, z = b.c[2] + Math.cos(a) * b.r, y = b.c[1] + Math.sin(time * 0.3 + j) * 3, hd = a + (b.w > 0 ? PI / 2 : -PI / 2), fx = Math.sin(hd), fz = Math.cos(hd), lx = fz, lz = -fx, fl = Math.sin(time * 2.2 + j) * 0.35 + 0.25, s = b.s;

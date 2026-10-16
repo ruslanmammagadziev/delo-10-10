@@ -1065,7 +1065,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           const g = h.ground(tx, tz); if ((!h.walkable || h.walkable(tx, tz)) && Math.abs(g - S.py) < 0.6) { p.x = tx; p.z = tz; p.y = g; } else { p.x = S.px - Math.sin(S.ang) * 0.6; p.z = S.pz - Math.cos(S.ang) * 0.6; p.y = S.py; }
           p.stuckT = 0;
         }
-        const vmax = p.kind === 'cat' ? 4.6 : 5.2, spd = d > 0.35 ? Math.min(vmax, d * 2.6) : 0;
+        const vmax = p.kind === 'cat' ? 7.6 : 8.2, spd = d > 0.35 ? Math.min(vmax, d * 2.6) : 0;   // W6+: она бегает 6,8 м/с — зверята не отстают
         if (spd > 0) {
           let nx = p.x + dx / d * spd * dt, nz = p.z + dz / d * spd * dt;
           if (h.collide) [nx, nz] = h.collide(nx, nz, 0.2, p.y);

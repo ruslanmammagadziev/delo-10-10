@@ -3145,7 +3145,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
 
     /* --- игровой цикл --- */
     // скорости героини (HeroAnim.SPEEDS, волна 3): шаг 2,0 м/с, трусца 3,0; джойстик — шаг до 85% наклона, дальше трусца
-    const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 3.4 };
+    const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 6.8 };
     const joySpeed = m => (m <= 0.85 ? HS.walk * m / 0.85 : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
     let SPEED = HS.walk;
     const proj = new T.Vector3();

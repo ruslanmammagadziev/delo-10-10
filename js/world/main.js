@@ -40,7 +40,7 @@
   WORLD.HEIGHT_OK = true;
   const gy = (L, x, z) => { const h = L && L.heightAt ? L.heightAt(x, z) : 0; return h > 0 ? h : 0; };
   // скорости героини (js/hero_anim.js): шаг 2,0, трусца 3,0 м/с; джойстик — шаг до 85% наклона, дальше трусца
-  const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 3.4 };
+  const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 6.8 };
   const joySpeed = m => (m <= 0.85 ? Math.max(0.6, HS.walk * m / 0.85) : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
   // что открыто (CONFIG.UNLOCK → Missions.unlock): { ok, text } — text — милая строка-замок
   const unlock = k => { try { if (window.Missions && Missions.unlock) return Missions.unlock(k); } catch (e) { /* открыто */ } return { ok: true, text: '' }; };
@@ -1632,7 +1632,7 @@
       const lock = !!(w.pf && w.pf.locked());
       const mag = dir && !lock ? (inDir ? dir[2] : 1) : 0;
       let sp = dir && !inDir ? speed : undefined;
-      if (sp !== undefined && mv.run) sp = Math.max(sp, HS.run || 3.4);   // «Бег» горит — к двери/жителю тоже бегом
+      if (sp !== undefined && mv.run) sp = Math.max(sp, HS.run || 6.8);   // «Бег» горит — к двери/жителю тоже бегом
       const st = mv.update(dt, { x: mag ? dir[0] * mag : 0, z: mag ? dir[1] * mag : 0, speed: mag ? sp : undefined });
       s.px = st.pos.x; s.pz = st.pos.z; s.py = st.pos.y; s.floor = st.floor; s.vx = st.vx; s.vz = st.vz; s.air = !st.grounded;
       s.mvX = s.px; s.mvZ = s.pz;

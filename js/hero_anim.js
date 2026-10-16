@@ -9,8 +9,9 @@
             null — костей не хватает (тогда город показывает «статуэтку»).
      anim.update(dt, s) — раз в кадр; s = {
             speed     — скорость, м/с. До ~2.3 — шаг (прямая спина, опорная нога почти прямая, пятка → носок),
-                        2.3–2.8 — плавный переход, дальше — лёгкая трусца (без приседа). Стопа в опоре стоит на
-                        земле (IK), рекомендуемые скорости — HeroAnim.SPEEDS,
+                        2.3–2.8 — плавный переход, дальше — лёгкая трусца (без приседа), от ~4 м/с — бег (W6+: «Бег»
+                        вдвое быстрее, 6,8 м/с): чаще шаг, короче опора, выше колени, корпус вперёд, руки работают.
+                        Стопа в опоре стоит на земле (IK), рекомендуемые скорости — HeroAnim.SPEEDS,
             sitting   — сидит (true/false), sitPose — 'chair' (по умолчанию) | 'recline' (откинувшись),
             waving    — машет свободной левой рукой (лупа остаётся в правой),
             turnRate  — скорость поворота, рад/с (+ — налево): наклон в поворот, волосы заносит,
@@ -59,7 +60,8 @@
   const PI = Math.PI, TAU = PI * 2, D = PI / 180;
   const NAMES = ['hips', 'spine', 'chest', 'neck', 'head', 'hair'];
   ['_L', '_R'].forEach(s => ['shoulder', 'upperarm', 'forearm', 'hand', 'thigh', 'shin', 'foot', 'coat'].forEach(n => NAMES.push(n + s)));
-  const SPEEDS = { walk: 2.0, jog: 3.0, run: 3.4 };
+  // W6+ (автор: «при беге она бегала в 2 раза быстрее»): run 3,4 → 6,8 м/с; походка бега — слой wSpr в update
+  const SPEEDS = { walk: 2.0, jog: 3.0, run: 6.8 };
   // велосипед-«голландец» по умолчанию (оси модели героини) — совпадает с js/world/bike.js (D.saddle/bb/grip − heroRoot)
   const RIDE = { seat: [0, 0.727, -0.03], crank: [0, 0.235, 0.255], crankR: 0.15, pedalX: 0.135,
     handL: [0.262, 0.936, 0.337], handR: [-0.262, 0.936, 0.337], steerAxis: [0, 0.927, -0.375], steerAt: [0, 0.275, 0.79], dev: 4.1 };
@@ -130,7 +132,7 @@
     const addDeg = (pose, k) => { if (k <= 0) return; for (const n in pose) { const a = pose[n]; add(n, a[0] * D, a[1] * D, a[2] * D, k); } };
     const mixTo = (n, x, y, z, k) => { const p = P[n]; p[0] = lerp(p[0], x, k); p[1] = lerp(p[1], y, k); p[2] = lerp(p[2], z, k); };
     // состояние
-    let t = 0, phase = 0, speedS = 0, wMove = 0, wRun = 0, wSit = 0, wRec = 0, wWave = 0, wCarry = 0, wBq = 0, lean = 0, step = 0, lastF = 0;
+    let t = 0, phase = 0, speedS = 0, wMove = 0, wRun = 0, wSpr = 0, wSit = 0, wRec = 0, wWave = 0, wCarry = 0, wBq = 0, lean = 0, step = 0, lastF = 0;
     let hipsS = 0.86, wRide = 0, wDrive = 0, pedPh = 0, steerS = 0, rideLean = 0, leanFw = 0, wLow = 0, lowMem = false;
     let wsT = 2 + Math.random() * 3, ws = 0, wsS = 0, lookT = 1.5 + Math.random() * 2, look = [0, 0, 0], lookS = [0, 0, 0];
     let celT = -1, prevCel = false, wavePh = 0;
@@ -272,6 +274,7 @@
         speedS = damp(speedS, seated ? 0 : spd, 9, dt);
         wMove = damp(wMove, !seated && speedS > 0.12 ? 1 : 0, 7, dt);
         wRun = damp(wRun, sst(2.3, 2.8, speedS), 5, dt);
+        wSpr = damp(wSpr, sst(3.8, 5.6, speedS), 5, dt);   // W6+: настоящий бег (кнопка «Бег», 6,8 м/с)
         wSit = damp(wSit, sitting ? 1 : 0, 6, dt);
         wRec = damp(wRec, s.sitPose === 'recline' ? 1 : 0, 5, dt);
         wWave = damp(wWave, s.waving && !rideO && !driveO ? 1 : 0, 7, dt);
@@ -291,8 +294,11 @@
         const r = wRun, vS = speedS;
         // длина шага растёт со скоростью и насыщается (~0.65 м на 1.3 м/с, ~0.7 м на 2 м/с): быстрее — чаще, а не шире
         const stepW = 0.73 - 0.52 * Math.exp(-1.45 * vS), cadW = vS / stepW, cadJ = 2.6 + 0.33 * vS;   // шагов в секунду
-        const cad = lerp(cadW, cadJ, r), rate = cad / 2;
-        const duty = lerp(clamp(0.655 - 0.07 * vS, 0.5, 0.63), clamp(0.47 - 0.03 * vS, 0.34, 0.42), r);
+        // W6+: бег — каденс ≈ 6 шагов/с на 6,8 м/с, опора ≈ 0,23 цикла: стопа в опоре проходит ≈ 0,52 м (нога достаёт,
+        // почти без проскальзывания), остальное — полёт
+        const qS = wSpr, cadS = 2.2 + 0.56 * vS;
+        const cad = lerp(lerp(cadW, cadJ, r), cadS, qS), rate = cad / 2;
+        const duty = lerp(lerp(clamp(0.655 - 0.07 * vS, 0.5, 0.63), clamp(0.47 - 0.03 * vS, 0.34, 0.42), r), clamp(0.35 - 0.018 * vS, 0.21, 0.3), qS);
         // трогается с места: фаза — так, чтобы опорная левая стояла под тазом (без рывка ног)
         if (wMove < 0.02 && vS > 0.12 && !seated) { const tz = Math.max(1e-3, vS / Math.max(1e-3, rate) * duty); phase = clamp(touchdownZ(tz, lerp(9, 4, r) * D, -50 * D, 0.026) / tz, 0, 0.95) * duty; legT._L.sw = legT._R.sw = false; legT._L.zs = legT._R.zs = 0; lastF = phase; }
         if (wMove > 0.01) phase = (phase + dt * rate) % 1;
@@ -310,7 +316,7 @@
         const p0 = KV[0], p1 = KV[4];
         const latX = lerp(ankleX + 0.004, ankleX - 0.002, r);
         const zTD = touchdownZ(travel, p0, p1, Math.abs(rest.thigh_L.x) - latX) + lerp(0, -0.01, r);
-        const liftH = lerp(0.05 + 0.01 * Math.min(vS, 2.4), 0.12, r);
+        const liftH = lerp(lerp(0.05 + 0.01 * Math.min(vS, 2.4), 0.12, r), 0.21, qS);   // бег: пятка высоко, колено вперёд
         ['_L', '_R'].forEach((sd, i) => {
           const fl = (f + i * 0.5) % 1, L = legT[sd];
           L.pitch = pmono(KF, KV, 9, fl);
@@ -344,10 +350,10 @@
             // сгибается сильнее на взмахе вперёд; правая (с лупой) чуть скромнее
             const sg = i ? -1 : 1, mag = i ? 0.85 : 1, ph = f - (i ? 0 : 0.5) - 0.05;
             const c = Math.cos(ph * TAU), sw = Math.sin(ph * TAU);
-            const amp = lerp(clamp(6 + 6 * vS, 8, 19), 25, r) * D * mag, bias = lerp(3, 6, r) * D;
+            const amp = lerp(lerp(clamp(6 + 6 * vS, 8, 19), 25, r), 40, qS) * D * mag, bias = lerp(lerp(3, 6, r), 9, qS) * D;
             const flex = amp * c + bias;
             add('upperarm' + sd, -flex, 0, sg * (lerp(4, 8, r) + 2.5 * Math.max(0, -c) - 1.5 * Math.max(0, c)) * D, k);
-            add('forearm' + sd, -(lerp(17, 72, r) + lerp(13, 12, r) * Math.max(0, c) - lerp(0, 6, r) * Math.max(0, -c)) * D, 0, -sg * lerp(0, 10, r) * D, k);
+            add('forearm' + sd, -(lerp(lerp(17, 72, r), 86, qS) + lerp(13, 12, r) * Math.max(0, c) - lerp(0, 6, r) * Math.max(0, -c)) * D, 0, -sg * lerp(0, 10, r) * D, k);
             add('hand' + sd, (5 + 5 * Math.sin((ph - 0.15) * TAU)) * D, 0, 0, k);
             add('shoulder' + sd, 0, -sg * 1.5 * D * c, (i ? 1 : -1) * lerp(0.6, 1.4, r) * D * sw, k);
           });
@@ -355,8 +361,9 @@
           add('hips', lerp(1.5, 4, r) * D, -lerp(lerp(3.5, 7, clamp(vS / 2, 0, 1)), 7, r) * D * Math.cos(th), lerp(3, 2.2, r) * D * Math.sin(th), k);
           hx += lerp(0.013, 0.006, r) * Math.sin(th) * k;
           // корпус прямой, плечи — навстречу тазу
-          add('spine', lerp(1.2, 3, r) * D, lerp(3, 4, r) * D * Math.cos(th), -lerp(1.2, 1, r) * D * Math.sin(th), k);
-          add('chest', lerp(1.0, 3, r) * D, lerp(4.5, 7, r) * D * Math.cos(th), -lerp(1.2, 0.8, r) * D * Math.sin(th), k);
+          add('spine', lerp(lerp(1.2, 3, r), 7, qS) * D, lerp(3, 4, r) * D * Math.cos(th), -lerp(1.2, 1, r) * D * Math.sin(th), k);   // бег: корпус вперёд
+          add('chest', lerp(lerp(1.0, 3, r), 5, qS) * D, lerp(lerp(4.5, 7, r), 9, qS) * D * Math.cos(th), -lerp(1.2, 0.8, r) * D * Math.sin(th), k);
+          add('head', -6 * D * qS, 0, 0, k);   // взгляд вперёд, а не в землю
           // наклон в поворот и взгляд туда же
           add('hips', 0, 0, lean, k);
           add('head', 0, clamp(turn * 0.05, -0.25, 0.25), 0, k);
@@ -461,7 +468,7 @@
           let fly = 0;
           if (duty < 0.5) {
             const fw = 0.5 - duty, g1 = ((f - duty) % 1 + 1) % 1, g2 = ((f - duty - 0.5) % 1 + 1) % 1;
-            const tf = fw / Math.max(1e-3, rate), hF = Math.min(0.012, 9.8 * tf * tf / 8) + 0.002;
+            const tf = fw / Math.max(1e-3, rate), hF = Math.min(lerp(0.012, 0.03, wSpr), 9.8 * tf * tf / 8) + 0.002;   // бег: заметный полёт
             if (g1 < fw) fly = Math.sin(PI * g1 / fw); else if (g2 < fw) fly = Math.sin(PI * g2 / fw);
             fly = fly * fly * hF;
           }
