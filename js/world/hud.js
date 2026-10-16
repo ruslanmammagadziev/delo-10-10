@@ -118,6 +118,11 @@
 
   /* ---------- Лицо главной кнопки (§3.6) ---------- */
   const FACES = [
+    // подписи поездки (REGION-HUD; раньше дописывались из regions.js — теперь в общей таблице)
+    [/^сесть в машину/i, '🚗', 'В машину'], [/^посидеть/i, '🪑', 'Посидеть'], [/^пристегнуться/i, '🎢', 'Поехали'], [/^пробить/i, '⚽', 'Удар'],
+    [/^гравировать/i, '✨', 'Узор'], [/^полетать/i, '🪂', 'Лететь'], [/^попить/i, '💧', 'Попить'], [/^в круг/i, '💃', 'Танец'],
+    [/^угоститься/i, '😋', 'Угощение'], [/^поздравить/i, '💐', 'Ура!'], [/^в город/i, '🏙', 'В город'], [/^к отелю/i, '🏨', 'К отелю'],
+    [/^сама порулю/i, '🕹', 'Рулить'],
     [/^войти/i, '🚪', 'Войти'], [/^зайти/i, '🚪', 'Войти'], [/^закрыто/i, '🔒', 'Закрыто'], [/^постучать/i, '✊', 'Тук-тук'],
     [/^поговорить/i, '💬', 'Говорить'], [/^говорить/i, '💬', 'Говорить'], [/^спросить/i, '💬', 'Спросить'], [/^поздороваться/i, '👋', 'Привет'],
     [/^помахать/i, '👋', 'Помахать'], [/^погладить/i, '🤍', 'Гладить'], [/^сесть за руль/i, '🚗', 'За руль'], [/^за руль/i, '🚗', 'За руль'],
@@ -177,6 +182,26 @@
     return f;
   }
   HUD.paintAct = paintAct;
+  // одна кнопка в любом слоте: P — значок + слово, a2 — пилюля «значок + подпись», s1…s4 — круг 46 со значком (подпись — aria-label)
+  HUD.paintSlot = function (el, label, slot, soft) {
+    if (!el) return null;
+    HUD.slot(el, slot);
+    if (slot === 'P') { el.classList.remove('hud-a2', 'hud-sbtn'); return paintAct(el, label, soft); }
+    const f = actFace(label), L0 = String(label == null ? '' : label).trim();
+    const txt = f.icon && L0.indexOf(f.icon) === 0 ? L0.slice(f.icon.length).replace(/^[\uFE0F\s]+/, '') : L0;
+    el.classList.remove('hud-act');
+    if (slot === 'a2') { el.classList.add('hud-a2'); el.classList.remove('hud-sbtn'); el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i><span>${esc(txt)}</span>`; }
+    else { el.classList.add('hud-sbtn'); el.classList.remove('hud-a2'); el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i>`; }
+    el.setAttribute('aria-label', L0); el.title = L0; el.dataset.full = L0;
+    el.classList.toggle('soft', !!soft);
+    return f;
+  };
+  // полоса без ☰ и/или без пилюли цели (мини-игра, зиплайн: любое касание — игре): HUD.bar({ menu: false, obj: false }); HUD.bar() — всё вернуть
+  HUD.bar = function (o) {
+    o = o || {};
+    const b = document.body.classList;
+    b.toggle('hud-bare-menu', o.menu === false); b.toggle('hud-bare-obj', o.obj === false);
+  };
   HUD.slot = (el, name) => { if (el) { if (name) el.dataset.hudSlot = name; else delete el.dataset.hudSlot; } return el; };
   HUD.mode = (root, mode) => { if (root) { if (mode) root.dataset.hudMode = mode; else delete root.dataset.hudMode; } return root; };
   HUD.radarSlot = el => { if (el) { el.classList.add('hud-radar'); el.dataset.hudSlot = 'radar'; } return el; };

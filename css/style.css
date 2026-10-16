@@ -1157,3 +1157,9 @@ body.hud-quiet .hud-a2, body.hud-quiet .hud-pedal, body.hud-quiet #hud .hud-obj,
 /* 2D-город и комнаты 2D: список ниже верхней полосы */
 .town2d-wrap { padding-top: calc(var(--hud-bar-b) + 8px); }
 .town-room-wrap { padding-top: calc(var(--hud-bar-b) + 6px); }
+/* полоса без ☰ / без цели (HUD.bar или body.hud-bare): мини-игры и зиплайн */
+body.hud-bare #hudMenu, body.hud-bare-menu #hudMenu, body.hud-bare #hudObj, body.hud-bare-obj #hudObj,
+body.hud-bare #hud .hud-card, body.hud-bare-obj #hud .hud-card { display: none !important; }
+/* режимы кластера (HUD.mode): без джойстика — сидя, «Осмотреться», танец, зиплайн, мини-игра */
+[data-hud-mode="sit"] .hud-joy, [data-hud-mode="look"] .hud-joy, [data-hud-mode="dance"] .hud-joy,
+[data-hud-mode="zip"] .hud-joy, [data-hud-mode="sport"] .hud-joy { display: none !important; }
