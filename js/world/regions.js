@@ -242,20 +242,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
   // события слоя рук → мягкие звуки движка (engine.js: tap, pop, blip, chime, door, flutter, step, wrong)
   const IA_SFX = { take: 'pop', give: 'pop', bite: 'pop', crunch: 'pop', lick: 'blip', sip: 'blip', gulp: 'blip', lid: 'door', lidClose: 'door', splash: 'flutter', step: 'step', pat: 'tap', clap: 'tap', coin: 'chime', clink: 'chime', busy: 'wrong' };
 
-  // HUD v2: лицо главной кнопки для подписей гор (HUD.actFace: значок + одно слово), строки — впереди общей таблицы
-  function regionFaces() {
-    const H = HUD_(); if (!H || !Array.isArray(H.FACES) || H._wrFaces) return; H._wrFaces = true;
-    H.FACES.unshift(
-      [/^сесть в машину/i, '🚗', 'В машину'], [/^посидеть/i, '🪑', 'Посидеть'], [/^(?:рассмотреть|заглянуть)/i, '👀', 'Смотреть'],
-      [/^пристегнуться/i, '🎢', 'Поехали'], [/^пробить/i, '⚽', 'Удар'], [/^гравировать/i, '✨', 'Узор'], [/^полетать/i, '🪂', 'Лететь'],
-      [/^попить/i, '💧', 'Попить'], [/^в круг/i, '💃', 'Танец'], [/^угоститься/i, '😋', 'Угощение'], [/^поздравить/i, '💐', 'Ура!'],
-      [/^в город/i, '🏙', 'В город'], [/^к отелю/i, '🏨', 'К отелю'], [/^сама порулю/i, '🕹', 'Рулить']);
-  }
-
   function create(refs = {}) {
     const T = refs.THREE || window.THREE;
     if (!T) throw new Error('regions: нет THREE');
-    ensureCss(); regionFaces();
+    ensureCss();
     const st0 = settings();
     const named = refs.named !== undefined ? !!refs.named : st0.named;
     const season = refs.season === 'winter' || refs.season === 'autumn' ? refs.season : st0.season;
@@ -410,12 +400,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const keep = el.classList.contains('wr-act2') ? 'wr-act2' : el.classList.contains('wr-skip') ? 'wr-skip' : slot === 'P' ? 'w-act wr-act' : 'wr-act';
       const key = slot + '|' + label + '|' + (soft ? 1 : 0);
       if (el.dataset.wrKey === key) return;
-      el.dataset.wrKey = key; H.slot(el, slot);
-      if (slot === 'P') { el.className = keep + ' hud-act'; delete el.dataset.full; H.paintAct(el, label, soft); return; }
-      const f = H.actFace(label), L0 = String(label).trim(), txt = f.icon && L0.indexOf(f.icon) === 0 ? L0.slice(f.icon.length).replace(/^[\uFE0F\s]+/, '') : L0;
-      el.setAttribute('aria-label', label); el.title = label; el.dataset.full = label;
-      if (slot === 'a2') { el.className = keep + ' hud-a2'; el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i><span>${esc(txt)}</span>`; return; }
-      el.className = keep + ' hud-sbtn'; el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i>`;
+      el.dataset.wrKey = key; el.className = keep; delete el.dataset.full; delete el.dataset.faceKey;
+      if (H.paintSlot) { H.paintSlot(el, label, slot, soft); return; }   // общий модуль: P — значок + слово, a2 — пилюля, s1…s4 — круг 46
+      H.slot(el, slot); H.paintAct(el, label, soft);
     }
     const btnLabel = el => (el && !el.classList.contains('hidden') ? (el.dataset.full || el.getAttribute('aria-label') || el.textContent) : null);
     // подсказки управления — тостом игры (один за раз, под полосой)
@@ -465,6 +452,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function hudEnd() {
       const H = HUD_(); document.body.classList.remove('wr-hud-sport', 'wr-hud-zip');
       if (!H) return;
+      if (H.bar) H.bar({});
       try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-radar'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
       try { H.status(hudSaved ? hudSaved.status : null); } catch (e) { /* ok */ }
       try { if (H.objective) H.objective.set(hudSaved && hudSaved.obj ? Object.assign({}, hudSaved.obj, { bounce: false }) : null); } catch (e) { /* ok */ }
@@ -478,7 +466,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.hudMode = m;
       const H = HUD_(); if (H) H.mode(ui.root, m); else ui.root.dataset.hudMode = m;
       ui.root.classList.toggle('look', m === 'look'); ui.root.classList.toggle('dance', m === 'dance');
-      document.body.classList.toggle('wr-hud-sport', m === 'sport'); document.body.classList.toggle('wr-hud-zip', m === 'zip');
+      // мини-игра и зиплайн: полоса без ☰ и пилюли (любое касание — игре / ручке)
+      if (H && H.bar) H.bar(m === 'sport' || m === 'zip' ? { menu: false, obj: false } : {});
+      else { document.body.classList.toggle('wr-hud-sport', m === 'sport'); document.body.classList.toggle('wr-hud-zip', m === 'zip'); }
     }
     // правый слот полосы: за рулём — «42 км/ч», в полёте — вариометр, в мини-игре и на зиплайне — пусто, иначе — звук
     function hudStatus() {
