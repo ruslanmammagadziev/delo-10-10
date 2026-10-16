@@ -253,11 +253,12 @@
       const cr = new K.Frame(SHOPS.craft.x, 0, SHOPS.craft.z, SHOPS.craft.ry), fd = new K.Frame(SHOPS.food.x, 0, SHOPS.food.z, SHOPS.food.ry), mu = new K.Frame(MUSEUM.x, 0, MUSEUM.z, MUSEUM.ry);
       wire(cr.p(SHOPS.craft.w / 2, 4.6, SHOPS.craft.d / 2), mu.p(-MUSEUM.w / 2, 4.8, MUSEUM.d / 2), 0.35);
       wire(mu.p(MUSEUM.w / 2, 4.8, MUSEUM.d / 2), fd.p(-SHOPS.food.w / 2, 4.6, SHOPS.food.d / 2), 0.35);
-      wire(fd.p(-SHOPS.food.w / 2 + 0.3, 4.4, SHOPS.food.d / 2), [20.2, 3.55, -5.6], 0.5);
+      // волна 6 (проверка): третий провод (от лавки фруктов к фонарю на юго-восточном углу, провис до ~3,3 м) шёл поперёк въезда
+      // с улицы на площадь — камера-следилка за машиной (≈3,7 м) проходила сквозь него: чёрная полоса через весь экран. Убран.
     }
 
     /* ===== 6. Кованые столбы с четырьмя фонарями (у моста и у въезда на площадь) ===== */
-    const LAMPS = [[3.45, -1.25, 0.35], [20.2, -5.6, 0.1]];
+    const LAMPS = [[3.45, -1.25, 0.35], [21.1, -0.7, 0.1]];   // волна 6: второй столб — с въезда на площадь (20,2; −5,6) на юго-восточный угол
     if (!FAR) LAMPS.forEach(([x, z, ry]) => {
       const y = G(x, z), F = new K.Frame(x, y, z, ry), iron = rgb('#2E2C30'), ironH = rgb('#4A474E');
       pb.box(F, 0, 0.15, 0, 0.5, 0.3, 0.5, { col: rgb('#8E877F') }); pb.box(F, 0, 0.36, 0, 0.32, 0.12, 0.32, { col: iron });
@@ -319,10 +320,13 @@
       if (kind === 'fruit' || kind === 'veg' || kind === 'nuts') { bk.box(F, -0.55, 0.15, 0.78, 0.48, 0.3, 0.36, { col: C('wood') }); bk.box(F, 0.55, 0.15, 0.8, 0.48, 0.3, 0.36, { col: mul(C('wood'), 0.9) }); }
     }
     // раскладка в осях площади (16 × 11): проходы к «Комнате образцов», лавкам, мосту и к въезду остаются свободными
-    const SMALL = [[-4.7, -2.4, 0, 'fruit', 0], [5.9, 2.7, PI, 'nuts', 3], [7.6, -2.4, 0, 'copper', 2]];
+    // волна 6 (дороги села): в обычный день площадь свободна, как на фото p8–p10 (по ней можно проехать и встать машиной) —
+    // у края один прилавок белочки с орехами (на месте прежнего SMALL[1]); фрукты и медь выходят только в базарный день (в BIG)
+    const SMALL = [[-3.3, 4.15, PI, 'nuts', 3]];
     // волна 4 (интегратор): второй овощной прилавок (−6.4, −0.2) стоял прямо перед окном пекарни — в базарный день камера у пекарни
     // смотрела сквозь его навес (полэкрана ткани); убран, вход в пекарню свободен
-    const BIG = [[-1.7, -2.4, 0, 'veg', 2], [4.7, -2.4, 0, 'dairy', 1], [-3.3, 2.7, PI, 'honey', 3], [-0.3, 2.7, PI, 'cloth', 4], [2.8, 2.7, PI, 'silver', 1], [9.6, 0.4, -PI / 2, 'toys', 0]];
+    const BIG = [[-1.7, -2.4, 0, 'veg', 2], [4.7, -2.4, 0, 'dairy', 1], [-0.3, 2.7, PI, 'cloth', 4], [2.8, 2.7, PI, 'silver', 1], [9.6, 0.4, -PI / 2, 'toys', 0],
+      [-4.7, -2.4, 0, 'fruit', 0], [7.6, -2.4, 0, 'copper', 2], [5.9, 2.7, PI, 'honey', 3]];   // волна 6: фрукты и медь — с обычных дней; мёд — на месте орехов
     const stallsInfo = [];
     if (!FAR) {
       SMALL.forEach(([lx, lz, ry, k, c]) => { stall(smallB, lx, lz, ry, k, c, false); stallsInfo.push({ kind: k, big: false, at: sqF.p(lx, 0, lz) }); });
@@ -365,8 +369,7 @@
       };
       // продавцы за большими прилавками и покупатели в проходах
       BIG.forEach(([lx, lz, ry], i) => { const d = 0.75, p = sqF.p(lx - Math.sin(ry) * d, 0, lz - Math.cos(ry) * d); fig(p[0], p[2], SQUARE.ry + ry, 1.0 + (i % 3) * 0.06, KINDS[(i * 4 + 1) % (KINDS.length - 1)], ACC[i % ACC.length], 'seller'); });
-      // продавцы обычных дней (фрукты, медь) — неподвижные, в сетке прилавков
-      [SMALL[0], SMALL[2]].forEach(([lx, lz, ry], i) => { const d = 0.75, p = sqF.p(lx - Math.sin(ry) * d, 0, lz - Math.cos(ry) * d); fig(p[0], p[2], SQUARE.ry + ry, 1.04, KINDS[i ? 4 : 1], ACC[i ? 3 : 2], 'seller', smallB); });
+      // (волна 6: у фруктов и меди продавцы теперь в толпе базарного дня — их прилавки в BIG)
       const SHOP = [[-4.4, -0.9, PI], [-2.0, -0.7, PI + 0.4], [1.0, -0.4, PI - 0.3], [4.4, -0.8, PI], [7.2, -0.9, PI + 0.2], [-3.0, 1.2, 0.2], [0.4, 1.0, -0.3], [3.1, 1.3, 0], [5.6, 1.1, 0.3], [-6.0, 1.6, 0.9], [8.6, -0.4, -1.2], [1.8, -1.6, 2.6], [6.2, -3.8, -1.4], [10.4, 2.1, -2.2]];   // 14 покупателей (low-бюджет)
       SHOP.forEach(([lx, lz, ry], i) => { const p = sqF.p(lx, 0, lz); fig(p[0], p[2], SQUARE.ry + ry, 0.88 + R() * 0.28, KINDS[(i * 3 + 2) % (KINDS.length - 1)], ACC[(i + 2) % ACC.length], 'shopper'); });
       { const p = sqF.p(8.3, 0, 4.4); fig(p[0], p[2], SQUARE.ry + 0.35 + PI / 2, 1.05, KINDS[KINDS.length - 1], ACC[0], 'donkey'); }
@@ -380,7 +383,7 @@
         crowd = new T.Mesh(g, mat); crowd.name = 'bazaar:crowd'; crowd.userData.dn = 'actor'; addMesh(litMesh(crowd), { cast: false });
       }
       // белочка с орехами — у прилавка с орехами и курагой (каждый день; говорит)
-      { const [lx, lz, ry] = SMALL[1], d = 0.72, p = sqF.p(lx - Math.sin(ry) * d, 0, lz - Math.cos(ry) * d); const sq = placeNpc('squirrel_nuts', p[0], p[2], SQUARE.ry + ry, { make: npcBuild.squirrel_nuts, headY: 1.05, talkR: 2.4 }); sq.paw = { color: '#C8763A', height: 0.55, meetY: 1.0 }; }
+      { const [lx, lz, ry] = SMALL[0], d = 0.72, p = sqF.p(lx - Math.sin(ry) * d, 0, lz - Math.cos(ry) * d); const sq = placeNpc('squirrel_nuts', p[0], p[2], SQUARE.ry + ry, { make: npcBuild.squirrel_nuts, headY: 1.05, talkR: 2.4 }); sq.paw = { color: '#C8763A', height: 0.55, meetY: 1.0 }; }
     }
 
     if (!FAR) { smallM = smallB.mesh(K.vcMat); if (smallM) { smallM.name = 'bazaar:stalls'; addMesh(litMesh(smallM), { cast: false }); } bigM = bigB.mesh(K.vcMat); if (bigM) { bigM.name = 'bazaar:bigStalls'; addMesh(litMesh(bigM), { cast: false }); } }
@@ -412,12 +415,12 @@
     }
     // толпа — только вблизи (издалека зверята — пара пикселей, а треугольников ~12 тыс.)
     let camNear = true;
-    function update(dt, t, hx, hy, hz, cam) {
+    function update(dt, t, hx, hy, hz, cam, fast) {
       crowdT.value = t;
       if (inM && cam && cam.position) { const c = cam.position; let nv = false, ins = false; for (const k in shops) { const q = shops[k].inside; const d = Math.hypot(c.x - q[0], c.z - q[2]); if (d < 9) nv = true; if (d < 2.6) ins = true; } inM.visible = nv;
         // 4B: камера внутри лавки (вид лавки) — площадь за стенами не видна: толпа и прилавки не рисуются (−15…20 тыс. треуг.)
         if (ins !== api.inside) { api.inside = ins; if (smallM) smallM.visible = !ins; if (bigM) bigM.visible = big && !ins; if (crowd) crowd.visible = big && nightK < 0.55 && camNear && !ins; } }
-      if (crowd && cam && cam.position) { const c = cam.position, d = Math.hypot(c.x - SQUARE.x, c.z - SQUARE.z) - Math.max(0, c.y - (SQUARE.y || 0) - 25) * 0.4; const nn = camNear ? d < 95 : d < 85; if (nn !== camNear) { camNear = nn; crowd.visible = big && nightK < 0.55 && camNear && !api.inside; } }
+      if (crowd && cam && cam.position) { const c = cam.position, d = Math.hypot(c.x - SQUARE.x, c.z - SQUARE.z) - Math.max(0, c.y - (SQUARE.y || 0) - 25) * 0.4; const far = fast ? 0.6 : 1, nn = camNear ? d < 95 * far : d < 85 * far; /* волна 6: за рулём (fast) толпа — ближе, как жители */ if (nn !== camNear) { camNear = nn; crowd.visible = big && nightK < 0.55 && camNear && !api.inside; } }
     }
     const api = { big: false, inside: false, day: DAY, dayName: 'среда', isDay, setBig, shops, stalls: stallsInfo, lamps: LAMPS.map(([x, z]) => [x, G(x, z), z]), items: ITEMS };
     out.api = api;

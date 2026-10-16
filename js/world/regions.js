@@ -608,13 +608,15 @@
       S.px = x; S.pz = z; S.py = S.h.ground(x, z); if (ang !== undefined) S.ang = ang; if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.iaDy = 0; S.vx = S.vz = 0;
       if (hero) { hero.root.position.set(S.px, S.py, S.pz); hero.root.rotation.set(0, S.ang, 0); hero.root.updateMatrixWorld(true); if (hero.rig) hero.rig.prev = null; }
     }
-    const inCarMode = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping'));
+    const inCarMode = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping' || (drv.mode === 'drive' && drv.S && drv.S.hero)));
     let tAnim = 0;
     function animHero(dt) {
       if (!hero) return;
       tAnim += dt;
       // в машине, садится или выходит: корнем героини владеет контроллер машины (drive.js), поза — drv.animState()
-      const R = hero.rig, car_ = inCarNow || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping'));
+      // волна 6 (проверка): посадка кончается внутри drv.update (героиня уже в кузове, drv.mode 'drive'), а inCarNow = true ставит getIn()
+      // только после await — в этом кадре её нельзя ставить по мировым S.px/S.pz: иначе она улетает от машины (~27 м) и пропадает с сиденья
+      const R = hero.rig, car_ = inCarNow || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping' || (drv.mode === 'drive' && drv.S && drv.S.hero)));
       if (!car_) { hero.root.position.set(S.px, S.py + (S.iaDy || 0), S.pz); hero.root.rotation.set(0, S.ang, 0); hero.root.visible = true; }
       if (blob) {
         // W5: в прыжке тень остаётся на полу (под ней — земля, ящик или крыша) и чуть меньше
@@ -741,6 +743,19 @@
         petsToCar();
         inCarNow = true; S.mode = 'drive'; S.sitting = null;
         S.px = drv.S.x; S.py = drv.S.y; S.pz = drv.S.z;
+      } else if (h.drive && h.drive.road && V.drive) {
+        // волна 6 (VILLAGE-ROADS): по селу тоже ездим — тот же drive.js, «дорога» — сеть проездов села (h.drive.road);
+        // машина стоит на h.carSpawn (парковка; из отеля — наверху дороги к школе, и тогда героиня уже за рулём)
+        scene.add(cr);
+        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign({}, c.driveCfg, h.drive.cfg) });   // по селу — тише (h.drive.cfg: vmax 10)
+        chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
+        S.dir = 'village'; S.exitArmed = {};
+        if (h.drive.heroInCar && hero) {
+          if (drv.heroIn) drv.heroIn(hero, { instant: true }); else heroToCar();
+          petsToCar();
+          inCarNow = true; S.mode = 'drive'; S.sitting = null;
+          S.px = drv.S.x; S.py = drv.S.y; S.pz = drv.S.z; if (chase) chase.snap();
+        } else { drv.S.mode = 'parked'; drv.update(1 / 60, { brake: true }); }
       } else if (h.carSpawn) { scene.add(cr); parkCar(h.carSpawn.x, h.carSpawn.z, h.carSpawn.ry); }
       S.carLamps = null;
       return c;
@@ -754,6 +769,7 @@
       if (!r || !S.active) return false;
       inCarNow = false; S.mode = 'walk'; S.px = r.x; S.pz = r.z; S.py = S.h.ground(r.x, r.z); S.ang = r.ry; S.yaw = drv.S.ry; S.camInit = false; S.vx = S.vz = 0;
       if (hero.rig) hero.rig.prev = null;
+      if (S.rid !== 'serpentine' && S.h) petsOut(S.h, null);   // волна 6: в селе — выходят вместе с ней
       ui.root.classList.toggle('drive', false); emit('region:car', { mode: 'out' });
       later(500, () => heroSay2(S.h && S.h.benches && S.h.benches.some(b => Math.hypot(b.x - S.px, b.z - S.pz) < 12) ? 'Посижу на лавочке?' : 'Какой воздух!', 1800));
       return r;
@@ -765,6 +781,7 @@
       try { await drv.heroIn(hero, {}); } catch (e) { console.warn('region heroIn', e); }
       S.busy = false; if (!S.active) return false;
       inCarNow = true; S.mode = 'drive'; if (chase) chase.snap();
+      if (S.rid !== 'serpentine') petsToCar();   // волна 6: в селе зверята запрыгивают следом
       ui.root.classList.toggle('drive', true); emit('region:car', { mode: 'in' });
       return true;
     }
@@ -1036,7 +1053,7 @@
         heroToGround(sp.x, sp.z, sp.ry || 0); S.yaw = sp.ry || 0;
       }
       setupCar(h, id, from);
-      if (id !== 'serpentine') petsOut(h, from);
+      if (id !== 'serpentine' && S.mode !== 'drive') petsOut(h, from);   // волна 6: приехала в село за рулём — зверята в машине
       mvCreate(h);   // W5: бег, прыжок, падения, твёрдая машина
       if (id === 'kubachi') flyCreate(h);   // W5: параплан (места fly_tower / fly_knoll)
       pfCreate();   // W5: «Бум!» понарошку
@@ -1087,6 +1104,11 @@
         // W5B: старт параплана на западном уступе (на башне — значок башни); вид 'fly' — у радара свой значок, без него — «Места»
         if (S.fly && flyLock().ok) at('fly_knoll', 'fly', 'Параплан: старт с уступа');
         if (P.park) put('park', 'park', P.park.x, P.park.z, 'Парковка');
+        // волна 6: дороги села — школа и двор, разворот у башни, дорога к отелю (выход toHotel)
+        if (P.school) put('school', 'place', P.school.x, P.school.z, 'Школа');
+        if (P.schoolYard) put('schoolYard', 'sport', P.schoolYard.x, P.schoolYard.z, 'Школьный двор');
+        if (P.towerPark) put('towerPark', 'view', P.towerPark.x, P.towerPark.z, 'Разворот у башни');
+        { const eh = h.exits.find(e => e.id === 'toHotel'); if (eh) put('toHotel', 'hotel', eh.x, eh.z, 'Дорога к отелю'); }
         if (V.ZIP_GEO && V.ZIP_GEO.frame) put('hotel', 'hotel', V.ZIP_GEO.frame.x, V.ZIP_GEO.frame.z, 'Отель на вершине', { far: true });
       } else if (S.rid === 'hotel') {
         const P = h.places || {}, c = b => (b && b.x0 !== undefined ? [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2] : b ? [b.x, b.z] : null);
@@ -1113,6 +1135,7 @@
         // серпантин и село — в общих макро-осях; отель — в своих (h.frame.toMacro → макро)
         frame: h && h.frame ? h.frame : null,
         road: h && S.rid === 'serpentine' && h.road ? { len: h.road.len, sample: s => h.road.sample(s) } : null,
+        roads: h && h.drive && h.drive.roads ? h.drive.roads.map(r => ({ id: r.id, width: r.width, pts: r.pts })) : null,   // волна 6: проезды села
       };
     }
     const camYaw = () => { if (!cam) return S.yaw; const d = cam.getWorldDirection(tmpV); return Math.atan2(d.x, d.z); };
@@ -2223,6 +2246,12 @@
     async function useExit(ex) {
       if (S.busy || S.zip) return;
       if (S.rid === 'kubachi') {
+        // волна 6: дорога из села наверх — мимо школы к отелю (в отеле — приезд снизу, from 'kubachi')
+        if (ex.id === 'toHotel' || ex.to === 'hotel') {
+          if (!REG('hotel')) { toast('Отель скоро откроется.', 2600); return; }
+          const lk = hotelLock(); if (!lk.ok) { toast(lk.text, 2600); return; }
+          S.trip.hotel = true; await leave('hotel'); return;
+        }
         if (ex.id === 'toCity') {
           const r = await sheetFn({ title: 'Машина ждёт', body: paras(['Машинка отдохнула на парковке. Куда теперь?']), actions: [{ label: 'Вниз по серпантину', value: 'road' }, { label: 'Сразу в город', value: 'city', cls: 'soft' }, { label: 'Ещё погуляю', value: 0, cls: 'soft' }] });
           if (r === 'road') await leave('serpentine'); else if (r === 'city') await leave('city');
@@ -2248,6 +2277,7 @@
     function checkExits() {
       const h = S.h; if (!h || S.mode !== 'drive' || !drv || S.busy) return null;
       for (const ex of h.exits) {
+        if (ex.walk || (ex.level || 'ground') !== 'ground') continue;   // волна 6: пешие выходы (toCity села) — не из машины
         const d = Math.hypot(drv.S.x - ex.x, drv.S.z - ex.z);
         if (d > ex.r + 3) S.exitArmed[ex.id] = true;
         if (S.exitArmed[ex.id] && d < ex.r) { S.exitArmed[ex.id] = false; S.lastExit = { id: ex.id, t: performance.now() }; useExit(ex); return ex.id; }
@@ -2268,8 +2298,8 @@
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv && S.mode === 'drive') {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;
-        h.exits.forEach(ex => { const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
-        if (slow) {
+        h.exits.forEach(ex => { if (ex.walk || (ex.level || 'ground') !== 'ground') return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
+        if (slow && S.rid === 'serpentine') {   // волна 6: «Посидеть»/«Поговорить» из машины — только на серпантине (в селе — «Выйти» и пешком)
           h.spots.forEach(sp => { const d = Math.hypot(cx - sp.x, cz - sp.z); if (d < 9 && (!best || d < best.d + 3)) best = { kind: 'spot', ref: sp, d, label: (sp.icon ? sp.icon + ' ' : '') + 'Посидеть: ' + String(sp.label || '').toLowerCase() }; });
           const tur = h.npcs.find(n => !n.silent && n.lines && n.lines.length && Math.hypot(cx - n.root.position.x, cz - n.root.position.z) < (n.talkR || 2.8) + 11);
           if (tur) { if (best && best.kind === 'spot') S.near2 = { kind: 'npc', ref: tur, label: 'Поговорить: ' + tur.name }; else if (!best) best = { kind: 'npc', ref: tur, d: 0, label: 'Поговорить: ' + tur.name }; }
@@ -2428,7 +2458,7 @@
       drv.update(dt, inp || driveInput());
       if (drv.brakeLabel && ui) { const lb = drv.brakeLabel(); if (lb !== S.brkLabel) { S.brkLabel = lb; ui.brk.textContent = lb; } }
       S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y;
-      if (!S.trip.down && S.dir === 'down') S.trip.down = drv.S.s < (S.h.road.len * 0.5);
+      if (!S.trip.down && S.dir === 'down' && S.h.road) S.trip.down = drv.S.s < (S.h.road.len * 0.5);
       moments(dt);
       fogTalk(dt);   // W5: фразы в тумане
       checkExits();
@@ -2657,7 +2687,7 @@
       }
       const prev = S.rid;
       await fade(enterLabel(id, prev), () => load(id, from || prev), 'облака расступаются');
-      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint('Палец слева — идти · справа — крутить камеру · тап — туда', 6000); }
+      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? 'Газ и тормоз — справа · палец слева — руль' : 'Палец слева — идти · справа — крутить камеру · тап — туда', 6000); }   // волна 6: из отеля — за рулём
       if (id === 'hotel') { S.trip.hotel = true; hint('Двор, бассейн, мини-гольф, костёр — а с башни зиплайн через долину', 6000); }
       if (id === 'serpentine' && S.dir === 'down') hint('Газ и тормоз — справа · палец слева — руль', 5000);
     }
@@ -2722,8 +2752,8 @@
         buttons: () => (ui ? { act: ui.act.classList.contains('hidden') ? null : ui.act.textContent, act2: ui.act2.classList.contains('hidden') ? null : ui.act2.textContent, kaz: ui.kaz.classList.contains('hidden') ? null : ui.kaz.textContent, tap: !ui.tap.classList.contains('hidden'), skip: !ui.skip.classList.contains('hidden'), dn: (ui.root.querySelector('.dn-toggle') || {}).textContent || null } : null),
         go: id => { if (!id) { setView(null); return true; } setView(id, false); return !!S.view; },
         stand: () => standUp(),
-        drive: () => (drv ? Object.assign(drv.info(), { door: drv.doorPoint ? (q => ({ x: +q.x.toFixed(2), z: +q.z.toFixed(2) }))(drv.doorPoint(1)) : null, dir: S.dir, len: +S.h.road.len.toFixed(1), trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +cam.fov.toFixed(1), mode: drv.mode, canExit: drv.canExit(), heroInCar: !!(hero && car && isChildOf(hero.root, car.body)) }) : null),
-        teleportS: (s, rev) => { if (!drv) return null; const q = S.h.road.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; S.exitArmed = {}; if (chase) chase.snap(); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; setHud(); return drv.info(); },
+        drive: () => (drv ? Object.assign(drv.info(), { door: drv.doorPoint ? (q => ({ x: +q.x.toFixed(2), z: +q.z.toFixed(2) }))(drv.doorPoint(1)) : null, dir: S.dir, len: S.h.road ? +S.h.road.len.toFixed(1) : null, trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +cam.fov.toFixed(1), mode: drv.mode, canExit: drv.canExit(), heroInCar: !!(hero && car && isChildOf(hero.root, car.body)) }) : null),
+        teleportS: (s, rev) => { if (!drv || !S.h.road) return null; const q = S.h.road.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; S.exitArmed = {}; if (chase) chase.snap(); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; setHud(); return drv.info(); },
         auto: (thr, road) => { S.auto = thr || 0; S.autoRoad = road || null; return S.auto; },
         sitRoad: () => { const sp = S.h && S.h.spots[0]; if (sp) sitRoad(sp); return !!S.view; },
         // быстрая езда без рендера (физика 60 Гц, выходы срабатывают как в игре; петля кадров машину в это время не трогает)

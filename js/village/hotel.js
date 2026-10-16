@@ -134,6 +134,8 @@
   const POOL = { x0: 24, x1: 48, z0: 6, z1: 30, h: 6.4, px0: 27, px1: 45, pz0: 15, pz1: 22 };
   const FOUNT = { x: -3, z: -3, r: 3.3 };
   const PARKING = { x: -50, z: 13, ry: PI / 2 };
+  // волна 6 (дороги села): приезд из села по нижней дороге — у ворот парковки (машина носом во двор), выход toVillage — там же
+  const FROM_VILLAGE = { car: { x: -61.0, z: 18.6, ry: PI / 2 }, hero: { x: -60.4, z: 16.2, ry: PI / 2 }, exit: { x: -66.0, z: 19.4, r: 2.0 } };
   const PADEL = { x0: 2, x1: 14, z0: -91, z1: -67 };
   const PITCH = { x0: 46, x1: 82, z0: -91, z1: -67 };
   const GREEN = { x: 27, z: -56, rx: 9.5, rz: 7, tee: [21.6, -51.6], hole: [29.4, -58.4], holes: [[29.4, -58.4], [33.5, -53.2], [24.2, -60.6]] };
@@ -391,7 +393,10 @@
       }
       for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
       TERR.rings = rings; TERR.NA = NA;
-      return meshFrom(pos, col, idx, 'terrainNear');
+      // волна 6: свой материал рельефа — со ступенями террас по горизонталям (шейдер terraceStripes, уровни как у HGRID)
+      const tm = K.keep(K.vcMat.clone()); if (!K.BAKED) K.addRim(tm, 0.6);
+      TERR.stripes = VK.terraceStripes(tm, { THREE: T, step: HGRID.step, phase: HGRID.phase, far: 700, dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });
+      return meshFrom(pos, col, idx, 'terrainNear', tm);
     }
     function slopeCol(x, z, y, p) {
       const n = VK.fbm(x * 0.03 + 3, z * 0.03 - 1, 3), m = VK.vnoise(x * 0.12, z * 0.12);
@@ -399,8 +404,9 @@
       const r = ROAD.near(x, z);
       if (r && r.d < ROAD.w + 0.4) return mix(rgb('#B3A68E'), rgb('#9E927C'), m);      // дорога: укатанный щебень с колеями
       if (r && r.d < ROAD.w + 1.6) return mix(rgb('#9C9478'), rgb('#857E62'), m);      // обочина, камни (ограждений нет)
-      let c = mix(mix(C('grass'), C('grass2'), m), rgb('#B9A25A'), sst(0.5, 0.7, n) * 0.5);
-      c = mix(c, rgb('#C9A55A'), sst(-30, -50, y) * 0.25);
+      // волна 6 (p11): сочная трава террас (тон ступеней), светлее и темнее пятнами
+      let c = mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), m);
+      c = mix(c, rgb('#6E9636'), sst(0.5, 0.7, n) * 0.4);
       return mul(c, 0.9 + 0.12 * m);
     }
     function meshFrom(pos, col, idx, name, mat) {
@@ -429,33 +435,39 @@
         const d = rings[i], n = VK.fbm(M.x * 0.006 + 3.1, M.z * 0.006 - 1.7, 4);
         let c;
         if (WIN) c = mix(rgb('#F2F5F8'), rgb('#B9C4CF'), n > 0.56 ? 0.75 : 0.06);
-        else { c = mix(mix(rgb('#8E9A58'), rgb('#56704A'), sst(0.42, 0.62, n)), rgb('#B8823F'), sst(0.62, 0.74, VK.fbm(M.x * 0.009 - 4, M.z * 0.009, 3)) * 0.55); if (y < -120) c = mix(c, rgb('#5E7A4E'), 0.4); }
+        else { c = mix(mix(rgb('#88A946'), rgb('#5C803E'), sst(0.42, 0.62, n)), rgb('#B39A44'), sst(0.66, 0.78, VK.fbm(M.x * 0.009 - 4, M.z * 0.009, 3)) * 0.3); if (y < -120) c = mix(c, rgb('#5E8C44'), 0.4); }   // волна 6: зелёные склоны (p11)
         col.push(...mix(c, haze, clamp((d - 420) / 1100, 0, 0.75)));
       }
       for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-      const m = meshFrom(pos, col, idx, 'terrainFar', K.keep(new T.MeshBasicMaterial({ vertexColors: true, fog: false })));
+      const fm = K.keep(new T.MeshBasicMaterial({ vertexColors: true, fog: false }));
+      TERR.stripesFar = VK.terraceStripes(fm, { THREE: T, step: HGRID.step, phase: HGRID.phase, far: 1100, near: [30, 90], dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });   // волна 6
+      const m = meshFrom(pos, col, idx, 'terrainFar', fm);
       TERR.farBase = Float32Array.from(col); TERR.far = m; m.renderOrder = 6;
       return m;
     }
 
-    /* ---------- 3.2 террасы на склонах холма: полосы по горизонталям (проступь + каменная/земляная стенка), стога ---------- */
-    const TB = new K.Baker('vc'); let nBands = 0, nStacks = 0;
-    const TWb = new K.Baker('atlas');   // 4B: стенки террас — атлас «бут» (строчки сухой кладки)
+    /* ---------- 3.2 террасы на склонах холма — волна 6 (TERRACES, фото p11): мягкие зелёные ступени по горизонталям (общий
+       построитель VILLAGE.vkit.terraces, стиль 'soft'): светлая проступь, скруглённая бровка, тёмный травяной откос с кустами
+       (точки-спрайты), редкие одинокие деревья; стожки — изредка. Уровни — на сетке HGRID (как полосы шейдера на рельефе) ---------- */
+    const TB = new K.Baker('vc'); let nBands = 0, nStacks = 0, nShrubs = 0;
+    const TWb = new K.Baker('atlas');   // (прежние стенки сухой кладки; в стиле 'soft' пусто)
+    const HGRID = { step: 2.1, phase: 0.3 }, SHR = [], SHRF = [];
     function terraces() {
-      // 4B: общий построитель VILLAGE.vkit.terraces — широкие ступени по горизонталям вокруг холма (четыре четверти),
-      // стенки из камня или травяные откосы, разрывы — тропинки; стога и плодовые деревья
       const snowT = rgb('#F2F5F9');
-      const ok = (x, z) => { if (padAt(x, z) || sdUnion(x, z) < 2.5) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 9) return false; return hillY(x, z) > -64; };
-      const fields = [0, 90, 180, 270].map(b0 => ({ b0, b1: b0 + 90, r0: 30, r1: 230 }));
-      const res = VK.terraces({ cx: HC.x, cz: HC.z, fields, surf: hillY, ok, tread: TB, wall: TWb, winter: WIN, seed: 4343, segL: HI ? 4.4 : 5.2, dr: 1.5, step: 2.1, stepVar: 0.7, kant: true, two: HI, pathEvery: 24, lift: 0.42, wallDrop: 1.1,
-        palette: [['#D7B866', '#C49F50'], ['#E2BE55', '#CDA542'], ['#CDAA68', '#B48F4E'], ['#A9B262', '#93A052'], ['#E4C67C', '#CCAA62'], ['#C08C48', '#A87A3E']],
+      const ok = (x, z, f) => { if (f && (f.near ? !inNear(x, z) : f.outer && inNear(x, z))) return false; if (padAt(x, z) || sdUnion(x, z) < 2.5) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 13) return false; return hillY(x, z) > -84; };   // волна 6: ниже по склону — до облаков (−90)
+      // волна 6: одно поле по настоящим горизонталям вокруг холма (±300 м): ступени и на пологих холмах вокруг, как на p11
+      // ближе к холму (±140 м) — полный профиль со скруглённой бровкой; дальше (до ±300 м) — проще (2 квада, реже точки)
+      const NB = 140, inNear = (x, z) => Math.abs(x - HC.x) < NB && Math.abs(z - HC.z) < NB;
+      const fields = [{ contour: { x0: HC.x - NB - 6, z0: HC.z - NB - 6, x1: HC.x + NB + 6, z1: HC.z + NB + 6, cell: 3 }, octaves: HI ? 2 : 1, near: true },
+        { contour: { x0: HC.x - 300, z0: HC.z - 300, x1: HC.x + 300, z1: HC.z + 300, cell: 4 }, octaves: 2, far: true, lift: 0.3, segL: HI ? 6 : 7, outer: true }];
+      const res = VK.terraces({ cx: HC.x, cz: HC.z, fields, surf: hillY, ok, tread: TB, wall: TB, winter: WIN, seed: 4343, segL: HI ? 4.0 : 5.8, dr: 1.5, lift: 0.3, shrubFar: true, wallDrop: 1.1, grid: HGRID, shrubs: SHR, shrubEvery: 8, pathEvery: 0,
         onBand: ({ pts }) => {
           const wide = pts.filter(q => q.okp && q.ww > 3.2);
-          if (wide.length && R() < 0.24 && nStacks < 44) { const q = wide[Math.floor(R() * wide.length)], x = q.xm, z = q.zm, hh = 1.9 + R() * 0.6, rr = 0.85 + R() * 0.2, yy = q.y - 0.05;
+          if (wide.length && R() < 0.05 && nStacks < 10) { const q = wide[Math.floor(R() * wide.length)], x = q.xm, z = q.zm, hh = 1.9 + R() * 0.6, rr = 0.85 + R() * 0.2, yy = q.y - 0.05;
             TB.cyl(x, yy, z, rr, 0.06, hh, { seg: 7, col: p => (WIN && p[1] > yy + hh * 0.45 ? snowT : mul(C('hay'), 0.82 + 0.22 * (p[1] - yy) / hh)) }); TB.cyl(x, yy + hh - 0.25, z, 0.04, 0.04, 0.7, { seg: 4, col: C('woodD') }); nStacks++; }
-          if (!WIN && wide.length > 3 && R() < 0.1) for (let i = 0; i < wide.length; i += 3) { const q = wide[i], t2 = Math.max(0, 1 - 1.0 / Math.max(1.0, q.ww)); crowns.push(treeItem(lerp(q.xi, q.xo, t2), q.y, lerp(q.zi, q.zo, t2), 0.75 + R() * 0.3, 'fruit')); }
+          if (wide.length > 2 && R() < 0.16) { const q = wide[Math.floor(R() * wide.length)], t2 = 0.35 + R() * 0.3; addTree(lerp(q.xi, q.xo, t2), lerp(q.zi, q.zo, t2), 0.9 + R() * 0.45, 'lone', q.y - 0.1); }
         } });
-      nBands = res.bands;
+      nBands = res.bands; nShrubs += res.shrubs;
     }
     // террасы на дальних склонах (макро, по горизонталям вокруг башни села, как поля села): склон с серпантином под отелем,
     // склоны слева и справа; полосы обходят дорогу серпантина и ветку к отелю, холм отеля и ядро села
@@ -469,19 +481,21 @@
       const okXZ = (X, Z) => { const L = toLocal(X, 0, Z); if (sdUnion(L.x, L.z) < 60) return false; if (Math.hypot(X, Z - 96) < 140 && Z < 100) return false; return !nearRoad(X, Z, 10); };
       // 4B: тот же общий построитель (дальние поля — проще: одна полоса проступи, стенки цветом)
       const rf = VK.terraces({ cx: TXo, cz: TZo, fields: [{ b0: 14, b1: 72, r0: 340, r1: 514, far: true }, { b0: 72, b1: 112, r0: 430, r1: 640, far: true }, { b0: -46, b1: 12, r0: 372, r1: 540, far: true }],
-        surf: surfM, ok: okXZ, tread: FB, wall: FB, winter: WIN, seed: 4545, segL: HI ? 9 : 11, dr: 2.5 });
-      nFar = rf.bands;
+        surf: surfM, ok: okXZ, tread: FB, wall: FB, winter: WIN, seed: 4545, segL: HI ? 10 : 18, dr: 2.5, pathEvery: 0, grid: { step: HGRID.step, phase: HGRID.phase + FR.y }, shrubs: SHRF, shrubFar: true, shrubEvery: 16 });
+      nFar = rf.bands; nShrubs += rf.shrubs;
       if (!FB.n) return null;
       const g = FB.build(); pivot.updateMatrix(); g.applyMatrix4(pivot.matrix); g.computeBoundingSphere();
       // дымка по дальности от отеля
       const pA = g.attributes.position, cA = g.attributes.color, hz = WIN ? rgb('#E3EAF1') : rgb('#9DB4C4');
       for (let i = 0; i < pA.count; i++) { const d = Math.hypot(pA.getX(i) - HC.x, pA.getZ(i) - HC.z), k = clamp((d - 380) / 1100, 0, 0.6); cA.setXYZ(i, lerp(cA.getX(i), hz[0], k), lerp(cA.getY(i), hz[1], k), lerp(cA.getZ(i), hz[2], k)); }
+      // кусты дальних полей — в локальные оси и в ту же дымку
+      { const v = new T.Vector3(); SHRF.forEach(q => { v.set(q[0], q[1], q[2]).applyMatrix4(pivot.matrix); q[0] = v.x; q[1] = v.y; q[2] = v.z; const k = clamp((Math.hypot(v.x - HC.x, v.z - HC.z) - 380) / 1100, 0, 0.6); q[4] = lerp(q[4], hz[0], k); q[5] = lerp(q[5], hz[1], k); q[6] = lerp(q[6], hz[2], k); }); }
       const m = new T.Mesh(g, K.vcMat); m.name = 'terracesFar'; return m;
     }
     const sdUnion = (x, z) => { let d = 1e9; PADS.forEach(p => { d = Math.min(d, sdRect(x, z, p, p.float ? 1 : 6)); }); STAIRS.forEach(s => { d = Math.min(d, sdRect(x, z, s, 0.5)); }); return d; };
 
     /* ---------- 3.3 деревья, камни ---------- */
-    const TREE_COL = { fruit: ['#D9A23A', '#C8702A', '#B9A04A'], rowan: ['#D9682E', '#C8502A', '#E08A3A'], pine: ['#3E5E40', '#36533A', '#46684A'], birch: ['#E0B040', '#D9C050', '#C8A040'] };
+    const TREE_COL = { lone: ['#2F5523', '#3A6229', '#284A1F'], fruit: ['#D9A23A', '#C8702A', '#B9A04A'], rowan: ['#D9682E', '#C8502A', '#E08A3A'], pine: ['#3E5E40', '#36533A', '#46684A'], birch: ['#E0B040', '#D9C050', '#C8A040'] };
     function treeItem(x, y, z, s, kind) { const c = WIN ? (kind === 'pine' ? rgb('#E9EEF3') : rgb('#9A8E84')) : rgb(TREE_COL[kind][Math.floor(R() * 3)]); return { p: [x, y, z], s: [s, s, s], r: [0, R() * TAU, 0], c, kind }; }
     function addTree(x, z, s, kind, y) { const yy = y !== undefined ? y : groundY(x, z); crowns.push(treeItem(x, yy, z, s, kind)); trunks.push({ p: [x, yy, z], s: [s, s * (kind === 'pine' ? 0.8 : 1.6), s], c: [1, 1, 1] }); }
 
@@ -846,7 +860,12 @@
       colBox(-66.9, 12, 0.3, 4.0, -1, 2.6, 'gateSign');
       // бордюр и кусты вдоль парковки
       for (let i = 0; i < 7; i++) addTree(-36 - i * 4.5, 28.5, 0.75, WIN ? 'pine' : 'birch');
-      colBox(PARKING.x, PARKING.z, 2.1, 4.8, -1, 1.6, 'car');
+      // волна 6: машина стоит там, где её поставили (из села — у ворот); указатель «в село» у южного столба ворот
+      { const cs = opts.from === 'kubachi' ? FROM_VILLAGE.car : PARKING; colBox(cs.x, cs.z, 2.1, 4.8, -1, 1.6, 'car', cs.ry); }   // коробка вдоль машины (раньше стояла поперёк)
+      { const x = -66.3, z = 19.4; vc.cyl(x, 0, z, 0.06, 0.05, 2.3, { seg: 5, col: WOODD }); vc.box(F0, x + 0.05, 2.0, z, 0.05, 0.34, 1.2, { col: rgb('#F4E6CC') });
+        props.signs.push({ text: named ? 'Кубачи ↓' : 'Село ↓', p: [x + 0.09, 2.0, z], ry: PI / 2, h: 0.3, bg: '#F4E6CC', fg: '#5A3E2E', border: '#B58B62' });
+        props.signs.push({ text: named ? 'Кубачи ↓' : 'Село ↓', p: [x - 0.01, 2.0, z], ry: -PI / 2, h: 0.3, bg: '#F4E6CC', fg: '#5A3E2E', border: '#B58B62' });
+        colBox(x, z, 0.2, 0.2, -1, 2.4, 'sign'); }
     }
     function golfCart(x, y, z, ry, col) {
       const F = new K.Frame(x, y, z, ry), bodyC = col || rgb('#F6F3EC');
@@ -1059,10 +1078,11 @@
     function backdrop() {
       // хребты: три кольца вокруг холма (внутри camera.far)
       { const P3 = [], C3 = [], I3 = [];
-        const rings = WIN ? [[1220, [60, 120], '#C9D6E2'], [1360, [90, 160], '#D9E3EC'], [1480, [120, 200], '#E4EBF2']] : [[1220, [60, 120], '#8FA6AE'], [1360, [90, 160], '#A9BCC6'], [1480, [120, 200], '#C3D1DB']];
+        // волна 6 (p11): горы выше, острее, ближний хребет — зеленее (травяные склоны в дымке)
+        const rings = WIN ? [[1220, [80, 220], '#C9D6E2'], [1360, [110, 260], '#D9E3EC'], [1480, [140, 300], '#E4EBF2']] : [[1220, [80, 220], '#7F9E8C'], [1360, [110, 260], '#9DB4BE'], [1480, [140, 300], '#BFCED8']];
         rings.forEach(([R0, [h0, h1], cc], li) => { const n = 180, c = rgb(cc), base = P3.length / 3;
-          for (let i = 0; i <= n; i++) { const a = i / n * TAU, hh = h0 + (h1 - h0) * (0.5 + 0.28 * Math.sin(a * 5 + li * 1.7) + 0.16 * Math.sin(a * 13 + li * 2.3) + 0.06 * Math.sin(a * 31 + li)) - 30;
-            P3.push(HC.x + Math.sin(a) * R0, -200, HC.z + Math.cos(a) * R0, HC.x + Math.sin(a) * R0, hh, HC.z + Math.cos(a) * R0); C3.push(...mul(c, 0.94), ...c);
+          for (let i = 0; i <= n; i++) { const a = i / n * TAU, w = 0.5 + 0.28 * Math.sin(a * 5 + li * 1.7) + 0.16 * Math.sin(a * 13 + li * 2.3) + 0.06 * Math.sin(a * 31 + li), hh = h0 + (h1 - h0) * Math.pow(clamp(w, 0, 1), 1.6) - 30;
+            P3.push(HC.x + Math.sin(a) * R0, -200, HC.z + Math.cos(a) * R0, HC.x + Math.sin(a) * R0, hh, HC.z + Math.cos(a) * R0); C3.push(...(li === 0 && !WIN ? mix(c, rgb('#5F845A'), 0.45) : mul(c, 0.94)), ...c);
             if (i) { const o = base + (i - 1) * 2; I3.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); } } });
         const g3 = new T.BufferGeometry(); g3.setAttribute('position', new T.Float32BufferAttribute(P3, 3)); g3.setAttribute('color', new T.Float32BufferAttribute(C3, 3)); g3.setIndex(I3); g3.computeBoundingSphere();
         BG.ridges = new T.Mesh(K.keep(g3), K.basicVCD); BG.ridges.renderOrder = 7; root.add(BG.ridges); }
@@ -1229,6 +1249,9 @@
     const meshTB = addSplit(TB.mesh(K.vcMat), { cast: false, name: 'terraces' }, QUAD);
     addSplit(TWb.mesh(K.atlasMat), { cast: false, name: 'terraceWalls' }, QUAD);
     { const m = farFields(); if (m) { K.keep(m.geometry); add(litMesh(m), { cast: false, receive: false }); } }
+    // волна 6: кусты вдоль откосов террас — точки-спрайты (холм и дальние поля: 2 вызова, 0 треугольников)
+    const shrubMeshes = [];
+    [[SHR, 'terraceShrubs', 220, true], [SHRF, 'terraceShrubsFar', 60, false]].forEach(([L, nm, mx, fg]) => { const sp = L.length ? VK.shrubPoints(T, L, { name: nm, keep: K.keep, maxPx: mx, fog: fg }) : null; if (sp) { root.add(sp); shrubMeshes.push(sp); } });
     const glassMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.4, depthWrite: false, side: T.DoubleSide }));
     const meshGlass = add(glassB.mesh(glassMat), { cast: false, receive: false, order: 4, name: 'glass' });
     const glowMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide })); glowMat.userData.dn = 'lamp'; NIGHT.mats.push(glowMat);
@@ -1334,6 +1357,9 @@
           cA.setXYZ(i, base[i * 3] * r, base[i * 3 + 1] * gg, base[i * 3 + 2] * b); }
         cA.needsUpdate = true; }
       if (BG.puffs) BG.puffs.userData.setMood(name, WIN);
+      // волна 6: кусты террас (точки без освещения) — общий множитель света, как у запечённого рельефа
+      if (shrubMeshes.length) { const hs = new T.Color(M.hs), hgC = new T.Color(WIN ? '#DCE3EA' : M.hg), sc = new T.Color(M.sun), l = clamp(0.35 + 0.65 * sunDir.y, 0, 1);
+        const lc = ['r', 'g', 'b'].map(k => (hgC[k] + (hs[k] - hgC[k]) * 0.8) * M.hi * 1.15 + sc[k] * M.si * (0.32 + 0.68 * l)); shrubMeshes.forEach(sp => sp.userData.setLight(lc)); }
       scene.background = new T.Color(M.hor);
       relight(M);
     }
@@ -1402,7 +1428,17 @@
         zipline_start: () => { npcHop('hotel_marmot'); return { kind: 'zipline', route: ZR, exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, npc: 'hotel_marmot', line: ev('zipReady'), text: 'Держись крепче — и вжу-у-ух, через всю долину!', hero: HERO.zip }; },
       };
       spots.forEach(s => { s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (() => ({ kind: 'toast', text: s.label })))(s, ctx)); });
-      exits.push({ id: 'toRoad', to: 'serpentine', x: PARKING.x + 1.6, y: 0, z: PARKING.z - 2.9, r: 1.8, label: 'Сесть в машину — на дорогу', icon: '🚗' });
+      // волна 6: нижняя дорога у ворот — вниз, в село (регион kubachi, from: 'hotel' — наверху дороги мимо школы, за рулём).
+      // Приехала из села — у двери машины «вниз, в село» (откуда приехала), «на серпантин» — у кормы; с серпантина — как раньше:
+      // у машины на парковке «на дорогу», «Вниз, в село» — у ворот с указателем
+      if (opts.from === 'kubachi') {
+        const cs = FROM_VILLAGE.car;
+        exits.push({ id: 'toRoad', to: 'serpentine', x: cs.x - 1.6, y: 0, z: cs.z - 2.9, r: 1.4, label: 'Сесть в машину — на серпантин', icon: '🚗' });
+        exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: cs.x + 1.6, y: 0, z: cs.z - 2.9, r: 1.4, label: 'Сесть в машину — вниз, в село', icon: '🚗' });
+      } else {
+        exits.push({ id: 'toRoad', to: 'serpentine', x: PARKING.x + 1.6, y: 0, z: PARKING.z - 2.9, r: 1.8, label: 'Сесть в машину — на дорогу', icon: '🚗' });
+        exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: FROM_VILLAGE.exit.x, y: 0, z: FROM_VILLAGE.exit.z, r: FROM_VILLAGE.exit.r, label: 'Вниз, в село', icon: '🚗' });
+      }
       exits.push({ id: 'zipline', to: 'kubachi', spawn: 'zipline_landing', via: 'zipline', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, level: 'top', label: 'Зиплайн — в село', icon: '🪂' });
     }
     const vT = viewDir;
@@ -1549,8 +1585,9 @@
     /* ---------- ручка региона ---------- */
     const buildMs = Math.round((window.performance || Date).now() - t0);
     let disposed = false;
-    const carSpawn = { x: PARKING.x, y: 0, z: PARKING.z, ry: PARKING.ry };
-    const spawn = opts.from === 'zipline' ? { x: ZR.launch.x, y: TW.floor, z: ZR.launch.z, ry: ZR.heading } : { x: PARKING.x + 3.4, y: 0, z: PARKING.z - 3.2, ry: PI / 2 };
+    const fromVillage = opts.from === 'kubachi';   // волна 6: приехала из села по нижней дороге (выход toHotel наверху сельской дороги)
+    const carSpawn = fromVillage ? { x: FROM_VILLAGE.car.x, y: 0, z: FROM_VILLAGE.car.z, ry: FROM_VILLAGE.car.ry } : { x: PARKING.x, y: 0, z: PARKING.z, ry: PARKING.ry };
+    const spawn = opts.from === 'zipline' ? { x: ZR.launch.x, y: TW.floor, z: ZR.launch.z, ry: ZR.heading } : fromVillage ? { x: FROM_VILLAGE.hero.x, y: 0, z: FROM_VILLAGE.hero.z, ry: FROM_VILLAGE.hero.ry } : { x: PARKING.x + 3.4, y: 0, z: PARKING.z - 3.2, ry: PI / 2 };
     const evQueue = [];
     const handle = {
       id: 'hotel', named, season, quality, root, buildMs,
@@ -1570,14 +1607,15 @@
       night: { lamps: NIGHT.lamps, glow: K.GLOW.amt, sky: BG.sky, lampSize: 1.2 },
       nightMaterials: NIGHT.mats,
       setNight,
-      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: -5, z: -36.9 }, main: MAIN, road: { len: ROAD.len, end: ROAD.end } },
+      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: -5, z: -36.9 }, main: MAIN, road: { len: ROAD.len, end: ROAD.end },
+        village: { x: FROM_VILLAGE.exit.x, z: FROM_VILLAGE.exit.z, car: FROM_VILLAGE.car, hero: FROM_VILLAGE.hero }, parking: { x: PARKING.x, z: PARKING.z, ry: PARKING.ry } },   // волна 6: приезд из села
       zipline: ZR, golf: GOLF,
       frame: { x: FR.x, y: FR.y, z: FR.z, ry: FR.ry, toMacro, toLocal },
       village, landing, pivot, idleTrolley,
       road: { len: ROAD.len, points: () => { const o = []; for (let i = 0; i < ROAD.N; i++) o.push({ x: ROAD.x[i], y: ROAD.y[i], z: ROAD.z[i] }); return o; } },
       pollEvents() { const e = evQueue.splice(0); e.push(...GOLF.events.splice(0)); return e; },
       linesFor: () => linesFor(named), events: EVENTS, heroLines: HERO,
-      stats: () => ({ colliders: colliders.length, edges: SEGS.length, npcs: npcs.length, terraces: nBands, terracesFar: nFar, stacks: nStacks, trees: crowns.length, rocks: rocks.length, windows: glaz.length, village: village ? village.userData : null, buildMs }),
+      stats: () => ({ colliders: colliders.length, edges: SEGS.length, npcs: npcs.length, terraces: nBands, terracesFar: nFar, stacks: nStacks, shrubs: nShrubs, trees: crowns.length, rocks: rocks.length, windows: glaz.length, village: village ? village.userData : null, buildMs }),
       dispose() {
         if (disposed) return; disposed = true;
         if (village && village.userData && village.userData.dispose) { try { village.userData.dispose(); } catch (e) { /* ok */ } }
@@ -1603,7 +1641,7 @@
     const box = (x0, x1, y0, y1, z0, z1, col, top) => { quad([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], col); quad([x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y1, z1], col); quad([x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], VK.mul(col, 0.9)); quad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], VK.mul(col, 0.9)); quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], top || col); };
     // холм: полярная сетка (те же площадки и профиль, что в регионе), снаружи — опускается под естественный склон
     const rings = [0, 20, 40, 60, 80, 100, 125, 150, 180, 210], NA = 48, base = n;
-    for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i]; const p = padAt(x, z); const y = p ? p.y : Math.max(hillRaw(x, z), natLocal(x, z)) - (i === rings.length - 1 ? 8 : 0); const c = WIN ? rgb('#EEF2F6') : p ? (p.id === 'mid' || p.id === 'low' ? rgb('#93A65A') : rgb('#D9D0BE')) : mix(rgb('#9CA25C'), rgb('#C2A458'), 0.35 + 0.3 * Math.sin(y * 1.7)); put([x, y, z], c); }
+    for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i]; const p = padAt(x, z); const y = p ? p.y : Math.max(hillRaw(x, z), natLocal(x, z)) - (i === rings.length - 1 ? 8 : 0); const c = WIN ? rgb('#EEF2F6') : p ? (p.id === 'mid' || p.id === 'low' ? rgb('#93A65A') : rgb('#D9D0BE')) : mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), 0.5 + 0.5 * Math.sin(x * 0.07 + z * 0.05)); put([x, y, z], c); }   // волна 6: зелёный холм (полосы террас — шейдером)
     for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = base + i * (NA + 1) + j, b = a + NA + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
     // 4B: силуэт нового корпуса — сливочные объёмы, черепичные скаты, высокий фронтон в середине, башенки с шатрами
     const W = WIN ? rgb('#FFFFFF') : rgb('#F6EBD6'), roofC = WIN ? rgb('#F4F7FA') : rgb('#A4523F'), stoneC = WIN ? rgb('#E6E8EA') : rgb('#D3BC94');
@@ -1624,6 +1662,7 @@
         if (i % 2 === 0) quad([TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.95 + 0.1 * Math.cos(a))); } }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('color', new T.Float32BufferAttribute(Cc, 3)); g.setIndex(I); g.computeVertexNormals(); g.computeBoundingSphere();
     const mat = new T.MeshLambertMaterial({ vertexColors: true });
+    VK.terraceStripes(mat, { THREE: T, step: 2.5, phase: 0.3, far: 1400, dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });   // волна 6: ступени террас на холме отеля
     const grp = new T.Group(); grp.name = 'hotel:distant'; const mesh = new T.Mesh(g, mat); mesh.name = 'hotelDistant'; grp.add(mesh);
     // трос — линия до площадки у села
     let cm = null; if (V.zipline && V.zipline.route) { const R = V.zipline.route('macro'); cm = V.zipline.cableMesh(T, V.zipline.cable(R.from, R.to, R.sag), { color: '#4E4A52' }); grp.add(cm); }

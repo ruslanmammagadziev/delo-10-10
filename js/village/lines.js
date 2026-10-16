@@ -29,6 +29,10 @@
     bear_craft: { name: 'Медвежонок-медник', icon: '🐻', voice: 'басовитый, мягкий, неторопливый' },
     lamb_cloth: { name: 'Ягнёнок с пряжей', icon: '🐑', voice: 'тоненький, застенчивый' },
     squirrel_nuts: { name: 'Белочка с орешками', icon: '🐿️', voice: 'быстрый, весёлый' },
+    // волна 6: школа на верхнем плато (большой школьный двор)
+    teacher_fox: { name: 'Лиса-учительница', icon: '🦊', voice: 'добрый, ясный, учительский' },
+    pupil_bunny: { name: 'Зайчонок-футболист', icon: '🐰', voice: 'звонкий, азартный, запыхавшийся' },
+    pupil_kitten: { name: 'Котёнок с книжкой', icon: '🐱', voice: 'тихий, мечтательный' },
   };
 
   const L = {
@@ -116,6 +120,22 @@
       { who: 'squirrel_nuts', text: 'Орешки и курага! Курагу везут снизу, из тёплых долин.' },
       { who: 'squirrel_nuts', text: 'Сегодня базар — шумно и весело!' },
     ],
+    // волна 6: школа (без фактов — просто уютно)
+    teacher_fox: [
+      { who: 'teacher_fox', text: 'Привет! Уроки кончились — у нас перемена.' },
+      { who: 'teacher_fox', text: 'Читаем, считаем, рисуем узоры. Хорошая школа!' },
+      { who: 'teacher_fox', text: 'Со школьного двора видно всё село. Красиво, правда?' },
+    ],
+    pupil_bunny: [
+      { who: 'pupil_bunny', text: 'Пас! Ой… мимо ворот.' },
+      { who: 'pupil_bunny', text: 'Я забил два гола! Ну, почти два.' },
+      { who: 'pupil_bunny', text: 'Поиграешь с нами после уроков?' },
+    ],
+    pupil_kitten: [
+      { who: 'pupil_kitten', text: 'Тсс… Я читаю сказку про горы.' },
+      { who: 'pupil_kitten', text: 'После школы — бегом к пекарне за пирожком!' },
+      { who: 'pupil_kitten', text: 'Отсюда дорога идёт ещё выше — к отелю.' },
+    ],
   };
 
   // реплики по событиям занятий (тоже { who, text } — для озвучки)
@@ -135,6 +155,9 @@
     shopThanks_craft: { who: 'bear_craft', text: 'Держи! Пусть радует.' },
     shopThanks_cloth: { who: 'lamb_cloth', text: 'Держи! Тёплого тебе пути.' },
     bakeryGive: { who: 'baker_bunny', text: 'Держи! Тёплый, с хрустом.' },
+    // волна 6
+    schoolBell: { who: 'teacher_fox', text: 'Дзинь-дзинь! Перемена!' },
+    schoolYard: { who: 'pupil_kitten', text: 'Садись рядом. Тут тихо и солнечно.' },
   };
 
   function pick(l, named) { return named === false && l.n ? { who: l.n.who, text: l.n.text } : { who: l.who, text: l.text }; }

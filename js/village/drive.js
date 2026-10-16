@@ -18,6 +18,8 @@
               { auto: true, thr, road?: 'hotel' } — ТОЛЬКО ДЛЯ QA: «виртуальный игрок» (pilot) жмёт газ и крутит руль
                 сам — тем же вводом { thr, str }, что и человек; игра его не посылает
      pos, speed, heading, S, cfg, teleport(s | {x, z, ry}), info(), reset(), dispose()
+     W6: tap(k 0..1) — лёгкий толчок подвески (камушек со скалы; то же — collider.tap), скорость не меняет;
+         cfg.wMaxHi — предел рыскания на полном ходу; pilot (QA) сам притормаживает перед крутыми поворотами (inp.brakes:false — нет)
      reversing, brakeLabel() → 'назад' | 'тормоз'
      ГЕРОИНЯ: mode — 'drive' | 'stopping' | 'exit' | 'parked' | 'enter'
        heroIn(hero, { instant }) → Promise<true> — от места, где стоит героиня, к двери и на сиденье (0,8 с); hero.root — в car.body
@@ -42,11 +44,13 @@
   const sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
-  // скорость весёлая, но спокойная: 12 м/с (43 км/ч) на прямой. Руль: до 0,6 рад на месте, 0,36 рад на 12 м/с (обычная
-  // «острота руля от скорости», без подруливания); рыскание не больше 1,6 рад/с — на полном ходу шпилька R 8 проходится.
+  // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): 18 м/с (65 км/ч) на прямой (было 12), разгон 7,8 м/с²
+  // (было 5,2), тормоз 11 (было 9,5). Руль: до 0,6 рад на месте, 0,36 рад на полном ходу (обычная «острота руля от скорости»,
+  // без подруливания); рыскание не больше 1,6 рад/с до 9 м/с и 1,15 рад/с на 18 м/с (wMaxHi) — на скорости машина не
+  // «вертится», крутые повороты (R ≈ 15 м) — с лёгким торможением.
   const CFG = {
-    vmax: 12, vrev: 3.5, acc: 5.2, brake: 9.5, roll: 1.5, gravK: 0.3, vCap: 13.5,
-    wb: 2.17, track: 0.72, wf: 1.05, wr: -1.12, steerMax: 0.6, steerHi: 0.36, steerRate: 7, wMax: 1.6,
+    vmax: 18, vrev: 3.5, acc: 7.8, brake: 11, roll: 1.5, gravK: 0.3, vCap: 20,
+    wb: 2.17, track: 0.72, wf: 1.05, wr: -1.12, steerMax: 0.6, steerHi: 0.36, steerRate: 7, wMax: 1.6, wMaxHi: 1.15, wMaxV0: 9,
     halfW: 0.86, halfL: 1.9, wheelR: 0.31, edgePad: 0.06, creep: 0.7, exitV: 3.0,
     susK: 230, susZ: 0.42, tiltK: 190, tiltZ: 0.45, lift: 0.12,
   };
@@ -222,6 +226,9 @@
     };
     const pos = new T.Vector3();
     const collider = { type: 'box', x: 0, z: 0, w: 1.9, d: 4.1, ry: 0, y0: -1e4, y1: 1e4, id: 'car', kind: 'car', noCar: true, off: true };
+    // W6: лёгкое касание (камушек со скалы): кузов чуть вздрагивает на подвеске; скорость и курс не меняются
+    function tap(k) { k = clamp(k == null ? 0.3 : k, 0, 1); S.svy -= 0.9 * k; S.svr += (Math.random() - 0.5) * 2.4 * k; S.svp += (Math.random() - 0.5) * 1.2 * k; S.taps = (S.taps || 0) + 1; return true; }
+    collider.tap = tap;
     const dyn = Array.isArray(o.dynamic) ? o.dynamic : null; if (dyn) dyn.push(collider);
     const fx = makeFx(T, winter);
     let blob = null;
@@ -312,7 +319,9 @@
       const smax = steerLimit(), la = 3.4 + 0.42 * Math.abs(S.v), back = thr < 0;
       const toHotel = inp.road === 'hotel' && road.branch;
       let Q, P;
-      if (toHotel && (S.rid === 1 || S.s > road.branch.sF - 9)) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(Math.max(0, P.s) + la, 0, road.branch.len)); }
+      // W6: к ветке — снизу за 9 м до развилки, сверху (от села) — когда развилка уже рядом (+7 м), раньше — по основной дороге
+      const nearFork = !!road.branch && (S.along >= 0 ? S.s > road.branch.sF - 9 : S.s < road.branch.sF + 7);   // у дорог без ветки (село) — нет
+      if (toHotel && (S.rid === 1 || nearFork)) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(Math.max(0, P.s) + la, 0, road.branch.len)); }
       // W5: на ветке без road:'hotel' — сперва по ветке к развилке (вход теперь почти поперёк основной дороги: ближайшая точка
       // основной дороги — за склоном, «по основной» пилот прижимался бы к краю ветки); у самой развилки — на основную
       else if (road.branch && S.rid === 1 && S.sb > 7) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(P.s - la, 0, road.branch.len)); }
@@ -320,9 +329,21 @@
       const lane = inp.lane || 0, ax = Q.x + Q.lx * lane, az = Q.z + Q.lz * lane;
       let al2 = angDiff(Math.atan2(ax - S.x, az - S.z), S.ry); if (back) al2 = angDiff(al2 + PI, 0);
       const delta = Math.atan2(2 * cfg.wb * Math.sin(al2), la);
-      return { thr, str: clamp(-delta / smax, -1, 1) * (back ? -1 : 1) };
+      // W6: виртуальный игрок притормаживает перед крутыми поворотами сам — педалями (газ отпущен / тормоз), как человек;
+      // у машины помощников по-прежнему нет. inp.brakes === false — «газ в пол» (проверка мягкого края)
+      let thr2 = thr, brk = false;
+      if (thr > 0 && inp.brakes !== false && road.kmax && !back) {
+        const v = Math.abs(S.v), Lb = v * v / (2 * cfg.brake * 0.8) + 6, onB = toHotel && (S.rid === 1 || nearFork);
+        const al = Math.cos(angDiff(S.ry, P.th)) >= 0 ? 1 : -1;
+        const k = onB ? 0.06 : al > 0 ? road.kmax(P.s, Lb) : road.kmax(Math.max(0, P.s - Lb), Lb);
+        const vSafe = k > 1e-4 ? Math.min(cfg.vmax, Math.sqrt(8.5 / k), (cfg.wMaxHi || cfg.wMax) * 0.95 / k + 2) : cfg.vmax;
+        if (v > vSafe + 1.2) { thr2 = 0; brk = true; } else if (v > vSafe) thr2 = 0;
+      }
+      return { thr: thr2, str: clamp(-delta / smax, -1, 1) * (back ? -1 : 1), brake: brk };
     }
     const steerLimit = () => cfg.steerMax + (cfg.steerHi - cfg.steerMax) * sm(3, cfg.vmax, Math.abs(S.v));
+    // W6: предел рыскания от скорости (на 18 м/с — 1,15 рад/с вместо 1,6): быстрая машина остаётся послушной
+    const yawLimit = () => (cfg.wMaxHi == null ? cfg.wMax : cfg.wMax + (cfg.wMaxHi - cfg.wMax) * sm(cfg.wMaxV0 || 9, cfg.vmax, Math.abs(S.v)));
 
     /* --- героиня: посадка, выход, поза --- */
     const v3 = () => new T.Vector3();
@@ -427,7 +448,7 @@
       /* --- что хочет водитель (только ввод игрока: ни подруливания, ни сброса скорости в поворотах) --- */
       let target = 0, brake = false, steerIn = 0;
       if (!driving) { brake = true; steerIn = S.steer / Math.max(1e-3, steerLimit()); }
-      else if (inp.auto) { const pi = pilot(inp); target = pi.thr > 0 ? cfg.vmax * pi.thr : pi.thr < 0 ? (S.v > 0.6 ? 0 : -cfg.vrev) : 0; if (pi.thr < 0 && S.v > 0.6) brake = true; steerIn = -pi.str; }
+      else if (inp.auto) { const pi = pilot(inp); target = pi.thr > 0 ? cfg.vmax * pi.thr : pi.thr < 0 ? (S.v > 0.6 ? 0 : -cfg.vrev) : 0; if ((pi.thr < 0 && S.v > 0.6) || pi.brake) brake = true; steerIn = -pi.str; }
       else if (inp.dir && inp.dir[2] > 0.08) {
         const [dx, dz, mag] = inp.dir, a = Math.atan2(dx, dz), err = angDiff(a, S.ry);
         if (Math.abs(err) > 2.1 && S.v < 1.2) { const er = angDiff(a, S.ry + PI); target = -Math.min(cfg.vrev, mag * 4.5); steerIn = clamp(-er * 2.2, -1, 1); }
@@ -465,7 +486,7 @@
       S.v += dv + gAcc * dt;
       S.v = clamp(S.v, -cfg.vrev * 1.2, cfg.vCap);
       if (Math.abs(target) < 0.05 && Math.abs(S.v) < 0.06) S.v = 0;
-      let w = S.v / cfg.wb * Math.tan(S.steer); w = clamp(w, -cfg.wMax, cfg.wMax);
+      const wLim = yawLimit(); let w = S.v / cfg.wb * Math.tan(S.steer); w = clamp(w, -wLim, wLim);
       let ry = S.ry + w * dt, nx = S.x + Math.sin(ry) * S.v * dt, nz = S.z + Math.cos(ry) * S.v * dt;
 
       /* --- мягкий край: ни ограждений, ни обрыва — машина в «мягком щебне» у края гасит скорость и ползёт вдоль --- */
@@ -613,7 +634,7 @@
 
     if (o.start) teleport(o.start); else if (road) teleport(0); else apply();
     return {
-      S, pos, road, car, cfg, update, teleport, collider, fx,
+      S, pos, road, car, cfg, update, teleport, collider, fx, tap,
       get speed() { return S.v; }, get heading() { return S.ry; }, get mode() { return S.mode; },
       get reversing() { return !!S.reversing; },
       // подпись тормозной педали: «назад» — пока тормоз ведёт машину задом, иначе «тормоз»
@@ -698,5 +719,5 @@
     return { update, snap() { st.init = false; st.iw = 0; st.idleT = 0; }, st };
   }
 
-  V.drive = { create, makeCar, chase, touchInput, CFG, pushOut, version: 4, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true } };
+  V.drive = { create, makeCar, chase, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true } };
 })();

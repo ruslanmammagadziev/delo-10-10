@@ -217,12 +217,15 @@
       const legs = [-1, 1].map(s => { const g = new T.Group(); g.position.set(0.08 * s, 0.42, 0); body.add(g); const l = new T.Mesh(new T.CylinderGeometry(1, 1, 1, 8), m('#F2C9C0')); l.position.y = -0.2; l.scale.set(0.045, 0.4, 0.045); g.add(l); return g; });
       return { root, body, legs };
     }
-    const inCar = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping'));
+    // волна 6 (проверка): посадка кончается внутри drv.update (героиня уже в кузове, drv.mode 'drive'), а S.mode = 'drive' ставит
+    // getIn() только после await — в этом кадре героиню нельзя ставить по мировым S.px/S.pz (иначе она улетает от машины и пропадает)
+    const inCar = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping' || (drv.mode === 'drive' && drv.S && drv.S.hero)));
     let tAnim = 0;
     function animHero(dt) {
       if (!hero) return;
       tAnim += dt;
       const R = hero.rig, car_ = inCar() && drv && drv.animState;
+      if (R && R.outline) R.outline.visible = !car_;   // волна 6: за рулём контур героини не рисуем (−28 тыс. треуг. в кадре следилки; сзади-сверху его не видно)
       if (!car_) { hero.root.position.set(S.px, S.py + (S.iaDy || 0), S.pz); hero.root.rotation.set(0, S.ang, 0); hero.root.visible = S.mode !== 'drive' || !drv || !drv.heroIn; }
       else if (!drv.heroIn) hero.root.visible = false;   // старая машинка без места водителя
       if (blob) { blob.position.set(S.px, S.py + 0.03, S.pz); blob.visible = !car_ && S.mode !== 'drive'; }
@@ -322,7 +325,7 @@
         S.mode = 'walk';
         const sp = (from === 'zipline' && h.places && h.places.zipLanding) || h.spawn; S.px = sp.x; S.pz = sp.z; S.py = h.ground(sp.x, sp.z); S.ang = sp.ry || 0; S.yaw = sp.ry || 0;
       }
-      setupCar(h, id, from, null, true);
+      setupCar(h, id, from, null, id === 'serpentine' || !!(h.drive && h.drive.heroInCar));   // волна 6: в село из отеля — за рулём
       // W4A: свадьба — героиня модулю (розыгрыш с беретом), облачка пальтара; каз по приезде (KAZ_ON_ARRIVAL)
       if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); } catch (e) { console.warn('village: wedding hero', e); } }
       if (kazBack) later(900, () => toast(V.kaz.line('giveBack', named), 3400));
@@ -347,6 +350,15 @@
         // из села — наверху у ворот, носом вниз; из отеля — в конце ветки; из города/старта — у щита на краю города, носом в гору
         else if (from === 'kubachi') placeCarTop(); else if (from === 'hotel') placeCarHotel(); else placeCarStart();
         if (heroInCar) { if (drv.heroIn && hero) drv.heroIn(hero, { instant: true }); S.mode = 'drive'; }
+        else { drv.S.mode = 'parked'; if (drv.update) drv.update(1 / 60, { brake: true }); }
+        document.body.classList.toggle('drive', S.mode === 'drive');
+      } else if (h.drive && h.drive.road && V.drive) {
+        // волна 6: по селу тоже ездим — тот же контроллер drive.js, «дорога» — сеть проездов села (h.drive.road), машина на стоянке
+        scene.add(c.root || c);
+        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: pose || h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign({}, c.driveCfg, h.drive.cfg) });   // по селу — свой предел скорости
+        chase = V.drive.chase({ THREE: T, camera, ground: h.ground });
+        S.dir = 'village'; S.exitArmed = {};
+        if (heroInCar) { if (drv.heroIn && hero) drv.heroIn(hero, { instant: true }); S.mode = 'drive'; S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; if (chase) chase.snap(); }
         else { drv.S.mode = 'parked'; if (drv.update) drv.update(1 / 60, { brake: true }); }
         document.body.classList.toggle('drive', S.mode === 'drive');
       } else if (h.carSpawn) {
@@ -575,7 +587,8 @@
         default:
           if (sp.id.startsWith('carved_')) { S.flags.stones.add(sp.id); await card(a.title || 'Резной камень', (a.text || []).concat(S.flags.stones.size === 3 ? ['Все три камня найдены!'] : ['Найдено камней: ' + S.flags.stones.size + ' из 3.']));
             if (S.flags.stones.size === 3) { const ev = V.eventLine('stones3', named); if (ev) toast(ev.text, 4200); } }
-          else if (d && d.kind === 'sit' && d.seat) { const seat = Array.isArray(d.seat) ? d.seat : [d.seat.x, d.seat.y, d.seat.z]; sitAt(seat, d.ry !== undefined ? d.ry : (d.seat.ry !== undefined ? d.seat.ry : S.ang), d.view); }   // лавочки серпантина и модулей
+          else if (d && d.kind === 'sit' && d.seat) { const seat = Array.isArray(d.seat) ? d.seat : [d.seat.x, d.seat.y, d.seat.z]; sitAt(seat, d.ry !== undefined ? d.ry : (d.seat.ry !== undefined ? d.seat.ry : S.ang), d.view); if (d.npc && d.event) later(1300, () => npcSayEvent(d.npc, d.event, 3000)); }   // лавочки серпантина и модулей; волна 6: школьный двор
+          else if (d && d.kind === 'toast' && d.event && d.npc) { toast(d.text || sp.label, 1800); later(500, () => npcSayEvent(d.npc, d.event, 2800)); }   // волна 6: звонок у школы
           else if (d && d.kind === 'talk' && d.npc) { const n = npcBy(d.npc); if (n) talk(n); }
           else if (d && d.kind === 'view' && d.view) { setView(d.view, true); if (d.text) later(1200, () => toast(d.text, 3600)); }
           else if (d && d.kind === 'sheet') { const aa = A[d.activity] || {}; await card(aa.title || sp.label, aa.text || [sp.label]); }
@@ -834,7 +847,10 @@
     async function useExit(ex) {
       if (S.rid === 'hotel' && ex.id === 'zipline') { const sp = S.region.spots.find(q => q.id === 'zipline_start'); if (sp) return useSpot(sp); }
       const to = ex.to || (S.rid === 'hotel' ? (ex.id === 'toRoad' ? 'serpentine' : EXIT_TO[ex.id]) : null);
-      if (S.rid === 'kubachi') {
+      if (S.rid === 'kubachi' && ex.id === 'toHotel') {   // волна 6: наверху дороги мимо школы — к отелю
+        if (haveRegion('hotel')) await fade('К отелю…', () => loadRegion('hotel', 'kubachi'));
+        else toast('Отель — в следующей сборке.', 2600);
+      } else if (S.rid === 'kubachi') {
         if (haveRegion('serpentine')) await fade('Вниз по серпантину…', () => loadRegion('serpentine', 'kubachi'));
         else { await fade('Дорога вниз…', () => {}); toast('Серпантин и город — в основной игре. Возвращаемся на площадь.'); const sp = S.region.spawn; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); S.camInit = false; }
       } else if (S.rid === 'hotel') {
@@ -860,6 +876,7 @@
     function checkExits() {
       const h = S.region; if (!h || S.mode !== 'drive' || !drv || S.busy) return null;
       for (const ex of h.exits) {
+        if (ex.walk || (ex.level && ex.level !== 'ground')) continue;   // волна 6: «Сесть в машину» у стоянки — только пешком
         const d = Math.hypot(drv.S.x - ex.x, drv.S.z - ex.z);
         if (d > ex.r + 3) S.exitArmed[ex.id] = true;
         if (S.exitArmed[ex.id] && d < ex.r) { S.exitArmed[ex.id] = false; S.lastExit = ex.id; useExit(ex); return ex.id; }
@@ -894,8 +911,8 @@
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv) {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;
-        h.exits.forEach(ex => { const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
-        if (slow) {
+        h.exits.forEach(ex => { if (ex.walk || (ex.level && ex.level !== 'ground')) return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
+        if (slow && S.rid === 'serpentine') {   // волна 6: «Посидеть» и разговор из машины — только на серпантине (в селе — пешком: «Выйти»)
           h.spots.forEach(sp => { const d = Math.hypot(cx - sp.x, cz - sp.z); if (d < 9 && (!best || d < best.d + 3)) best = { kind: 'spot', ref: sp, d, label: (sp.icon ? sp.icon + ' ' : '') + 'Посидеть: ' + String(sp.label || '').toLowerCase() }; });
           h.npcs.forEach(n => { if (n.silent || !n.lines || !n.lines.length) return; const d = Math.hypot(cx - n.root.position.x, cz - n.root.position.z); if (d < (n.talkR || 2.8) + 11 && (!best || best.kind !== 'spot')) best = { kind: 'npc', ref: n, d, label: 'Поговорить: ' + n.name }; });
           const tur = h.npcs.find(n => !n.silent && Math.hypot(cx - n.root.position.x, cz - n.root.position.z) < (n.talkR || 2.8) + 11);
@@ -1124,6 +1141,59 @@
     }
 
     /* ---------- отладка ---------- */
+    // «дорога» региона: серпантин — h.road; село (волна 6) — сеть проездов h.drive.road
+    const roadOf = () => (S.region ? S.region.road || (S.region.drive && S.region.drive.road) : null);
+    // волна 6: маршруты по селу (для QA-пилота): ломаные из осей проездов ручки h.drive.roads
+    function villageRoutes() {
+      const h = S.region; if (!h || !h.drive) return {};
+      const R = id => (h.drive.roads.find(r => r.id === id) || { pts: [] }).pts, rev = a => a.slice().reverse();
+      const st = R('street'), tw = R('tower'), up = R('up'), park = [h.drive.carSpawns.parking.x, h.drive.carSpawns.parking.z];
+      const stW = st.filter(p => p[0] <= park[0] + 0.5);   // от парковки на запад, к площади
+      const sq = h.places.squareDrive || { x: 12.3, z: -6.3 };
+      return {
+        square: [park].concat(stW, [[sq.x, sq.z]]),
+        tower: [park].concat(stW, [[sq.x - 1.5, sq.z - 2.5]], tw),
+        school: up.slice(0, Math.max(2, up.findIndex(p => p[1] < -56))),
+        hotel: up.slice(),
+        down: rev(up),
+        towerBack: rev(tw).concat([[sq.x, sq.z]], rev(stW), [park]),
+        out: [park].concat(st.filter(p => p[0] > park[0] + 0.5).reverse()),
+      };
+    }
+    // QA-пилот: тот же ввод { thr, str }, что у игрока (pure pursuit по ломаной), физика 60 Гц без рендера;
+    // считает: дошла ли, застревания, удары, выход за проезды (h.drive.drivable с запасом), выход-облако
+    function simRoute(name, o = {}) {
+      const h = S.region; if (!drv || !h || !h.drive) return null;
+      const pts = Array.isArray(name) ? name : villageRoutes()[name]; if (!pts || pts.length < 2) return { error: 'route' };
+      if (o.from) { const c = h.drive.carSpawns[o.from]; if (c) { drv.teleport({ x: c.x, z: c.z, ry: c.ry }); } }
+      else if (o.start !== false) { const a = pts[0], b = pts[1]; drv.teleport({ x: a[0], z: a[1], ry: Math.atan2(b[0] - a[0], b[1] - a[1]) }); }
+      if (S.mode !== 'drive' && drv.heroIn && hero) { drv.heroIn(hero, { instant: true }); S.mode = 'drive'; document.body.classList.toggle('drive', true); }
+      S.exitArmed = {};
+      const dt = 1 / 60, out = { route: Array.isArray(name) ? 'custom' : name, t: 0, reached: false, bumps: 0, stuck: 0, maxStuckT: 0, off: 0, maxOff: 0, maxV: 0, exit: null, dyMax: 0, end: null };
+      let k = 0, py = drv.S.y; const thr0 = o.thr || 0.75, LA = o.look || 4.2;
+      { let bd = 1e9; pts.forEach((q, i) => { const d = Math.hypot(q[0] - drv.S.x, q[1] - drv.S.z); if (d < bd) { bd = d; k = i; } }); }   // с ближайшей точки маршрута
+      for (let step = 0; step < (o.steps || 60 * 120); step++) {
+        // точка впереди по ломаной
+        while (k < pts.length - 1 && Math.hypot(pts[k][0] - drv.S.x, pts[k][1] - drv.S.z) < LA) k++;
+        const tx = pts[k][0], tz = pts[k][1], dEnd = Math.hypot(pts[pts.length - 1][0] - drv.S.x, pts[pts.length - 1][1] - drv.S.z);
+        if (k >= pts.length - 1 && dEnd < 2.2) { out.reached = true; break; }
+        const err = angDiff(Math.atan2(tx - drv.S.x, tz - drv.S.z), drv.S.ry), smax = drv.cfg.steerMax;
+        const delta = Math.atan2(2 * drv.cfg.wb * Math.sin(err), Math.max(2.5, Math.hypot(tx - drv.S.x, tz - drv.S.z)));
+        const thr = Math.abs(err) > 1.0 ? 0.35 : dEnd < 8 ? 0.4 : thr0;
+        const r = drv.update(dt, { thr, str: clamp(-delta / smax, -1, 1) });   // как pilot() в drive.js: str > 0 — вправо
+        if (r.bumped) out.bumps++;
+        out.maxV = Math.max(out.maxV, Math.abs(drv.S.v)); out.dyMax = Math.max(out.dyMax, Math.abs(drv.S.y - py)); py = drv.S.y;
+        if (h.drive.drivable && !h.drive.drivable(drv.S.x, drv.S.z, 0.25)) { out.off++; const q = roadOf().project(drv.S.x, drv.S.z); out.maxOff = Math.max(out.maxOff, Math.abs(q.e) - (q.e > 0 ? q.wl : q.wr)); }
+        out.maxStuckT = Math.max(out.maxStuckT, drv.S.stuckT); if (drv.S.stuckT > 3 && drv.S.stuckT - dt <= 3) out.stuck++;
+        S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; out.t += dt;
+        if (o.exits !== false) { const ex = checkExits(); if (ex) { out.exit = ex; break; } }
+      }
+      for (let b = 0; b < 240 && drv && Math.abs(drv.S.v) > 0.02; b++) drv.update(dt, { brake: true });
+      if (drv) { out.end = [+drv.S.x.toFixed(2), +drv.S.z.toFixed(2), +drv.S.y.toFixed(2)]; S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; }
+      if (chase) chase.snap();
+      out.t = +out.t.toFixed(1); out.maxV = +out.maxV.toFixed(2); out.dyMax = +out.dyMax.toFixed(3); out.maxOff = +out.maxOff.toFixed(2); out.maxStuckT = +out.maxStuckT.toFixed(2); out.k = k; out.n = pts.length;
+      return out;
+    }
     window.__village = {
       region: () => S.rid,
       pos: () => ({ x: S.px, y: S.py, z: S.pz, ry: S.ang, mode: S.mode, level: S.level, sitting: !!S.sitting, view: S.view && S.view.id, active: !!S.region && !S.busy, climb: S.climb ? +S.climb.s.toFixed(2) : null, look: S.look ? S.look.id : null, shop: S.inShop ? S.inShop.id : null }),
@@ -1145,8 +1215,8 @@
       exit: id => { const ex = S.region.exits.find(e => e.id === id); if (!ex) return false; useExit(ex); return true; },
       frames: () => S.frames, state: S, handle: () => S.region, camera, renderer, scene,
       // серпантин: состояние машины, телепорт по дороге, автопилот, быстрая езда без рендера (физика 60 Гц, выходы срабатывают как в игре)
-      drive: () => (drv ? Object.assign(drv.info(), { dir: S.dir, len: +S.region.road.len.toFixed(1), trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +camera.fov.toFixed(1) }) : null),
-      teleportS: (s, rev) => { if (!drv) return null; const q = S.region.road.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; if (chase) chase.snap(); return drv.info(); },
+      drive: () => (drv ? Object.assign(drv.info(), { dir: S.dir, len: +roadOf().len.toFixed(1), trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +camera.fov.toFixed(1) }) : null),
+      teleportS: (s, rev) => { if (!drv) return null; const q = roadOf().sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; if (chase) chase.snap(); return drv.info(); },
       auto: thr => { S.auto = thr || 0; return S.auto; },
       act: () => { updAct(); act(); return S.near && S.near.label; },
       act2: () => { $('act2').click(); return true; },
@@ -1159,7 +1229,7 @@
             const input = inp === 'auto' ? { auto: true, thr: o.thr || 1 } : (inp || { thr: 1 });
             const r = drv.update(dt, input); if (r.bumped) bumps++;
             S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; moments(dt); chaseCam(dt);
-            const p = S.region.road.project(drv.S.x, drv.S.z, drv.S.s); minE = Math.min(minE, Math.min(p.wl - Math.abs(p.e), p.wr - Math.abs(p.e)));
+            const p = roadOf().project(drv.S.x, drv.S.z, drv.S.s); minE = Math.min(minE, Math.min(p.wl - Math.abs(p.e), p.wr - Math.abs(p.e)));
             t += dt; k++;
             const ex = checkExits(); if (ex) { exitAt = { id: ex, t: +t.toFixed(1) }; finish(); return; }
             if (o.until != null && (S.dir === 'down' ? drv.S.s <= o.until : drv.S.s >= o.until)) { for (let b = 0; b < 180 && Math.abs(drv.S.v) > 0.02; b++) { drv.update(dt, { brake: true }); t += dt; } S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; finish(); return; }
@@ -1175,7 +1245,7 @@
       // считает скачки s (перескок на соседнюю петлю), выезд кузова за полотно, «застревание», скачки высоты
       simCar: (o = {}) => {
         if (!drv) return null;
-        const h = S.region, road = h.road, dt = o.dt || 1 / 60, steps = o.steps || 600;
+        const h = S.region, road = roadOf(), dt = o.dt || 1 / 60, steps = o.steps || 600;
         if (o.s != null) { const q = road.sample(o.s); drv.teleport(o.rev ? { x: q.x, z: q.z, ry: q.th + PI } : { x: q.x, z: q.z, ry: q.th }); }
         let seed = o.seed || 5; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
         const out = { steps: 0, s0: +drv.S.s.toFixed(1), maxDs: 0, off: 0, minBody: 9, stuck: 0, maxStuckT: 0, dy: 0, bumps: 0, ex: [] };
@@ -1329,6 +1399,14 @@
       wedding: () => { const h = S.region; return h && h.places && h.places.wedding ? { module: !!h.wedding, gate: h.places.wedding.gate, npcs: h.npcs.filter(n => n.ext).length } : null; },
       // машина: выйти / сесть (drive.js волны 4)
       getOut: () => getOut(), getIn: () => getIn(),
+      // волна 6: езда по селу — маршруты, QA-пилот, машина к точке стоянки, «сесть за руль» рядом с машиной
+      routes: () => { const r = villageRoutes(); const o = {}; Object.keys(r).forEach(k => { o[k] = r[k].length; }); return o; },
+      route: name => villageRoutes()[name] || null,
+      simRoute: (name, o) => simRoute(name, o),
+      carAt: name => { const h = S.region; if (!drv || !h || !h.drive) return null; const c = h.drive.carSpawns[name]; if (!c) return null; drv.teleport({ x: c.x, z: c.z, ry: c.ry }); if (chase) chase.snap(); if (S.mode === 'drive') { S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; } return drv.info(); },
+      heroToCar: () => { if (!drv) return false; const p = drv.doorPoint(1); S.mode = 'walk'; S.px = p.x; S.pz = p.z; S.py = S.region.ground(p.x, p.z); S.camInit = false; return drv.canEnter(S.px, S.pz); },
+      drivable: (x, z) => { const h = S.region; return !!(h && h.drive && h.drive.drivable(x, z)); },
+      teleportCar: (x, z, ry, sit) => { if (!drv) return null; drv.teleport({ x, z, ry: ry || 0 }); if (sit !== false && S.mode !== 'drive' && drv.heroIn && hero) { drv.heroIn(hero, { instant: true }); S.mode = 'drive'; document.body.classList.toggle('drive', true); } if (chase) chase.snap(); S.view = null; S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; return drv.info(); },
       bubbles: () => bubbles.map(b => b.el.textContent),
       lastUse: () => S.lastUse || null,
       // ---------- W4A ----------

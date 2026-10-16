@@ -697,48 +697,70 @@
     };
   }
 
-  /* ---------- 4B: ТЕРРАСЫ — общий построитель (село, склон с серпантином, отель) ----------
-     spec2 §6: широкие ступени-полосы по горизонталям; уступ 1,6–2,6 м, проступь 4–10 м и больше там, где положе;
-     стенки сухой кладки (атлас «бут» — видны строчки камней) или травяные откосы; поздняя осень — охра (скошенное сено),
-     мягкая зелень, золото; разрывы — тропинки по склону, общие для всех уровней поля; зимой — снег на полосах («зебра»).
-     o: { cx, cz — центр секторов; fields: [{ b0, b1 (градусы: азимут от +z к +x), r0, r1, far? }]; surf(x, z) — видимая
+  /* ---------- ТЕРРАСЫ — общий построитель (село, склон с серпантином, отель) ----------
+     Волна 6 (TERRACES, фото p11): по умолчанию стиль 'soft' — мягкие зелёные ступени по горизонталям: широкая светлая проступь,
+     скруглённая бровка (светлый кант), короткий крутой откос тёмно-зелёной травы, ряд круглых кустов вдоль откоса, редкие деревья;
+     без каменных стенок и охристых полос. Ступени — полосы с общими вершинами вдоль контура и гладкими нормалями (накопитель
+     Baker); для адаптера с одним quadF (серпантин) — те же три квада на отрезок, плоские нормали. Зимой — снег на проступях,
+     откосы тёмные («зебра»). Прежний вид (сухая кладка, кант, охра/золото) — style: 'stone'.
+     o: { cx, cz — центр секторов; fields: [{ b0, b1 (градусы: азимут от +z к +x), r0, r1, far? } | { contour: { x0, z0, x1, z1, cell }, far? }
+          (волна 6: поле по настоящим горизонталям любого рельефа, только 'soft')]; surf(x, z) — видимая
           поверхность; ok(x, z, f) — можно ли класть полосу; tread, wall — накопители (Baker; стенка может быть 'atlas');
-          winter; seed; step, stepVar, segL, dr, minW, maxW, skip, pathEvery, pathW, lift, wallDrop, kant (кромка камня),
-          shade(col, x, z, f) — дымка вдали; onBand({ pts, yA, yB, f, stone, k }) — стога, деревья }
-     → { bands, levels } */
+          winter; seed; step, stepVar, segL, dr, minW, maxW, skip, pathEvery, pathW, lift, wallDrop, kant (кромка камня, 'stone'),
+          shade(col, x, z, f) — дымка вдали; onBand({ pts, yA, yB, f, stone, k }) — стога, деревья;
+          волна 6: style ('soft' | 'stone'), palette (проступь [[светлый, второй тон]…]), riser ([верх, низ] откоса), hl (бровка),
+          grid: { step, phase } — уровни на общей сетке высот (совпадают с полосами terraceStripes на фоне);
+          shrubs: [] — сюда кладутся кусты вдоль откосов [x, y, z, размер, r, g, b] (для shrubPoints); shrubEvery (м между
+          кучками, 14), shrubFar (кусты и на дальних полях), riserK (заложение откоса / высоту, 0,62), lipW (ширина бровки, 0,9) }
+     → { bands, levels, shrubs } */
+  const TPAL = {   // палитра p11 (снята с фото и подтянута к toon: светлее и сочнее)
+    tread: [['#8DAA32', '#7F9D2C'], ['#84A32F', '#76962A'], ['#97B53A', '#88A834'], ['#7FA02E', '#729428'], ['#92B038', '#83A332'], ['#89A934', '#7B9C2E']],
+    riser: ['#486C1E', '#283E12'], hl: '#D6E46C',
+    shrub: ['#25441A', '#2E5220', '#203C17', '#37602A', '#2A4C1C'], tree: ['#2F5523', '#3A6229', '#284A1F'],
+    winter: { tread: '#F3F6FA', tread2: '#E6EDF4', riser: ['#7C8672', '#59624F'], hl: '#FFFFFF', shrub: ['#46523F', '#3C4838', '#505C48'] },
+    bg: ['#86A333', '#74912C'],   // трава на фоне между полями (тот же тон, чуть темнее проступи)
+  };
   function terraces(o) {
     const D2 = Math.PI / 180, R = rng(o.seed || 6161), cx = o.cx, cz = o.cz, surf = o.surf, okAt = o.ok || (() => true);
-    const tread = o.tread, wall = o.wall || o.tread, wallAt = wall.kind === 'atlas', WIN = !!o.winter;
-    const PALT = o.palette || [['#D7B866', '#C49F50'], ['#A9B262', '#93A052'], ['#E2BE55', '#CDA542'], ['#CDAA68', '#B48F4E'], ['#9EAE5E', '#889A4E'], ['#E4C67C', '#CCAA62'], ['#C08C48', '#A87A3E']];
+    const tread = o.tread, wall = o.wall || o.tread, wallAt = wall.kind === 'atlas', WIN = !!o.winter, SOFT = (o.style || 'soft') !== 'stone';
+    const PALT = o.palette || (SOFT ? TPAL.tread : [['#D7B866', '#C49F50'], ['#A9B262', '#93A052'], ['#E2BE55', '#CDA542'], ['#CDAA68', '#B48F4E'], ['#9EAE5E', '#889A4E'], ['#E4C67C', '#CCAA62'], ['#C08C48', '#A87A3E']]);
     const snowT = hexRGB('#F3F6FA'), snowS = hexRGB('#E2EAF2'), stoneW = WIN ? [0.62, 0.6, 0.58] : [0.9, 0.84, 0.74], stoneV = hexRGB(WIN ? '#6F6961' : '#8E8170'), bankC = hexRGB(WIN ? '#6A6658' : '#7A8A4C'), kantC = hexRGB(WIN ? '#8A847C' : '#BCAE92');
+    const RIS = (WIN ? TPAL.winter.riser : o.riser || TPAL.riser).map(c => (typeof c === 'string' ? hexRGB(c) : c)), HL = hexRGB(WIN ? TPAL.winter.hl : o.hl || TPAL.hl);
+    const SHR = (WIN ? TPAL.winter.shrub : o.shrubPal || TPAL.shrub).map(hexRGB);
     const pq = (r, b) => [cx + Math.sin(b * D2) * r, cz + Math.cos(b * D2) * r];
     const shade = o.shade || (c => c), vn = (x, z) => 0.94 + 0.1 * vnoise(x * 0.21, z * 0.21);
-    const out = { bands: 0, levels: 0 };
+    const out = { bands: 0, levels: 0, shrubs: 0 };
+    const strip = SOFT && typeof tread.vert === 'function' && Array.isArray(tread.I);   // Baker: полоса с общими вершинами и гладкими нормалями
     (o.fields || []).forEach((f, fi) => {
       const far = !!f.far, segL = f.segL || o.segL || (far ? 9 : 4.4), dr = f.dr || o.dr || (far ? 3 : 1.5);
       const step = f.step || o.step || (far ? 3.0 : 2.1), stepVar = f.stepVar !== undefined ? f.stepVar : o.stepVar !== undefined ? o.stepVar : (far ? 1.4 : 0.6);
-      const minW = o.minW || (far ? 2 : 1.3), maxW = o.maxW || (far ? 32 : 26), lift = far ? 0.7 : (o.lift !== undefined ? o.lift : 0.14), drop = o.wallDrop || (far ? 1.2 : 0.8);
+      const minW = o.minW || (far ? 2 : 1.3), maxW = o.maxW || (far ? (SOFT ? 44 : 32) : (SOFT ? 40 : 26)), lift = f.lift !== undefined ? f.lift : far ? 0.7 : (o.lift !== undefined ? o.lift : 0.14), drop = o.wallDrop || (far ? 1.2 : 0.8);
+      if (f.contour) { contourField(); return; }   // волна 6: поле по настоящим горизонталям (любой рельеф), см. contourField
       const rm = (f.r0 + f.r1) / 2, nb = Math.max(4, Math.ceil((f.b1 - f.b0) * D2 * rm / segL)), nr = Math.ceil((f.r1 - f.r0) / dr);
       const prof = []; let s0 = 0, s1 = 0;
       for (let j = 0; j <= nb; j++) { const b = f.b0 + (f.b1 - f.b0) * j / nb, ys = new Float32Array(nr + 1); for (let i = 0; i <= nr; i++) { const [x, z] = pq(f.r0 + i * dr, b); ys[i] = surf(x, z); } prof.push({ b, ys }); s0 += ys[0]; s1 += ys[nr]; }
       const down = s0 > s1 ? 1 : -1;   // +1: вниз — от центра; −1: вниз — к центру
       let yHi = -1e9, yLo = 1e9; prof.forEach(p => { yHi = Math.max(yHi, down > 0 ? p.ys[0] : p.ys[nr]); yLo = Math.min(yLo, down > 0 ? p.ys[nr] : p.ys[0]); });
-      const levels = []; for (let y = yHi - 0.4 - R() * 1.2; y > yLo + 0.8; y -= step + R() * stepVar) levels.push(y);
+      const levels = [];
+      const G = f.grid || o.grid;
+      if (G) { const gs = (far && G.farStep) || G.step, ph = G.phase || 0; for (let y = Math.floor((yHi - 0.4 - ph) / gs) * gs + ph; y > yLo + 0.8; y -= gs) levels.push(y); }   // общая сетка высот: ступени совпадают с полосами фона
+      else for (let y = yHi - 0.4 - R() * 1.2; y > yLo + 0.8; y -= step + R() * stepVar) levels.push(y);
       const cross = (p, y) => {
         if (down > 0) { for (let i = 0; i < nr; i++) if (p.ys[i] >= y && p.ys[i + 1] < y) return f.r0 + (i + (p.ys[i] - y) / (p.ys[i] - p.ys[i + 1])) * dr; }
         else { for (let i = nr; i > 0; i--) if (p.ys[i] >= y && p.ys[i - 1] < y) return f.r0 + (i - (p.ys[i] - y) / (p.ys[i] - p.ys[i - 1])) * dr; }
         return null;
       };
-      // тропинки по склону: разрывы на одних и тех же азимутах у всех уровней поля
-      const pathDeg = (o.pathW || (far ? 3 : 1.7)) / (rm * D2), runs = [];
-      { let a0 = f.b0, a = f.b0 + 6 + R() * 8; while (a < f.b1 - 6) { runs.push([a0, a - pathDeg / 2]); a0 = a + pathDeg / 2; a += (o.pathEvery || (far ? 22 : 18)) + R() * 12; } runs.push([a0, f.b1]); }
+      // тропинки по склону: разрывы на одних и тех же азимутах у всех уровней поля (pathEvery: 0 — без тропинок)
+      const pathDeg = (o.pathW || (far ? 3 : 1.7)) / (rm * D2), runs = [], pe = o.pathEvery !== undefined ? o.pathEvery : SOFT ? (far ? 40 : 34) : (far ? 22 : 18);
+      if (pe > 0) { let a0 = f.b0, a = f.b0 + 6 + R() * 8; while (a < f.b1 - 6) { runs.push([a0, a - pathDeg / 2]); a0 = a + pathDeg / 2; a += pe + R() * 12; } runs.push([a0, f.b1]); }
+      else runs.push([f.b0, f.b1]);
       let pi = Math.floor(R() * PALT.length);
       for (let k = 0; k < levels.length - 1; k++) {
         out.levels++;
-        if (R() < (o.skip !== undefined ? o.skip : 0.04)) continue;
+        if (R() < (o.skip !== undefined ? o.skip : SOFT ? 0.015 : 0.04)) continue;
         pi = (pi + 1 + (R() < 0.3 ? 1 : 0)) % PALT.length;
-        const yA = levels[k], yB = levels[k + 1], stone = R() < (o.stone !== undefined ? o.stone : 0.62);
-        const col = WIN ? snowT : mulRGB(hexRGB(PALT[pi][0]), 0.96 + R() * 0.08), col2 = WIN ? snowS : mulRGB(hexRGB(PALT[pi][1]), 0.96 + R() * 0.06);
+        const yA = levels[k], yB = levels[k + 1], stone = !SOFT && R() < (o.stone !== undefined ? o.stone : 0.62);
+        const col = WIN ? (SOFT ? snowT : snowT) : mulRGB(hexRGB(PALT[pi][0]), 0.96 + R() * 0.08), col2 = WIN ? (SOFT ? hexRGB(TPAL.winter.tread2) : snowS) : mulRGB(hexRGB(PALT[pi][1]), 0.96 + R() * 0.06);
         runs.forEach(([a0, a1]) => { if (a1 - a0 < 3) return; band(prof.filter(p => p.b >= a0 && p.b <= a1), yA, yB, stone, col, col2, k); });
       }
       function band(PP, yA, yB, stone, col, col2, k) {
@@ -757,11 +779,99 @@
         if (!S0.some(q => q.ok)) return;
         S0.forEach((q, i) => { if (q.ok) return; let best = null, bd = 1e9; S0.forEach((o2, k2) => { if (o2.ok && Math.abs(k2 - i) < bd) { bd = Math.abs(k2 - i); best = o2; } }); q.ri = best.ri; q.ro = best.ri; });
         const dist = S0.map((q, i) => { let d = 1e9; for (let k2 = 0; k2 < S0.length; k2++) if (!S0[k2].ok) d = Math.min(d, Math.abs(k2 - i)); return d; });
+        if (SOFT) {   // волна 6: ширина проступи вдоль полосы меняется плавно (без «клиньев»-шипов, где склон резко положеет)
+          const ds = segL * 0.55, W = S0.map(q => (q.ok ? Math.abs(q.ro - q.ri) : 0));
+          for (let i = 1; i < W.length; i++) if (S0[i].ok && S0[i - 1].ok) W[i] = Math.min(W[i], W[i - 1] + ds);
+          for (let i = W.length - 2; i >= 0; i--) if (S0[i].ok && S0[i + 1].ok) W[i] = Math.min(W[i], W[i + 1] + ds);
+          S0.forEach((q, i) => { if (q.ok) q.ro = q.ri + Math.sign(q.ro - q.ri) * W[i]; });
+        }
         const pts = S0.map((q, i) => {
           const tEnd = Math.min(1, (q.b - a0) / tau, (a1 - q.b) / tau), tw = q.ok ? sst(0, 1, Math.max(0, tEnd)) * sst(0, 2.2, dist[i]) : 0;
           const ri = q.ri, ro = q.ok ? ri + (q.ro - ri) * tw : ri, [xi, zi] = pq(ri, q.b), [xo, zo] = pq(ro, q.b), [xm, zm] = pq((ri + ro) / 2, q.b);
-          return { b: q.b, ww: Math.abs(ro - ri), xi, zi, xm, zm, xo, zo, y: yA + lift, yi: yA, yo: q.ok ? Math.min(yA, surf(xo, zo)) : yA, okp: q.ok };
+          return { b: q.b, ww: Math.abs(ro - ri), xi, zi, xm, zm, xo, zo, y: yA + lift, yi: yA, yo: q.ok ? (SOFT ? Math.max(Math.min(yA, surf(xo, zo)), yB - (yA - yB) * 0.6) : Math.min(yA, surf(xo, zo))) : yA, okp: q.ok };
         });
+        const used = SOFT ? soft(pts, yA, col, col2, k) : stoneBand(pts, stone, col, col2);
+        if (!used) return;
+        out.bands++;
+        if (o.onBand) o.onBand({ pts, yA, yB, f, stone, k });
+      }
+      // волна 6: ступени вдоль настоящих горизонталей. f.contour = { x0, z0, x1, z1, cell } — сетка высот surf (шаг cell), на каждом
+      // уровне сетки высот (grid) — «бегущие квадраты» → ломаные горизонтали → точки через segL; ширина проступи = шаг / уклон,
+      // вниз — против градиента; отрезки, где ok() нельзя или проступь уже minW / шире maxW, выпадают; концы — на нет
+      function contourField() {
+        const C = f.contour, cell = C.cell || 3, x0 = C.x0, z0 = C.z0, nx = Math.max(2, Math.ceil((C.x1 - x0) / cell) + 1), nz = Math.max(2, Math.ceil((C.z1 - z0) / cell) + 1);
+        let Hh = new Float32Array(nx * nz); let hMin = 1e9, hMax = -1e9;
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const h = surf(x0 + i * cell, z0 + j * cell); Hh[j * nx + i] = h; if (h < hMin) hMin = h; if (h > hMax) hMax = h; }
+        // сглаженная сетка для горизонталей: ступени идут плавными дугами (как у пахарей), а не ломаной по каждой кочке
+        for (let pass = 0; pass < (C.blur !== undefined ? C.blur : 8); pass++) { const H2 = new Float32Array(nx * nz); for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { let sm = 0, n = 0; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii < nx && jj < nz) { sm += Hh[jj * nx + ii]; n++; } } H2[j * nx + i] = sm / n; } Hh = H2; }
+        const G2 = f.grid || o.grid || { step, phase: 0 }, gs0 = (far && G2.farStep) || G2.step, ph = G2.phase || 0;
+        // октавы: на пологом промежуточные уровни (½, ¼ шага) — проступь ≈ target м; ступени ветвятся и сливаются, как на p11
+        const OCT = clamp(f.octaves !== undefined ? f.octaves : o.octaves || 0, 0, 2), DIV = 1 << OCT, gs = gs0 / DIV, TGT = o.target || 9;
+        const ordOf = kk => { let m = ((kk % DIV) + DIV) % DIV, ord = 0; if (m === 0) return 0; while (m % 2 === 0) { m >>= 1; ord--; } return OCT + ord; };   // 0 — основной уровень, 1 — ½, 2 — ¼
+        const spacing = sl => { let sp = gs0; for (let q = 1; q <= OCT; q++) if (gs0 / Math.pow(2, q - 1) / sl > 2 * TGT) sp = gs0 / Math.pow(2, q); return sp; };   // шаг на этом уклоне
+        const at = (i, j) => Hh[j * nx + i], e = Math.max(0.6, cell * 0.6);
+        const grad = (x, z) => [(surf(x + e, z) - surf(x - e, z)) / (2 * e), (surf(x, z + e) - surf(x, z - e)) / (2 * e)];
+        let pc = Math.floor(R() * PALT.length), k = 0;
+        for (let y = Math.floor((hMax - ph) / gs) * gs + ph; y > hMin + 0.3; y -= gs, k++) {
+          const ord = ordOf(Math.round((y - ph) / gs));
+          out.levels++;
+          const adj = new Map(), PT = new Map();
+          const ept = (i, j, v) => { const id = ((j * nx + i) << 1) | v; if (!PT.has(id)) { const a = at(i, j), b = v ? at(i, j + 1) : at(i + 1, j), t = clamp((y - a) / ((b - a) || 1e-6), 0, 1); PT.set(id, v ? [x0 + i * cell, z0 + (j + t) * cell] : [x0 + (i + t) * cell, z0 + j * cell]); } return id; };
+          const link = (a, b) => { if (!adj.has(a)) adj.set(a, []); if (!adj.has(b)) adj.set(b, []); adj.get(a).push(b); adj.get(b).push(a); };
+          for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+            const A = at(i, j) > y, B = at(i + 1, j) > y, Cc = at(i + 1, j + 1) > y, D = at(i, j + 1) > y, c = (A ? 1 : 0) | (B ? 2 : 0) | (Cc ? 4 : 0) | (D ? 8 : 0);
+            if (c === 0 || c === 15) continue;
+            const E = [() => ept(i, j, 0), () => ept(i + 1, j, 1), () => ept(i, j + 1, 0), () => ept(i, j, 1)], cr = [];
+            if (A !== B) cr.push(0); if (B !== Cc) cr.push(1); if (Cc !== D) cr.push(2); if (D !== A) cr.push(3);
+            if (cr.length === 2) link(E[cr[0]](), E[cr[1]]());
+            else if (cr.length === 4) { const mid = (at(i, j) + at(i + 1, j) + at(i + 1, j + 1) + at(i, j + 1)) / 4 > y;   // седловина
+              if ((c === 5) === mid) { link(E[0](), E[1]()); link(E[2](), E[3]()); } else { link(E[0](), E[3]()); link(E[1](), E[2]()); } }
+          }
+          // цепочки: сначала от концов (у края сетки), потом петли
+          const used = new Set(), lines = [];
+          [...adj.keys()].sort((p, q) => adj.get(p).length - adj.get(q).length).forEach(s0 => {
+            if (used.has(s0)) return; const L = [PT.get(s0)]; used.add(s0); let prev = -1, cur = s0;
+            for (;;) { const nb = adj.get(cur).find(n => n !== prev && !used.has(n)); if (nb === undefined) break; L.push(PT.get(nb)); used.add(nb); prev = cur; cur = nb; }
+            if (L.length > 3) lines.push(L);
+          });
+          lines.forEach(L => {
+            // точки через segL по длине
+            const acc = [0]; for (let i = 1; i < L.length; i++) acc.push(acc[i - 1] + Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]));
+            const tot = acc[acc.length - 1]; if (tot < segL * 2.5) return;
+            const n = Math.max(3, Math.round(tot / segL)), S = []; let q = 0;
+            for (let m = 0; m <= n; m++) { const sA = tot * m / n; while (q < acc.length - 2 && acc[q + 1] < sA) q++; const t = (sA - acc[q]) / ((acc[q + 1] - acc[q]) || 1); S.push([lerp(L[q][0], L[q + 1][0], t), lerp(L[q][1], L[q + 1][1], t)]); }
+            // сглаживание точек (скользящее среднее 1-2-1, несколько проходов): плавные дуги без изломов
+            let S2 = S; for (let pass = 0; pass < (C.smooth !== undefined ? C.smooth : 6); pass++) { const Sp = S2; S2 = Sp.map((p, i) => (i === 0 || i === Sp.length - 1) ? p : [(Sp[i - 1][0] + p[0] * 2 + Sp[i + 1][0]) / 4, (Sp[i - 1][1] + p[1] * 2 + Sp[i + 1][1]) / 4]); }
+            const Q = S2.map(([x, z]) => { const g = grad(x, z), sl = Math.hypot(g[0], g[1]); if (sl < 1e-4) return null; const ux = -g[0] / sl, uz = -g[1] / sl, sp = spacing(sl);
+              if (ord > 0 && sp > gs0 / Math.pow(2, ord) + 1e-6) return { x, z, ux, uz, W: 0, ok: false };   // промежуточный уровень — только на пологом
+              const W = sp / sl;
+              const ok = W > minW && W < maxW && okAt(x, z, f) && okAt(x + ux * W * 0.5, z + uz * W * 0.5, f) && okAt(x + ux * W, z + uz * W, f); return { x, z, ux, uz, W, ok }; });
+            // куски подряд годных точек
+            let i = 0;
+            while (i < Q.length) {
+              while (i < Q.length && !(Q[i] && Q[i].ok)) i++;
+              let j = i; while (j < Q.length && Q[j] && Q[j].ok) j++;
+              if (j - i >= 3) run(Q.slice(i, j));
+              i = j + 1;
+            }
+          });
+          function run(Rn) {
+            const n = Rn.length, ds = segL * 0.55, W = Rn.map(r => r.W);
+            for (let i = 1; i < n; i++) W[i] = Math.min(W[i], W[i - 1] + ds); for (let i = n - 2; i >= 0; i--) W[i] = Math.min(W[i], W[i + 1] + ds);
+            const pts = Rn.map((r, i) => {
+              const tw = sst(0, 1, Math.min(i, n - 1 - i) / 1.6), ww = W[i] * tw, xo = r.x + r.ux * ww, zo = r.z + r.uz * ww;
+              return { b: 0, ux: r.ux, uz: r.uz, ww, xi: r.x, zi: r.z, xm: (r.x + xo) / 2, zm: (r.z + zo) / 2, xo, zo, y: y + lift, yi: y, yo: Math.max(Math.min(y, surf(xo, zo)), y - gs0 * 1.6), okp: true };   // откос не глубже 1,6 шага (выемки дорог)
+            });
+            pc = (pc + 1 + (R() < 0.3 ? 1 : 0)) % PALT.length;
+            const col = WIN ? snowT : mulRGB(hexRGB(PALT[pc][0]), 0.96 + R() * 0.08), col2 = WIN ? hexRGB(TPAL.winter.tread2) : mulRGB(hexRGB(PALT[pc][1]), 0.96 + R() * 0.06);
+            if (!soft(pts, y, col, col2, k)) return;
+            out.bands++;
+            if (o.onBand) o.onBand({ pts, yA: y, yB: y - gs, f, stone: false, k, ord });
+          }
+        }
+      }
+      // прежний вид: проступь (одна или две полосы), стенка (бут или откос), кант
+      function stoneBand(pts, stone, col, col2) {
         let used = false;
         for (let i = 0; i < pts.length - 1; i++) {
           const A = pts[i], B2 = pts[i + 1]; if (A.ww < 0.05 && B2.ww < 0.05) continue; if (!A.okp && !B2.okp) continue; used = true;
@@ -782,13 +892,212 @@
             tread.quadF([ia[0], A.y + 0.025, ia[1]], [ib[0], B2.y + 0.025, ib[1]], [B2.xo, B2.y + 0.025, B2.zo], [A.xo, A.y + 0.025, A.zo], p => sh(kantC, p[0], p[2]), 0, [0, 1, 0]);
           }
         }
-        if (!used) return;
-        out.bands++;
-        if (o.onBand) o.onBand({ pts, yA, yB, f, stone, k });
+        return used;
+      }
+      // волна 6: мягкая ступень (p11). Профиль поперёк (от верхнего откоса наружу-вниз): P0 — проступь у подножия верхнего
+      // откоса, P1 — начало бровки, P2 — бровка уже на откосе, P3 — подошва откоса (уходит под проступь нижней ступени / в склон).
+      // Дальние поля — без бровки (P1 = начало откоса, 2 квада)
+      function soft(pts, yA, col, col2, k) {
+        const RK = o.riserK || 0.95, LW = o.lipW || 0.9, nP = far ? 3 : 4;
+        const cR0 = WIN ? mixRGB(RIS[0], snowT, 0.38) : mixRGB(RIS[0], col2, 0.12), cR1 = RIS[1], cHL = WIN ? HL : mixRGB(col2, HL, 0.65);
+        const nrm = (a, b) => { const l = Math.hypot(a, b) || 1; return [a / l, b / l]; };
+        const PR = pts.map(q => {
+          const L = q.ww, b = q.b * D2, ux = q.ux !== undefined ? q.ux : L > 1e-3 ? (q.xo - q.xi) / L : Math.sin(b) * down, uz = q.uz !== undefined ? q.uz : L > 1e-3 ? (q.zo - q.zi) / L : Math.cos(b) * down;
+          const yT = q.y, H = Math.max(0, yT - q.yo), rw = Math.min(Math.max(0.35, H * RK), 0.42 * L), lw = Math.min(LW, 0.22 * L);
+          const at = (t, y) => [q.xi + ux * t, y, q.zi + uz * t];
+          const nr = nrm(Math.max(H, 0.2), Math.max(rw, 0.05)), w3 = (a, c) => [ux * a, c, uz * a];
+          let P, N, Cc;
+          const sh = (c, p, kk = 1) => shade(mulRGB(c, vn(p[0], p[2]) * kk), p[0], p[2], f);
+          if (far) {
+            P = [at(0, yT), at(Math.max(0, L - rw), yT), at(L + 0.1, q.yo - drop)];
+            N = [w3(0.1, 1), w3(...nrm(nr[0] * 0.6 + 0.2, nr[1] * 0.6 + 0.8)), w3(nr[0], nr[1])];
+            Cc = [sh(col, P[0]), sh(mixRGB(col2, HL, WIN ? 0 : 0.18), P[1]), sh(cR1, P[2], 0.92)];
+          } else {
+            const t1 = Math.max(0, L - rw - lw), t2 = Math.max(t1 + 0.05, L - rw * 0.78);
+            P = [at(0, yT), at(t1, yT), at(t2, yT - Math.min(0.22 * H, 0.55)), at(L + 0.12, q.yo - drop)];
+            const nl = nrm(nr[0] * 0.7 + 0.25, nr[1] * 0.7 + 0.75);
+            N = [w3(0.14, 1), w3(...nrm(0.3, 1)), w3(nl[0], nl[1]), w3(nr[0], nr[1])];
+            Cc = [sh(col, P[0], 0.97), sh(cHL, P[1]), sh(cR0, P[2]), sh(cR1, P[3], 0.9)];
+          }
+          return { P, N, Cc, H, rw, L, ux, uz, yT, q };
+        });
+        // сегменты: хотя бы один конец годен и полоса не нулевой ширины
+        const segOk = i => { const A = pts[i], B = pts[i + 1]; return (A.okp || B.okp) && !(A.ww < 0.05 && B.ww < 0.05); };
+        let any = false; for (let i = 0; i < pts.length - 1; i++) if (segOk(i)) { any = true; break; }
+        if (!any) return false;
+        if (strip) {
+          const base = tread.n;
+          PR.forEach(pp => { for (let j = 0; j < nP; j++) tread.vert(pp.P[j], pp.N[j], [0, 0], pp.Cc[j], 0); });
+          // обход граней: нормаль проступи — вверх
+          let flip = false;
+          for (let i = 0; i < pts.length - 1; i++) if (segOk(i) && pts[i].ww > 0.3) { const a = PR[i].P[0], b2 = PR[i + 1].P[0], c = PR[i + 1].P[1]; const ux2 = b2[0] - a[0], uz2 = b2[2] - a[2], vx = c[0] - a[0], vz = c[2] - a[2], ny = uz2 * vx - ux2 * vz; flip = ny < 0; break; }
+          for (let i = 0; i < pts.length - 1; i++) { if (!segOk(i)) continue;
+            for (let j = 0; j < nP - 1; j++) { const a = base + i * nP + j, b2 = a + nP, c = b2 + 1, d = a + 1; if (flip) tread.I.push(a, c, b2, a, d, c); else tread.I.push(a, b2, c, a, c, d); } }
+        } else {
+          // адаптер с quadF (плоские нормали): цвет вершины — свойство точки
+          PR.forEach(pp => pp.P.forEach((p, j) => { p.c = pp.Cc[j]; }));
+          const colF = p => p.c;
+          for (let i = 0; i < pts.length - 1; i++) { if (!segOk(i)) continue; const A = PR[i], B = PR[i + 1];
+            const nb2 = [(A.ux + B.ux) / 2, 0.6, (A.uz + B.uz) / 2];
+            for (let j = 0; j < nP - 1; j++) {
+              // почти вырожденные квады (концы полос на нет) пропускаем: у адаптера своя нормаль грани — у тонкого квада она случайная (чёрные щепки)
+              const a = A.P[j], b2 = B.P[j], c = B.P[j + 1], d2 = A.P[j + 1], e1 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]], e2 = [d2[0] - b2[0], d2[1] - b2[1], d2[2] - b2[2]];
+              const cx2 = e1[1] * e2[2] - e1[2] * e2[1], cy2 = e1[2] * e2[0] - e1[0] * e2[2], cz2 = e1[0] * e2[1] - e1[1] * e2[0];
+              if (Math.hypot(cx2, cy2, cz2) < 0.12) continue;
+              // адаптер берёт нормаль по первым трём точкам: начинаем с вершины, где треугольник не вырожден (конец полосы — треугольник)
+              const Q4 = [a, b2, c, d2]; let best = 0, bv = -1;
+              for (let r = 0; r < 4; r++) { const p0 = Q4[r], p1 = Q4[(r + 1) & 3], p2 = Q4[(r + 2) & 3], u1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], u2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+                const v = Math.hypot(u1[1] * u2[2] - u1[2] * u2[1], u1[2] * u2[0] - u1[0] * u2[2], u1[0] * u2[1] - u1[1] * u2[0]); if (v > bv) { bv = v; best = r; } }
+              if (bv < 1e-3) continue;
+              (j === 0 ? tread : wall).quadF(Q4[best], Q4[(best + 1) & 3], Q4[(best + 2) & 3], Q4[(best + 3) & 3], colF, wallAt && j ? 7 : 0, j === 0 ? [0, 1, 0] : nb2);
+            } }
+        }
+        // кусты: кучками по 1–4 вдоль откоса (на половине высоты), реже на дальних полях
+        if (o.shrubs && (!far || o.shrubFar)) {
+          const every = (o.shrubEvery || 14) * (far ? 2.2 : 1) * (WIN ? 1.8 : 1);
+          let acc = R() * every;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const A = PR[i], B = PR[i + 1];
+            if (!pts[i].okp || !pts[i + 1].okp || A.H < 0.9 || B.H < 0.9 || A.L < 2.2 || B.L < 2.2) continue;
+            const pa = A.P[1], pb = B.P[1], sl = Math.hypot(pb[0] - pa[0], pb[2] - pa[2]) || 1;
+            acc -= sl;
+            while (acc < 0) {
+              const t = 1 + acc / sl, n = 1 + Math.floor(R() * R() * 6);
+              for (let m = 0; m < n; m++) {
+                const tt = clamp(t + (m - (n - 1) / 2) * (1.0 + R() * 0.6) / sl, 0, 1), fr = 0.15 + R() * 0.6, sz = (2.2 + R() * 1.9) * (o.shrubScale || 1) * (far ? 1.35 : 1);
+                // откос: от подошвы (видимой, у проступи ниже) к бровке
+                const foot = (Q) => [Q.q.xi + Q.ux * Q.L, Q.q.yo + lift + 0.05, Q.q.zi + Q.uz * Q.L], brow = (Q) => [Q.q.xi + Q.ux * (Q.L - Q.rw), Q.yT, Q.q.zi + Q.uz * (Q.L - Q.rw)];
+                const fA = foot(A), fB = foot(B), bA = brow(A), bB = brow(B);
+                const px = lerp(lerp(fA[0], bA[0], fr), lerp(fB[0], bB[0], fr), tt), py = lerp(lerp(fA[1], bA[1], fr), lerp(fB[1], bB[1], fr), tt), pz = lerp(lerp(fA[2], bA[2], fr), lerp(fB[2], bB[2], fr), tt);
+                const ux = lerp(A.ux, B.ux, tt), uz = lerp(A.uz, B.uz, tt), off = 0.15 + sz * 0.18;
+                const c = shade(mulRGB(SHR[Math.floor(R() * SHR.length)], 0.92 + R() * 0.16), px, pz, f);
+                o.shrubs.push([px + ux * off, py + sz * 0.32, pz + uz * off, sz, c[0], c[1], c[2]]); out.shrubs++;
+              }
+              acc += every * (0.35 + R() * 1.3);
+              // изредка — купа: 5–9 крупных кустов тесной группой у откоса (тёмные пятна, как на p11)
+              if (R() < (o.groveP !== undefined ? o.groveP : 0.08)) { const tt = clamp(t, 0, 1), m = 5 + Math.floor(R() * 5), fA = 0.5;
+                const cxp = lerp(A.q.xi + A.ux * (A.L - A.rw * fA), B.q.xi + B.ux * (B.L - B.rw * fA), tt), czp = lerp(A.q.zi + A.uz * (A.L - A.rw * fA), B.q.zi + B.uz * (B.L - B.rw * fA), tt), cyp = lerp(A.yT - A.H * fA, B.yT - B.H * fA, tt), ux = lerp(A.ux, B.ux, tt), uz = lerp(A.uz, B.uz, tt);
+                for (let g2 = 0; g2 < m; g2++) { const along = (R() - 0.5) * 7, across = (R() - 0.3) * 3.2, sz = (3.0 + R() * 2.2) * (o.shrubScale || 1) * (far ? 1.3 : 1);
+                  const px = cxp - uz * along + ux * across, pz = czp + ux * along + uz * across, c = shade(mulRGB(SHR[Math.floor(R() * SHR.length)], 0.85 + R() * 0.12), px, pz, f);
+                  o.shrubs.push([px, cyp + sz * 0.3 - across * 0.35, pz, sz, c[0], c[1], c[2]]); out.shrubs++; } }
+            }
+          }
+        }
+        return true;
       }
     });
     return out;
   }
 
-  V.vkit = { rng, strSeed, clamp, lerp, sst, hash2, vnoise, fbm, rgb: hexRGB, mix: mixRGB, mul: mulRGB, mul3: mulRGB3, PAL, MOODS, S, SW, SH, NS, makeKit, faceCanvas, signCanvas, skyClouds, terraces };
+  /* ---------- волна 6: КУСТЫ — точки-спрайты (1 вызов, 0 треугольников) ----------
+     list: [[x, y, z, размер (м), r, g, b], …]. Спрайт — пушистый круглый куст в toon (светлый верх, тень снизу, тёмный край),
+     размер по расстоянию; o: { name, fog (true), maxPx (крупнее не рисовать, 150), keep } → THREE.Points | null.
+     userData.setLight(col) — общий множитель цвета (настроение/ночь); userData.base — исходные цвета */
+  let shrubCanvas = null;
+  function paintShrub() {
+    if (shrubCanvas) return shrubCanvas;
+    const [cv, c] = cnv(64, 64), R = rng(515);
+    const blobs = [[32, 36, 20], [21, 33, 13], [43, 33, 13], [30, 24, 13], [39, 26, 11], [24, 42, 12], [41, 42, 12]];
+    const shape = (dx, dy, k) => { c.beginPath(); blobs.forEach(([x, y, r]) => { c.moveTo(x + dx + r * k, y + dy); c.arc(x + dx, y + dy, r * k, 0, TAU); }); c.fill(); };
+    c.fillStyle = 'rgb(120,120,120)'; shape(0, 0, 1.04);                       // тёмный край (контур)
+    c.fillStyle = 'rgb(170,170,170)'; shape(0, 0, 0.96);                       // тень снизу
+    c.save(); c.beginPath(); c.rect(0, 0, 64, 40); c.clip(); c.fillStyle = 'rgb(225,225,225)'; shape(-1.5, -2.5, 0.9); c.restore();   // светлый верх
+    c.fillStyle = 'rgb(255,255,255)'; c.beginPath(); [[26, 22, 6], [37, 21, 5], [20, 30, 4]].forEach(([x, y, r]) => { c.moveTo(x + r, y); c.arc(x, y, r, 0, TAU); }); c.fill();   // блики
+    for (let i = 0; i < 26; i++) { const x = 14 + R() * 36, y = 22 + R() * 26; c.fillStyle = `rgba(${R() < 0.5 ? '255,255,255' : '90,90,90'},0.25)`; c.beginPath(); c.arc(x, y, 1.5 + R() * 2, 0, TAU); c.fill(); }   // листва
+    shrubCanvas = cv; return cv;
+  }
+  function shrubPoints(T, list, o = {}) {
+    if (!list || !list.length) return null;
+    const keepF = o.keep || (x => x), n = list.length, P = new Float32Array(n * 3), Cc = new Float32Array(n * 3), Sz = new Float32Array(n);
+    list.forEach((s, i) => { P[i * 3] = s[0]; P[i * 3 + 1] = s[1]; P[i * 3 + 2] = s[2]; Sz[i] = s[3]; Cc[i * 3] = s[4]; Cc[i * 3 + 1] = s[5]; Cc[i * 3 + 2] = s[6]; });
+    const g = keepF(new T.BufferGeometry());
+    g.setAttribute('position', new T.BufferAttribute(P, 3)); g.setAttribute('color', new T.BufferAttribute(Cc, 3)); g.setAttribute('psize', new T.BufferAttribute(Sz, 1));
+    g.computeBoundingSphere();
+    const map = keepF(new T.CanvasTexture(paintShrub())); map.generateMipmaps = true;
+    const mat = keepF(new T.PointsMaterial({ size: 1, sizeAttenuation: true, map, vertexColors: true, alphaTest: 0.5, fog: o.fog !== false, color: 0xFFFFFF }));
+    const maxPx = (o.maxPx || 150).toFixed(1);
+    mat.onBeforeCompile = sh => {
+      sh.vertexShader = 'attribute float psize;\n' + sh.vertexShader.replace('gl_PointSize = size;', 'gl_PointSize = size * psize;')
+        .replace('#include <logdepthbuf_vertex>', `gl_PointSize = min(gl_PointSize, ${maxPx});\n#include <logdepthbuf_vertex>`);
+    };
+    mat.customProgramCacheKey = () => 'vshrub' + maxPx;
+    const pts = new T.Points(g, mat); pts.name = o.name || 'shrubs'; pts.userData.noRay = true; pts.raycast = () => {};
+    pts.castShadow = pts.receiveShadow = false;
+    pts.userData.base = Float32Array.from(Cc);
+    pts.userData.setLight = col => { mat.color.setRGB(col[0], col[1], col[2]); };
+    return pts;
+  }
+
+  /* ---------- волна 6: ПОЛОСЫ ТЕРРАС НА ФОНОВОМ РЕЛЬЕФЕ (шейдер, 0 треугольников) ----------
+     terraceStripes(mat, o) дописывает в материал (MeshBasic / MeshToon, с цветом вершин) ступени по горизонталям мировой высоты:
+     у каждого уровня k·step + phase снизу — тёмный откос (доля шага = riser·tg уклона, как у ступеней), над ним светлая бровка (lip), выше — проступь;
+     кусты — тёмные точки вдоль откосов. Только на склонах средней крутизны (mask — по 1 − n.y), гаснет вдали (far, м), вблизи (near: [от, до] м —
+     рядом настоящие ступени-геометрия, грубая сетка рельефа дала бы ломаные линии) и там,
+     где полосы мельче пикселя (fwidth), и пятнами (gap — доля луговин без террас). На пологих склонах шаг мельче (октавы ½, ¼:
+     проступь ≈ plan м в плане), откос не уже rfMin шага. Уровни совпадают с ledge-ступенями terraces({ grid }). → uniforms (uTsOn — вкл/выкл) */
+  function terraceStripes(mat, o = {}) {
+    const T = o.THREE || window.THREE;
+    const U = {
+      uTsStep: { value: o.step || 2.5 }, uTsPhase: { value: o.phase || 0 }, uTsRiser: { value: o.riser !== undefined ? o.riser : 0.62 }, uTsLip: { value: o.lip !== undefined ? o.lip : 0.1 },
+      uTsDark: { value: new T.Color().setRGB(...(o.dark || [0.6, 0.7, 0.5])) }, uTsLipK: { value: o.lipK !== undefined ? o.lipK : 0.14 }, uTsShrub: { value: o.shrub !== undefined ? o.shrub : 0.55 },
+      uTsFar: { value: o.far || 1100 }, uTsNear: { value: new T.Vector2(...(o.near || [50, 150])) }, uTsMask: { value: new T.Vector4(...(o.mask || [0.0006, 0.003, 0.5, 0.7])) }, uTsOn: { value: o.on === false ? 0 : 1 },
+      uTsPlan: { value: o.plan || 9 }, uTsRfMin: { value: o.rfMin !== undefined ? o.rfMin : 0.15 }, uTsGap: { value: o.gap !== undefined ? o.gap : 0.18 },
+    };
+    const prev = mat.onBeforeCompile && mat.hasOwnProperty('onBeforeCompile') ? mat.onBeforeCompile : null, prevKey = mat.hasOwnProperty('customProgramCacheKey') ? mat.customProgramCacheKey : null;
+    mat.onBeforeCompile = (sh, r) => {
+      if (prev) prev.call(mat, sh, r);
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = 'varying vec3 vTsW;\nvarying float vTsNy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTsW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvTsNy = normalize(mat3(modelMatrix) * normal).y;');
+      sh.fragmentShader = `uniform float uTsStep;
+uniform float uTsPhase;
+uniform float uTsRiser;
+uniform float uTsLip;
+uniform vec3 uTsDark;
+uniform float uTsLipK;
+uniform float uTsShrub;
+uniform float uTsFar;
+uniform vec2 uTsNear;
+uniform vec4 uTsMask;
+uniform float uTsOn;
+uniform float uTsPlan;
+uniform float uTsRfMin;
+uniform float uTsGap;
+varying vec3 vTsW;
+varying float vTsNy;
+// ступени по горизонталям: x — откос (снизу уровня), y — бровка (над откосом); гаснут, где мельче пикселя
+vec2 tsBand(float y, float st, float rf, float lw) {
+  float h = y / st, f = fract(h), aw = max(fwidth(h), 1e-4);
+  float r = smoothstep(0.0, aw * 1.2, f) * (1.0 - smoothstep(rf - aw, rf + aw, f));
+  float l = smoothstep(rf - aw, rf + aw, f) * (1.0 - smoothstep(rf + lw - aw, rf + lw + aw, f));
+  return vec2(r, l) * (1.0 - smoothstep(0.16, 0.4, aw));
+}
+` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        {
+          float tsNy = clamp(vTsNy, 0.2, 1.0), tsTan = sqrt(max(0.0, 1.0 - tsNy * tsNy)) / tsNy;
+          float tsSl = 1.0 - tsNy;
+          float tsMk = smoothstep(uTsMask.x, uTsMask.y, tsSl) * (1.0 - smoothstep(uTsMask.z, uTsMask.w, tsSl));
+          float tsD = length(vTsW - cameraPosition);
+          // пятна без террас (луговины, перелески) — по миру, крупно
+          float tsP = sin(vTsW.x * 0.0061 + 1.7 * sin(vTsW.z * 0.0047)) * sin(vTsW.z * 0.0053 + 1.3 * sin(vTsW.x * 0.0039));
+          float tsFade = uTsOn * tsMk * (1.0 - smoothstep(uTsFar * 0.55, uTsFar, tsD)) * smoothstep(uTsNear.x, uTsNear.y, tsD) * (1.0 - smoothstep(0.62 - uTsGap, 0.62, tsP));
+          // положе склон — мельче ступень (октавы шага: 1, ½, ¼ — общие линии, без скачков), проступь ≈ uTsPlan м в плане
+          float tsO = clamp(log2(uTsStep / max(uTsPlan * tsTan, 1e-3)), 0.0, 2.0), tsK = floor(tsO), tsT = tsO - tsK, tsSt = uTsStep / exp2(tsK);
+          float tsRf = clamp(uTsRiser * tsTan, uTsRfMin, 0.45) * (0.8 + 0.4 * sin(vTsW.x * 0.011 + 1.3 * sin(vTsW.z * 0.009)));   // откос: заложение ≈ 0,6 высоты ступени → доля шага = 0,6·tg уклона
+          float tsY = vTsW.y - uTsPhase;
+          vec2 tsB = mix(tsBand(tsY, tsSt, tsRf, uTsLip), tsBand(tsY, tsSt * 0.5, tsRf, uTsLip), tsT);
+          float tsN = sin(vTsW.x * 1.37 + sin(vTsW.z * 0.71) * 2.0) * sin(vTsW.z * 1.21 + sin(vTsW.x * 0.53) * 2.0);
+          float tsS = tsB.x * step(0.55, tsN) * uTsShrub;
+          diffuseColor.rgb *= mix(vec3(1.0), uTsDark, clamp(tsB.x + tsS, 0.0, 1.0) * tsFade);
+          diffuseColor.rgb *= 1.0 - 0.35 * tsS * tsFade;
+          diffuseColor.rgb *= 1.0 + uTsLipK * tsB.y * tsFade;
+        }`);
+    };
+    mat.userData.terraceStripes = U;   // для тестов и отладки (uTsOn — вкл/выкл)
+    mat.customProgramCacheKey = () => 'vts2' + (prevKey ? prevKey.call(mat) : '');
+    mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
+    mat.needsUpdate = true;
+    return U;
+  }
+
+  V.vkit = { rng, strSeed, clamp, lerp, sst, hash2, vnoise, fbm, rgb: hexRGB, mix: mixRGB, mul: mulRGB, mul3: mulRGB3, PAL, MOODS, S, SW, SH, NS, makeKit, faceCanvas, signCanvas, skyClouds, terraces, shrubPoints, terraceStripes, TPAL };
 })();
