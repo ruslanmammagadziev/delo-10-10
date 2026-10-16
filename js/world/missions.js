@@ -302,7 +302,7 @@
     if (!c) return { el: null, remove() {} };
     const HUD = window.HUD;
     if (HUD && HUD.objective && !o.dom) {
-      if (c.lock || (c.tap === 'none' && !c.door)) {
+      if (c.lock) {
         const note = `${c.icon || '🔒'} ${c.title || 'Следующее дело'}: ${c.text || ''}`;
         HUD.menu.note(note);
         return { el: null, remove() { HUD.menu.note(null); } };

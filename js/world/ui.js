@@ -102,7 +102,7 @@
       caseNow = card || null;
       if (!HUD) return;
       if (!card) { HUD.objective.set(null); HUD.menu.note(null); return; }
-      if (card.lock || card.tap === 'none' && !card.door) {
+      if (card.lock) {
         HUD.objective.set(null);
         HUD.menu.note(`${card.icon || '🔒'} ${card.title || 'Следующее дело'}: ${card.text || ''}`);
         return;

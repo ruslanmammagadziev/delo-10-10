@@ -1058,7 +1058,7 @@
         if (FREE) g.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню', exitPlace: 'menu', menuSub: FO.menuSub });
         else g.setHud({ label: o.hudLabel, menuSub: o.menuSub });
         menuItems();
-        ui.setCase(s.card); s.distDirty = true;
+        ui.setCase(s.card); s.distDirty = true; s.wpKey = '';
         try { g.tgHeader && g.tgHeader('#FFF4EC'); } catch (e) { /* ignore */ }
       }
       resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844);
@@ -2002,6 +2002,14 @@
       const mm = w.markers.main();
       const cardDoor = s.card && s.card.door ? doors.get(s.card.door) : null;
       if (++uiF % 6 === 0 || s.distDirty) { s.distDirty = false; ui.setDist(cardDoor ? Math.hypot(cardDoor.ax - s.px, cardDoor.az - s.pz) : null); }
+      // HUD v2: без дела — метка с большой карты «📍 Родник · 120 м» пилюлей цели (снялась — пилюля ушла)
+      if (uiF % 10 === 3 && window.HUD && !s.card) {
+        let wp = null; try { wp = WORLD.Minimap && WORLD.Minimap.waypoint ? WORLD.Minimap.waypoint() : null; } catch (e) { wp = null; }
+        if (wp && wp.rid !== 'city') wp = null;
+        const key = wp ? wp.rid + ':' + wp.x + ':' + wp.z : '';
+        if (key !== (s.wpKey || '')) { s.wpKey = key; ui.setCase(wp ? { icon: '📍', short: wp.label || 'Метка', title: 'Метка с карты', text: wp.label || 'Метка', tap: 'none', door: null, expand: false } : null); }
+        if (wp) HUD.objective.dist(Math.hypot(wp.x - s.px, wp.z - s.pz));
+      }
       if (mm && !busy && !blk) {
         const p = w.markers.screenOf(mm, cam, Wd, Ht), dm = Math.round(Math.hypot(mm.door.ax - s.px, mm.door.az - s.pz));
         const name = mm.spec.label || mm.door.short || '';

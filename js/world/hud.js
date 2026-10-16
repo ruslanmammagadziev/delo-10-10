@@ -412,6 +412,7 @@
     news(id, on) { if (id === undefined || id === null || id === true || id === false) { news(id !== false); return; } const it = ITEMS.get(id); if (it) it.news = on !== false; if (on !== false) news(true); if (menuEl) menuDraw(); },
     info(f) { menuInfo = f; if (menuEl) menuDraw(); },
     note(t) { menuNote = t || null; if (menuEl) menuDraw(); },
+    noteText: () => val(menuNote, '') || '', infoText: () => val(menuInfo, '') || '', titleText: () => hudTitle,
     title(t) { hudTitle = t || ''; if (menuEl) menuDraw(); },
   };
 
