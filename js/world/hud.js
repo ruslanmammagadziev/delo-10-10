@@ -246,15 +246,16 @@
         zone(x, y) { const d = dims(); return HUD.joyZone(x, y, d.W, d.H); },
         layout() {
           if (J.active) return;
-          const d = dims(), m = metrics(d.W, d.H);
-          el.style.left = Math.round(m.joy.cx - m.joy.r) + 'px'; el.style.top = Math.round(m.joy.cy - m.joy.r) + 'px';
-          el.style.bottom = 'auto';
+          const d = dims(), m = metrics(d.W, d.H), l = Math.round(m.joy.cx - m.joy.r) + 'px', t = Math.round(m.joy.cy - m.joy.r) + 'px';
+          if (J._l === l && J._t === t && el.style.left === l) return;
+          J._l = l; J._t = t;
+          el.style.left = l; el.style.top = t; el.style.bottom = 'auto';
         },
         begin(x, y) {
           const d = dims(), p = HUD.joyPlace(x, y, d.W, d.H), m = metrics(d.W, d.H);
           J.active = true; J.cx = p.cx; J.cy = p.cy; J.x = J.y = J.m = 0;
           el.classList.remove('rest', 'back'); el.classList.add('live');
-          el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto';
+          el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
           J.travel = m.joy.travel;
           J.drag(x, y);
           return p;
@@ -275,7 +276,11 @@
           clearTimeout(J._bt); J._bt = setTimeout(() => el.classList.remove('back'), 220);
         },
         // в покое — только на сенсорных экранах; под пальцем — всегда
-        show(on) { J.want = !!on; el.classList.toggle('hidden', !(on && (coarse() || J.active || o.always))); if (on && !J.active) J.layout(); },
+        show(on) {
+          const vis = !!(on && (coarse() || J.active || o.always));
+          if (vis !== J.vis) { J.vis = vis; el.classList.toggle('hidden', !vis); }
+          J.want = !!on; if (vis && !J.active) J.layout();
+        },
         dispose() { joys.delete(J); el.remove(); },
       };
       joys.add(J);
