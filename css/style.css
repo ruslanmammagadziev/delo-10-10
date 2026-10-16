@@ -985,8 +985,7 @@ body.sheet-on .town-dot, body.sheet-on .town-bark { display: none !important; }
 #hudClose { font-size: 18px; font-weight: 900; }
 .hud-ib.exit { font-size: 21px; }
 .hud-dot { display: none; position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--cherry); box-shadow: 0 0 0 2px var(--paper); pointer-events: none; }
-#hudMenu.news .hud-dot { display: block; animation: hudDot 1.6s ease-in-out infinite; }
-@keyframes hudDot { 50% { transform: scale(1.25); } }
+#hudMenu.news .hud-dot { display: block; }   /* тихая точка без бесконечной пульсации: ☰ и так подпрыгивает при новости */
 #hudMenu.bump { animation: bump .5s cubic-bezier(.3,1.6,.5,1); }
 .hud-obj {
   appearance: none; border: 0; cursor: pointer; position: relative; flex: 0 1 auto; min-width: 0;
