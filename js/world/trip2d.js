@@ -16,6 +16,8 @@
              host (куда положить; по умолчанию G.layer), say (G.say), voice (G.voiceLine), onCard(i, card) }
      WORLD.Trip2D.cards(o) → [{ id, title, text[], who[], art, act? }] — то же содержимое без показа (для тестов)
    Классы: .t2d (оверлей в #layer, z 50 — окна диалога 60 и листы 75 поверх), .t2d-card, .t2d-art, .t2d-who, .t2d-go.
+   HUD v2 (js/world/hud.js): «Сразу в город» — значок 🏙 в правом слоте полосы (HUD.status exit; полоса встаёт над #layer, рядом ☰),
+   своя кнопка .t2d-skip тогда спрятана (жива для тестов); карточки начинаются под полосой (--hud-bar-b).
    ===================================================================== */
 (function () {
   'use strict';
@@ -25,9 +27,10 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const CSS = `
-.t2d{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(58px + var(--safe-top,0px)) 12px calc(14px + var(--safe-bottom,0px));background:linear-gradient(180deg,#F3D9E6 0%,#FFF4EC 70%);animation:t2dIn .35s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif);color:var(--ink,#3A2E3F)}
+.t2d{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(58px + var(--safe-top,0px)) 12px calc(14px + var(--safe-bottom,0px));padding:calc(var(--hud-bar-b,50px) + 8px) var(--hud-r,12px) var(--hud-b,14px) var(--hud-l,12px);background:linear-gradient(180deg,#F3D9E6 0%,#FFF4EC 70%);animation:t2dIn .35s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif);color:var(--ink,#3A2E3F)}
 .t2d.winter{background:linear-gradient(180deg,#DCE7F2 0%,#F7FAFC 70%)}
 @keyframes t2dIn{from{opacity:0}}
+.t2d.t2d-hud .t2d-skip{display:none}
 .t2d-skip{position:absolute;right:12px;top:calc(64px + var(--safe-top,0px));border:0;border-radius:14px;padding:8px 12px;background:rgba(255,253,249,.92);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:13px;box-shadow:0 3px 0 rgba(58,46,63,.12);cursor:pointer;z-index:2}
 .t2d-card{width:100%;max-width:420px;max-height:100%;overflow:auto;background:var(--paper,#FFFDF9);border-radius:26px;box-shadow:0 10px 0 rgba(58,46,63,.10),0 24px 50px rgba(58,46,63,.22);animation:t2dCard .45s cubic-bezier(.2,1.3,.4,1) both}
 @keyframes t2dCard{from{opacity:0;transform:translateY(24px) scale(.97)}}
@@ -220,12 +223,20 @@
     }
     const restore = () => { if (!g || !g.speakers) return; Object.keys(prev).forEach(id => { if (prev[id]) g.speakers[id] = prev[id]; else delete g.speakers[id]; }); };
     return new Promise(res => {
-      const ov = document.createElement('div'); ov.className = 't2d' + (season === 'winter' ? ' winter' : '');
-      ov.innerHTML = '<button class="t2d-skip" type="button">Сразу в город</button><div class="t2d-card"></div>';
+      const H = window.HUD && window.HUD.v && window.HUD.status && document.getElementById('hudStatus') ? window.HUD : null;
+      const ov = document.createElement('div'); ov.className = 't2d' + (season === 'winter' ? ' winter' : '') + (H ? ' t2d-hud' : '');
+      ov.innerHTML = '<button class="t2d-skip" type="button" aria-label="Сразу в город">Сразу в город</button><div class="t2d-card"></div>';
       host.appendChild(ov);
       const card = ov.querySelector('.t2d-card');
       let i = 0, done = false;
-      const finish = () => { if (done) return; done = true; restore(); ov.style.transition = 'opacity .35s'; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 380); res({ done: true, seen, talked }); };
+      // полоса на время карточек: ☰ · 🏙 (цель города — спрятана, после поездки — как была)
+      const prevStatus = H && H.status.get ? H.status.get() : null, prevObj = H && H.objective && H.objective.get ? H.objective.get() : null;
+      const finish = () => {
+        if (done) return; done = true; restore();
+        if (H) { try { H.status(prevStatus); if (prevObj && H.objective) H.objective.set(Object.assign({}, prevObj, { bounce: false })); } catch (x) { /* ok */ } }
+        ov.style.transition = 'opacity .35s'; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 380); res({ done: true, seen, talked });
+      };
+      if (H) { try { H.status({ kind: 'exit', icon: '🏙', label: 'Сразу в город', onTap: finish }); if (prevObj && H.objective) H.objective.set(null); } catch (x) { /* ok */ } }
       ov.querySelector('.t2d-skip').addEventListener('click', e => { e.stopPropagation(); finish(); });
       const stepName = c => (c.stage === 'up' ? 'Дорога наверх' : c.stage === 'down' ? 'Дорога вниз' : 'Пешком');
       function show(k) {

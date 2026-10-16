@@ -66,6 +66,7 @@
   const G_ = () => window.G || null;
   const V_ = () => window.VILLAGE || null;
   const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .wr-sheet');
+  const HUD_ = () => (window.HUD && window.HUD.v ? window.HUD : null);   // HUD v2 (js/world/hud.js); без него — прежний интерфейс
   const emitWin = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) { /* старый браузер */ } };
 
   /* ---------- настройки: название и сезон ---------- */
@@ -143,22 +144,23 @@
   heroHands.binding = hero => (hero && hero._hands ? Object.assign({}, hero._hands.B) : null);
   WORLD.heroHands = heroHands;
 
-  /* ---------- стиль: шторка-облака, педали, лист-запас, мастерская, волна 4 (каз, «Хоп!», зиплайн, гольф) ---------- */
+  /* ---------- стиль: шторка-облака, педали, лист-запас, мастерская, волна 4 (каз, «Хоп!», зиплайн, гольф) ----------
+     HUD v2 (REGION-HUD): места кнопок — общие слоты и токены css/style.css ([data-hud-slot], --hud-*; js/world/hud.js), здесь —
+     только своё гор: педали (газ — в углу главной кнопки, тормоз — над ним), «Хоп!» и «Зажми и держи» — на месте джойстика,
+     что прятать в каком состоянии, и мини-игры отеля (js/village/sports.js) — по полосе и кластеру. Без HUD (стенды) — запасные числа. */
   const CSS = `
 .wr-touch{position:absolute;inset:0;z-index:4;touch-action:none}
 .w-reg{z-index:6}
-.w-reg .wr-act2{bottom:calc(84px + var(--safe-bottom,0px))}
-.w-reg.drive .w-act{bottom:calc(122px + var(--safe-bottom,0px))}
-.w-reg.drive .wr-act2{bottom:calc(188px + var(--safe-bottom,0px))}
-.wr-pedals{position:absolute;right:14px;bottom:calc(18px + var(--safe-bottom,0px));display:none;gap:10px;z-index:21}
-.w-reg.drive .wr-pedals{display:flex}
-.w-reg.sit .wr-pedals,.w-reg.sit .w-joy,.w-reg.sit .wr-speed{display:none!important}
-.wr-pedal{width:72px;height:90px;border:0;border-radius:22px;font:inherit;font-size:14px;font-weight:900;color:var(--ink,#3A2E3F);display:flex;align-items:flex-end;justify-content:center;padding-bottom:12px;box-shadow:0 4px 0 rgba(58,46,63,.18);cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none}
-.wr-pedal.gas{background:#A8D8C4}.wr-pedal.brk{background:#F2B8C6}.wr-pedal.down{transform:translateY(3px) scale(.97);filter:brightness(.95)}
-.wr-speed{position:absolute;right:12px;top:calc(60px + var(--safe-top,0px));background:rgba(255,253,249,.88);border-radius:12px;padding:4px 10px;font-weight:900;font-size:13px;display:none;pointer-events:none!important;z-index:15}
-.w-reg.drive .wr-speed{display:block}
-.w-reg .w-hint{white-space:normal;width:max-content;max-width:80%;text-align:center}
-.w-reg.drive .w-hint{bottom:calc(300px + var(--safe-bottom,0px))}
+.wr-pedals{display:none}
+.w-reg.drive .wr-pedals{display:contents}
+.wr-pedal{position:absolute;right:var(--hud-r,12px);left:auto;top:auto;width:64px;border:0;border-radius:22px;font:inherit;font-size:13px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 8px;box-sizing:border-box;box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 16px rgba(58,46,63,.10);cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none;z-index:21}
+.wr-pedal.gas{bottom:var(--hud-b,12px);height:76px;background:#A8D8C4;color:#24584A}
+.wr-pedal.brk{bottom:calc(var(--hud-b,12px) + 86px);height:56px;background:#F2B8C6;color:#7A2E44}
+.wr-pedal.gas::before{content:'';position:absolute;top:13px;left:50%;margin-left:-9px;border:9px solid transparent;border-top:0;border-bottom:11px solid rgba(36,88,74,.32)}
+.wr-pedal.down{transform:translateY(3px) scale(.97);filter:brightness(.95)}
+.w-reg.sit .wr-pedals,.w-reg.sit .w-joy,.w-reg.look .w-joy,.w-reg.dance .w-joy,.w-reg.zip .w-joy,.w-reg.sport .w-joy{display:none!important}
+.w-reg.look .wmm-wrap,.w-reg.dance .wmm-wrap,.w-reg.zip .wmm-wrap,.w-reg.sport .wmm-wrap{display:none!important}
+.w-reg .wr-act:not([data-hud-slot]){position:absolute;right:var(--hud-r,12px);bottom:var(--hud-b,12px)}
 .wr-fade{position:absolute;inset:0;z-index:40;pointer-events:none;opacity:0;display:none;transition:opacity .6s ease;background:radial-gradient(ellipse at 30% 40%,#FFFFFF 0%,#F4F7FA 35%,#E3EBF3 70%,#D5E0EC 100%);overflow:hidden}
 .wr-fade::before,.wr-fade::after{content:'';position:absolute;border-radius:50%;background:rgba(255,255,255,.92);filter:blur(18px)}
 .wr-fade::before{width:70vmax;height:40vmax;left:-10vmax;top:10vh;animation:wrDrift 7s ease-in-out infinite alternate}
@@ -180,44 +182,39 @@
 .wr-ws .bar i{display:block;height:100%;width:0;background:var(--cherry,#C2405B);border-radius:99px}
 .wr-ws .hint{font-size:14px;font-weight:800;color:var(--ink-2,#6E6272);text-align:center}
 .wr-ws .step{font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:var(--cherry,#C2405B)}
-.wr-dn,.wr-kaz{position:absolute;left:10px;z-index:19;border:0;border-radius:16px;padding:8px 12px;font:inherit;font-weight:900;font-size:13px;background:rgba(255,253,249,.94);color:var(--cherry,#C2405B);box-shadow:0 3px 0 rgba(58,46,63,.14);cursor:pointer;white-space:nowrap}
-.wr-dn{top:calc(60px + var(--safe-top,0px))}
-.wr-kaz{top:calc(104px + var(--safe-top,0px))}
-.wr-tap{position:absolute;left:50%;bottom:calc(150px + var(--safe-bottom,0px));width:108px;height:108px;margin-left:-54px;border:0;border-radius:50%;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-size:21px;font-weight:900;box-shadow:0 6px 0 var(--cherry-d,#9E2F47);touch-action:none;transition:transform .08s;z-index:22;cursor:pointer}
-.wr-tap.beat{transform:scale(1.12)}
-.wr-skip{position:absolute;right:12px;top:calc(60px + var(--safe-top,0px));height:44px;padding:0 16px;border:0;border-radius:22px;background:rgba(255,253,249,.96);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:15px;box-shadow:0 4px 0 rgba(58,46,63,.16);z-index:22;cursor:pointer}
-.wr-golf{position:absolute;left:50%;transform:translateX(-50%);top:calc(60px + var(--safe-top,0px));background:rgba(255,253,249,.94);border-radius:16px;padding:8px 14px;font-weight:900;font-size:14px;line-height:1.25;box-shadow:0 3px 0 rgba(58,46,63,.12);text-align:center;pointer-events:none!important;z-index:15;white-space:nowrap}
-.wr-golf small{color:var(--ink-2,#6E6272);font-weight:800}
-.wr-sticker{position:absolute;left:50%;top:calc(112px + var(--safe-top,0px));z-index:23;transform:translateX(-50%) rotate(-4deg) scale(.6);background:#FFF6D8;border:3px dashed #E2B04E;color:#7A5418;font-weight:900;font-size:15px;padding:10px 16px;border-radius:18px;box-shadow:0 5px 0 rgba(58,46,63,.15);opacity:0;transition:opacity .3s,transform .35s cubic-bezier(.3,1.6,.5,1);pointer-events:none!important;white-space:nowrap}
-.wr-sticker.on{opacity:1;transform:translateX(-50%) rotate(-4deg) scale(1)}
+.wr-tap{position:absolute;left:calc(var(--hud-joy-cx,50%) - 52px);bottom:var(--hud-joy-b,16px);top:auto;right:auto;width:104px;height:104px;border:0;border-radius:50%;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-size:21px;font-weight:900;box-shadow:var(--hud-shadow-act,0 6px 0 #9E2F47);touch-action:none;transition:transform .08s;z-index:22;cursor:pointer}
+.wr-tap.beat{transform:scale(1.1)}
 .wr-blink{position:absolute;inset:0;z-index:30;background:#2A2230;opacity:0;pointer-events:none!important;transition:opacity .13s}
 .wr-blink.on{opacity:.82}
-.w-reg.zip .w-act,.w-reg.zip .wr-act2,.w-reg.zip .w-joy,.w-reg.zip .wr-pedals,.w-reg.zip .wr-kaz,.w-reg.zip .wr-speed{display:none!important}
-/* волна 5: правая колонка (390×844): действие (низ, 16) → второе действие (84) → ряд «Прыжок»/«Бег» (150) → «Бум!» (242) и «👋»
-   слева от него (246) → «Листья»/«Снежок» (316). Слева внизу — джойстик и радар (до x ≈ 122), правее середины экрана — ничего */
-.w-reg .mv-btns{right:14px;bottom:calc(150px + var(--safe-bottom,0px))}
-.w-reg .pf-btn.pf-bonk{right:23px;bottom:calc(242px + var(--safe-bottom,0px))}
-.w-reg .pf-btn.pf-toss{right:23px;bottom:calc(316px + var(--safe-bottom,0px))}
-.wr-wave{position:absolute;right:97px;bottom:calc(246px + var(--safe-bottom,0px));width:54px;height:54px;border:0;border-radius:50%;font-size:26px;background:rgba(255,253,249,.94);box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 18px rgba(58,46,63,.12);cursor:pointer;z-index:19;display:grid;place-items:center;touch-action:manipulation;padding:0}
-.wr-wave.go{animation:wrWave .8s ease-in-out}
-@keyframes wrWave{0%,100%{transform:rotate(0)}20%{transform:rotate(-18deg)}40%{transform:rotate(16deg)}60%{transform:rotate(-12deg)}80%{transform:rotate(8deg)}}
-.w-reg.drive .mv-btns,.w-reg.drive .pf-btn,.w-reg.drive .wr-wave,.w-reg.sit .mv-btns,.w-reg.sit .pf-btn,.w-reg.sit .wr-wave{display:none!important}
-.w-reg.zip .mv-btns,.w-reg.zip .pf-btn,.w-reg.zip .wr-wave{display:none!important}
-/* зиплайн «держись»: большая зона внизу по центру; кольцо — сколько ещё можно не держать */
-.wr-grip{position:absolute;left:50%;bottom:calc(92px + var(--safe-bottom,0px));width:134px;height:134px;margin-left:-67px;border-radius:50%;display:none;z-index:23;touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer;background:conic-gradient(#86C9A0 calc(var(--k,1) * 360deg),rgba(255,253,249,.45) 0);box-shadow:0 6px 0 rgba(58,46,63,.18),0 12px 26px rgba(58,46,63,.2);-webkit-tap-highlight-color:transparent}
+.w-reg.zip .wr-act,.w-reg.zip .wr-act2,.w-reg.zip .w-joy,.w-reg.zip .wr-pedals{display:none!important}
+.w-reg.drive .mv-btns,.w-reg.drive .pf-btn,.w-reg.sit .mv-btns,.w-reg.sit .pf-btn,.w-reg.zip .mv-btns,.w-reg.zip .pf-btn,.w-reg.dance .mv-btns,.w-reg.dance .pf-btn,.w-reg.look .mv-btns,.w-reg.look .pf-btn{display:none!important}
+/* зиплайн «держись»: большая зона на месте джойстика (Ø 120); кольцо — сколько ещё можно не держать */
+.wr-grip{position:absolute;left:calc(var(--hud-joy-cx,50%) - 60px);bottom:calc(var(--hud-joy-b,16px) - 8px);top:auto;right:auto;width:120px;height:120px;border-radius:50%;display:none;z-index:23;touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer;background:conic-gradient(#86C9A0 calc(var(--k,1) * 360deg),rgba(255,253,249,.45) 0);box-shadow:0 6px 0 rgba(58,46,63,.16),0 12px 26px rgba(58,46,63,.18);-webkit-tap-highlight-color:transparent}
 .wr-grip.on{display:block}
-.wr-grip .ring{position:absolute;inset:11px;border-radius:50%;background:rgba(255,253,249,.97);display:flex;align-items:flex-start;justify-content:center;padding-top:16px;box-sizing:border-box}
-.wr-grip .ring i{font-style:normal;font-size:38px;line-height:1}
-.wr-grip b{position:absolute;left:0;right:0;bottom:30px;text-align:center;font-weight:900;font-size:14px;color:var(--ink,#3A2E3F);pointer-events:none;white-space:nowrap}
+.wr-grip .ring{position:absolute;inset:10px;border-radius:50%;background:rgba(255,253,249,.97);display:flex;align-items:flex-start;justify-content:center;padding-top:15px;box-sizing:border-box}
+.wr-grip .ring i{font-style:normal;font-size:34px;line-height:1}
+.wr-grip b{position:absolute;left:0;right:0;bottom:27px;text-align:center;font-weight:900;font-size:13px;color:var(--ink,#3A2E3F);pointer-events:none;white-space:nowrap}
 .wr-grip.held{background:conic-gradient(#86C9A0 360deg,#86C9A0 0)}
 .wr-grip.held .ring i{transform:scale(.92)}
 .wr-grip.free{background:conic-gradient(#E0607E calc(var(--k,1) * 360deg),rgba(194,64,91,.16) 0);animation:wrGrip .45s ease-in-out infinite alternate}
 .wr-grip.free b{color:var(--cherry,#C2405B)}
 @keyframes wrGrip{to{transform:scale(1.07)}}
-/* параплан: одна кнопка справа внизу, вариометр в чипе скорости; спорт: свой слой поверх, кнопки региона спрятаны */
-.w-reg.fly .wr-act2,.w-reg.fly .wr-pedals,.w-reg.fly .wr-kaz,.w-reg.fly .mv-btns,.w-reg.fly .pf-btn,.w-reg.fly .wr-wave,.w-reg.fly .wr-golf{display:none!important}
-.w-reg.fly .wr-speed{display:block}
-.w-reg.sport .w-act,.w-reg.sport .wr-act2,.w-reg.sport .w-joy,.w-reg.sport .wr-pedals,.w-reg.sport .wr-kaz,.w-reg.sport .wr-dn,.w-reg.sport .wr-wave,.w-reg.sport .mv-btns,.w-reg.sport .pf-btn,.w-reg.sport .pf-chip,.w-reg.sport .wr-golf{display:none!important}
+/* параплан: джойстик — руль, вариометр — в правом слоте полосы; спорт: свой слой поверх, кнопки региона спрятаны */
+.w-reg.fly .wr-act2,.w-reg.fly .wr-pedals,.w-reg.fly .mv-btns,.w-reg.fly .pf-btn{display:none!important}
+.w-reg.sport .wr-act,.w-reg.sport .wr-act2,.w-reg.sport .w-joy,.w-reg.sport .wr-pedals,.w-reg.sport .mv-btns,.w-reg.sport .pf-btn,.w-reg.sport .pf-chip{display:none!important}
+/* мини-игры отеля (sports.js) по HUD v2: счёт — в полосе на месте пилюли, выход — ✕ в правом слоте, большая кнопка — в углу P,
+   «↺ Заново» — на месте A2 (без большой кнопки — в углу P), подсказка — тостом игры */
+.wr-v2 .vs-root .vs-score{left:var(--hud-l,12px);top:var(--hud-top,8px);transform:none;min-height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;padding:4px 14px;font-size:14.5px;line-height:1.15;border-radius:18px;max-width:calc(100% - var(--hud-l,12px) - var(--hud-r,12px) - 56px);background:var(--hud-glass-2,rgba(255,253,249,.96));box-shadow:var(--hud-shadow,0 3px 0 rgba(58,46,63,.13))}
+.wr-v2 .vs-root .vs-score small{font-size:11.5px}
+.wr-v2 .vs-root .vs-quit{top:var(--hud-top,8px);right:var(--hud-r,12px);width:44px;height:44px;min-width:44px;padding:0;border-radius:50%;font-size:0;display:grid;place-items:center;background:var(--hud-glass-2,rgba(255,253,249,.96));box-shadow:var(--hud-shadow,0 4px 0 rgba(58,46,63,.16))}
+.wr-v2 .vs-root .vs-quit::before{content:'✕';font-size:18px;font-weight:900;line-height:1;color:var(--cherry,#C2405B)}
+.wr-v2 .vs-root .vs-main{right:var(--hud-r,12px);bottom:var(--hud-b,12px)}
+.wr-v2 .vs-root .vs-side,.wr-v2 .vs-root .vs-side.low{right:var(--hud-r,12px)!important;bottom:var(--hud-a2-b,192px)!important;height:44px;padding:0 16px;border-radius:22px;font-size:14px}
+.wr-v2 .vs-root:has(.vs-main[style*="none"]) .vs-side{bottom:var(--hud-b,12px)!important}
+.wr-v2 .vs-root .vs-hint{display:none!important}
+body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud-card,body.wr-hud-zip #hudMenu,body.wr-hud-zip #hudObj,body.wr-hud-zip #hud .hud-card{display:none!important}
+/* без HUD v2 (стенд без style.css) — прежние места */
+.w-reg:not(.wr-v2) .wr-act2{right:14px;bottom:calc(84px + var(--safe-bottom,0px))}
 `;
   function ensureCss() {
     if (WORLD.uiCss) { try { WORLD.uiCss(); } catch (e) { /* ignore */ } }
@@ -245,10 +242,20 @@
   // события слоя рук → мягкие звуки движка (engine.js: tap, pop, blip, chime, door, flutter, step, wrong)
   const IA_SFX = { take: 'pop', give: 'pop', bite: 'pop', crunch: 'pop', lick: 'blip', sip: 'blip', gulp: 'blip', lid: 'door', lidClose: 'door', splash: 'flutter', step: 'step', pat: 'tap', clap: 'tap', coin: 'chime', clink: 'chime', busy: 'wrong' };
 
+  // HUD v2: лицо главной кнопки для подписей гор (HUD.actFace: значок + одно слово), строки — впереди общей таблицы
+  function regionFaces() {
+    const H = HUD_(); if (!H || !Array.isArray(H.FACES) || H._wrFaces) return; H._wrFaces = true;
+    H.FACES.unshift(
+      [/^сесть в машину/i, '🚗', 'В машину'], [/^посидеть/i, '🪑', 'Посидеть'], [/^(?:рассмотреть|заглянуть)/i, '👀', 'Смотреть'],
+      [/^пристегнуться/i, '🎢', 'Поехали'], [/^пробить/i, '⚽', 'Удар'], [/^гравировать/i, '✨', 'Узор'], [/^полетать/i, '🪂', 'Лететь'],
+      [/^попить/i, '💧', 'Попить'], [/^в круг/i, '💃', 'Танец'], [/^угоститься/i, '😋', 'Угощение'], [/^поздравить/i, '💐', 'Ура!'],
+      [/^в город/i, '🏙', 'В город'], [/^к отелю/i, '🏨', 'К отелю'], [/^сама порулю/i, '🕹', 'Рулить']);
+  }
+
   function create(refs = {}) {
     const T = refs.THREE || window.THREE;
     if (!T) throw new Error('regions: нет THREE');
-    ensureCss();
+    ensureCss(); regionFaces();
     const st0 = settings();
     const named = refs.named !== undefined ? !!refs.named : st0.named;
     const season = refs.season === 'winter' || refs.season === 'autumn' ? refs.season : st0.season;
@@ -256,7 +263,8 @@
     const lite = refs.quality === 'lite';
     const say = refs.say || (G_() && G_().say ? lines => G_().say(lines) : null);
     const sheetFn = refs.sheet || (window.Town && Town.sheet ? o => Town.sheet(o) : ownSheet);
-    const toast = (t, ms) => { if (!t) return; (S.toastLog = S.toastLog || []).push(t); if (S.toastLog.length > 30) S.toastLog.shift(); if (refs.toast) refs.toast(t, ms); else if (G_() && G_().toast) G_().toast(t, ms); else ownToast(t, ms); };
+    // HUD v2: один тост за раз, под полосой, очередью (HUD.toast → G.toast); kind: 'place' | 'sticker'
+    const toast = (t, ms, o) => { if (!t) return; (S.toastLog = S.toastLog || []).push(t); if (S.toastLog.length > 30) S.toastLog.shift(); const H = HUD_(); if (refs.toast) refs.toast(t, ms, o); else if (H && H.toast && G_() && G_().toast) H.toast(t, ms, o); else if (G_() && G_().toast) G_().toast(t, ms); else ownToast(t, ms); };
     const voice = refs.voice || (G_() && G_().voiceLine ? (w, t, o) => G_().voiceLine(w, t, o) : null);
     const haptic = k => { try { if (refs.haptic) refs.haptic(k); else if (G_()) G_().haptic(k); } catch (e) { /* нет */ } };
     const sfx = (k, o) => { try { if (refs.sfx) refs.sfx(k, o); else if (G_()) G_().sfx(k, o); } catch (e) { /* нет */ } };
@@ -308,7 +316,8 @@
         if (tmpV.z > 1) { b.el.style.opacity = 0; continue; }
         b.el.style.opacity = '';
         const x = (tmpV.x + 1) / 2 * W, y = (1 - tmpV.y) / 2 * H, hw = (b.el.offsetWidth || 180) / 2 + 8;
-        b.el.style.transform = `translate(${clamp(x, hw, W - hw)}px, ${clamp(y, 110, H - 150)}px) translate(-50%, -100%)`;
+        const yy = HUD_() && HUD_().labelY ? HUD_().labelY(y, H) : clamp(y, 110, H - 150);   // HUD v2: ниже строки тоста, выше джойстика и дуги
+        b.el.style.transform = `translate(${clamp(x, hw, W - hw)}px, ${yy}px) translate(-50%, -100%)`;
       }
     }
     // голос облачка: запись из voice/ или «лепет» (G.voiceLine), как у жителей города
@@ -338,7 +347,7 @@
     }
     const paras = arr => (arr || []).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('');
     async function runBusy(fn) { if (S.busy) return null; S.busy = true; try { return await fn(); } catch (e) { console.warn('region', e); return null; } finally { S.busy = false; } }
-    function sticker(t) { if (!ui || !t || S.stickers.includes(t)) return; S.stickers.push(t); ui.sticker.textContent = '🐄 ' + t; ui.sticker.classList.add('on'); try { sfx('sticker'); } catch (e) { /* ok */ } setTimeout(() => ui && ui.sticker.classList.remove('on'), 3600); }
+    function sticker(t) { if (!ui || !t || S.stickers.includes(t)) return; S.stickers.push(t); toast('🐄 ' + t, 3500, { kind: 'sticker' }); try { sfx('sticker'); } catch (e) { /* ok */ } }
     function blink() { if (!ui) return; ui.blink.classList.add('on'); setTimeout(() => ui && ui.blink.classList.remove('on'), 260); }
 
     /* ---------- говорящие гор в окне диалога (имя + значок), на время поездки ---------- */
@@ -363,36 +372,153 @@
       prevSpk = null;
     }
 
-    /* ---------- интерфейс региона ---------- */
+    /* ---------- интерфейс региона (HUD v2): радар слева внизу (minimap.js), джойстик снизу по центру, справа — главная кнопка P
+       (значок + слово; без дела — «👋 Помахать») и дуга маленьких кнопок (Прыжок/Бег — move.js, «Бум!»/«Листья» — playfight.js),
+       A2 — второе действие; за рулём: газ в углу P, тормоз над ним, главное действие («🚪 Выйти») — в A2, второе — в s3.
+       Полоса сверху — общая (engine.js + hud.js): каз, «В город», время суток — строки меню ☰; скорость и вариометр — правый слот;
+       маршрут — пилюля цели; название места — тост при въезде. ---------- */
     function makeUI() {
-      const root = document.createElement('div'); root.className = 'w-ui w-reg';
+      const H = HUD_();
+      const root = document.createElement('div'); root.className = 'w-ui w-reg' + (H ? ' wr-v2' : '');
       root.innerHTML = `
         <div class="w-bubbles"></div>
-        <div class="w-joy joy hidden"><div class="joy-knob"></div></div>
-        <div class="w-joy joy ghost"><div class="joy-knob"></div></div>
-        <button class="w-act hidden" type="button"></button>
-        <button class="w-act soft wr-act2 hidden" type="button"></button>
-        <div class="wr-pedals"><button class="wr-pedal brk" type="button">тормоз</button><button class="wr-pedal gas" type="button">газ</button></div>
-        <div class="wr-speed"></div>
-        <button class="wr-kaz hidden" type="button"></button>
-        <button class="wr-tap hidden" type="button">Хоп!</button>
-        <button class="wr-skip hidden" type="button">⏭ Пропустить</button>
-        <button class="wr-wave hidden" type="button" aria-label="Помахать">👋</button>
-        <div class="wr-grip" role="button" aria-label="Держись"><div class="ring"><i>✊</i></div><b class="wr-grip-t">Зажми и держи</b></div>
-        <div class="wr-golf hidden"><span class="wr-golf-t">Потяни назад и отпусти</span><br><small class="wr-golf-n">удары: 3</small></div>
-        <div class="wr-sticker"></div>
-        <div class="wr-blink"></div>
-        <div class="w-hint hidden"></div>`;
+        ${H ? '' : '<div class="w-joy joy hidden"><div class="joy-knob"></div></div>'}
+        <button class="w-act wr-act hidden" type="button"></button>
+        <button class="wr-act2 hidden" type="button"></button>
+        <div class="wr-pedals"><button class="wr-pedal brk hud-pedal" type="button" data-hud-slot="brake" aria-label="Тормоз">тормоз</button><button class="wr-pedal gas hud-pedal" type="button" data-hud-slot="gas" aria-label="Газ">газ</button></div>
+        <button class="wr-tap hidden" type="button" data-hud-slot="joy">Хоп!</button>
+        <button class="wr-skip hidden" type="button"></button>
+        <div class="wr-grip" role="button" aria-label="Держись" data-hud-slot="joy"><div class="ring"><i>✊</i></div><b class="wr-grip-t">Зажми и держи</b></div>
+        <div class="wr-blink"></div>`;
       const touch = document.createElement('div'); touch.className = 'wr-touch';
       const fade = document.createElement('div'); fade.className = 'wr-fade'; fade.innerHTML = '<div class="lbl"></div><div class="sub"></div>';
       const $ = s => root.querySelector(s);
-      return { root, touch, fade, bub: $('.w-bubbles'), joy: $('.w-joy:not(.ghost)'), knob: $('.w-joy:not(.ghost) .joy-knob'), ghost: $('.w-joy.ghost'), act: $('.w-act:not(.wr-act2)'), act2: $('.wr-act2'), gas: $('.wr-pedal.gas'), brk: $('.wr-pedal.brk'), speed: $('.wr-speed'), hint: $('.w-hint'),
-        kaz: $('.wr-kaz'), tap: $('.wr-tap'), skip: $('.wr-skip'), golf: $('.wr-golf'), golfT: $('.wr-golf-t'), golfN: $('.wr-golf-n'), sticker: $('.wr-sticker'), blink: $('.wr-blink'),
-        wave: $('.wr-wave'), grip: $('.wr-grip'), gripT: $('.wr-grip-t') };
+      const J = H && H.joystick ? H.joystick.create(root) : null;
+      const u = { root, touch, fade, J, bub: $('.w-bubbles'), joy: J ? J.el : $('.w-joy'), knob: J ? J.knob : $('.w-joy .joy-knob'), act: $('.wr-act'), act2: $('.wr-act2'), gas: $('.wr-pedal.gas'), brk: $('.wr-pedal.brk'),
+        tap: $('.wr-tap'), skip: $('.wr-skip'), blink: $('.wr-blink'), grip: $('.wr-grip'), gripT: $('.wr-grip-t') };
+      paintBtn(u.skip, '⏭ Пропустить', true, 'P'); show(u.skip, false);   // зиплайн: «⏭ Дальше» на месте главной кнопки
+      return u;
     }
     const show = (el, on) => { if (el) el.classList.toggle('hidden', !on); };
-    let hintT = 0;
-    function hint(t, ms = 5200) { if (!ui) return; ui.hint.textContent = t; ui.hint.classList.remove('off'); show(ui.hint, true); clearTimeout(hintT); hintT = setTimeout(() => ui && ui.hint.classList.add('off'), ms); }
+    // кнопка по слоту: P — круг 64 (значок + слово, HUD.actFace), a2 — мягкая пилюля (значок + подпись), s1…s4 — круг 46 (значок)
+    function paintBtn(el, label, soft, slot) {
+      if (!el) return;
+      const H = HUD_();
+      show(el, true);
+      if (!H) { el.textContent = label; el.classList.toggle('soft', !!soft); return; }
+      // главная кнопка гор — .wr-act (в слоте P ещё и .w-act — общий вид P города); второе действие — .wr-act2; «Дальше» зиплайна — .wr-skip
+      const keep = el.classList.contains('wr-act2') ? 'wr-act2' : el.classList.contains('wr-skip') ? 'wr-skip' : slot === 'P' ? 'w-act wr-act' : 'wr-act';
+      const key = slot + '|' + label + '|' + (soft ? 1 : 0);
+      if (el.dataset.wrKey === key) return;
+      el.dataset.wrKey = key; H.slot(el, slot);
+      if (slot === 'P') { el.className = keep + ' hud-act'; delete el.dataset.full; H.paintAct(el, label, soft); return; }
+      const f = H.actFace(label), L0 = String(label).trim(), txt = f.icon && L0.indexOf(f.icon) === 0 ? L0.slice(f.icon.length).replace(/^[\uFE0F\s]+/, '') : L0;
+      el.setAttribute('aria-label', label); el.title = label; el.dataset.full = label;
+      if (slot === 'a2') { el.className = keep + ' hud-a2'; el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i><span>${esc(txt)}</span>`; return; }
+      el.className = keep + ' hud-sbtn'; el.innerHTML = `<i aria-hidden="true">${esc(f.icon)}</i>`;
+    }
+    const btnLabel = el => (el && !el.classList.contains('hidden') ? (el.dataset.full || el.getAttribute('aria-label') || el.textContent) : null);
+    // подсказки управления — тостом игры (один за раз, под полосой)
+    function hint(t, ms = 3500) { if (!ui || !t) return; toast(t, Math.min(ms, 3500)); }
+    const touchUi = () => { const H = HUD_(); return H && H.coarse ? H.coarse() : ('ontouchstart' in window); };
+    const HINT = {
+      drive: () => (touchUi() ? 'Газ и тормоз — справа · кружок внизу — руль' : 'Стрелки — руль и газ · B — тормоз'),
+      walk: () => (touchUi() ? 'Кружок внизу — идти · тап по месту — подойти' : 'WASD — идти · Enter — действие · Q/E — камера'),
+    };
+
+    /* ---------- HUD v2: строки меню ☰, правый слот, пилюля маршрута, режим кластера ---------- */
+    let hudSaved = null;
+    // «🌙 Время суток» в меню: «Сейчас вечер · 21:40» и «В утро» / «Как на часах» (бывшая кнопка .wr-dn); у города своя — тогда не дублируем
+    function dnMenuItem() {
+      const D = window.DayNight; if (!D) return null;
+      if (D.menuItem) { try { const it = D.menuItem({ onSet: (to, line) => toast(line, 2400, { replace: true }) }); if (it) return Object.assign({}, it, { id: 'r-dn', order: 40, when: () => S.active }); } catch (e) { /* ниже — своя */ } }
+      const hhmm = h => { const m = Math.round((((h % 24) + 24) % 24) * 60); return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+      return {
+        id: 'r-dn', order: 40, tint: 'sun', label: 'Время суток', when: () => S.active,
+        icon: () => { const p = D.phase(); return p === 'night' || p === 'evening' ? '🌙' : p === 'golden' ? '🌇' : '☀️'; },
+        sub: () => 'Сейчас ' + ((D.PHASE_RU && D.PHASE_RU[D.phase()]) || '') + ' · ' + hhmm(D.hour()),
+        value: () => (D.override() !== null ? '🕗 Как на часах' : '☀️ В утро'),
+        onTap: () => { const to = D.override() !== null ? null : 'morning'; D.set(to); toast(to ? D.LINES.toMorning : D.LINES.toClock, 2400, { replace: true }); },
+      };
+    }
+    // текст «кнопки» дня/ночи для отладки: значение строки меню (или прежней кнопки без HUD)
+    function dnRowText() {
+      const H = HUD_(), it = H && H.menu && H.menu.get ? H.menu.get('r-dn') : null;
+      if (it) { try { const v = it.value || it.label; return typeof v === 'function' ? v() : (v || null); } catch (e) { return null; } }
+      const b = ui && ui.root.querySelector('.dn-toggle'); return b && b.style.display !== 'none' ? b.textContent : null;
+    }
+    function hudBegin() {
+      const H = HUD_(); if (!H) return;
+      hudSaved = { obj: H.objective && H.objective.get ? H.objective.get() : null, status: H.status && H.status.get ? H.status.get() : null };
+      try { if (H.objective) H.objective.set(null); } catch (e) { /* ok */ }
+      // строки меню ☰ гор (у города свои: «Карта», «Время суток», «Мини-карта» — пока идёт поездка, они спрятаны)
+      if (H.menu) {
+        H.menu.add({ id: 'r-map', icon: '🗺', label: 'Карта', order: 10, tint: 'mint', when: () => S.active && !!(radar && radar.open), onTap: () => { if (S.active && radar && radar.open && !S.busy && !S.zip) radar.open(); } });
+        if (window.DayNight) { const it = dnMenuItem(); if (it) H.menu.add(it); }
+        H.menu.add({ id: 'r-kaz', icon: '🧣', label: kazRowLabel, order: 45, tint: 'sun', when: kazRowOn, onTap: () => kazBtn() });
+        H.menu.add({ id: 'r-radar', icon: '🧭', order: 70, tint: 'sky', keepOpen: true, when: () => S.active && !!(radar && radar.collapse),
+          label: () => (radar && radar.isCollapsed && radar.isCollapsed() ? 'Мини-карта: показать' : 'Мини-карта: спрятать'),
+          onTap: () => { if (radar && radar.collapse) radar.collapse(!(radar.isCollapsed && radar.isCollapsed())); } });
+      }
+      S.hudStatus = null; S.hudObj = null; S.hudMode = null; S.hudObjT = 0;
+    }
+    function hudEnd() {
+      const H = HUD_(); document.body.classList.remove('wr-hud-sport', 'wr-hud-zip');
+      if (!H) return;
+      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-radar'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
+      try { H.status(hudSaved ? hudSaved.status : null); } catch (e) { /* ok */ }
+      try { if (H.objective) H.objective.set(hudSaved && hudSaved.obj ? Object.assign({}, hudSaved.obj, { bounce: false }) : null); } catch (e) { /* ok */ }
+      hudSaved = null;
+    }
+    // режим кластера: что видно (data-hud-mode — общие правила style.css; классы .w-reg — свои правила гор)
+    function hudMode() {
+      if (!ui) return;
+      const m = S.sport ? 'sport' : S.zip ? 'zip' : S.dance ? 'dance' : S.look ? 'look' : flyActive() ? 'fly' : (S.sitting || S.view || S.inShop || S.golf) ? 'sit' : S.mode === 'drive' ? 'drive-pedals' : 'walk';
+      if (m === S.hudMode) return;
+      S.hudMode = m;
+      const H = HUD_(); if (H) H.mode(ui.root, m); else ui.root.dataset.hudMode = m;
+      ui.root.classList.toggle('look', m === 'look'); ui.root.classList.toggle('dance', m === 'dance');
+      document.body.classList.toggle('wr-hud-sport', m === 'sport'); document.body.classList.toggle('wr-hud-zip', m === 'zip');
+    }
+    // правый слот полосы: за рулём — «42 км/ч», в полёте — вариометр, в мини-игре и на зиплайне — пусто, иначе — звук
+    function hudStatus() {
+      const H = HUD_(); if (!H || !H.status || !ui) return;
+      let o = null;
+      if (S.sport || S.zip) o = { kind: 'none' };
+      else if (flyActive()) o = { kind: 'chip', text: S.flyHud || '🪂' };
+      else if (S.mode === 'drive' && drv && !S.sitting) o = { kind: 'chip', text: Math.round(Math.abs(drv.S.v) * 3.6) + ' км/ч' };
+      const key = o ? o.kind + ':' + (o.text || '') : 'sound';
+      if (key === S.hudStatus) return;
+      S.hudStatus = key; H.status(o);
+    }
+    // пилюля цели в горах: куда ведёт дорога (серпантин), кувшин бабушке-ежихе (село), удары старого гольфа
+    const fmtDist = d => (d == null ? null : d < 1000 ? Math.round(d) : (d / 1000).toFixed(1).replace('.', ',') + ' км');
+    function routeGoal() {
+      const h = S.h; if (!h || S.sport || S.zip || S.dance || S.look || S.inShop) return null;
+      if (S.golf) { const g = S.golf.G; return { icon: '⛳', text: 'Удары: ' + (g.maxTries - g.tries) + ' из ' + g.maxTries, title: 'Мини-гольф', full: 'Потяни назад и отпусти — как рогатку. «Встать» — закончить.', d: null }; }
+      if (S.rid === 'serpentine') {
+        const down = S.dir === 'down', inCar = S.mode === 'drive' && drv, branch = !!(drv && drv.S && drv.S.rid === 1);
+        const id = down ? 'toCity' : branch ? 'toHotel' : 'toVillage', ex = h.exits.find(e => e.id === id); if (!ex) return null;
+        const px = inCar ? drv.S.x : S.px, pz = inCar ? drv.S.z : S.pz;
+        let d = Math.hypot(ex.x - px, ex.z - pz);
+        if (!branch && ex.s != null && h.road && h.road.project) { try { const pr = h.road.project(px, pz); if (pr && isFinite(pr.s)) d = Math.abs(ex.s - pr.s); } catch (e) { /* по прямой */ } }
+        const name = id === 'toCity' ? 'Город' : id === 'toHotel' ? 'Отель на вершине' : (titleOf() || ex.label || '');
+        return { icon: id === 'toCity' ? '🏙' : id === 'toHotel' ? '🏨' : '⛰', text: name, title: down ? 'Дорога вниз' : 'Дорога наверх', d,
+          full: (down ? 'Вниз по серпантину — в город.' : branch ? 'По ветке — к отелю на вершине.' : 'Вверх по серпантину, за облака.') + (touchUi() ? ' Газ и тормоз — справа, кружок внизу — руль.' : '') };
+      }
+      if (S.rid === 'kubachi' && S.flags.jug && !S.flags.granny) {
+        const n = npcBy('granny_hedgehog');
+        if (n) return { icon: '🫙', text: n.name || 'Бабушка-ежиха', title: 'Кувшин с водой', full: 'Отнеси воду бабушке-ежихе на площади.', d: Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz) };
+      }
+      return null;
+    }
+    function hudObjective(force) {
+      const H = HUD_(); if (!H || !H.objective || !ui) return;
+      const now = performance.now(); if (!force && (S.busy || now - (S.hudObjT || 0) < 500)) return; S.hudObjT = now;   // пока шторка или посадка — пилюля как была
+      const o = routeGoal(), key = o ? o.icon + '|' + o.text + '|' + o.title : '';
+      if (key !== S.hudObj) { S.hudObj = key; H.objective.set(o ? { icon: o.icon, text: o.text, title: o.title, full: o.full, dist: fmtDist(o.d), expand: false } : null); }
+      else if (o) H.objective.dist(fmtDist(o.d));
+    }
 
     /* ---------- шторка ---------- */
     function curtain(on, label, sub) {
@@ -440,10 +566,40 @@
       if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && S.mv) S.mv.holdRun(false);
     };
     const onBlur = () => {
-      Object.keys(keys).forEach(k => { keys[k] = false; }); joy.id = null; joy.x = joy.y = 0; ped.gas = ped.brk = false; pts.clear(); look.clear(); if (S.golf) S.golf.drag = null; if (ui) { show(ui.joy, false); ui.gas.classList.remove('down'); ui.brk.classList.remove('down'); }
+      Object.keys(keys).forEach(k => { keys[k] = false; }); joy.id = null; joy.x = joy.y = 0; ped.gas = ped.brk = false; pts.clear(); look.clear(); if (S.golf) S.golf.drag = null; if (ui) { joyEnd(); ui.gas.classList.remove('down'); ui.brk.classList.remove('down'); }
       S.zipPts = 0; S.zipHoldKey = false; gripPts.clear(); if (S.zip && S.zip.hold) S.zip.hold(false); if (S.mv) S.mv.holdRun(false);
     };
     const rel = e => { const r = host.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r]; };
+    // джойстик HUD v2 (HUD.joystick: покой по центру снизу, под пальцем — плавающий); без HUD — прежний круг под пальцем
+    const joyZone = (x, y, r) => { const H = HUD_(); return H && H.joyZone ? H.joyZone(x, y, r.width, r.height) : x < r.width * 0.5; };
+    function joyBegin(x, y, r) {
+      if (!ui) return; joy.live = true;
+      if (ui.J) { ui.J.begin(x, y); show(ui.joy, true); return; }
+      r = r || host.getBoundingClientRect();
+      joy.cx = clamp(x, 70, r.width * 0.5 - 20); joy.cy = clamp(y, 120, r.height - 60);
+      ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; show(ui.joy, true); ui.knob.style.transform = '';
+    }
+    function joyDrag(x, y) {
+      if (!ui || !joy.live) return { x: 0, y: 0 };
+      if (ui.J) { const v = ui.J.drag(x, y); return { x: v.x, y: v.y }; }
+      let dx = x - joy.cx, dy = y - joy.cy; const d = Math.hypot(dx, dy), R0 = 46;
+      if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
+      ui.knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      return d < 8 ? { x: 0, y: 0 } : { x: dx / R0, y: dy / R0 };
+    }
+    function joyEnd() {
+      const was = joy.live; joy.live = false; if (!ui) return;
+      if (ui.J) { if (was || ui.J.active) ui.J.end(); joyRest(); return; }
+      show(ui.joy, false);
+    }
+    // кружок в покое (только на сенсорных экранах): когда можно идти, ехать, рулить крылом или шагать по лестнице
+    function joyRest() {
+      if (!ui || !ui.J) return;
+      const on = S.active && !S.busy && !blocked() && !S.zip && !S.sport && !S.dance && !S.look && !S.sitting && !S.view && !S.inShop && !S.golf && !S.shopBuy
+        && (S.mode === 'walk' || S.mode === 'drive' || S.mode === 'climb' || flyActive());
+      if (ui.J.active) return;
+      if (on !== ui.J.want) ui.J.show(on);
+    }
     const onDown = e => {
       e.stopPropagation(); if (!S.active) return;
       // W5: зиплайн «держись» — любое касание экрана держит ручку, пока палец не отпустят
@@ -454,9 +610,11 @@
       try { ui.touch.setPointerCapture(e.pointerId); } catch (x2) { /* старые браузеры */ }
       if (S.golf && canInput()) { const G = S.golf.G; if (!G.rolling && G.tries < G.maxTries && !G.holed) { S.golf.drag = { x, y, id: e.pointerId }; return; } }
       if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } return; }
-      if (x < r.width * 0.5 && joy.id === null) {
-        joy.id = e.pointerId; joy.cx = clamp(x, 70, r.width * 0.5 - 20); joy.cy = clamp(y, 120, r.height - 60); joy.x = joy.y = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
-        if (canInput()) { ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; show(ui.joy, true); ui.ghost.style.display = 'none'; ui.knob.style.transform = ''; }
+      // HUD v2: джойстик — касание в нижней половине левее дуги кнопок (круг встаёт под палец, не заезжает на радар и дугу);
+      // выше и правее — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
+      if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r)) {
+        joy.id = e.pointerId; joy.x = joy.y = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
+        if (canInput()) joyBegin(x, y, r);
       } else look.set(e.pointerId, { x, y, x0: x, y0: y, t0: performance.now(), moved: 0 });
     };
     const onMove = e => {
@@ -471,11 +629,9 @@
       }
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        let dx = x - joy.cx, dy = y - joy.cy; const d = Math.hypot(dx, dy), R0 = 46;
-        if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
-        ui.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        joy.x = d < 8 ? 0 : dx / R0; joy.y = d < 8 ? 0 : dy / R0;
-        if (d >= 8) S.moveTo = null;
+        if (!joy.live && canInput()) joyBegin(joy.x0, joy.y0);   // джойстик начался в паузе (шторка, рука занята) — подхватить
+        const v = joyDrag(x, y); joy.x = v.x; joy.y = v.y;
+        if (v.x || v.y) S.moveTo = null;
         return;
       }
       const p = look.get(e.pointerId); if (!p) return;
@@ -489,7 +645,7 @@
       if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) { const dr = S.golf.drag; S.golf.drag = null; if (e.type === 'pointerup' && dr.aimed) golfShoot(); return; }
       if (S.look && pts.size < 2) S.look.pinch = null;
       if (e.pointerId === joy.id) {
-        joy.id = null; joy.x = joy.y = 0; show(ui.joy, false); ui.ghost.style.display = '';
+        joy.id = null; joy.x = joy.y = 0; joyEnd();
         if (e.type === 'pointerup' && joy.moved < 10 && performance.now() - joy.t0 < 320) onTap(joy.x0, joy.y0);
         return;
       }
@@ -954,7 +1110,7 @@
     function kazArrive() {
       const mode = KAZ_MODE();
       if (!kazOk() || kazWorn() || mode === 'off') return;
-      if (mode === 'auto') afterCurtain(600, () => { if (S.rid === 'kubachi' && kazWear({ delay: 500 })) later(3400, () => toast('Снять ' + kazWord() + ' можно кнопкой слева.', 2600)); });
+      if (mode === 'auto') afterCurtain(600, () => { if (S.rid === 'kubachi' && kazWear({ delay: 500 })) later(3400, () => toast('Снять ' + kazWord() + ' можно в меню ☰', 3000)); });
       else later(1300, async () => {
         if (S.rid !== 'kubachi' || S.busy || blocked()) return;
         const m = npcBy('mouse'), text = kazLine('offer');
@@ -964,7 +1120,10 @@
         if (r && S.rid === 'kubachi') kazWear({});
       });
     }
-    function updKazBtn() { if (!ui) return; const on = S.rid === 'kubachi' && kazOk() && S.mode === 'walk' && !S.dance && !S.zip; show(ui.kaz, on); if (on) ui.kaz.textContent = '🧣 ' + (kazWorn() ? 'Снять ' : 'Надеть ') + kazWord(); }
+    // HUD v2: «🧣 Снять каз / Надеть каз» — строка меню ☰ (только в селе, пешком); регистрирует begin(), убирает end()
+    const kazRowOn = () => !!(S.active && S.rid === 'kubachi' && kazOk() && S.mode === 'walk' && !S.dance && !S.zip);
+    const kazRowLabel = () => (kazWorn() ? 'Снять ' : 'Надеть ') + kazWord();
+    function updKazBtn() { const H = HUD_(); if (H && H.menu && H.menu.isOpen && H.menu.isOpen() && H.menu.redraw) H.menu.redraw(); }
     function kazBtn() { if (S.busy || (IA && IA.busy())) return kazWorn(); if (kazWorn()) { kazRemove(); toast('Сняла и бережно сложила.', 1600); } else kazWear({}); return kazWorn(); }
     // место у мышки-вышивальщицы (kubachi.js: spot 'kaz_try' → { kind:'kaz', npc:'mouse' })
     async function kazSpot(d) {
@@ -1067,6 +1226,7 @@
       ui.root.classList.toggle('drive', S.mode === 'drive');
       S.buildMs = Math.round(performance.now() - t0);
       setHud();
+      { const t = placeTitle(); afterCurtain(250, () => { const H = HUD_(); if (H && H.arrive && t) H.arrive(t); }); }
       emit('region:enter', { id, from, buildMs: S.buildMs });
       resize();
       radarMount();
@@ -1076,9 +1236,13 @@
       return true;
     }
     function titleOf() { const h = S.h; if (h && h.title) return h.title; const k = REG('kubachi'); return k && k.title ? k.title(named) : ''; }
+    const placeTitle = () => (S.rid === 'serpentine' ? (S.dir === 'down' ? 'Дорога вниз' : 'Дорога наверх') : titleOf());
+    // HUD v2: название места — шапка меню ☰ (и тост при въезде), «🏙 В город» — строка меню (спрашивает подтверждение, как раньше)
     function setHud() {
-      const o = { label: (S.rid === 'serpentine' ? (S.dir === 'down' ? 'Дорога вниз' : 'Дорога наверх') : titleOf()), onExit: () => goHome(), exitText: '← в город' };
+      const o = { label: placeTitle(), onExit: () => goHome(), exitText: '← в город', exitPlace: 'menu', exitMenu: { icon: '🏙', label: 'В город' } };
       try { if (refs.setHud) refs.setHud(o); else if (G_() && G_().setHud) G_().setHud(o); } catch (e) { /* ignore */ }
+      const H = HUD_(); if (H && H.menu && H.menu.get && H.menu.get('exit')) { try { H.menu.update('exit', { order: 55, tint: 'sky' }); } catch (e) { /* ok */ } }
+      S.hudStatus = null; S.hudObj = null; hudStatus(); hudObjective(true);
     }
     async function goHome() {
       if (!S.active || S.busy || S.zip) return;
@@ -1227,13 +1391,12 @@
       Array.from(host.children).forEach(el => { if (el === canvas || el.tagName === 'CANVAS') return; hidden.push([el, el.style.display]); el.style.display = 'none'; });
       host.appendChild(ui.touch); host.appendChild(ui.root); host.appendChild(ui.fade);
       bindPedal(ui.gas, 'gas'); bindPedal(ui.brk, 'brk');
-      ui.act.addEventListener('click', e => { e.stopPropagation(); act(); });
+      // главная кнопка P: действие рядом; без дела — «👋 Помахать»; в танце — «✋ Хватит» (клавиши Enter/пробел в танце — «Хоп!»)
+      ui.act.addEventListener('click', e => { e.stopPropagation(); actBtn(); });
       ui.act2.addEventListener('click', e => { e.stopPropagation(); act2(); });
-      ui.kaz.addEventListener('click', e => { e.stopPropagation(); kazBtn(); });
       ui.tap.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); danceTap(); });
       ui.skip.addEventListener('click', e => { e.stopPropagation(); if (S.zip && S.zip.skip) S.zip.skip(); });
-      // W5: «Помахать» и зона «✊ Держись!» (зиплайн: держать палец; касание экрана тоже держит)
-      ui.wave.addEventListener('click', e => { e.stopPropagation(); waveBtn(); });
+      // W5: зона «✊ Держись!» (зиплайн: держать палец; касание экрана тоже держит)
       const gDown = e => { e.preventDefault(); e.stopPropagation(); if (zipDown(e.pointerId)) { ui.grip.classList.add('down'); try { ui.grip.setPointerCapture(e.pointerId); } catch (x2) { /* ok */ } } };
       const gUp = e => { e.stopPropagation(); if (zipUp(e.pointerId) && !gripPts.size) ui.grip.classList.remove('down'); };
       ui.grip.addEventListener('pointerdown', gDown); ui.grip.addEventListener('pointerup', gUp); ui.grip.addEventListener('pointercancel', gUp);
@@ -1248,14 +1411,15 @@
       prevHands = heroHands.binding(hero);
       IA = DEBUG && QS.get('ia') === '0' ? null : heroHands(hero, { THREE: T, scene, setRoot: iaSetRoot, on: iaOn, gradientMap: null });
       try { shadowProxy = makeShadowProxy(); } catch (e) { console.warn('region shadow proxy', e); shadowProxy = null; }
-      // день и ночь (R1): экземпляр на сцену региона; кнопка «Вернуться в утро» — слева под шапкой
+      // день и ночь (R1): экземпляр на сцену региона; «Вернуться в утро» / «Как на часах» — строка меню ☰ (HUD v2; без HUD — прежняя кнопка)
       if (window.DayNight) {
         try {
           dn = DayNight.create({ THREE: T, scene, renderer, camera: cam, preset: 'village', quality: regionQ });
-          dnOff = dn.onChange(e => { if (e.lamps && (e.phase === 'evening' || e.phase === 'night') && !WORLD._dnHinted) { WORLD._dnHinted = true; toast(DayNight.LINES.nightHint, 4200); } });
-          if (DayNight.mountToggle) dnToggle = DayNight.mountToggle(ui.root, { className: 'wr-dn', onSet: (to, line) => toast(line, 2400) });
+          dnOff = dn.onChange(e => { if (e.lamps && (e.phase === 'evening' || e.phase === 'night') && !WORLD._dnHinted) { WORLD._dnHinted = true; toast(DayNight.LINES.nightHint, 3500); try { const H = HUD_(); if (H && H.menu) H.menu.news('r-dn', true); } catch (x) { /* ok */ } } });
+          if (!HUD_() && DayNight.mountToggle) dnToggle = DayNight.mountToggle(ui.root, { className: 'wr-dn', onSet: (to, line) => toast(line, 2400) });
         } catch (e) { console.warn('region daynight', e); dn = null; }
       }
+      hudBegin();
       canvas.addEventListener('webglcontextlost', onLost, false);
       S.active = true; S.trip = { up: false, village: false, down: false, hotel: false, zip: false };
       S.flags = { bread: false, jug: false, askJug: false, granny: false, stones: new Set(), pendant: false }; S.lineIdx = {}; S.lastGreet = {}; S.bag = []; S.stickers = []; S.pats = 0;
@@ -1283,6 +1447,7 @@
       const ret = { inCar: cap ? cap.inCar : false, at: rs.at, trip: Object.assign({}, S.trip) };
       cancelAnimationFrame(raf); raf = 0;
       bindInput(false);
+      hudEnd();
       const kazBack = kazRemove();
       unload();
       // руки: отпустить предметы, вернуть привязку города (или отвязать)
@@ -1784,7 +1949,7 @@
         hold, holdGrace: 3, held: !!S.zipTestHold,
         onEvent: (e, data) => {
           S.zipEv.push(e);
-          if (e === 'holdHint') { hint('Зажми экран и держи — так она держится за ручку!', 4200); const m = npcBy('hotel_marmot'); if (m) npcLine(m, ZIP_SAY.marmot, 2600); }
+          if (e === 'holdHint') { hint('Зажми экран и держи — так она держится за ручку!', 3500); const m = npcBy('hotel_marmot'); if (m) npcLine(m, ZIP_SAY.marmot, 2600); }
           else if (e === 'slip') heroSay(ZIP_SAY.slip, 1400);
           else if (e === 'drop') { heroSay(ZIP_SAY.drop, 1300); haptic('medium'); }
           else if (e === 'fade') curtain(true, 'Плюх — прямо в мягкое сено!', '');
@@ -1960,12 +2125,27 @@
       } catch (e) { console.warn('region sport', e); S.sport = null; }
       if (!S.sport) return false;
       ui.root.classList.add('sport'); S.sportLog.push('start:' + kind);
+      sportHintWatch();
       emit('region:sportStart', { kind });
       updAct();
       return true;
     }
+    // HUD v2: подсказка мини-игры (.vs-hint) — тостом игры, а не своей плашкой (один тост за раз, под полосой)
+    let vsObs = null;
+    function sportHintWatch(off) {
+      if (vsObs) { try { vsObs.disconnect(); } catch (e) { /* ok */ } vsObs = null; }
+      const el = !off && HUD_() && ui && window.MutationObserver ? ui.root.querySelector('.vs-root .vs-hint') : null; if (!el) return;
+      let last = '';
+      vsObs = new MutationObserver(() => {
+        const on = el.classList.contains('on'), t = (el.textContent || '').trim();
+        if (on && t && t !== last) { last = t; toast(t, Math.min(3500, 1200 + 40 * t.length), { replace: true }); }
+        if (!on) last = '';
+      });
+      vsObs.observe(el, { attributes: true, attributeFilter: ['class'], childList: true, characterData: true, subtree: true });
+      if (el.classList.contains('on') && el.textContent.trim()) { last = el.textContent.trim(); toast(last, 3500, { replace: true }); }
+    }
     function sportEnd(r) {
-      S.sport = null;
+      S.sport = null; sportHintWatch(true);
       if (r && r.hero && S.h) { S.px = r.hero.x; S.pz = r.hero.z; S.py = S.h.ground(r.hero.x, r.hero.z); S.ang = r.hero.ry; }
       S.yaw = S.ang; S.camInit = false; S.camY = null; S.vx = S.vz = 0; S.iaDy = 0; if (hero && hero.rig) hero.rig.prev = null;
       if (ui) ui.root.classList.remove('sport');
@@ -2078,7 +2258,7 @@
       if (!S.active || S.busy || blocked() || S.mode !== 'walk' || S.waveT > 0 || mvBusy() || S.dance || S.inShop || S.sport || S.zip || flyActive() || (IA && IA.busy())) return false;
       const h = S.h; if (!h) return false;
       S.waveT = 1.4; haptic('light');
-      if (ui && ui.wave) { ui.wave.classList.remove('go'); void ui.wave.offsetWidth; ui.wave.classList.add('go'); }
+      if (ui && ui.act && btnLabel(ui.act) === '👋 Помахать') { ui.act.classList.remove('go'); void ui.act.offsetWidth; ui.act.classList.add('go'); }
       let nn = null, bd = 4.2;
       h.npcs.forEach(n => { if (!n.root.visible || n.silent) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < bd && Math.abs(p.y - S.py) < 2.5) { bd = d; nn = n; } });
       const g = G_(), spk = nn ? String(nn.speaker || nn.id) : null;
@@ -2159,14 +2339,14 @@
     }
 
     /* ---------- W4A: мини-гольф отеля — потянуть назад и отпустить, 3 удара; руки на клюшке (golf.heroPose) ---------- */
-    function golfLabel() { const g = S.golf; if (!g || !ui) return; ui.golfN.textContent = 'удары: ' + (g.G.maxTries - g.G.tries) + ' из ' + g.G.maxTries; }
+    function golfLabel() { if (S.golf && ui) hudObjective(true); }   // HUD v2: «⛳ Удары: 2 из 3» — пилюля цели
     function golfStance() { const g = S.golf, st = g.G.stance(g.angle); S.px = st.x; S.pz = st.z; S.py = S.h.ground(st.x, st.z); S.ang = st.ry; if (hero && hero.rig) hero.rig.prev = null; }
     function startGolf(d) {
       const G = d.golf || S.h.golf; if (!G) { toast(d.text); return; }
       iaStop(); if (IA && IA.drop) iaDrop();
       const st = G.start(); S.golf = { G, angle: G.aimAngle(), power: 0.45, drag: null }; G.aim(S.golf.angle, S.golf.power);
       golfStance(); setView(st.view || d.view || 'golf', true); S.sitting = null;
-      show(ui.golf, true); ui.golfT.textContent = 'Потяни назад и отпусти'; golfLabel();
+      golfLabel(); toast('Потяни назад и отпусти — как рогатку', 3000);
       if (d.hero) later(300, () => heroSay2(d.hero, 1800)); if (d.text) toast(d.text, 2600);
     }
     function golfAim(dx, dy) {
@@ -2182,13 +2362,13 @@
       const r = await g.G.shoot(g.angle, g.power); golfLabel();
       const n = npcBy('hotel_raccoon'); if (n && r && r.text) { bubble(npcHead(n), r.text, n.name, 2600); voiceBubble(r.who || 'hotel_raccoon', r.text); n.faceHero = 2.5; n.hop && n.hop(); }
       if (r && r.holed) { S.cheerT = 1.2; heroSay2(SAY.holed, 1800); }
-      if (r && r.done && ui) ui.golfT.textContent = r.holed ? 'В лунке! «Встать» — закончить' : 'Удары кончились. «Встать» — закончить';
+      if (r && r.done && ui) toast(r.holed ? 'В лунке! «Встать» — закончить' : 'Удары кончились. «Встать» — закончить', 3000);
       else if (S.golf) { g.angle = g.G.aimAngle(); golfStance(); }
       S.golfLast = r; return r;
     }
     // W5: старый гольф (запас, если нет VILLAGE.sports): героиню — обратно к коврику, место снова рядом
     function stopGolf(quietly) {
-      if (!S.golf) return; try { S.golf.G.stop(); } catch (e) { /* ok */ } S.golf = null; if (ui) show(ui.golf, false);
+      if (!S.golf) return; try { S.golf.G.stop(); } catch (e) { /* ok */ } S.golf = null; if (ui) hudObjective(true);
       const sp = S.h && S.h.spots.find(q => q.id === 'golf_putt');
       if (sp) { S.px = sp.x; S.pz = sp.z; S.py = S.h.ground(sp.x, sp.z); S.ang = PI * 0.75; if (hero && hero.rig) hero.rig.prev = null; }
       if (!quietly) { setView(null); S.camInit = false; }
@@ -2347,34 +2527,45 @@
       later(1400, () => toast('Смотровая: посиди минутку, отсюда видно башню.', 3200));
       const tur = npcBy('tur'); if (tur) later(3200, () => { if (S.sitting && S.sitting.road) greet(tur); });
     }
-    // W5: кнопки «Бег»/«Прыжок», «Бум!»/«Листья», «👋» — только когда она свободно гуляет (не в машине, не на месте, не в игре)
+    // W5: кнопки «Бег»/«Прыжок», «Бум!»/«Листья» (дуга s1–s4) — только когда она свободно гуляет (не в машине, не на месте, не в игре)
+    const freeNow = () => S.active && !S.busy && !blocked() && S.mode === 'walk' && !inCarNow && !S.sitting && !S.view && !S.look && !S.golf && !S.dance && !S.inShop && !S.climb && !S.zip && !S.sport && !flyActive() && !S.shopBuy && !S.springT && !S.treat;
     function updW5Ui() {
       if (!ui) return;
-      const free = S.active && !S.busy && !blocked() && S.mode === 'walk' && !inCarNow && !S.sitting && !S.view && !S.look && !S.golf && !S.dance && !S.inShop && !S.climb && !S.zip && !S.sport && !flyActive() && !S.shopBuy && !S.springT && !S.treat;
+      const free = freeNow();
       if (mvUi) mvUi.setVisible(free && !!S.mv && S.level !== 'top');
       if (S.pf) S.pf.enable(free && S.level !== 'top' && !(IA && IA.busy()));
-      if (ui.wave) show(ui.wave, free && !mvBusy());
     }
+    // HUD v2: главное действие — P (за рулём — A2: в углу P газ), второе — A2 (за рулём — s3); подпись — aria-label, на кнопке значок + слово
     function updAct() {
       if (!ui) return;
       const a = ui.act, a2 = ui.act2;
-      ui.root.classList.toggle('sit', !!(S.sitting || S.view || S.look || S.inShop || S.golf));
-      updW5Ui();
-      const lbl = (el, t, soft) => { show(el, true); el.textContent = t; el.classList.toggle('soft', !!soft); };
+      const sitLike = !!(S.sitting || S.view || S.look || S.inShop || S.golf);
+      ui.root.classList.toggle('sit', sitLike);
+      hudMode(); updW5Ui(); joyRest(); hudStatus();
+      const car = S.mode === 'drive' && !sitLike;
+      const main = (t, soft) => paintBtn(a, t, soft, car ? 'a2' : 'P');
+      const second = t => paintBtn(a2, t, true, car ? 's3' : 'a2');
       // W5: в полёте — одна кнопка: «⬇ Приземлиться» (сама сядет на площадку) или «Сама порулю» (снять авто-посадку)
-      if (flyActive()) { const st = S.fly.state(); show(a2, false); if (st.phase === 'fly' && !st.auto) lbl(a, '⬇ Приземлиться', false); else if (st.auto) lbl(a, 'Сама порулю', true); else show(a, false); return; }
+      if (flyActive()) { const st = S.fly.state(); show(a2, false); if (st.phase === 'fly' && !st.auto) main('⬇ Приземлиться', false); else if (st.auto) main('🕹 Сама порулю', true); else show(a, false); return; }
       if (S.sport) { show(a, false); show(a2, false); return; }
       if (S.busy || blocked() || !S.active || S.zip || S.shopBuy || S.springT || S.treat || (IA && IA.busy()) || mvBusy()) { show(a, false); show(a2, false); return; }
-      if (S.dance) { show(a, false); lbl(a2, 'Хватит танцевать', true); return; }
-      if (S.golf) { lbl(a, 'Встать', true); show(a2, false); return; }
-      if (S.climb) { lbl(a, S.climb.auto > 0 ? '⏸ Стоп' : '▲ Вверх', true); lbl(a2, S.climb.auto < 0 ? '⏸ Стоп' : '▼ Вниз', true); return; }
-      if (S.look) { lbl(a, 'Хватит смотреть', true); show(a2, false); return; }
-      if (S.inShop) { lbl(a, '🛍️ Купить', false); lbl(a2, 'Выйти из лавки', true); return; }
-      if (S.sitting || S.view) { lbl(a, 'Встать', true); show(a2, false); return; }
-      a.classList.remove('soft');
+      if (S.dance) { main('Хватит танцевать', true); show(a2, false); return; }
+      if (S.golf) { main('Встать', true); show(a2, false); return; }
+      if (S.climb) { main(S.climb.auto > 0 ? '⏸ Стоп' : '⬆️ Вверх', true); second(S.climb.auto < 0 ? '⏸ Стоп' : '⬇️ Вниз'); return; }
+      if (S.look) { main('Хватит смотреть', true); show(a2, false); return; }
+      if (S.inShop) { main('🛍️ Купить', false); second('Выйти из лавки'); return; }
+      if (S.sitting || S.view) { main('Встать', true); show(a2, false); return; }
       S.near = nearest();
-      if (S.near) lbl(a, S.near.label, false); else show(a, false);
-      if (S.near2) lbl(a2, S.near2.label, true); else show(a2, false);
+      if (S.near) main(S.near.label, false);
+      else if (S.mode === 'walk' && freeNow() && S.level !== 'top') main('👋 Помахать', true);   // без дела — помахать (бывшая кнопка 👋)
+      else show(a, false);
+      if (S.near2) second(S.near2.label); else show(a2, false);
+    }
+    // нажатие P: в танце — закончить танец (Enter/пробел в танце — «Хоп!», как раньше); без дела — помахать; иначе — действие
+    function actBtn() {
+      if (S.dance) { act2(); return; }
+      if (!S.near && !flyActive() && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.climb && S.mode === 'walk') { waveBtn(); return; }
+      act();
     }
 
     /* ---------- шаги ---------- */
@@ -2616,7 +2807,8 @@
           if (blob) blob.visible = false;
           petsUpdate(dt);
           S.h.update(dt, { x: S.px, y: S.py, z: S.pz }, cam); nightStep(dt); draw();
-          if (S.frames % 6 === 0) { updAct(); if (ui && st.hud) ui.speed.textContent = st.hud; }
+          if (st.hud) S.flyHud = st.hud;
+          if (S.frames % 6 === 0) updAct();
           if (radar && radar.update) { try { radar.update(dt); } catch (e) { /* ok */ } }
           placeBubbles();
           return;
@@ -2652,7 +2844,7 @@
         pollEvents();
         nightStep(dt);
         draw();
-        if (S.frames % 6 === 0) { updAct(); if (S.mode === 'drive' && drv && ui) ui.speed.textContent = Math.round(Math.abs(drv.S.v) * 3.6) + ' км/ч'; }
+        if (S.frames % 6 === 0) { updAct(); hudObjective(); }
         if (radar && radar.update) { try { radar.update(dt); } catch (e) { if (!S.radarErr) { S.radarErr = true; console.warn('region radar', e); } } }
         placeBubbles();
         fpsWatch(dt);
@@ -2682,14 +2874,14 @@
         try { load(id, from || 'city'); } catch (e) { console.error('region load', e); const r = end(); if (tripRes) { const f = tripRes; tripRes = null; f(Object.assign(r, { error: String(e && e.message || e) })); } return; }
         renderOnce(); await raf2();
         await curtain(false);
-        if (S.mode === 'drive') hint('Газ и тормоз — справа · палец слева — руль', 6000);
+        if (S.mode === 'drive') hint(HINT.drive());
         return;
       }
       const prev = S.rid;
       await fade(enterLabel(id, prev), () => load(id, from || prev), 'облака расступаются');
-      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? 'Газ и тормоз — справа · палец слева — руль' : 'Палец слева — идти · справа — крутить камеру · тап — туда', 6000); }   // волна 6: из отеля — за рулём
-      if (id === 'hotel') { S.trip.hotel = true; hint('Двор, бассейн, мини-гольф, костёр — а с башни зиплайн через долину', 6000); }
-      if (id === 'serpentine' && S.dir === 'down') hint('Газ и тормоз — справа · палец слева — руль', 5000);
+      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? HINT.drive() : HINT.walk()); }   // волна 6: из отеля — за рулём
+      if (id === 'hotel') { S.trip.hotel = true; hint('Бассейн, мини-гольф, костёр — а с башни зиплайн', 3500); }
+      if (id === 'serpentine' && S.dir === 'down') hint(HINT.drive());
     }
     async function leave(to) {
       if (!S.active) return undefined;
@@ -2749,7 +2941,10 @@
         act2: () => { updAct(); act2(); return S.near2 && S.near2.label; },
         near: () => { updAct(); return S.near ? S.near.label : null; },
         near2: () => { updAct(); return S.near2 ? S.near2.label : null; },
-        buttons: () => (ui ? { act: ui.act.classList.contains('hidden') ? null : ui.act.textContent, act2: ui.act2.classList.contains('hidden') ? null : ui.act2.textContent, kaz: ui.kaz.classList.contains('hidden') ? null : ui.kaz.textContent, tap: !ui.tap.classList.contains('hidden'), skip: !ui.skip.classList.contains('hidden'), dn: (ui.root.querySelector('.dn-toggle') || {}).textContent || null } : null),
+        // HUD v2: подписи кнопок — полные (aria-label), слоты; каз и время суток — строки меню ☰
+        buttons: () => (ui ? { act: btnLabel(ui.act), act2: btnLabel(ui.act2), actSlot: ui.act.dataset.hudSlot || null, act2Slot: ui.act2.dataset.hudSlot || null, kaz: kazRowOn() ? '🧣 ' + kazRowLabel() : null, tap: !ui.tap.classList.contains('hidden'), skip: !ui.skip.classList.contains('hidden'), dn: dnRowText(), mode: S.hudMode || null } : null),
+        menu: () => { const H = HUD_(); return H && H.menu ? H.menu.list() : null; },
+        hudStatus: () => S.hudStatus, hudObj: () => { const H = HUD_(); const o = H && H.objective ? H.objective.get() : null; return o ? { icon: o.icon, text: o.text, title: o.title } : null; },
         go: id => { if (!id) { setView(null); return true; } setView(id, false); return !!S.view; },
         stand: () => standUp(),
         drive: () => (drv ? Object.assign(drv.info(), { door: drv.doorPoint ? (q => ({ x: +q.x.toFixed(2), z: +q.z.toFixed(2) }))(drv.doorPoint(1)) : null, dir: S.dir, len: S.h.road ? +S.h.road.len.toFixed(1) : null, trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +cam.fov.toFixed(1), mode: drv.mode, canExit: drv.canExit(), heroInCar: !!(hero && car && isChildOf(hero.root, car.body)) }) : null),
@@ -2831,7 +3026,7 @@
             const b = Math.atan2(dx, dz) - S.yaw, m = d < 0.5 ? 0.35 : 0.7; joy.x = -Math.sin(b) * m; joy.y = -Math.cos(b) * m; requestAnimationFrame(kk); };
           requestAnimationFrame(kk);
         }),
-        kaz: () => ({ mode: KAZ_MODE(), ok: kazOk(), worn: kazWorn(), btn: ui && !ui.kaz.classList.contains('hidden') ? ui.kaz.textContent : null, beretHidden: !!(V_() && V_().kaz && V_().kaz.beretHidden && V_().kaz.beretHidden()) }),
+        kaz: () => ({ mode: KAZ_MODE(), ok: kazOk(), worn: kazWorn(), btn: ui && kazRowOn() ? '🧣 ' + kazRowLabel() : null, beretHidden: !!(V_() && V_().kaz && V_().kaz.beretHidden && V_().kaz.beretHidden()) }),
         kazOn: on => (on ? kazWear({ instant: true, say: false }) : kazRemove()),
         kazBtn: () => kazBtn(),
         car: () => ({ kind: car ? carKind() : null, own: ownCar, drv: drv ? drv.mode : null, cfg: drv ? { halfL: drv.cfg.halfL, halfW: drv.cfg.halfW } : null, lamps: S.carLamps }),
@@ -2885,7 +3080,7 @@
         heroAt: (x, z, ry, level) => { iaStop(); S.level = level || 'ground'; placeHero(x, z, ry, ry); S.view = null; S.sitting = null; return S.py; },
         cam: (pos, target, fov) => { if (!pos) { S.view = null; S.camInit = false; return true; } S.view = { id: 'probe', v: { pos, target, fov: fov || 50 }, t: 10, from: new T.Vector3(), fromLook: new T.Vector3(), smooth: false, fov: fov || 50 }; return true; },
         camPitch: () => { if (!cam) return null; const d = cam.getWorldDirection(tmpV); return +(Math.asin(clamp(d.y, -1, 1)) * 180 / PI).toFixed(1); },
-        dn: () => (window.DayNight ? { hour: +DayNight.hour().toFixed(2), phase: DayNight.phase(), override: DayNight.override(), lamps: dn ? dn.lampsOn() : null, night: S.night, toggle: ui && ui.root.querySelector('.dn-toggle') && ui.root.querySelector('.dn-toggle').style.display !== 'none' ? ui.root.querySelector('.dn-toggle').textContent : null } : null),
+        dn: () => (window.DayNight ? { hour: +DayNight.hour().toFixed(2), phase: DayNight.phase(), override: DayNight.override(), lamps: dn ? dn.lampsOn() : null, night: S.night, toggle: dnRowText() } : null),
         dnSet: v => { if (!window.DayNight) return null; DayNight.set(v, { persist: false, instant: true }); if (dnToggle) dnToggle.refresh(); return DayNight.phase(); },
         dnClock: hr => { if (!window.DayNight) return null; DayNight.setClock(hr == null ? null : () => hr); if (dnToggle) dnToggle.refresh(); return DayNight.phase(); },
         mapInfo: () => R.mapInfo(),
