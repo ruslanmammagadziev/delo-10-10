@@ -289,8 +289,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function bubble(getPos, text, title, ms, cls) {
       if (!ui || !text) return;
       S.said.push((title ? title + ': ' : '') + text); if (S.said.length > 40) S.said.shift();
-      let b = bubbles.find(x => x.getPos === getPos);
+      // над ряженым свадьбы — одно облачко: новая строка встаёт в то же облачко (приветствие и «Звяк-звяк!» ложились друг на друга)
+      const own = getPos.npc && getPos.npc.paltar ? getPos.npc : null;
+      let b = bubbles.find(x => x.getPos === getPos || (own && x.getPos.npc === own && performance.now() < x.until));
       if (!b) { const el = document.createElement('div'); el.className = 'w-say'; ui.bub.appendChild(el); b = { el, getPos }; bubbles.push(b); }
+      b.getPos = getPos;
       b.el.className = 'w-say' + (cls ? ' ' + cls : '');
       b.el.innerHTML = (title ? `<b>${esc(title)}</b>` : '') + `<span>${esc(text)}</span>`;
       b.until = performance.now() + (ms || Math.max(2600, Math.min(5200, 1400 + text.length * 45)));
@@ -1511,7 +1514,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
 
     /* ---------- жители ---------- */
     const npcBy = id => (S.h ? S.h.npcs.find(n => n.id === id) : null);
-    const npcHead = n => () => ({ x: n.root.position.x, y: n.root.position.y + (n.headY || 1.1) * (n.root.scale.y || 1) + 0.5, z: n.root.position.z });
+    // (у точки над головой — ссылка на жителя: облачка ряженых свадьбы не громоздятся над одной головой)
+    const npcHead = n => { const f = () => ({ x: n.root.position.x, y: n.root.position.y + (n.headY || 1.1) * (n.root.scale.y || 1) + 0.5, z: n.root.position.z }); f.npc = n; return f; };
     const heroHeadV = new T.Vector3();
     const heroHead = () => { if (inCarNow && hero) { hero.root.getWorldPosition(heroHeadV); return { x: heroHeadV.x, y: heroHeadV.y + 2.0, z: heroHeadV.z }; } return { x: S.px, y: S.py + 2.2 + ((hero && hero.body.position.y) || 0), z: S.pz }; };
     function nextLine(n) {
@@ -1848,7 +1852,12 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (ev.type === 'jingle' || ev.type === 'bell') pf('jingle');
       else if (ev.type === 'crack') { pf('slap'); later(60, () => pf('pop')); }
       else if (ev.type === 'flash') sfx('chime', { f: 2093 });
-      else if (ev.type === 'say' && ev.text && onScreen(npcHead(n)())) bubble(npcHead(n), ev.text, n.name, 1500);
+      // короткий возглас — не поверх облачка над этим же ряженым (приветствие, строка розыгрыша) и не впритык к другому возгласу
+      else if (ev.type === 'say' && ev.text && onScreen(npcHead(n)())) {
+        const now = performance.now();
+        if (bubbles.some(b => b.getPos.npc === n && now < b.until) || now - (S.lastGreet[n.id] || -1e9) < 3600 || now - (S.wedSayT || -1e9) < 1200) return;
+        S.wedSayT = now; bubble(npcHead(n), ev.text, n.name, 1500);
+      }
     }
     // камера во дворе свадьбы — со стороны середины двора (у ворот и стен галереи коллайдеров камеры нет: створка ворот закрывала кадр)
     function yardYaw(x, z, fallback) { const W0 = S.h && S.h.places && S.h.places.wedding; return W0 && isFinite(W0.x) ? Math.atan2(x - W0.x, z - W0.z) : fallback; }
