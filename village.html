@@ -105,10 +105,13 @@
   <script src="js/vendor/three.min.js"></script>
   <script src="js/vendor/GLTFLoader.js"></script>
   <script src="js/hero3d.js" onerror="void 0"></script>
+  <script src="js/hero_look3d.js" onerror="void 0"></script>
   <script src="js/hero_anim.js" onerror="void 0"></script>
   <script src="js/world/kit.js" onerror="void 0"></script>
   <script src="js/world/actors.js" onerror="void 0"></script>
+  <script src="js/engine_sound.js" onerror="void 0"></script>
   <script src="js/world/car.js" onerror="void 0"></script>
+  <script src="js/vehicles/cabrio.js" onerror="void 0"></script>
   <script src="js/village/vkit.js"></script>
   <script src="js/village/lines.js"></script>
   <script src="js/village/kubachi.js"></script>
@@ -263,8 +266,8 @@
       if (S.cars && S.cars[S.carId]) { car = S.cars[S.carId]; return car; }
       const useSedan = S.carId === 'sedan' && window.VEHICLES && VEHICLES.sedan;
       try {
-        if (V.drive && V.drive.makeCar) car = V.drive.makeCar(T, useSedan ? { kit: H, factory: () => VEHICLES.sedan.makeCar(H || T, { kit: H, quality, lite: quality !== 'high' }) } : { kit: H, color: '#A8D8C4' });
-        else if (window.WORLD && WORLD.makeCar && H) car = WORLD.makeCar(H, { color: '#A8D8C4' });
+        if (V.drive && V.drive.makeCar) car = V.drive.makeCar(T, useSedan ? { kit: H, factory: () => VEHICLES.sedan.makeCar(H || T, { kit: H, quality, lite: quality !== 'high' }) } : { kit: H });
+        else if (window.WORLD && WORLD.makeCar && H) car = WORLD.makeCar(H, {});
       } catch (e) { console.warn('village: car', e); car = null; }
       return car;
     }
@@ -282,7 +285,7 @@
       if (car) { const cr = car.root || car; if (cr.parent) cr.parent.remove(cr); S.cars = S.cars || {}; S.cars[car.kind === 'sedan' ? 'sedan' : 'coupe'] = car; }
       car = (S.cars && S.cars[id]) || null;
       if (h) setupCar(h, S.rid, null, pose, wasDrive);
-      toast(id === 'sedan' ? 'Красный седан ждёт!' : 'Ретро-купе ждёт!', 1800);
+      toast(id === 'sedan' ? 'Красный седан ждёт!' : 'Жёлтый кабриолет ждёт!', 1800);
       return true;
     }
     function heroToScene() { if (hero && hero.root.parent !== scene) { if (drv && drv.heroOut && hero.root.parent) { try { drv.heroOut(hero, scene, { instant: true }); } catch (e) { /* ok */ } } if (hero.root.parent !== scene) { if (hero.root.parent) hero.root.parent.remove(hero.root); scene.add(hero.root); } } }
@@ -780,7 +783,7 @@
         + '<div class="row"><button class="main" id="mOk">Готово</button></div>';
       const btn = (host, t, on, fn) => { const b = document.createElement('button'); b.textContent = t; if (on) b.classList.add('on'); b.onclick = fn; $(host).appendChild(b); return b; };
       if (window.VEHICLES && VEHICLES.picker) { const pk = VEHICLES.picker({ current: S.carId, onPick: id => { if (!setCar(id)) pk.select(S.carId); } }); pk.style.flex = '1'; $('mCar').appendChild(pk); }
-      else btn('mCar', 'Ретро-купе', true, () => {});
+      else btn('mCar', 'Жёлтый кабриолет', true, () => {});
       if (window.DayNight) {
         // «ночь» стенда — часы телефона на 22:30 (как будто уже вечер): кнопка DayNight «Вернуться в утро» появляется сама
         btn('mTime', '🌙 Часы: 22:30', DayNight.phase() === 'night', () => { DayNight.setClock(() => 22.5); DayNight.set(null, { persist: false }); if (S.dnToggle) S.dnToggle.refresh(); closeMenu(); });

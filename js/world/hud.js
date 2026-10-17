@@ -17,10 +17,13 @@
    HUD.mode(root, mode)                   — data-hud-mode = walk|drive|drive-pedals|ride|fly|sit|look|dance|zip|sport|room|street|2d
    HUD.sbtn(host, { slot, icon, label, cls, onPress }) → кнопка 46 px в слоте (значок; подпись — aria-label)
    HUD.actions.set(host, [{ id, icon, label, onPress, slot?, main?, on?, soft? }]) — набор кнопок кластера (лишние прячутся)
-   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), begin(x,y), drag(x,y) → {x,y,m}, end(), show(on), layout(), active }
+   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), begin(x,y), drag(x,y) → {x,y,m,r}, end(), show(on), layout(), active,
+                                              running(ok) → bool, run } — r: отклонение без зажима (дальше края > 1); running —
+                                              раз в кадр: палец до стрелок (r ≥ 1,25) дольше 0,15 с — бег (класс .run), назад внутрь — шаг
    HUD.radarSlot(el)                      — радар в угол (класс + data-hud-slot=radar)
    HUD.menu.add({ id, icon, label, sub?, value?, badge?, toggle?, when?|visible?, onTap|onClick, onLong?, order?, keepOpen? })
              .remove(id) .update(id, patch) .open() .close() .isOpen() .news(id, on) .info(fn|text) .note(text|null)
+   HUD.help()                             — лист «Как играть»; HUD.helpTop = () => { icon, title, sub, onTap } | null — строка сверху от сцены
    HUD.objective.set(o | null)            — o: { icon, text, title?, full?, progress?:[a,b], dist?, onTap?, lock? } — пилюля + карточка
                 .dist(m) .expand(ms) .get()
    HUD.status(o | null)                   — правый слот: null → звук; { kind:'exit', icon, label, onTap } | { kind:'chip', text } |
@@ -258,6 +261,10 @@
   const joys = new Set();
   const JOY_SVG = '<svg class="hud-joy-ch" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M44,15 L50,9 L56,15"/><path d="M44,85 L50,91 L56,85"/><path d="M15,44 L9,50 L15,56"/><path d="M85,44 L91,50 L85,56"/></g></svg>';
+  // желание 7: бег «сильнее обычного» — палец дальше края хода ручки, до стрелок (≥ RUN_ON хода) дольше RUN_T мс — бег (J.run,
+  // класс .run: ручка тёплая, как горящая «Бег», стрелки ярче); вернула палец внутрь (< RUN_OFF хода) или отпустила — шаг.
+  // Касание сразу за краем (кружок встал выше пальца у нижнего края экрана) бег не включает: палец сначала побывает внутри
+  const RUN_ON = 1.25, RUN_OFF = 1, RUN_T = 150;
   HUD.joystick = {
     create(host, o = {}) {
       const el = document.createElement('div');
@@ -267,8 +274,9 @@
       if (host) host.appendChild(el);
       const knob = el.querySelector('.joy-knob');
       const dims = () => { const h = o.root || host || app(); return { W: h.clientWidth || app().clientWidth, H: h.clientHeight || app().clientHeight }; };
+      const runCls = b => { J.run = b; el.classList.toggle('run', b); };
       const J = {
-        el, knob, active: false, cx: 0, cy: 0, x: 0, y: 0, m: 0, want: false,
+        el, knob, active: false, cx: 0, cy: 0, x: 0, y: 0, m: 0, r: 0, run: false, want: false, _arm: false, _rt: 0,
         zone(x, y) { const d = dims(); return HUD.joyZone(x, y, d.W, d.H); },
         layout() {
           if (J.active) return;
@@ -279,7 +287,7 @@
         },
         begin(x, y) {
           const d = dims(), p = HUD.joyPlace(x, y, d.W, d.H), m = metrics(d.W, d.H);
-          J.active = true; J.cx = p.cx; J.cy = p.cy; J.x = J.y = J.m = 0;
+          J.active = true; J.cx = p.cx; J.cy = p.cy; J.x = J.y = J.m = J.r = 0; J._arm = false; J._rt = 0; if (J.run) runCls(false);
           el.classList.remove('rest', 'back'); el.classList.add('live');
           el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
           J.travel = m.joy.travel;
@@ -287,15 +295,26 @@
           return p;
         },
         drag(x, y) {
-          if (!J.active) return { x: 0, y: 0, m: 0 };
+          if (!J.active) return { x: 0, y: 0, m: 0, r: 0 };
           let dx = x - J.cx, dy = y - J.cy; const dd = Math.hypot(dx, dy), T = J.travel || 34;
           if (dd > T) { dx *= T / dd; dy *= T / dd; }
           knob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
           if (dd < 8) { J.x = J.y = J.m = 0; } else { J.x = dx / T; J.y = dy / T; J.m = Math.min(1, Math.hypot(J.x, J.y)); }
-          return { x: J.x, y: J.y, m: J.m };
+          // r — отклонение без зажима (палец дальше края — больше 1): порог бега; задержка бега — от первого касания порога
+          J.r = dd < 8 ? 0 : dd / T;
+          if (J.r < RUN_OFF) { J._arm = true; J._rt = 0; if (J.run) runCls(false); }
+          else if (J.r < RUN_ON) { if (!J.run) J._rt = 0; }
+          else if (J._arm && !J._rt) J._rt = performance.now();
+          return { x: J.x, y: J.y, m: J.m, r: J.r };
+        },
+        // раз в кадр: бежать ли сейчас; ok — можно ли (игра: пешком, есть Move). Класс меняется только на переходе
+        running(ok) {
+          if (!ok || !J.active) { if (J.run) runCls(false); return false; }
+          if (!J.run && J._rt && performance.now() - J._rt >= RUN_T) runCls(true);
+          return J.run;
         },
         end() {
-          J.active = false; J.x = J.y = J.m = 0;
+          J.active = false; J.x = J.y = J.m = J.r = 0; J._arm = false; J._rt = 0; if (J.run) runCls(false);
           knob.style.transform = '';
           el.classList.remove('live'); el.classList.add('rest', 'back');
           J.layout();
@@ -612,14 +631,19 @@
   function helpSheet() {
     const L = layerEl(); if (!L) return;
     const touch = coarse();
+    // HUD.helpTop() → { icon, title, sub, onTap } | null — строка сверху от сцены (город: «Что тут делать?»)
+    let top = null; try { top = typeof HUD.helpTop === 'function' ? HUD.helpTop() : null; } catch (e) { top = null; }
     const m = document.createElement('div'); m.className = 'modal sheet hud-help';
     const rows = touch
-      ? [['🕹', 'Кружок внизу — идти', 'палец в нижней половине слева — кружок встанет под него'], ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'], ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'], ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'], ['✌️', 'Камера', 'проведи пальцем вверху; двумя — ближе или дальше']]
+      ? [['🕹', 'Кружок внизу — идти', 'палец в нижней половине слева — кружок встанет под него'], ['👟', 'Дальше края — бег', 'толкни кружок до стрелок и держи'], ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'], ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'], ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'], ['✌️', 'Камера', 'проведи пальцем вверху; двумя — ближе или дальше']]
       : [['⌨️', 'WASD или стрелки — идти', 'Shift — бег, пробел — прыжок'], ['⏎', 'Enter — действие', 'войти, поговорить, сесть'], ['🖱', 'Мышь — камера', 'Q/E — повернуть, колёсико — ближе'], ['🗺', 'Карта — слева внизу', 'клик по кружку карты — большая карта']];
     m.innerHTML = '<div class="sheet-card" role="dialog"><div class="sheet-head"><div class="sheet-title">Как играть</div><button class="sheet-x" type="button" aria-label="Закрыть">✕</button></div><div class="sheet-body hud-mlist">' +
+      (top ? `<button type="button" class="hud-mrow t-sun hud-help-top"><span class="hud-mi" aria-hidden="true">${esc(top.icon || '💡')}</span><span class="hud-mt"><b>${esc(top.title)}</b><span>${esc(top.sub || '')}</span></span></button>` : '') +
       rows.map(r => `<div class="hud-mrow static"><span class="hud-mi" aria-hidden="true">${r[0]}</span><span class="hud-mt"><b>${esc(r[1])}</b><span>${esc(r[2])}</span></span></div>`).join('') + '</div></div>';
     const close = () => { m.classList.add('out'); setTimeout(() => { m.remove(); if (!document.querySelector('#layer .modal.sheet')) document.body.classList.remove('sheet-on'); }, 230); };
     m.addEventListener('click', e => { if (e.target === m || (e.target.closest && e.target.closest('.sheet-x'))) close(); });
+    const tb = top && m.querySelector('.hud-help-top');
+    if (tb) tb.addEventListener('click', e => { e.stopPropagation(); haptic('light'); tapSfx(); close(); setTimeout(() => { try { top.onTap(); } catch (x) { /* сцена ушла */ } }, 260); });
     L.appendChild(m); document.body.classList.add('sheet-on');
   }
   HUD.help = helpSheet;

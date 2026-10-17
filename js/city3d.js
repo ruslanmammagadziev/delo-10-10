@@ -2428,6 +2428,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (!hero) { try { hero = buildHeroGLB(o.hero, H3); } catch (e) { console.warn('hero3d', e); hero = null; } }   // статуэтка
     }
     if (!hero) hero = buildHero(o.hero, await heroFaceImgs());
+    // образ на модели автора (бант и берет, тренч, волосы): перекрашенная текстура, общая с открытым городом и горами
+    const H3L = H3 && (hero.rig || hero.statue) && window.HeroLook3D ? H3 : null;
+    if (H3L) { try { HeroLook3D.apply(H3L, o.hero || {}); } catch (e) { console.warn('hero look', e); } }
     scene.add(hero.root);
     const heroBlob = put(scene, GEO.plane, blobMat, [0, 0.012, 0], [0.8, 0.5, 1], [-PI / 2, 0, 0]); heroBlob.castShadow = false; heroBlob.receiveShadow = false;
     const cat = buildCat(); cat.root.visible = false; scene.add(cat.root);
@@ -2733,7 +2736,10 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       };
       requestAnimationFrame(step);
     });
-    const recolor = lk => { Object.assign(lookNow, lk); hero.setCols(heroCols(lookNow), lk); };
+    const recolor = lk => {
+      Object.assign(lookNow, lk);
+      if (H3L) { try { HeroLook3D.apply(H3L, lookNow); } catch (e) { console.warn('hero look', e); } } else hero.setCols(heroCols(lookNow), lk);
+    };
     let dimK = 1, fitTarget = null;
     const refit = () => {
       if (!fitTarget) return;
@@ -2762,7 +2768,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       }),
       stand: () => standUp(),
       get isSitting() { return !!sitting; },
-      get canRecolor() { return !hero.statue && !hero.rig; },   // у статуэтки одна запечённая текстура: смена образа видна только в 2D и у рисованной героини
+      // у модели автора образ перекрашивает её текстуру (js/hero_look3d.js), у рисованной героини — материалы
+      get canRecolor() { return !!H3L || (!hero.statue && !hero.rig); },
       setLook: lk => recolor(lk || {}),
       look: () => Object.assign({}, lookNow),
       heroHead: () => { if (!headG) { headG = new T.Group(); hero.head.add(headG); } return headG; },
@@ -2774,6 +2781,26 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       face: ry => { faceLock = ry; },
       faceCamera: () => { faceLock = null; },
       focusHero: (k = 0.6) => { const hx = px, hz = pz; camOverride = { pos: new T.Vector3(hx + CAM.dx * (1 - k), 1.3 + (CAM.y - 1.3) * (1 - k * 0.6), hz + CAM.dz * (1 - k * 0.55)), look: new T.Vector3(hx, 1.15, hz) }; },
+      // героиня целиком в полосе экрана y0…y1 (px окна) — например, над нижним листом примерочной, чтобы образ было видно;
+      // камера с той же стороны, что обычная, и сверху под углом tilt (как обычный взгляд комнаты — поверх мебели перед ней);
+      // полоса слишком узкая — обычный наезд
+      focusHeroIn: (y0, y1, tilt = 0.42) => {
+        const rr = root.getBoundingClientRect(), Hs = rr.height || 1, tf = Math.tan(camera.fov * PI / 360);
+        const a = Math.max(0, Math.min(Hs, y0 - rr.top)), b = Math.max(a, Math.min(Hs, y1 - rr.top));
+        if (b - a < Hs * 0.22) { spotApi.focusHero(0.6); return false; }
+        const tA = tf * (1 - 2 * a / Hs - 0.05), tB = tf * (1 - 2 * b / Hs + 0.05), want = Math.atan(tA) - Math.atan(tB);
+        const bb = new T.Box3().setFromObject(hero.root), yb = Math.max(0, bb.min.y), yt = Math.max(yb + 0.5, Math.min(yb + 2.4, bb.max.y));
+        const yc = yb + (yt - yb) * 0.55, cs = Math.cos(tilt), sn = Math.sin(tilt);
+        // под каким углом видна героиня с расстояния r по лучу: с r только убывает — делим пополам
+        const f = r => Math.atan((yt - yc - r * sn) / (r * cs)) - Math.atan((yb - yc - r * sn) / (r * cs));
+        let lo = 0.4, hi = 16;
+        for (let i = 0; i < 32; i++) { const m = (lo + hi) / 2; if (f(m) > want) lo = m; else hi = m; }
+        const r = (lo + hi) / 2, d = r * cs, cy = yc + r * sn, psi = Math.atan((yt - cy) / d) - Math.atan(tA);
+        const ccx = RM ? Math.max(RM.cam.x0, Math.min(RM.cam.x1, px)) : px, ccz = RM ? (RM.cam.z !== undefined ? RM.cam.z : pz * 0.35) : pz;
+        let ux = ccx + CAM.dx - px, uz = ccz + CAM.dz - pz; const ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
+        camOverride = { pos: new T.Vector3(px + ux * d, cy, pz + uz * d), look: new T.Vector3(px, cy + d * Math.tan(psi), pz) };
+        return true;
+      },
       toScreen: (x, y, z) => { const sc = toScreen(x, y, z), appR = G.app.getBoundingClientRect(), rr = root.getBoundingClientRect(); return { x: sc.x + rr.left - appR.left, y: sc.y + rr.top - appR.top }; },
       intercept: fn => { interceptFn = fn || null; },
       get npcs() { return RM ? RM.npcs : {}; },

@@ -8,8 +8,8 @@
    с тёмной сеткой и чёрной рамкой (внутренний край вдоль щита, наружный загнут вверх), фары-«миндаль» со светодиодной
    бровью и линзой; жабра за передним колесом, чёрные зеркала, тонированные стёкла в чёрных рамках, тёмные диски
    «телефонный диск» на пять круглых окон с красными суппортами; сзади — фонари на углах, диффузор и четыре патрубка.
-   БЕЗ значков, эмблем, надписей и текста на номерах (номера пустые); на щите вместо значка — гладкая красная точка
-   в серебряном ободке. Подпись в игре — «Красный седан».
+   БЕЗ значков, эмблем, надписей и текста на номерах (номера пустые); щит — просто тёмная решётка в тёмной рамке
+   (без светлого контура и без «точки» на месте значка — не читается как эмблема). Подпись в игре — «Красный седан».
    v3: масштаб один по всем осям — машина настоящих пропорций (высота 1,56; v2 была на 7 % выше). Героиня сидит
    в низком спортивном кресле: driveInput() отдаёт HeroAnim seat: 'low' (таз ниже, ноги вытянуты к педалям pedal,
    корпус чуть откинут, руки на руле); у ретро-купе поза прежняя. Её видно сквозь тонированные заднее и боковые стёкла.
@@ -45,8 +45,9 @@
          seatDog (собачка, сзади слева), doorL / doorR (точки у дверей снаружи), on/off('edge'|'bump'|'horn'), horn(),
          paintMesh, trimMesh, glass, outline, plate (null), wheels ({fl,fr,rl,rr} вместо InstancedMesh)
        Своё: kind 'sedan', model, dims, driveCfg, doors, seats, steeringWheel, lights, lamps, stats, lod,
+         cockpit (W7) { eye, wheel: { c, r, tilt, axis }, gripL, gripR } — оси body, для вида «из-за руля» (как у кабриолета),
          openDoor(id, open = true, dur) → Promise, setDoor(id, k), doorK(id), doorsBusy, tick(dt), setWheelLift(k, lift),
-         setBrake(k|null), setHeadlights(k), setNight(k 0..1), autoLights, doorStand(id) → Vector3 (оси body),
+         setBrake(k|null), setHeadlights(k), setNight(k 0..1), setFar(k) (дальний вид, k > 0: без салона), autoLights, doorStand(id) → Vector3 (оси body),
          makeCover() → чехол с бантом на крыше (setOn), dispose()
        ВАЖНО (желание автора): без газа машина только мягко катится (o.coast), сама не тормозит перед бордюром
          (o.autoBrake: false) и не сбавляет ход в повороте (o.turnSlow: false); руль — только от игрока.
@@ -55,9 +56,9 @@
        ctl.setLocked(b) / locked · setCovered(b|null) · canEnter(x,z) · enter(hero, { cat, dog, instant }) → Promise<bool>
        ctl.exit({ instant }) → Promise<{ x, z, ry, pets }> · update(dt, input) → { bumped, edge } · horn() · animState()
        ctl.driveInput() · on('edge'|'locked'|'enter'|'exit'|'horn'|'bump', fn) · mode · seats · pos · speed · ry · dispose()
-     VEHICLES.CHOICES — [{ id:'coupe', title:'Ретро-купе' }, { id:'sedan', title:'Красный седан' }] (+ make, ctl, note)
+     VEHICLES.CHOICES — [{ id:'coupe', title:'Жёлтый кабриолет' }, { id:'sedan', title:'Красный седан' }] (+ make, ctl, note)
      VEHICLES.makeCar(id, H, o) / VEHICLES.createCtl(id, o) — фабрики по выбору игрока
-     VEHICLES.picker({ current, onPick }) → HTMLElement — две карточки «Ретро-купе / Красный седан» (мягкие, без брендов)
+     VEHICLES.picker({ current, onPick }) → HTMLElement — две карточки «Жёлтый кабриолет / Красный седан» (мягкие, без брендов)
 
    Подключение: после three.min.js (и world/kit.js, world/car.js — если есть). Файл самостоятельный.
    ===================================================================== */
@@ -685,7 +686,7 @@
     const torus = (r, t, rs, ts) => ge(new T.TorusGeometry(r, t, rs || 5, ts || 18));
     const pil = (acc, col, p, s, r, bone, lg, e, res) => acc.geo(pillow(e, res === undefined ? (LITE ? 0 : 1) : res), M(p, r, [s[0] / 2, s[1] / 2, s[2] / 2]), col, bone, lg);
 
-    /* ---------- нос: щит с сотами и серебряной рамкой, точка вместо значка, фары с бровью, заборники, губа, номер ---------- */
+    /* ---------- нос: щит с сотами в тёмной рамке, фары с бровью, заборники, губа, номер ---------- */
     const lamps = { head: [], tail: [], brake: [] };
     const KPT = {};   // ключевые точки (оси body) — для сверки с фото
     const kpt = (k, h) => { if (h) KPT[k] = h.p.map(v => +v.toFixed(3)); };
@@ -695,22 +696,16 @@
       const yT = Math.min(0.775, faceTop(0) - 0.022), yB0 = 0.318, th0 = 9.2;
       const w = v => th0 * Math.pow(Math.sin(clamp(v, 0, 1) * PI / 2), 0.8);
       const yAt = u => lerp(yT, yB0, u), vAt = u => (yAt(u) - yB0) / (yT - yB0);
-      decal(AT, rayF, u => [-w(vAt(u)), yAt(u)], u => [w(vAt(u)), yAt(u)], NU, LITE ? 4 : 6, 0.011, C.mesh, 0, 5);
+      // облегчённой сборке — те же 6 рядов и решётка на 3 мм выше: иначе сквозь неё у «клюва» проступало красное пятнышко-«значок»
+      decal(AT, rayF, u => [-w(vAt(u)), yAt(u)], u => [w(vAt(u)), yAt(u)], NU, 6, LITE ? 0.014 : 0.011, C.mesh, 0, 5);
       kpt('shieldTop', rayF(0, yT)); kpt('shieldTip', rayF(0, yB0)); kpt('shieldTL', rayF(th0, yT)); kpt('shieldTR', rayF(-th0, yT));   // чётное число колонок: средняя — по гребню «клюва»
-      // серебряная рамка по контуру (верх — с лёгкой «шапочкой» посередине)
+      // тёмная рамка по контуру (верх — с лёгкой «шапочкой» посередине); светлый контур читался как эмблема — убран
       const outline = [], nO = LITE ? 14 : 22;
       for (let i = 0; i <= nO; i++) { const u = i / nO; outline.push([w(vAt(u)), yAt(u)]); }
       for (let i = nO - 1; i >= 1; i--) { const u = i / nO; outline.push([-w(vAt(u)), yAt(u)]); }
       for (let i = 0; i <= 6; i++) { const th = lerp(-th0 * 0.94, th0 * 0.94, i / 6); outline.push([th, yT + 0.012 * (1 - Math.pow(th / th0, 2))]); }
       const op = []; outline.forEach(([th, y]) => { const h = rayF(th, y); if (h) op.push([h.p[0] + h.n[0] * 0.013, h.p[1] + h.n[1] * 0.013, h.p[2] + h.n[2] * 0.013]); });
-      tubeAlong(AT, op, LITE ? 0.009 : 0.0075, LITE ? 24 : 44, LITE ? 3 : 4, C.frame, 0, 0, true);
-      // гладкая точка вместо значка: красная, в серебряном ободке (без рисунка)
-      const hb = rayF(0, yT - 0.045);
-      if (hb) {
-        const q = qOf(hb.n), base = new T.Vector3(hb.p[0], hb.p[1], hb.p[2]).addScaledVector(new T.Vector3(hb.n[0], hb.n[1], hb.n[2]), 0.016);
-        AT.geo(torus(0.032, 0.007, 4, LITE ? 12 : 16), new T.Matrix4().compose(base, q, new T.Vector3(1, 1, 1)), C.frame, 0, 0);
-        AT.geo(pillow(0.5, LITE ? 0 : 1), new T.Matrix4().compose(base, q, new T.Vector3(0.028, 0.028, 0.01)), C.red, 0, 0);
-      }
+      tubeAlong(AT, op, LITE ? 0.009 : 0.0075, LITE ? 24 : 44, LITE ? 3 : 4, C.black, 0, 0, true);
       [1, -1].forEach(sd => {
         // фары (фото c1/c4/c5): узкая тёмная линза; внутренний конец острый — у верхнего угла щита, к наружному концу
         // фара толще и скруглена, заходит на крыло; верх — по кромке капота; светодиодная бровь по верху и «подводка» снизу
@@ -917,6 +912,10 @@
     });
     mark('wheels');
     /* ---------- сетки ---------- */
+    // дальний вид (js/world/main.js carLod: стоит далеко): салон — в конце индекса отделки, setFar(true) его не рисует
+    const cab0 = (parts.nose + parts.tail + parts.sides) * 3, cab1 = cab0 + parts.cabin * 3;
+    AT.i = AT.i.slice(0, cab0).concat(AT.i.slice(cab1), AT.i.slice(cab0, cab1));
+    const trimFarN = cab0 + AT.i.length - cab1;
     const paintGeo = AP.build(false), trimGeo = AT.build(true), glassGeo = AG.build(false);
     GE.forEach(x => x.dispose());
     [paintGeo, trimGeo, glassGeo].forEach(gm => { keep(gm); gm.boundingSphere.radius += 1.3; });
@@ -968,6 +967,7 @@
       heroSeat: v3(HERO_SEAT), wheelCenter: v3(WHEEL_C), wheelRel: v3(WHEEL_REL),
       stats: { kp: KPT, parts, stations: NSt, paintTris: paintGeo.index.count / 3, trimTris: trimGeo.index.count / 3, glassTris: glassGeo.index.count / 3, lite: LITE, tris: Math.round(tris), verts: paintGeo.attributes.position.count + trimGeo.attributes.position.count + glassGeo.attributes.position.count, calls: 4, shadowCalls: 2, buildMs: Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0) },
       setColor(hex) { paintMat.color.set(hex); },
+      setFar(on) { trimGeo.setDrawRange(0, on ? trimFarN : Infinity); },
       setDoor,
       // колёса, руль и кузов по состоянию S (как car.js: x, z, ry, v, steer, spin, pitch, roll, sq)
       pose(S, noRoot) {
@@ -1014,6 +1014,8 @@
         o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t0 + dur + 0.12);
       });
       note(t, 370, 0.13, 0.05); note(t + 0.18, 466, 0.2, 0.05);
+      // мотор на миг тише (≈ −8 дБ), чтобы «па-пам» было слышно и на полном ходу
+      if (window.EngineSound && EngineSound.duck) EngineSound.duck(0.4, 0.55);
       return true;
     } catch (e) { return false; }
   }
@@ -1077,6 +1079,8 @@
     const ok = (x, z, ry) => { const fx = Math.sin(ry), fz = Math.cos(ry); return can(x + fx * 1.75, z + fz * 1.75) && can(x - fx * 1.7, z - fz * 1.7) && can(x, z); };
     /* ctl: { dir: [dx, dz, mag] (джойстик в мире) | null, thr: -1..1, str: -1..1 (клавиши, + — вправо), brake } → { bumped, edge } */
     const SLIDE = [0.06, -0.06, 0.14, -0.14, 0.26, -0.26], RES = { bumped: false, edge: null };   // без выделений памяти за кадр
+    // звук мотора (js/engine_sound.js): голос седана; один объект на машину
+    const ES = { kind: 'sedan', speed: 0, vmax: VMAX, throttle: 0, braking: false, onGround: true, driving: true };
     function update(dt, ctl) {
       dt = Math.min(Math.max(dt || 0, 0), 0.05);
       let target = 0, delta = 0, braking = false, hasInput = false;
@@ -1140,6 +1144,8 @@
         if (!S.edgeIn && d < R && Math.abs(S.v) > 0.3) { S.edgeIn = true; edge = Object.assign({ x: E.x, z: E.z }, E, { car: { x: S.x, z: S.z, ry: S.ry } }); emit('edge', edge); }
         else if (S.edgeIn && d > R + 4) S.edgeIn = false;
       }
+      // звук мотора: скорость, сколько газа просит игрок (цель / VMAX), тормоз
+      if (window.EngineSound) { ES.driving = true; ES.speed = S.v; ES.throttle = Math.abs(target) / VMAX; ES.braking = braking; EngineSound.update(ES, dt); }
       RES.bumped = bumped; RES.edge = edge;
       return RES;
     }
@@ -1197,6 +1203,12 @@
       paintMesh: md.paint, trimMesh: md.trim, glass: md.glass, outline: md.outline, plate: null,
       wheels: md.wheels, doors: md.doors, seats: md.seats, steeringWheel: md.steeringWheel, lights: md.lights, lamps: md.lamps,
       dims: md.dims, driveCfg: md.driveCfg, stats: md.stats,
+      // W7: вид «из-за руля» (оси body): глаза героини в низком кресле (замер по скину: +1,517 над корнем, +0,109 вперёд),
+      // руль { c, r, tilt, axis }, руки на ободе «на 10 и 2» (±60° от верха, как HeroAnim) при прямом руле; gripL — левая (+x)
+      cockpit: (() => {
+        const c = md.wheelCenter, a = PI / 3, g = sd => [c.x + sd * Math.sin(a) * WHEEL_RAD, c.y + Math.cos(TILT) * Math.cos(a) * WHEEL_RAD, c.z + Math.sin(TILT) * Math.cos(a) * WHEEL_RAD];
+        return { eye: [heroSeat.x, heroSeat.y + 1.517, heroSeat.z + 0.109], wheel: { c: [c.x, c.y, c.z], r: WHEEL_RAD, tilt: TILT, axis: [0, -Math.sin(TILT), Math.cos(TILT)] }, gripL: g(1), gripR: g(-1) };
+      })(),
       heroSeat,
       seatDriver: new T.Vector3(heroSeat.x, heroSeat.y + 0.52, heroSeat.z),   // старый путь main.js: корень = seatDriver.y − 0.52
       seatPass: md.petSeats.cat.clone(),   // кот — сзади справа, на розовой подушке
@@ -1209,6 +1221,8 @@
       setBrake(k) { anim.brakeOverride = k === null || k === undefined ? null : clamp(+k, 0, 1); },
       setHeadlights(k) { md.lights.head.value = clamp(+k || 0, 0, 2); },
       setNight(k) { anim.night = clamp(+k || 0, 0, 1); md.lights.head.value = lerp(0.22, 1.25, anim.night); md.lights.tail.value = lerp(0.12, 0.55, anim.night); },
+      // дальний вид стоящей машины: без салона (js/world/main.js carLod)
+      setFar: md.setFar,
       set autoLights(b) { anim.autoLights = !!b; }, get autoLights() { return anim.autoLights; },
       makeCover, lod: LOD,
       on(n, f) { (ev[n] = ev[n] || []).push(f); return () => car.off(n, f); },
@@ -1216,6 +1230,8 @@
       horn() { hornSound(); emit('horn', { x: S.x, z: S.z }); return true; },
       dispose() { md.dispose(); },
     };
+    // звук мотора: тот же объект — контроллеру посадки (вышла — EngineSound.park: мотор затихает с падением оборотов)
+    car.sound = ES;
     return car;
   }
 
@@ -1356,6 +1372,8 @@
     function update(dt, inp) {
       dt = Math.min(Math.max(dt || 0, 0), 0.05);
       if (st.tween) { st.tween.t += dt; const k = Math.min(1, st.tween.t / st.tween.dur); st.tween.tick(k, st.tween.t); if (k >= 1 && st.tween) st.tween.done(); }
+      // не за рулём: только что ехала — мотор затихает (обороты падают), потом ничего не делает
+      if (st.mode !== 'drive' && window.EngineSound && car.sound) EngineSound.park(car.sound, dt);
       if (st.mode !== 'drive') { car.tick(dt); car.place && car.model.pose(car.S); NONE.bumped = false; NONE.edge = null; return NONE; }
       let ctl = inp || null;
       if (st.braking) ctl = { brake: true };
@@ -1387,10 +1405,10 @@
   }
 
   /* =====================================================================
-     ВЫБОР МАШИНЫ: «Ретро-купе / Красный седан»
+     ВЫБОР МАШИНЫ: «Жёлтый кабриолет / Красный седан» (W7: id 'coupe' — прежний ключ сохранений, кузов — js/vehicles/cabrio.js)
      ===================================================================== */
   const CHOICES = [
-    { id: 'coupe', title: 'Ретро-купе', note: 'Кругленькая, с открытым верхом', color: '#A8D8C4',
+    { id: 'coupe', title: 'Жёлтый кабриолет', note: 'Открытый верх, мотор сзади', color: '#FCD93A',
       make: (H, o) => (window.WORLD && WORLD.makeCar ? WORLD.makeCar(H, o) : null), ctl: o => (window.WORLD && WORLD.Car ? WORLD.Car.create(o) : null) },
     { id: 'sedan', title: 'Красный седан', note: 'Четыре двери, место для всех', color: '#C8102E',
       make: (H, o) => makeCar(H, o), ctl: o => create(o) },

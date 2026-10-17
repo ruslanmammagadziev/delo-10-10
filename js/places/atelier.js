@@ -391,6 +391,9 @@
 .at-row .swatch { width: 40px; height: 40px; position: relative; }
 .at-row .swatch.fresh::after { content: "✦"; position: absolute; right: -6px; top: -8px; color: #E5A93B; font-size: 14px; font-weight: 900; text-shadow: 0 0 3px #fff; }
 .at-note { font-size: 12.5px; color: var(--ink-2); font-weight: 700; text-align: center; margin: 2px 0 0; }
+.modal.sheet.at-sheet { background: rgba(58,46,63,.08); }
+.at-sheet .sheet-actions { flex-direction: row; }
+.at-sheet .sheet-actions .btn { flex: 1 1 0; min-width: 0; }
 `);
 
   function heroSvg(lk) { try { return Art.heroine({ bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { return ''; } }
@@ -398,9 +401,11 @@
   async function fitting(ctx) {
     const orig = ctx.look, look = { bow: orig.bow, coat: orig.coat, hair: orig.hair }, w = ctx.week;
     if (ctx.is3d) { if (ctx.api.isSitting) ctx.stand(); await ctx.api.walkTo(0.6, -3.6); ctx.api.faceCamera(); ctx.focus(0.6); }
+    // в 3D зеркало — сама героиня: овал с рисунком не нужен, лист ниже и почти без затемнения, камера ставит её над листом
+    const mini = ctx.is3d && typeof ctx.api.focusHeroIn === 'function';
     const row = key => palette(key, w).map(x => `<button class="swatch${look[key] && look[key].toLowerCase() === x.c.toLowerCase() ? ' on' : ''}${x.fresh ? ' fresh' : ''}" data-k="${key}" data-c="${x.c}" style="background:${x.c}" aria-label="${x.n}"></button>`).join('');
     const body = document.createElement('div'); body.className = 'at-fit';
-    body.innerHTML = `<div class="at-oval">${heroSvg(look)}</div>
+    body.innerHTML = `${mini ? '' : `<div class="at-oval">${heroSvg(look)}</div>`}
       <div class="opt-label">Бант и берет</div><div class="at-row">${row('bow')}</div>
       <div class="opt-label">Тренч</div><div class="at-row">${row('coat')}</div>
       <div class="opt-label">Волосы</div><div class="at-row">${row('hair')}</div>
@@ -408,9 +413,16 @@
     let r = null;
     try {
       r = await ctx.sheet({
-        title: 'Примерочная', body,
+        title: 'Примерочная', body, cls: mini ? 'at-sheet' : '',
         actions: [{ label: 'Готово', value: 'ok' }, { label: 'Как было', value: 'back', cls: 'soft' }],
-        onMount(el) {
+        onMount(el, close, m) {
+          if (mini && m) {
+            try {
+              const card = m.querySelector('.sheet-card'), hud = document.getElementById('hud');
+              const top = hud && hud.offsetHeight ? hud.getBoundingClientRect().bottom : 0;
+              ctx.api.focusHeroIn(top + 4, m.getBoundingClientRect().top + card.offsetTop - 4);
+            } catch (e) { /* ушла */ }
+          }
           el.addEventListener('click', e => {
             const b = e.target.closest('.swatch'); if (!b || ctx.gone) return;
             e.stopPropagation();

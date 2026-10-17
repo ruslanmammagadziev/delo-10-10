@@ -180,7 +180,7 @@
         snow: [{ who: 'wed_aunt', text: 'Ох! Ха-ха, холодно!' }],
       },
       paltar: {
-        spar: [{ who: 'paltar', text: 'Ну-ка, кто кого? Звяк-звяк!' }, { who: 'paltar', text: 'Ещё разок? Колокольчики готовы!' }],
+        spar: [{ who: 'paltar', text: 'Ну-ка, кто кого? Звяк-звяк!' }, { who: 'paltar', text: 'Ещё разок? Кольчуга звенит — я готов!' }],
         tumble: [{ who: 'paltar', text: 'Уа-а-а! Звяк!' }, { who: 'paltar', text: 'Ой-ой, кольчуга звенит!' }],
         bow: [{ who: 'paltar', text: 'Ловко! Кланяюсь!' }],
         champion: [{ who: 'paltar', text: 'Сдаюсь, сдаюсь! Ты — чемпионка!' }],

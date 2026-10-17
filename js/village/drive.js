@@ -29,7 +29,12 @@
        seatLocal() — куда ставить корень героини в car.body; driveOpt() — opt.drive для HeroAnim; doorPoint() — дверь (мир)
        collider — коробка машины для ходьбы ({type:'box', …, off} — выключена, пока героиня за рулём); create({ dynamic })
                   кладёт её в массив региона (serpentine: handle.dynamic), handle.collide её учитывает
-   VILLAGE.drive.chase({ THREE, camera, ground }) → камера-следилка: update(dt, drive, opt), snap().
+   VILLAGE.drive.chase({ THREE, camera, ground }) → камера-следилка: update(dt, drive, opt), snap(), resume().
+     W7: opt.yawOff / opt.pitch — взгляд пальцем (рад: вокруг машины / + вверх, на небо); «посмотри туда» (opt.look) — не дальше
+         ~20° от курса, машина всегда в кадре (желание 9); resume() — продолжить с того места, где сейчас камера (после вида из-за руля).
+   VILLAGE.drive.cockpit({ THREE, camera }) → вид «из-за руля» (W7, желание 10; город и горы): on(b), update(dt, car, hero, opt)
+     → bool, active, blend — камера в салоне по car.cockpit (руль на ~66 % высоты кадра, руки героини на ободе, приборы, рамка
+     стекла); от героини на время вида видны только руки (своя сетка «руки» по весам скина), остальное спрятано слоем.
    VILLAGE.drive.touchInput({ jx, jy, gas, brake, v }) → { thr, str, brake } — рекомендуемая раскладка телефона:
      палец слева по горизонтали — руль (пропорционально, мягкий центр), педали справа — газ/тормоз (тормоз после остановки — назад).
    road (из региона): { len, project(x, z, hintS), sample(s), kmax(s, ahead), areas?(x, z, hintS, hintB), surface?(x, z, hintS),
@@ -225,6 +230,8 @@
       mode: 'drive', hero: null, tween: null, kind: 'gravel', wet: 0, edges: 0, splashT: 0, dustT: 0, lastPuddle: false,
     };
     const pos = new T.Vector3();
+    // звук мотора (js/engine_sound.js): голос седана или кабриолета; один объект на машину — без новых объектов за кадр
+    const ES = { kind: car && car.kind === 'sedan' ? 'sedan' : 'cabrio', speed: 0, vmax: cfg.vmax, throttle: 0, braking: false, onGround: true, driving: false };
     const collider = { type: 'box', x: 0, z: 0, w: 1.9, d: 4.1, ry: 0, y0: -1e4, y1: 1e4, id: 'car', kind: 'car', noCar: true, off: true };
     // W6: лёгкое касание (камушек со скалы): кузов чуть вздрагивает на подвеске; скорость и курс не меняются
     function tap(k) { k = clamp(k == null ? 0.3 : k, 0, 1); S.svy -= 0.9 * k; S.svr += (Math.random() - 0.5) * 2.4 * k; S.svp += (Math.random() - 0.5) * 1.2 * k; S.taps = (S.taps || 0) + 1; return true; }
@@ -591,6 +598,8 @@
       S.kind = kind; S.wet = wet;
       apply();
       emitFx(dt, edgeAt);
+      // звук мотора: за рулём (и пока дотормаживает перед выходом) — обороты от скорости и газа; вышла — мотор глохнет
+      if (window.EngineSound) { ES.speed = S.v; ES.throttle = driving ? Math.abs(target) / cfg.vmax : 0; ES.braking = !!S.braking; ES.driving = driving || S.mode === 'stopping'; EngineSound.update(ES, dt); }
       if (S.mode === 'stopping' && Math.abs(S.v) < 0.05 && S.onStop) S.onStop();
       return { bumped, edge, s: S.s, e: S.e, onRoad, surface: kind, rid: S.rid };
     }
@@ -666,35 +675,55 @@
   /* ---------- камера-следилка для горной дороги ---------- */
   function chase(o) {
     const T = o.THREE || window.THREE, cam = o.camera, ground = typeof o.ground === 'function' ? o.ground : () => -1e9;
-    const st = { yaw: 0, bias: 0, lw: 0, lookP: null, init: false, idleT: 0, iw: 0, pos: new T.Vector3(), look: new T.Vector3(), want: new T.Vector3(), lk: new T.Vector3(), p: new T.Vector3(), q: new T.Vector3(), h: new T.Vector3() };
+    const st = { yaw: 0, bias: 0, lw: 0, calm: 1, lookP: null, init: false, idleT: 0, iw: 0, th: 0, th0: 0, pos: new T.Vector3(), look: new T.Vector3(), want: new T.Vector3(), lk: new T.Vector3(), p: new T.Vector3(), q: new T.Vector3(), h: new T.Vector3(), aim: new T.Vector3() };
     function update(dt, d, opt) {
       opt = opt || {};
-      const S = d.S, vmax = (d.cfg && d.cfg.vmax) || CFG.vmax, sp = Math.min(1, Math.abs(S.v) / vmax);
+      const S = d.S, cf = d.cfg || CFG, vmax = cf.vmax || CFG.vmax, sp = Math.min(1, Math.abs(S.v) / vmax);
       const k = d.road ? d.road.kmax(S.s, 12) : 0, kN = clamp(k * 7, 0, 1);
       const y = S.yb != null ? S.yb : S.y;   // ровная высота — камера не трясётся на ямах
       if (!st.init) st.yaw = S.ry;
       st.bias += ((opt.yawBias || 0) - st.bias) * damp(0.8, dt);
-      const yawT = S.ry + st.bias;
-      st.yaw += angDiff(yawT, st.yaw) * (st.init ? damp(1 / 0.5, dt) : 1);
+      // W7 (желание 3): палец по экрану — камера вокруг машины (opt.yawOff, рад), пока палец ведёт — без запаздывания
+      const yawOff = opt.yawOff || 0, yawT = S.ry + st.bias + yawOff;
+      st.yaw += angDiff(yawT, st.yaw) * (st.init ? damp(yawOff ? 7 : 1 / 0.5, dt) : 1);
       // волна 4: чуть ближе и ниже, чтобы за рулём было видно героиню
       // W4A: машина длиннее купе (седан: halfL 2,42) — камера дальше и выше: видно героиню за рулём сквозь стеклянную крышу
       const ext = d.cfg && d.cfg.halfL ? Math.max(0, d.cfg.halfL - CFG.halfL) : 0;
-      const dist = (opt.dist || 8.6 + ext * 1.15) + sp * 2 + kN * 1.6, hgt = (opt.height || 3.7 + ext * 1.0) + kN * 2.4 + sp * 0.5;
-      const fx = Math.sin(S.ry), fz = Math.cos(S.ry), ahead = 1.5 + sp * 3 * Math.sign(S.v || 1);
+      let dist = (opt.dist || 8.6 + ext * 1.15) + sp * 2 + kN * 1.6, hgt = (opt.height || 3.7 + ext * 1.0) + kN * 2.4 + sp * 0.5;
+      // W7: камера повёрнута пальцем вбок — точка взгляда на самой машине (а не впереди неё): в узком кадре телефона машина посередине
+      const fx = Math.sin(S.ry), fz = Math.cos(S.ry), ahead = (1.5 + sp * 3 * Math.sign(S.v || 1)) * (1 - Math.min(1, Math.abs(yawOff) / 0.6));
       st.lk.set(S.x + fx * ahead, y + 1.15, S.z + fz * ahead);
-      // «посмотри туда»: камера заходит за машину со стороны цели и смотрит поверх неё на цель (вес opt.lookW)
-      const lw = opt.look ? clamp(opt.lookW == null ? 1 : opt.lookW, 0, 1) : 0;
+      // «посмотри туда» (W7, желание 9: «камера сама уходит на село, и я врезаюсь»): поворот к цели — не больше 20° от курса,
+      // точка взгляда остаётся на машине (к цели — не дальше 2 м), камера чуть выше и угол чуть шире — село входит в кадр сзади
+      // машины, а машина — в середине кадра, и руль работает как обычно. Руль заметно повёрнут или впереди крутой поворот —
+      // «посмотри» гаснет сам (за 0,2 с), отпустил — снова (за 0,7 с)
+      const lim = cf.steerMax + ((cf.steerHi || cf.steerMax) - cf.steerMax) * sm(3, vmax, Math.abs(S.v));
+      const calmT = (1 - sm(0.18, 0.5, Math.abs(S.steer) / Math.max(0.1, lim))) * (1 - sm(0.35, 0.85, kN));
+      st.calm += (calmT - st.calm) * damp(calmT < st.calm ? 5 : 1.4, dt);
+      const lw = opt.look ? clamp(opt.lookW == null ? 1 : opt.lookW, 0, 1) * st.calm : 0;
       st.lw += (lw - st.lw) * damp(3, dt);
       if (st.lw > 0.002 && (opt.look || st.lookP)) {
         if (opt.look) st.lookP = opt.look;
         const L = st.lookP, ya = Math.atan2(L.x - S.x, L.z - S.z), e = sm(0, 1, st.lw);
-        st.yaw += angDiff(S.ry + angDiff(ya, S.ry) * e, st.yaw) * damp(4, dt) * e;
-        st.lk.lerp(st.p.set(S.x + (L.x - S.x) * 0.04, y + 1.2 + (L.y - y) * 0.025, S.z + (L.z - S.z) * 0.04), e);
+        const da = clamp(angDiff(ya, S.ry), -0.35, 0.35);
+        st.yaw += angDiff(S.ry + st.bias + yawOff + da * e, st.yaw) * damp(4, dt) * e;
+        const lx = L.x - S.x, lz = L.z - S.z, ll = Math.hypot(lx, lz) || 1, sh = Math.min(2, ll * 0.04);
+        st.lk.lerp(st.p.set(st.lk.x + lx / ll * sh, y + 1.2, st.lk.z + lz / ll * sh), e);
+        hgt += 1.3 * e; dist += 0.8 * e;
+      }
+      // W7 (желание 3): вверх-вниз пальцем (opt.pitch, рад, + вверх) — камера по дуге вокруг точки взгляда: вниз — выше,
+      // вверх — ниже и ближе (машина и героиня внизу кадра, сверху — небо); у земли не ниже ~0,9 м, дальше поднимается взгляд
+      st.th0 = -Math.atan2(hgt - 1.15, dist); st.th = st.th0;
+      const pu = opt.pitch || 0;
+      if (pu) {
+        const R = Math.hypot(dist, hgt - 1.15), th = clamp(st.th0 + pu, -0.8, 0.42), R2 = R * (1 - 0.3 * Math.max(0, th) / 0.42);
+        st.th = th; dist = R2 * Math.cos(th); hgt = 1.15 - R2 * Math.sin(th);
       }
       st.want.set(S.x - Math.sin(st.yaw) * dist, y + hgt, S.z - Math.cos(st.yaw) * dist);
       // волна 4: машина стоит (газ отпущен) дольше 2,5 с — камера плавно заходит спереди со стороны водителя и показывает
       // героиню за рулём (в закрытом седане сзади её не видно: крыша и стойка); тронулась — снова за машиной. opt.idle = false — выкл.
-      st.idleT = opt.idle !== false && Math.abs(S.v) < 0.3 && (!d.mode || d.mode === 'drive') && !opt.look ? st.idleT + dt : 0;
+      // W7: пока игрок сам смотрит пальцем (yawOff / pitch), камера спереди не заходит
+      st.idleT = opt.idle !== false && Math.abs(S.v) < 0.3 && (!d.mode || d.mode === 'drive') && !opt.look && !yawOff && !pu ? st.idleT + dt : 0;
       const iT = st.idleT > 2.5 ? 1 : 0; st.iw += (iT - st.iw) * damp(iT ? 1.1 : 3.5, dt);
       if (st.iw > 0.002 && d.car) {
         const e = sm(0, 1, st.iw), lx = fz, lz = -fx, c = d.car, hs = (c.heroSeat || { x: 0.31, y: 0.2, z: 0.06 });
@@ -707,33 +736,181 @@
       // туда, где земля выше машины, — подтягивается к машине по горизонтали (не ближе 2,5 м) и опускается (до 2,1 м над
       // машиной): в кадре и машина внизу, и село за ней. Поправка — с весом взгляда (как поворот выше): когда взгляд гаснет,
       // камера плавно возвращается, а не прыгает на прежнее место; шаг 28 % уточняется пробой посередине
-      if (st.lw > 0.002) {
+      // W7: то же, когда игрок сам повернул камеру вбок пальцем (yawOff): со стороны скалы камера не лезет на склон
+      const wPull = Math.max(st.lw, Math.min(1, Math.abs(yawOff) / 0.5));
+      if (wPull > 0.002) {
         const hx = st.want.x - S.x, hz = st.want.z - S.z, hd = Math.hypot(hx, hz) || 1;
         let k = 1, free = false;
         for (let it = 0; it < 7 && hd * k > 2.5; it++) { if (ground(S.x + hx * k, S.z + hz * k) < y + 1.2) { free = true; break; } k = Math.max(2.5 / hd, k * 0.72); }
         if (free && k < 1) { const km = Math.min(1, (k + k / 0.72) / 2); if (ground(S.x + hx * km, S.z + hz * km) < y + 1.2) k = km; }
         if (k < 1) {
-          const e = sm(0, 1, st.lw);
+          const e = sm(0, 1, wPull);
           st.want.x += (S.x + hx * k - st.want.x) * e; st.want.z += (S.z + hz * k - st.want.z) * e;
           st.want.y += (y + 2.1 + (st.want.y - y - 2.1) * k - st.want.y) * e;
         }
       }
       // склон не загораживает: камера над землёй и над линией взгляда
-      const gy = ground(st.want.x, st.want.z); if (st.want.y < gy + 1.5) st.want.y = gy + 1.5;
+      const up = Math.max(0, st.th) / 0.42, gy = ground(st.want.x, st.want.z), gMin = 1.5 - 0.8 * up;
+      if (st.want.y < gy + gMin) st.want.y = gy + gMin;
       for (const t of [0.3, 0.55, 0.8]) {
         st.p.lerpVectors(st.lk, st.want, t); const g = ground(st.p.x, st.p.z) + 0.7;
         if (st.p.y < g) st.want.y += (g - st.p.y) / t;
       }
       if (!st.init) { st.pos.copy(st.want); st.look.copy(st.lk); st.init = true; }
       st.pos.lerp(st.want, damp(6, dt)); st.look.lerp(st.lk, damp(10, dt));
-      cam.position.copy(st.pos); cam.lookAt(st.look);
+      cam.position.copy(st.pos);
+      // взгляд вверх: камера упёрлась в землю (или поднята склоном) — сама точка взгляда поднимается до нужного наклона
+      // машина (середина кузова, ~0,45 м ниже точки взгляда) — не ниже ~72 % высоты кадра, над джойстиком и педалями
+      if (st.th > st.th0 + 1e-3) {
+        const hd = Math.hypot(st.look.x - st.pos.x, st.look.z - st.pos.z);
+        const thE = Math.min(st.th, Math.atan2(st.look.y - 0.45 - st.pos.y, Math.max(0.5, hd)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
+        st.aim.copy(st.look); st.aim.y = Math.max(st.look.y, st.pos.y + hd * Math.tan(thE)); cam.lookAt(st.aim);
+      } else cam.lookAt(st.look);
       if (opt.fov !== false) {
-        const base = opt.fovBase || (cam.aspect < 0.8 ? 58 : 48), fovT = base + sp * 6;
+        const base = opt.fovBase || (cam.aspect < 0.8 ? 58 : 48), fovT = base + sp * 6 + st.lw * 5;
         if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
       }
     }
-    return { update, snap() { st.init = false; st.iw = 0; st.idleT = 0; }, st };
+    // resume(): продолжить с того места и взгляда, где камера сейчас (после вида из-за руля — плавно наружу, без рывка)
+    function resume() { if (!cam) return; st.pos.copy(cam.position); cam.getWorldDirection(st.p); st.look.copy(cam.position).addScaledVector(st.p, 8); }
+    return { update, snap() { st.init = false; st.iw = 0; st.idleT = 0; }, resume, st };
   }
 
-  V.drive = { create, makeCar, chase, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true } };
+  /* ---------- W7 (желание 10): вид «из-за руля» — для города (js/world/main.js) и гор (js/world/regions.js) ----------
+     Камера в салоне по car.cockpit (оси car.body: wheel.c — центр руля): позади и выше руля, а не в настоящих глазах — голова
+     у героини большая, из глаз руль ушёл бы под самый низ кадра. Камера стоит так, что центр руля — на 66 % высоты кадра (над
+     джойстиком и радаром), горизонт — на ~31 % (дорога видна над рамкой стекла). В кадре — руль (крутится вместе с рулением,
+     кость руля машины), руки героини на ободе (HeroAnim: руки едут вместе с рулём), приборы, рамка стекла и дорога.
+     От героини видны только руки, целые, без срезов: у модели со скелетом на время вида рисуется отдельная сетка «руки» — те же
+     буферы и кости, свой индекс (предплечья и кисти по весам скина; лупа — на своей кости interact.js — не входит) и копия
+     материала (одна компиляция шейдера на сессию); швы у локтей — за краем кадра или у самого края (седан), ровные и изнутри
+     закрытые. Сама героиня, контур и всё, что висит не на кистях (каз, берет, шапочка), прячутся слоем (layers.mask = 0;
+     индекс её сетки не трогаем — его правит каз). Статуэтка и кукла (без скелета) в этом виде не рисуются. Крен кузова не
+     передаётся (горизонт ровный), тангаж и подвеска — да. renderer в o больше не нужен (плоскостей среза нет).
+     opt: { yaw, pitch } — взгляд пальцем (рад: + влево / + вверх; гасит вызывающий). Включение — перелёт 0,45 с; fov 66 (портрет) / 50,
+     near 0,05 (не 72: бюджет q=low ≤ 200k — из салона вдоль улицы видно больше, чем из-за машины); выключение возвращает слои,
+     fov и near как было. Без выделений памяти в кадре. */
+  // сетка «руки» героини для вида из-за руля — одна на сетку героини (город и горы — та же героиня): вес вершины на костях
+  // предплечий и кистей (атрибут ckArm); в индексе — треугольники, где он хоть у одной вершины ≥ 0,5, а шов у локтя ровный:
+  // фрагменты с весом < 0,5 отбрасывает шейдер рук (без «зубцов» по треугольникам). Буферы — общие с героиней (свои только
+  // ckArm и индекс), поэтому сетку рук не dispose()-ят: это сняло бы буферы и у самой героини
+  const ARM = /^(forearm|hand)_/, ARMS = new WeakMap();
+  // материал рук: копия материала героини (та же текстура — и образ из ателье), чужие патчи шейдера (день-ночь, обводка
+  // светом) — цепочкой, а день-ночь саму копию второй раз не патчит (userData.dn = 'none'); обе стороны: срез рукава
+  // у локтя изнутри — как подкладка, а не дыра
+  function armMat(T, src) {
+    const own = n => (Object.prototype.hasOwnProperty.call(src, n) ? src[n] : null), prev = own('onBeforeCompile'), prevKey = own('customProgramCacheKey');
+    const m = src.clone();
+    m.side = T.DoubleSide; m.userData.dn = 'none';
+    m.onBeforeCompile = function (sh, r) {
+      if (prev) prev.call(src, sh, r);
+      sh.vertexShader = 'attribute float ckArm;\nvarying float vCkArm;\n' + sh.vertexShader.replace('void main() {', 'void main() {\n\tvCkArm = ckArm;');
+      sh.fragmentShader = 'varying float vCkArm;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n\tif (vCkArm < 0.5) discard;');
+    };
+    m.customProgramCacheKey = () => 'ckArm1|' + (prevKey ? prevKey.call(src) : prev ? String(prev) : '');
+    return m;
+  }
+  function armMesh(T, rig) {
+    const m = rig && rig.mesh, g = m && m.geometry, sk = m && m.skeleton;
+    if (!m || !m.isSkinnedMesh || !g || !g.index || !sk || (g.groups && g.groups.length) || !g.attributes.skinIndex || !g.attributes.skinWeight || !m.material || Array.isArray(m.material)) return null;
+    let A = ARMS.get(m);
+    if (A && (A.geo !== g || A.nb !== sk.bones.length)) { if (A.mesh) { A.mesh.removeFromParent(); A.mesh.material.dispose(); } A = null; }
+    if (A) {
+      // материал героини сменился или его перепатчили (день-ночь) — свой материал рук заново
+      if (A.mesh && (A.mat0 !== m.material || A.obc !== m.material.onBeforeCompile)) { A.mesh.material.dispose(); A.mesh.material = armMat(T, m.material); A.mat0 = m.material; A.obc = m.material.onBeforeCompile; }
+      return A.mesh;
+    }
+    A = { mesh: null, geo: g, nb: sk.bones.length, mat0: m.material, obc: m.material.onBeforeCompile };
+    ARMS.set(m, A);
+    const keep = sk.bones.map(bn => (ARM.test(bn.name) ? 1 : 0)), kk = i => keep[i] || 0;
+    const SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, n = SI.count, kw = new Float32Array(n);
+    for (let i = 0; i < n; i++) kw[i] = kk(SI.getX(i)) * SW.getX(i) + kk(SI.getY(i)) * SW.getY(i) + kk(SI.getZ(i)) * SW.getZ(i) + kk(SI.getW(i)) * SW.getW(i);
+    const src = g.index.array, out = new src.constructor(src.length);
+    let c = 0;
+    for (let t = 0; t + 2 < src.length; t += 3) if (Math.max(kw[src[t]], kw[src[t + 1]], kw[src[t + 2]]) >= 0.5) { out[c++] = src[t]; out[c++] = src[t + 1]; out[c++] = src[t + 2]; }
+    if (c < 300) return null;
+    const ga = new T.BufferGeometry();
+    for (const k in g.attributes) ga.setAttribute(k, g.attributes[k]);
+    ga.setAttribute('ckArm', new T.BufferAttribute(kw, 1));
+    ga.setIndex(new T.BufferAttribute(out.slice(0, c), 1));
+    if (g.boundingSphere) ga.boundingSphere = g.boundingSphere.clone();
+    const am = new T.SkinnedMesh(ga, armMat(T, m.material));
+    am.name = 'hero:arms'; am.frustumCulled = false; am.castShadow = false; am.receiveShadow = false; am.raycast = () => {};
+    am.bind(sk, m.bindMatrix);
+    A.mesh = am;
+    return am;
+  }
+
+  function cockpit(o) {
+    const T = o.THREE || window.THREE, cam = o.camera;
+    const st = { on: false, k: 0, fov0: 0, near0: 0, lay: [], am: null, hero: null, lp: new T.Vector3(), lt: new T.Vector3(), wp: new T.Vector3(), wt: new T.Vector3(),
+      from: new T.Vector3(), fromL: new T.Vector3(), cur: new T.Vector3(), curL: new T.Vector3() };
+    // что держит кисть (предмет в руке) — на виду; остальное под героиней — слоем прочь
+    const inHand = m => { for (let q = m.parent; q; q = q.parent) if (q.isBone) return ARM.test(q.name); return false; };
+    // что-то надели на героиню уже при виде из-за руля (каз в селе — на её сетке, шапочка — на кости головы) — спрятать и это
+    const kidsOf = hero => { const r = hero.rig, hb = r && r.anim && r.anim.bones && r.anim.bones.head; return hero.root.children.length + (r && r.mesh ? r.mesh.children.length : 0) + (hb ? hb.children.length : 0); };
+    function hideOn(hero, car) {
+      hideOff();
+      if (!hero || !hero.root) return;
+      st.hero = hero;
+      // контур самой машины изнутри не виден (его закрывает кузов), а треугольники стоит — на время вида прячем (бюджет)
+      const ol = car && car.outline;
+      if (ol && ol.isObject3D) { st.lay.push(ol, ol.layers.mask); ol.layers.mask = 0; }
+      const am = st.am = armMesh(T, hero.rig);
+      // руки — дочерняя сетка самой героини (её матрица та же; слой у героини не наследуется — руки видны)
+      if (am) hero.rig.mesh.add(am);
+      hero.root.traverse(m => {
+        if (m === am || !(m.isMesh || m.isSprite || m.isPoints || m.isLine) || (am && inHand(m))) return;
+        st.lay.push(m, m.layers.mask); m.layers.mask = 0;
+      });
+      st.kids = kidsOf(hero);
+    }
+    function hideOff() {
+      for (let i = 0; i < st.lay.length; i += 2) st.lay[i].layers.mask = st.lay[i + 1];
+      st.lay.length = 0; st.hero = null;
+      if (st.am) { st.am.removeFromParent(); st.am = null; }
+    }
+    function on(b) {
+      b = !!b; if (b === st.on) return st.on;
+      st.on = b;
+      if (b) {
+        st.k = 0; st.fov0 = cam.fov; st.near0 = cam.near;
+        st.from.copy(cam.position); cam.getWorldDirection(st.wt); st.fromL.copy(cam.position).addScaledVector(st.wt, 6);
+      } else {
+        hideOff();
+        cam.fov = st.fov0 || cam.fov; cam.near = st.near0 || cam.near; cam.updateProjectionMatrix();
+      }
+      return st.on;
+    }
+    function update(dt, car, hero, opt) {
+      if (!st.on) return false;
+      if (!car || !car.body || !car.cockpit || !car.cockpit.wheel) { on(false); return false; }
+      opt = opt || {};
+      const C = car.cockpit, c = C.wheel.c, body = car.body;
+      body.updateWorldMatrix(true, false);
+      // кадр: центр руля — на 66 % высоты (на 0,32 полуэкрана ниже середины), горизонт — на ~31 % (0,38 выше): камера на 0,66 м
+      // позади центра руля и выше на 0,66·tg(угол между ними); взгляд — так, чтобы руль встал на место. Седан: панель и козырёк
+      // приборов высокие — камера не ниже глаз героини (+4 см, иначе дороги за панелью не видно) и не выше крыши, руль — на 68 %
+      const fovT = cam.aspect < 0.8 ? 66 : 50, tf = Math.tan(fovT * PI / 360), aH = Math.atan(0.38 * tf);
+      const sedan = car.kind === 'sedan', roof = sedan && car.dims && car.dims.height ? car.dims.height - 0.14 : 9;
+      const y0 = c[1] + 0.66 * Math.tan(Math.atan(0.32 * tf) + aH), ly = Math.min(Math.max(y0, sedan && C.eye ? C.eye[1] + 0.04 : -9), roof);
+      const aW = Math.atan((ly > y0 + 0.01 ? 0.36 : 0.32) * tf);
+      st.lp.set(c[0], ly, c[2] - 0.66);
+      const wa = Math.atan2(c[1] - st.lp.y, c[2] - st.lp.z);
+      const yaw = clamp(opt.yaw || 0, -1.3, 1.3), pt = clamp(wa + aW + (opt.pitch || 0), -0.9, 0.6), cp = Math.cos(pt);
+      st.lt.set(st.lp.x + Math.sin(yaw) * cp * 4, st.lp.y + Math.sin(pt) * 4, st.lp.z + Math.cos(yaw) * cp * 4);
+      st.wp.copy(st.lp).applyMatrix4(body.matrixWorld); st.wt.copy(st.lt).applyMatrix4(body.matrixWorld);
+      st.k = Math.min(1, st.k + dt / 0.45);
+      const e = st.k * st.k * (3 - 2 * st.k);
+      if (e > 0.55 && hero && (st.hero !== hero || kidsOf(hero) !== st.kids)) hideOn(hero, car);
+      st.cur.lerpVectors(st.from, st.wp, e); st.curL.lerpVectors(st.fromL, st.wt, e);
+      cam.position.copy(st.cur); cam.lookAt(st.curL);
+      const nearT = 0.05;
+      if (Math.abs(cam.fov - fovT) > 0.05 || cam.near !== nearT) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 6 + (e >= 1 ? 0.2 : 0)); cam.near = nearT; cam.updateProjectionMatrix(); }
+      return true;
+    }
+    return { on, update, get active() { return st.on; }, get blend() { return st.k; }, st, dispose() { on(false); } };
+  }
+
+  V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true, cockpit: true } };
 })();
