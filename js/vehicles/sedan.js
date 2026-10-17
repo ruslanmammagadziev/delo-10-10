@@ -1015,6 +1015,8 @@
         o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t0 + dur + 0.12);
       });
       note(t, 370, 0.13, 0.05); note(t + 0.18, 466, 0.2, 0.05);
+      // мотор на миг тише (≈ −8 дБ), чтобы «па-пам» было слышно и на полном ходу
+      if (window.EngineSound && EngineSound.duck) EngineSound.duck(0.4, 0.55);
       return true;
     } catch (e) { return false; }
   }
@@ -1144,7 +1146,7 @@
         else if (S.edgeIn && d > R + 4) S.edgeIn = false;
       }
       // звук мотора: скорость, сколько газа просит игрок (цель / VMAX), тормоз
-      if (window.EngineSound) { ES.speed = S.v; ES.throttle = Math.abs(target) / VMAX; ES.braking = braking; EngineSound.update(ES, dt); }
+      if (window.EngineSound) { ES.driving = true; ES.speed = S.v; ES.throttle = Math.abs(target) / VMAX; ES.braking = braking; EngineSound.update(ES, dt); }
       RES.bumped = bumped; RES.edge = edge;
       return RES;
     }
@@ -1227,6 +1229,8 @@
       horn() { hornSound(); emit('horn', { x: S.x, z: S.z }); return true; },
       dispose() { md.dispose(); },
     };
+    // звук мотора: тот же объект — контроллеру посадки (вышла — EngineSound.park: мотор затихает с падением оборотов)
+    car.sound = ES;
     return car;
   }
 
@@ -1367,6 +1371,8 @@
     function update(dt, inp) {
       dt = Math.min(Math.max(dt || 0, 0), 0.05);
       if (st.tween) { st.tween.t += dt; const k = Math.min(1, st.tween.t / st.tween.dur); st.tween.tick(k, st.tween.t); if (k >= 1 && st.tween) st.tween.done(); }
+      // не за рулём: только что ехала — мотор затихает (обороты падают), потом ничего не делает
+      if (st.mode !== 'drive' && window.EngineSound && car.sound) EngineSound.park(car.sound, dt);
       if (st.mode !== 'drive') { car.tick(dt); car.place && car.model.pose(car.S); NONE.bumped = false; NONE.edge = null; return NONE; }
       let ctl = inp || null;
       if (st.braking) ctl = { brake: true };

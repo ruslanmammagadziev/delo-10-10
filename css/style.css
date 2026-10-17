@@ -1121,6 +1121,13 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 }
 .hud-joy.live .joy-knob { transition: none; }
 .hud-joy .joy-knob::after { content: ''; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--powder); inset: auto; display: block; font-size: 0; }
+/* желание 7: палец дальше края, до стрелок — бег (HUD.joystick .run): ручка тёплая, как горящая «Бег», кольцо и стрелки ярче;
+   .joy.hud-joy — на класс сильнее правил «.city3d .joy …» ниже (корень города — .city3d) */
+.hud-joy.live .joy-knob { transition: background-color .15s, box-shadow .15s; }
+.joy.hud-joy.run { box-shadow: inset 0 0 0 2px rgba(247,201,72,.95), inset 0 0 0 3px rgba(201,150,42,.16), 0 0 0 4px rgba(247,201,72,.2), 0 6px 16px rgba(201,150,42,.16); }
+.joy.hud-joy.run .hud-joy-ch { opacity: .9; color: #C9962A; }
+.joy.hud-joy.run .joy-knob { background: #F7C948; box-shadow: 0 3px 0 #C9962A, 0 0 0 3px rgba(255,253,249,.55), 0 6px 12px rgba(201,150,42,.3); }
+.joy.hud-joy.run .joy-knob::after { background: #FFFDF9; }
 /* шеврон у края: кружок со стрелкой и расстояние */
 .hud-chev {
   position: absolute; z-index: 15; width: 36px; transform: translate(-50%, -18px); display: flex; flex-direction: column; align-items: center; gap: 3px;

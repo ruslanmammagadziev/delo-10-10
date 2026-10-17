@@ -4,32 +4,43 @@
      'cabrio' — жёлтый кабриолет с мотором сзади: оппозитная «шестёрка» — звонкий, с хрипотцой, на сбросе газа
                 тихо «пф-пф» из труб;
      'sedan'  — красный седан: V8 — ниже и бархатнее, на холостых неровное «бу-бу-бу».
-   Обороты считаются от скорости через три «передачи»: с места мотор раскручивается от газа (сцепление), на разгоне
-   слышны переключения (короткий провал газа), газ отпущен — тише и глуше (мотор тормозит), назад — своя «передача».
-   Громкость и яркость растут с оборотами и газом. Посадка — короткий «врум» стартера, выход — мотор затихает.
+   Обороты считаются от скорости через три «передачи» автомата: на ровном ходу он переходит выше пораньше — чем быстрее
+   едет, тем выше обороты (медленно — спокойные ~2100, быстро — ~5500); на разгоне тянет передачи до ~90 % красной зоны,
+   слышны переключения (короткий провал газа). С места мотор раскручивается от газа (сцепление), газ отпущен — тише и
+   глуше (мотор тормозит), назад — своя «передача». Громче и ярче — со скоростью (плюс шорох ветра), с оборотами и с
+   разгоном. Посадка — короткий «врум» стартера, выход — мотор затихает. Гудок на миг приглушает мотор (duck).
    Цепочка: импульсы выхлопа (PeriodicWave по порядку работы цилиндров) → «лопата» холостых (AM) → мягкое
    насыщение (рёв под нагрузкой) + шум впуска → срез низа (телефонный динамик) → фильтр яркости → «резонанс трубы» →
-   громкость → шина фона игры G.audioBus('amb') (её приглушают голоса реплик) или свой AudioContext (стенды без игры).
+   громкость (+ шорох ветра) → «приглушка» гудка → шина фона игры G.audioBus('amb') или свой AudioContext (стенды без
+   игры). Шину фона приглушают голоса реплик, но голоса в игре выключены (CONFIG.VOICES false) — приглушения нет.
    Уважает «Звук» игры (☰ → «Звук»; выключен — тишина), свёрнутую игру/Telegram (сразу тишина), iOS: контекст
-   «просыпается» первым касанием. Кадры перестали приходить (пауза, загрузка сцены) — мотор сам затихает
-   (автоматизация громкости внутри аудио: «мёртвая рука»), через 1,2 с тишины узлы останавливаются.
+   «просыпается» первым касанием. «Звук» выключен, а она села за руль — один раз тост «включи звук — услышишь мотор»
+   (st.engHint; на стендах с ?debug=1 — только с ?enghint=1). Кадры перестали приходить (пауза, загрузка сцены) — мотор
+   сам затихает (автоматизация громкости внутри аудио: «мёртвая рука»), через 1,2 с тишины узлы останавливаются.
 
    API: window.EngineSound = {
      setKind(kind) — 'cabrio' | 'sedan' (прочие имена — 'cabrio');
      update({ speed, vmax, throttle, braking, onGround, driving, kind? }, dt) — каждый шаг езды (можно чаще кадра:
        запись в аудио — не чаще ~30 раз в секунду). speed — м/с со знаком; vmax — предел машины; throttle 0..1 —
        сколько газа просит игрок (цель / vmax); braking — тормоз; onGround (true); driving false — мотор глохнет;
+       шаги от другой машины после 0,6 с тишины (или от той же после 4 с) — мотор был заглохшим (при посадке стартер);
+     park(o, dt) — шаг машины не за рулём (тот же объект o): только что ехала — мотор затихает с падением оборотов;
+     duck(k, sec) — на sec секунд приглушить мотор до доли k (гудок: 0,4 на 0,5 с ≈ −8 дБ), потом плавно вернуть;
      stop() — заглушить сразу; setMuted(bool) — свой выключатель поверх «Звук» игры;
-     debug() → { awake, kind, rpm, gear, load, vol, cut, freq, ctx } · meter() → { rms, peak, centroid } (для проверки)
+     debug() → { awake, kind, rpm, gear, load, dem, vol, cut, freq, wind, ctx } · meter() → { rms, peak, centroid }
+     (для проверки; meter — после «приглушки», до шины игры)
    }
    ===================================================================== */
 (function () {
   'use strict';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const TAU = Math.PI * 2;
-  // общая громкость: на выходе игры полный газ ≈ −26 дБFS RMS (речь голосов ≈ −22), холостые ≈ −37 дБFS в полосе динамика
-  // телефона (300 Гц – 4 кГц); громче/ярче с оборотами и газом — от фильтров и насыщения, а не только от громкости
-  const MASTER = 0.255;
+  // общая громкость (мерено на выходе игры, после её ограничителя — он сам добавляет ~9 дБ): полный ход ≈ −22 дБFS RMS у
+  // кабриолета, −23 у седана (громкие звуки игры: «ok» ≈ −25, «tap» ≈ −27, гудок ≈ −24), холостые ≈ −34; медленный ход
+  // (четверть vmax) ≈ −28. Громче/ярче со скоростью, оборотами и разгоном
+  const MASTER = 0.15;
+  // шорох ветра на ходу (доля громкости мотора на полной скорости; растёт как квадрат скорости)
+  const WIND = 0.4;
   /* ---------- голоса моторов ----------
      cyl — цилиндров; fire — банк каждого выхлопа по порядку работы (1 — левый, 0 — правый); bankAmp/bankLag — второй
      банк чуть тише и позже (другая длина труб: отсюда «неровность» звука); tau — затухание импульса (доля интервала);
@@ -40,13 +51,13 @@
   const KINDS = {
     cabrio: {
       cyl: 6, fire: [1, 0, 1, 0, 1, 0], bankAmp: 0.86, bankLag: 0.006, tau: 0.14, bark: [5, 0.45], jit: 0.05,
-      idle: 1000, red: 7200, gears: [0.42, 0.74, 1.3], lpBase: 1100, lpRpm: 2000, lpLoad: 1600, hp0: 170, form: [660, 6, 1.3],
+      idle: 1000, red: 7200, gears: [0.42, 0.8, 1.22], lpBase: 1100, lpRpm: 2000, lpLoad: 1600, hp0: 170, form: [660, 6, 1.3],
       noise: 0.55, nbp: 3.2, lope: 0.06, rough: 0.2, pre0: 0.55, drive: 2.7, vol: 1.0, pops: true,
     },
     sedan: {
       cyl: 8, fire: [1, 0, 0, 1, 0, 1, 1, 0], bankAmp: 0.74, bankLag: 0.012, tau: 0.2, bark: [3, 0.4], jit: 0.03,
-      idle: 820, red: 6800, gears: [0.4, 0.72, 1.28], lpBase: 1050, lpRpm: 1500, lpLoad: 1200, hp0: 175, form: [300, 5, 1.2],
-      noise: 0.32, nbp: 2.4, lope: 0.22, rough: 0.26, pre0: 0.75, drive: 1.6, vol: 0.62, pops: false,
+      idle: 820, red: 6800, gears: [0.4, 0.78, 1.2], lpBase: 1050, lpRpm: 1500, lpLoad: 1200, hp0: 175, form: [300, 5, 1.2],
+      noise: 0.32, nbp: 2.4, lope: 0.22, rough: 0.26, pre0: 0.75, drive: 1.6, vol: 0.68, pops: false,
     },
   };
   const kindOf = k => (k === 'sedan' ? 'sedan' : 'cabrio');
@@ -54,7 +65,7 @@
   /* ---------- состояние ---------- */
   let kind = 'cabrio', K = KINDS.cabrio, muted = false, hidden = false;
   // модель мотора (идёт и без звука: включили «Звук» на ходу — обороты уже верные)
-  const M = { rough: 0, rpm: 0, gear: 0, load: 0, shiftT: 0, popCd: 0, wasLoad: 0, startT: 9, on: 0, t: 0, vol: 0, cut: 0, freq: 0, pre: 0, lope: 0, nf: 0, nv: 0, driving: false };
+  const M = { rough: 0, rpm: 0, gear: 0, load: 0, dem: 0, av: 0, acc: 0, shiftT: 0, popCd: 0, wasLoad: 0, startT: 9, on: 0, t: 0, vol: 0, cut: 0, freq: 0, pre: 0, lope: 0, nf: 0, nv: 0, wv: 0, wf: 0, duckK: 1, duckT: 0, driving: false };
   let src = null, lastUpd = 0, lastLive = 0, lastWrite = 0, awake = null, ownAC = null, ownOut = null, sleepTimer = 0;
   const waves = new WeakMap(), noises = new WeakMap(), curves = new WeakMap();
 
@@ -144,16 +155,23 @@
       n.lp = ac.createBiquadFilter(); n.lp.type = 'lowpass'; n.lp.Q.value = 0.9; n.lp.frequency.value = 900;
       n.pk = ac.createBiquadFilter(); n.pk.type = 'peaking';
       n.out = ac.createGain(); n.out.gain.value = 0;
+      // шорох ветра: тот же шум, медленнее (другой период петли), широкая полоса мимо фильтров мотора; громче со скоростью
+      n.wind = ac.createBufferSource(); n.wind.buffer = noiseOf(ac); n.wind.loop = true; n.wind.playbackRate.value = 0.77;
+      n.wbp = ac.createBiquadFilter(); n.wbp.type = 'bandpass'; n.wbp.Q.value = 0.55; n.wbp.frequency.value = 500;
+      n.wg = ac.createGain(); n.wg.gain.value = 0;
+      // «приглушка» (гудок): своя громкость после n.out — шаг езды её не перезаписывает
+      n.dk = ac.createGain(); n.dk.gain.value = 1;
       n.osc.connect(n.am); n.lfo.connect(n.lfoG); n.lfoG.connect(n.am.gain);
       n.am.connect(n.pre); n.pre.connect(n.sh); n.sh.connect(n.post);
       n.noise.connect(n.nbp); n.nbp.connect(n.ng); n.ng.connect(n.post);
       n.noise.connect(n.rlp); n.rlp.connect(n.rg); n.rg.connect(n.am.gain);
       // старые WebKit без osc.detune — без дрожи высоты (остальное звучит)
       if (n.osc.detune) { n.rlp.connect(n.dg); n.dg.connect(n.osc.detune); }
-      n.post.connect(n.hp); n.hp.connect(n.lp); n.lp.connect(n.pk); n.pk.connect(n.out); n.out.connect(o.out);
+      n.post.connect(n.hp); n.hp.connect(n.lp); n.lp.connect(n.pk); n.pk.connect(n.out);
+      n.wind.connect(n.wbp); n.wbp.connect(n.wg); n.wg.connect(n.out); n.out.connect(n.dk); n.dk.connect(o.out);
       tunePk(n);
       const t = ac.currentTime;
-      n.osc.start(t); n.lfo.start(t); n.noise.start(t, Math.random() * 0.5);
+      n.osc.start(t); n.lfo.start(t); n.noise.start(t, Math.random() * 0.5); n.wind.start(t, Math.random() * 0.9);
       if (meterOn) attachMeter(n);
       awake = n; lastWrite = 0;
       if (!sleepTimer) sleepTimer = setInterval(checkSleep, 400);
@@ -165,8 +183,9 @@
     const n = awake; awake = null;
     if (sleepTimer) { clearInterval(sleepTimer); sleepTimer = 0; }
     if (!n) return;
-    try { const t = n.ac.currentTime; n.out.gain.cancelScheduledValues(t); n.out.gain.setValueAtTime(0, t); n.osc.stop(t + 0.05); n.lfo.stop(t + 0.05); n.noise.stop(t + 0.05); } catch (e) { /* уже остановлены */ }
-    setTimeout(() => { try { n.out.disconnect(); if (n.meter) n.meter.disconnect(); } catch (e) { /* ignore */ } }, 120);
+    // гаснет за ~10 мс, а не скачком (звук выключили на ходу — без щелчка)
+    try { const t = n.ac.currentTime; n.out.gain.cancelScheduledValues(t); n.out.gain.setTargetAtTime(0, t, 0.008); n.osc.stop(t + 0.07); n.lfo.stop(t + 0.07); n.noise.stop(t + 0.07); n.wind.stop(t + 0.07); } catch (e) { /* уже остановлены */ }
+    setTimeout(() => { try { n.out.disconnect(); n.dk.disconnect(); if (n.meter) n.meter.disconnect(); } catch (e) { /* ignore */ } }, 160);
   }
   // тишина дольше 1,2 с (вышла из машины, кадры не идут, звук выключен) — узлы долой
   function checkSleep() { if (awake && performance.now() - lastLive > 1200) sleep(); }
@@ -196,32 +215,53 @@
   function update(o, dt) {
     if (!o) return;
     const nowMs = performance.now();
+    const driving = !!o.driving, v = +o.speed || 0, av = Math.abs(v), vmax = o.vmax > 1 ? o.vmax : 12;
+    // мотор уже смолк: шаги пошли от другой машины, а прежняя молчит дольше 0,6 с (переезд город ↔ горы, загрузка сцены),
+    // или от той же, но шагов не было дольше 4 с (страховка: вышла без park) — считаем заглохшим, при посадке снова стартер.
+    // Машина катится — обороты прежние, без стартера. Редкие кадры (медленный телефон) под правило не попадают
+    if (M.driving && lastUpd && nowMs - lastUpd > (o !== src ? 600 : 4000)) { M.driving = false; M.on = 0; M.load = 0; M.wasLoad = 0; if (av < 1.5) M.rpm = 0; }
     // две машины сразу (стенды): «не за рулём» от чужой машины не глушит ту, что едет
-    if (o !== src) { if (!o.driving && M.driving && nowMs - lastUpd < 250) return; src = o; }
+    if (o !== src) { if (!driving && M.driving && nowMs - lastUpd < 250) return; src = o; }
     lastUpd = nowMs;
     if (o.kind && o.kind !== kind && KINDS[kindOf(o.kind)] !== K) setKind(o.kind);
     dt = clamp(+dt || 0, 0, 0.1);
-    const driving = !!o.driving, v = +o.speed || 0, av = Math.abs(v), vmax = o.vmax > 1 ? o.vmax : 12;
     const thr = clamp(+o.throttle || 0, 0, 1), brk = !!o.braking, ground = o.onGround !== false;
-    if (driving && !M.driving) { M.startT = M.rpm > K.idle * 0.6 ? 9 : 0; M.gear = 0; }
+    const NG = K.gears.length, red = K.red, idle = K.idle;
+    // посадка / мотор снова заведён: стоит — стартер; катится (после паузы) — сразу своя передача, без «вскрика» на первой
+    if (driving && !M.driving) {
+      M.startT = M.rpm > idle * 0.6 || av > 1.5 ? 9 : 0; M.gear = 0; M.shiftT = 0; M.dem = 0; M.av = av; M.acc = 0;
+      while (M.gear < NG - 1 && rpmAt(M.gear, av, vmax) > red * 0.44 && rpmAt(M.gear + 1, av, vmax) > red * 0.24) M.gear++;
+      if (gameSoundOff()) soundHint();
+    }
     M.driving = driving; M.t += dt;
     // газ «тянет»: цель выше скорости (держит или разгоняет); отпустила / тормоз — мотор тормозит машиной
     const pushing = driving && thr > 0.02 && !brk && thr * vmax > av - 0.6;
-    const NG = K.gears.length, red = K.red, idle = K.idle;
+    // доля скорости и «спрос на разгон»: цель заметно выше скорости — 0..1; доехала — спадает за ~0,3 с
+    const sp = Math.min(1, av / vmax), demT = pushing ? clamp((thr * vmax - av) / (0.18 * vmax), 0, 1) : 0;
+    M.dem += (demT - M.dem) * (1 - Math.exp(-dt * (demT > M.dem ? 10 : 3)));
+    // ускорение машины (сглажено): резко сбавляет ход — автомат выше не переходит (иначе на остановке обороты «прыгают»)
+    if (dt > 0) M.acc += ((av - M.av) / dt - M.acc) * (1 - Math.exp(-dt * 8));
+    M.av = av;
     let rpmT, loadT;
     if (!driving) { rpmT = 0; loadT = 0; M.gear = 0; }
     else if (!ground) { rpmT = idle + thr * (0.85 * red - idle); loadT = thr * 0.8; }
     else {
+      // автомат: на ровном ходу — выше пораньше (у ~44 % красной зоны), чем сильнее разгон — тем позже (до ~90 %); вниз — у
+      // ~20 %; на тормозе и резком сбросе хода выше не переходит. Медленно — спокойные обороты, быстрее — выше, на разгоне —
+      // «пила» переключений
+      const up = red * (0.44 + 0.46 * M.dem * (0.5 + 0.5 * thr)), dn = red * 0.2;
       if (M.shiftT > 0) M.shiftT -= dt;
       else if (v < -0.2 || av < 0.6) M.gear = 0;
-      else if (M.gear < NG - 1 && rpmAt(M.gear, av, vmax) > red * (0.6 + 0.3 * thr)) { M.gear++; M.shiftT = 0.17; }
-      else if (M.gear > 0 && rpmAt(M.gear, av, vmax) < red * 0.3) { M.gear--; M.shiftT = 0.08; }
+      else if (M.gear < NG - 1 && !brk && (pushing || M.acc > -3) && rpmAt(M.gear, av, vmax) > up && rpmAt(M.gear + 1, av, vmax) > dn * 1.2) { M.gear++; M.shiftT = 0.17; }
+      else if (M.gear > 0 && rpmAt(M.gear, av, vmax) < dn) { M.gear--; M.shiftT = 0.08; }
       // назад — своя короткая передача; с места — обороты от газа, пока сцепление не «схватит»
       const rpmW = v < -0.2 ? av / Math.max(0.5, K.gears[0] * vmax * 1.5) * red : rpmAt(M.gear, av, vmax);
       const slip = clamp(1 - av / (0.5 * K.gears[0] * vmax), 0, 1);
       const rpmFree = idle + (pushing ? thr : 0) * (0.5 * red - idle);
       rpmT = Math.max(idle, rpmW * (1 - slip) + Math.max(rpmW, rpmFree) * slip);
-      loadT = pushing && M.shiftT <= 0 ? 0.35 + 0.65 * thr : 0;
+      // нагрузка: на ровном ходу растёт со скоростью (воздух), на разгоне — от газа
+      const Lc = 0.24 + 0.62 * sp * sp, La = 0.5 + 0.5 * thr;
+      loadT = pushing && M.shiftT <= 0 ? Math.min(1, Lc + Math.max(0, La - Lc) * M.dem) : 0;
     }
     // стартер и «врум» при посадке
     if (driving && M.startT < 0.8) {
@@ -241,6 +281,7 @@
     M.wasLoad = loadT > 0 ? Math.max(M.wasLoad * 0.98, loadT) : 0;
     // звук выключен / игра свёрнута — модель идёт, узлы спят
     if (soundOff()) { if (awake) { hush(0.04); lastLive = 0; } return; }
+    if (hintNews) hintClear();
     if (!driving && M.on < 0.02) return;
     lastLive = nowMs;
     const n = awake || wake(); if (!n) return;
@@ -252,11 +293,15 @@
     M.freq = M.rpm / 120 * wob;
     M.pre = K.pre0 + 0.3 * K.drive * L * (0.5 + 0.5 * rn);
     const post = 0.85 / Math.max(0.2, Math.tanh(SAT * M.pre) / SATN);
-    M.cut = Math.min(9000, K.lpBase + K.lpRpm * rn + K.lpLoad * L);
+    // ярче и громче со скоростью (не только от оборотов и газа): с места до полного хода ≈ +4 дБ одной громкостью
+    M.cut = Math.min(9000, K.lpBase + K.lpRpm * rn + K.lpLoad * L + 1200 * sp);
     M.lope = K.lope * (1 - rn) * (driving && !pushing ? 1.25 : 0.8);
     M.nf = clamp(M.rpm / 120 * K.cyl * K.nbp, 300, 4200);
     M.nv = K.noise * 0.45 * (0.25 + 0.75 * L) * (0.3 + 0.7 * rn) * M.on;
-    M.vol = MASTER * K.vol * (0.85 + 0.05 * rn + 0.1 * L) * M.on * (M.rpm < idle * 0.5 ? M.rpm / (idle * 0.5) : 1);
+    M.vol = MASTER * K.vol * (0.68 + 0.28 * sp + 0.05 * rn + 0.08 * L) * M.on * (M.rpm < idle * 0.5 ? M.rpm / (idle * 0.5) : 1);
+    // ветер: квадрат скорости (одинаковый у обеих машин), полоса выше с ходом, лёгкие «порывы» — петли шума не слышно
+    M.wv = WIND * sp * sp * (1 + 0.12 * Math.sin(M.t * 0.83) + 0.07 * Math.sin(M.t * 2.1 + 1)) / K.vol;
+    M.wf = 380 + 900 * sp;
     // дрожь: низы шума до ~4 вспышек цикла; глубина — с поправкой на полосу (уже полоса — тише шум): громкость ±12 %,
     // высота ±5 центов на холостых, вдвое меньше у красной зоны
     const rf = clamp(M.rpm / 120 * 4, 25, 400), rk = 7.6 / Math.sqrt(rf / 100);
@@ -275,6 +320,8 @@
       n.rlp.frequency.setTargetAtTime(rf, t, 0.05);
       n.rg.gain.setTargetAtTime(M.rough, t, 0.06);
       n.dg.gain.setTargetAtTime(M.rough * 40, t, 0.06);
+      n.wbp.frequency.setTargetAtTime(M.wf, t, 0.1);
+      n.wg.gain.setTargetAtTime(M.wv, t, 0.1);
       // «мёртвая рука»: следующие кадры не пришли (пауза, загрузка сцены) — через 0,35 с мотор сам затихает
       n.out.gain.cancelScheduledValues(t);
       n.out.gain.setTargetAtTime(M.vol, t, 0.05);
@@ -289,8 +336,56 @@
     const n = awake;
     if (n && n.kind !== kk) { try { n.osc.setPeriodicWave(waveOf(n.ac, kk)); n.kind = kk; tunePk(n); } catch (e) { /* ignore */ } }
   }
+  // машина не за рулём (выходит, стоит): каждый шаг контроллера посадки, где не зовётся update. Та, что ехала, глохнет —
+  // обороты падают, звук затихает (~0,9 с), потом — ничего не делает; чужие машины не трогает
+  function park(o, dt) {
+    if (!o) return;
+    if (o.driving) { o.driving = false; o.throttle = 0; o.braking = false; o.speed = 0; }
+    if (o === src && (M.driving || M.on >= 0.02)) update(o, dt);
+  }
   function stop() { M.driving = false; M.on = 0; M.rpm = 0; M.load = 0; hush(0.03); setTimeout(() => { if (!M.driving) sleep(); }, 150); }
   function setMuted(b) { muted = !!b; if (muted) hush(0.04); }
+  // гудок и т. п.: на sec секунд мотор тише (доля k), потом плавно обратно — своим узлом после громкости (шаг его не трогает)
+  function duck(k, sec) {
+    k = clamp(+k || 0, 0, 1); sec = clamp(+sec || 0, 0, 3);
+    M.duckK = k; M.duckT = performance.now() + sec * 1000;
+    const n = awake; if (!n) return;
+    try { const t = n.ac.currentTime; n.dk.gain.cancelScheduledValues(t); n.dk.gain.setTargetAtTime(k, t, 0.015); n.dk.gain.setTargetAtTime(1, t + sec, 0.12); } catch (e) { /* ignore */ }
+  }
+
+  /* ---------- «Звук» игры выключен, а она села за руль: один раз тост «включи звук — услышишь мотор» ----------
+     В городе справа на полосе кнопка 🔇 — её коротко «качнёт»; в горах там скорость — тогда к ☰ → «Звук» (точка на строке
+     меню). Один раз за игру (st.engHint); на стендах с ?debug=1 — только с ?enghint=1, чтобы тост не мешал проверкам */
+  let hintTimer = 0, hintNews = false;
+  function gameSoundOff() {
+    const g = window.G; if (!g || typeof g.state !== 'function') return false;
+    try { const st = g.state(); return !!st && !st.sound; } catch (e) { return false; }
+  }
+  function soundHint() {
+    const g = window.G;
+    if (hintTimer || !g || typeof g.toast !== 'function') return;
+    if (/debug=1/.test(location.search) && !/enghint=1/.test(location.search)) return;
+    try { if (g.state().engHint) return; } catch (e) { return; }
+    // через ~2,5 с за рулём (посадка доиграла, тосты въезда успели встать в очередь); вышла или уже включила звук — до
+    // следующей посадки. На экране другой тост (в горах — название дороги, подсказка про газ) — ждём, пока уйдёт, иначе
+    // очередь сократит этот до 1,4 с
+    let tries = 0;
+    const show = () => {
+      hintTimer = 0;
+      let st = null; try { st = g.state(); } catch (e) { st = null; }
+      if (!st || st.engHint || !M.driving || !gameSoundOff()) return;
+      if (document.querySelector('.toast:not(.out)') && ++tries < 10) { hintTimer = setTimeout(show, 1500); return; }
+      st.engHint = 1; try { g.save(); } catch (e) { /* ignore */ }
+      const b = document.getElementById('hudSound'), r = b ? b.getBoundingClientRect() : null;
+      const vis = !!(r && r.width > 0 && r.bottom > 0 && r.top < innerHeight && getComputedStyle(b).visibility !== 'hidden');
+      try { g.toast(vis ? 'Нажми 🔇 справа вверху — и услышишь мотор' : 'Включи «Звук» в меню ☰ — и услышишь мотор', 3600); } catch (e) { /* ignore */ }
+      if (vis) { try { if (b.animate) b.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 560, iterations: 3, delay: 250 }); } catch (e) { /* ignore */ } }
+      else if (window.HUD && HUD.menu && HUD.menu.news) { try { HUD.menu.news('sound', true); hintNews = true; } catch (e) { /* ignore */ } }
+    };
+    hintTimer = setTimeout(show, 2500);
+  }
+  // звук включили — точка на строке «Звук» больше не нужна
+  function hintClear() { hintNews = false; try { if (window.HUD && HUD.menu && HUD.menu.news) HUD.menu.news('sound', false); } catch (e) { /* ignore */ } }
 
   /* ---------- свёрнутая игра / Telegram: сразу тишина; iOS: контекст оживает первым касанием ---------- */
   function onHide(h) {
@@ -308,7 +403,7 @@
 
   /* ---------- проверка: состояние и измеритель на выходе ---------- */
   let meterOn = false, meterBuf = null, meterFreq = null;
-  function attachMeter(n) { try { n.meter = n.ac.createAnalyser(); n.meter.fftSize = 2048; n.out.connect(n.meter); } catch (e) { n.meter = null; } }
+  function attachMeter(n) { try { n.meter = n.ac.createAnalyser(); n.meter.fftSize = 2048; n.dk.connect(n.meter); } catch (e) { n.meter = null; } }
   function meter() {
     if (!meterOn) { meterOn = true; if (awake && !awake.meter) attachMeter(awake); }
     const n = awake; if (!n || !n.meter) return { rms: 0, peak: 0, centroid: 0, hiShare: 0 };
@@ -320,8 +415,8 @@
     return { rms: Math.sqrt(s / meterBuf.length), peak: p, centroid: e > 0 ? ef / e : 0, hiShare: e > 0 ? hi / e : 0 };
   }
   function debug() {
-    return { awake: !!awake, kind, rpm: Math.round(M.rpm), gear: M.gear, load: +M.load.toFixed(2), on: +M.on.toFixed(2), vol: +M.vol.toFixed(4), cut: Math.round(M.cut), freq: +M.freq.toFixed(2), noise: +M.nv.toFixed(4), driving: M.driving, muted: soundOff(), ctx: awake ? awake.ac.state : ownAC ? ownAC.state : null, gain: awake ? +awake.out.gain.value.toFixed(4) : 0 };
+    return { awake: !!awake, kind, rpm: Math.round(M.rpm), gear: M.gear, start: +Math.min(9, M.startT).toFixed(2), load: +M.load.toFixed(2), on: +M.on.toFixed(2), vol: +M.vol.toFixed(4), cut: Math.round(M.cut), freq: +M.freq.toFixed(2), noise: +M.nv.toFixed(4), dem: +M.dem.toFixed(2), wind: +M.wv.toFixed(4), duck: performance.now() < M.duckT ? M.duckK : 1, driving: M.driving, muted: soundOff(), ctx: awake ? awake.ac.state : ownAC ? ownAC.state : null, gain: awake ? +awake.out.gain.value.toFixed(4) : 0, dk: awake ? +awake.dk.gain.value.toFixed(3) : 1 };
   }
 
-  window.EngineSound = { setKind, update, stop, setMuted, debug, meter, KINDS, get kind() { return kind; } };
+  window.EngineSound = { setKind, update, park, duck, stop, setMuted, debug, meter, KINDS, get kind() { return kind; } };
 })();

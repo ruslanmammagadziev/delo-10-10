@@ -14,6 +14,8 @@
                     и бант. W6 (opts.snug, по умолчанию): волосы под тканью прячутся, купол ровный по голове, край близко
                     обрамляет лицо, под подбородком края сходятся, полотно — на плечах и руках до локтей, концы на груди
                     до пояса, длинный конец на спине до бёдер (как на фото; opts.snug === false — прежняя подгонка по волосам).
+                    UX-1: купол ниже и круглее, под ушами ткань идёт к шее, полотно в мягких складках (от затылка к подолу,
+                    тень в ложбинах — атрибут aFold), подол волной — со спины ткань, а не «мешок».
                     Сетка — SkinnedMesh на тех же костях героини (+3 своих кости «цепочки» под костью hair):
                     купол идёт за головой, полотно — за телом и руками, низ качается (ход, повороты, ветер), сидя — подбирается.
                     Статуэтка (без скелета) — та же форма, неподвижная. Без героини — простой каз (капюшон + полотнище).
@@ -60,9 +62,19 @@
     // W6 (по фото): каз сидит по голове — ровный купол, волосы под ним спрятаны (как берет), край близко обрамляет
     // лицо; полотно ложится на плечи и руки до локтей, концы — на грудь до пояса, длинный конец — по спине
     skinOff: 0.012,        // купол над кожей (лоб, уши, затылок)
-    cap: [1.0, 1.0, 0.93, 1.16],   // «шапка»-эллипсоид купола, в радиусах головы: бок, верх, затылок, лоб
-    drop: 0.011,           // с головы на плечи ткань сужается не круче 11 мм на 2 см высоты (лёгкая ткань ложится)
+    // UX-1: купол ниже и круглее (был 1,0/1,0/0,93 — высокое «яйцо», со спины «мешок»)
+    cap: [0.95, 0.93, 0.88, 1.16],   // «шапка»-эллипсоид купола, в радиусах головы: бок, верх, затылок, лоб
+    // UX-1: складки полотна (ткань, а не мешок): от затылка и плеч вниз, к подолу глубже, низ чуть расходится
+    foldN: 8,              // гребней по кругу (со спины видно 3–4)
+    foldS: 0.055,          // глубина складки у подола, м
+    foldH: 0.02,           // гребни у подола ниже ложбин, м
+    foldK: 0.4,            // тень в ложбине складки (доля яркости)
+    foldHood: 0.45,        // складки на куполе (затылок, бока ниже макушки): доля от полной
+    flare: 0.04,           // подол расходится наружу, м
+    // UX-1: 11 → 15 мм — под ушами ткань идёт к шее (каз подвязан под подбородком), со спины видно голову и плечи
+    drop: 0.015,           // с головы на плечи ткань сужается не круче 15 мм на 2 см высоты (лёгкая ткань ложится)
     bodyOff: 0.018,        // полотно над пальто и руками (+ DIM.mantleOff)
+    capeOff: 0.004,        // UX-1: полотно над куполом/телом после сглаживания (было mantleOff 1,6 см + раздувание)
     frontLow: 4 * D,       // под подбородком края сходятся (как на фото: открыт только овал лица, шея под тканью)
     hemWaist: 0,           // концы на груди — до пояса (сустав spine + это)
     hemElbow: -0.03,       // по бокам — до локтей (сустав forearm + это)
@@ -421,13 +433,21 @@
         seed[b] = Math.max(seed[b], R * Math.sin(ph));
       }
     }
+    // UX-1 (тугой каз): тело (пальто, плечи, руки) + зазор «раздуто» на соседние корзины (±10°, ±2 см) — полотно не
+    // задевает плечо между столбцами; купол (seed) не раздувается — под ушами нет колокола
+    const BD = new Float32Array(snug ? NBT * NBY : 0);
+    if (snug) for (let it = 0; it < NBT; it++) for (let iy = 0; iy < NBY; iy++) {
+      let m = 0;
+      for (let dt = -2; dt <= 2; dt++) for (let dy = -1; dy <= 1; dy++) m = Math.max(m, cB[((it + dt + NBT) % NBT) * NBY + clamp(iy + dy, 0, NBY - 1)]);
+      BD[it * NBY + iy] = m > 0 ? m + DIM.bodyOff + DIM.mantleOff - DIM.capeOff : 0;
+    }
     for (let it = 0; it < NBT; it++) for (let iy = 0; iy < NBY; iy++) {
       // ниже выпуклости волос ткань падает почти отвесно (сужается на 7,5 см на метр); W5: ниже кончиков волос — ложится
       // на спину (сужается на 30 см на метр, до пальто + 3 см): конец каза «по спине», а не колоколом
       const yy = yTop - (iy + 0.5) * DY, below = hairLow[it] < 8 && yy < hairLow[it] - 0.02;
       // W6 (тугой каз): волосы спрятаны — ткань сходит с головы на плечи и руки (не круче DIM.drop) и лежит над пальто
       const up = iy > 0 ? CR[it * NBY + iy - 1] - (snug ? DIM.drop * lerp(1, 0.6, sst(100 * D, 160 * D, Math.abs(angW((it + 0.5) / NBT * TAU)))) : below ? 0.008 : 0.0015) : 0;
-      CR[it * NBY + iy] = Math.max(snug ? seed[it * NBY + iy] : cH[it * NBY + iy], up, cB[it * NBY + iy] > 0 ? cB[it * NBY + iy] + (snug ? DIM.bodyOff : below ? 0.03 : 0.045) : 0);
+      CR[it * NBY + iy] = Math.max(snug ? seed[it * NBY + iy] : cH[it * NBY + iy], up, snug ? BD[it * NBY + iy] : cB[it * NBY + iy] > 0 ? cB[it * NBY + iy] + (below ? 0.03 : 0.045) : 0);
     }
     const blurCyl = (F, dil) => {
       const G = new Float32Array(F.length);
@@ -438,8 +458,10 @@
       }
       return G;
     };
-    let CRs = blurCyl(blurCyl(blurCyl(CR, true)));
-    for (let b = 0; b < CRs.length; b++) CRs[b] = Math.max(CRs[b], CR[b]) + DIM.mantleOff;
+    // UX-1 (тугой каз): без «раздувания» (max по соседям) и с малым отступом — полотно продолжает купол, а не
+    // расходится колоколом под ушами (со спины был «мешок»); над пальто зазор прежний (bodyOff + mantleOff)
+    let CRs = snug ? blurCyl(blurCyl(CR)) : blurCyl(blurCyl(blurCyl(CR, true)));
+    for (let b = 0; b < CRs.length; b++) CRs[b] = Math.max(CRs[b], CR[b]) + (snug ? DIM.capeOff : DIM.mantleOff);
     const sampleCylRaw = (th, y) => sampleCyl(th, y);
     const sampleCyl = (th, y) => {
       const ft = ((th / TAU) * NBT - 0.5 + NBT) % NBT, fy = clamp((yTop - y) / DY - 0.5, 0, NBY - 1.001);
@@ -467,14 +489,21 @@
     const NT = HI ? 48 : 36, NRH = HI ? 16 : 12, NRM = HI ? 24 : 16;
     const pos = [], uvA = [], edgeA = [], bordA = [], rows = [];
     const NU = Math.round(TAU * 0.3 / DIM.tile);       // целое число повторов по кругу — без шва спереди
-    const vert = (p, u, v, e, b) => { pos.push(p[0], p[1], p[2]); uvA.push(u, v); edgeA.push(e); bordA.push(b); return pos.length / 3 - 1; };
+    // UX-1: foldA — тень в ложбинах складок полотна (0 — гребень/купол, 1 — глубокая ложбина)
+    const foldA = [];
+    const vert = (p, u, v, e, b) => { pos.push(p[0], p[1], p[2]); uvA.push(u, v); edgeA.push(e); bordA.push(b); foldA.push(0); return pos.length / 3 - 1; };
     const hood = [];       // [j][i] -> index
     const hoodArc = [];    // длина дуги от полюса
     const inMantle = j => { const th = j / NT * TAU; return th >= thA - 1e-6 && th <= TAU - thA + 1e-6; };
+    // UX-1: волна складок по кругу (1 — гребень, −1 — ложбина): гребень посередине длинного конца, шаг 360°/foldN
+    const foldWave = th => Math.cos((th - PI - DIM.asym) * DIM.foldN + 0.5 * Math.sin(th * 3));
     for (let j = 0; j <= NT; j++) {
       const th = j / NT * TAU, pe = sample1(phE, th), col = [], arcs = [];
       let arc = 0, prev = null;
-      const pts = [];
+      const pts = [], shs = [];
+      // UX-1 (тугой каз): на затылке и по бокам (не у лица) складки начинаются уже на куполе, ниже макушки — ткань
+      // собирается к шее; макушка гладкая (там ткань натянута)
+      const wvH = foldWave(th), aH = snug ? sst(65 * D, 100 * D, Math.abs(angW(th))) * DIM.foldHood : 0;
       for (let i = 0; i <= NRH; i++) {
         const ph = pe * i / NRH;
         let r = sampleSph(HR, th, ph) + pushAt(th, ph);
@@ -483,14 +512,17 @@
           const w = sst(pe - 0.5, pe, ph), y0 = C[1] + r * Math.cos(ph), sp = Math.max(0.5, Math.sin(ph));
           r = Math.max(r, lerp(r, sampleCylRaw(th, y0) / sp, w));
         }
+        const aF = aH * sst(pe * 0.55, pe, ph);
+        r += aF * 0.008 * (0.5 + 0.5 * wvH);
         const p = [C[0] + r * Math.sin(ph) * Math.sin(th), C[1] + r * Math.cos(ph), C[2] + r * Math.sin(ph) * Math.cos(th)];
         if (prev) arc += Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]);
-        pts.push(p); arcs.push(arc); prev = p;
+        pts.push(p); arcs.push(arc); shs.push(aF * sst(0, 1, 0.5 - 0.5 * wvH)); prev = p;
       }
       const free = !inMantle(j % NT === 0 && j ? 0 : j);
       for (let i = 0; i <= NRH; i++) {
         const e = free ? arc - arcs[i] : 9;
-        col.push(vert(pts[i], j / NT * NU, arcs[i] / DIM.tile, e, th * 0.3));
+        const vi = vert(pts[i], j / NT * NU, arcs[i] / DIM.tile, e, th * 0.3);
+        foldA[vi] = shs[i]; col.push(vi);
       }
       hood.push(col); hoodArc.push(arcs);
     }
@@ -555,7 +587,8 @@
       const col = [top];
       let arc = hoodArc[j][NRH], prev = tp;
       for (let k = 1; k <= NRM; k++) {
-        const t = k / NRM, tq = Math.pow(t, 1.1), y = lerp(tp[1], hem, tq);
+        const t = k / NRM, tq = Math.pow(t, 1.1);
+        let y = lerp(tp[1], hem, tq);
         let ta, th;
         if (snug) { const taL = thAt(lerp(topA, hemA, tq), topA, 1), taR = thAt(lerp(topB, hemZ, tq), topB, -1); ta = lerp(taL, taR, u); th = taL + u * (TAU - taL - taR); }
         else { ta = thAt(y); th = ta + u * (TAU - 2 * ta); }
@@ -564,14 +597,25 @@
         const f = snug ? 0 : sst(backLow + 0.02, backLow - 0.45, y) * wb;
         let x = C[0] + R * Math.sin(th) * (1 - 0.12 * f), z = lerp(C[2] + R * Math.cos(th), flatZ(y), f * 0.8);   // W5: сжатие конца 0,3 → 0,12 — низ шире, не «клин»
         // мягкие складки: волна поперёк полотна, к подолу глубже (только наружу — внутрь волос не уходит)
-        const fold = (0.5 + 0.5 * Math.sin(th * 7 + 0.7)) * DIM.fold * sst(tp[1] - 0.05, hem, y) * (0.35 + 0.65 * wb);
+        let fold = (0.5 + 0.5 * Math.sin(th * 7 + 0.7)) * DIM.fold * sst(tp[1] - 0.05, hem, y) * (0.35 + 0.65 * wb), shade = 0;
+        if (snug) {
+          // UX-1 (тугой каз): складки идут от затылка и плеч вниз и к подолу глубже (на спине — гребень посередине конца и
+          // по бокам ещё по гребню; на груди — мельче), подол чуть расходится; в ложбинах — мягкая тень (aFold)
+          const fr = sst(0.2, 0, Math.min(u, 1 - u)), ft = Math.pow(sst(tp[1] - 0.06, hem, y), 0.8), fb = (0.45 + 0.55 * wb) * (1 - 0.6 * fr);
+          const wv = foldWave(th), fh = sst(65 * D, 100 * D, Math.abs(angW(th))) * DIM.foldHood;
+          fold = ((0.5 + 0.5 * wv) * DIM.foldS * ft + DIM.flare * sst(hem + 0.3, hem, y) * (1 - fr)) * fb;
+          // тень ложбины: сверху продолжает складку купола (fh), к подолу — полная
+          shade = sst(0, 1, 0.5 - 0.5 * wv) * Math.max(lerp(fh, fb, Math.pow(sst(tp[1], hem, y), 0.8)), ft * fb);
+          // гребни у подола висят чуть ниже ложбин — низ «волной», как у ткани
+          y -= DIM.foldH * (0.5 + 0.5 * wv) * fb * tq ** 4;
+        }
         const ox = lerp(Math.sin(th), 0, f), oz = lerp(Math.cos(th), -1, f), ol = Math.hypot(ox, oz) || 1;
         x += fold * ox / ol; z += fold * oz / ol;
         const p = [x, y, z];
         arc += Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]); prev = p;
         const eS = Math.min(u, 1 - u) * (TAU - 2 * ta) * Math.max(R, 0.15);
         const vi = vert(p, th / TAU * NU, arc / DIM.tile, eS, y);
-        isM[vi] = 1; wbV[vi] = wb; col.push(vi);
+        isM[vi] = 1; wbV[vi] = wb; foldA[vi] = shade; col.push(vi);
       }
       // расстояние до подола (вдоль столбца) — кайма подола; вдоль-координата каймы — по кругу
       let acc = 0;
@@ -717,7 +761,7 @@
       else for (let t = 0; t < I.length; t += 3) { const a = cls[I[t]], b = cls[I[t + 1]], c2 = cls[I[t + 2]]; if (a >= K_BERET || b >= K_BERET || c2 >= K_BERET || backHair[I[t]] || backHair[I[t + 1]] || backHair[I[t + 2]]) hide.push(t); }
     }
     const res = {
-      pos: new Float32Array(pos), uv: new Float32Array(uvA), edge: new Float32Array(edgeA), bord: new Float32Array(bordA),
+      pos: new Float32Array(pos), uv: new Float32Array(uvA), edge: new Float32Array(edgeA), bord: new Float32Array(bordA), fold: new Float32Array(foldA),
       index: idx, nBody, fringeStart, skI, skW, names, chainJ, hide, C, cover, sampled,
       info: { verts: nv, tris: idx.length / 3, faceDeg: +(faceTh / D).toFixed(1), lockDeg: +(lockTh / D).toFixed(1), lockLow: +lockLow.toFixed(3), chinY: +chinY.toFixed(3), frontDeg: +(thA / D).toFixed(1), backLow: +backLow.toFixed(3), nBeret, hidden: hide.length, snug, hairHidden: nHair, ms: 0 },
       seams: { hood, mantle, NT, NRH, NRM },
@@ -769,14 +813,15 @@
   }
   function kazMaterial(T, tx, grad) {
     const m = new T.MeshToonMaterial({ color: 0xFFFFFF, map: tx.pattern, gradientMap: grad || tx.grad, side: T.DoubleSide });
-    const U = { uBorder: { value: tx.border }, uBW: { value: DIM.band }, uBL: { value: 0.075 } };
+    const U = { uBorder: { value: tx.border }, uBW: { value: DIM.band }, uBL: { value: 0.075 }, uFK: { value: DIM.foldK } };
     m.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, U);
-      sh.vertexShader = 'attribute float aEdge;\nattribute float aBord;\nvarying float vEdge;\nvarying float vBord;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvEdge = aEdge; vBord = aBord;');
-      sh.fragmentShader = 'uniform sampler2D uBorder;\nuniform float uBW;\nuniform float uBL;\nvarying float vEdge;\nvarying float vBord;\n' + sh.fragmentShader.replace('#include <map_fragment>',
-        'vec4 sampledDiffuseColor = texture2D( map, vUv );\nif ( vEdge < uBW ) sampledDiffuseColor = texture2D( uBorder, vec2( vBord / uBL, clamp( vEdge / uBW, 0.03, 0.97 ) ) );\ndiffuseColor *= sampledDiffuseColor;');
+      // UX-1: aFold — мягкая тень в ложбинах складок (ткань читается и в тени, где toon-рампа почти ровная)
+      sh.vertexShader = 'attribute float aEdge;\nattribute float aBord;\nattribute float aFold;\nvarying float vEdge;\nvarying float vBord;\nvarying float vFold;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvEdge = aEdge; vBord = aBord; vFold = aFold;');
+      sh.fragmentShader = 'uniform sampler2D uBorder;\nuniform float uBW;\nuniform float uBL;\nuniform float uFK;\nvarying float vEdge;\nvarying float vBord;\nvarying float vFold;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+        'vec4 sampledDiffuseColor = texture2D( map, vUv );\nif ( vEdge < uBW ) sampledDiffuseColor = texture2D( uBorder, vec2( vBord / uBL, clamp( vEdge / uBW, 0.03, 0.97 ) ) );\ndiffuseColor *= sampledDiffuseColor;\ndiffuseColor.rgb *= 1.0 - uFK * vFold;');
     };
-    m.customProgramCacheKey = () => 'kaz1';
+    m.customProgramCacheKey = () => 'kaz2';
     m.userData.kaz = true;
     return m;
   }
@@ -811,6 +856,7 @@
     g.setAttribute('uv', new T.BufferAttribute(F.uv, 2));
     g.setAttribute('aEdge', new T.BufferAttribute(F.edge, 1));
     g.setAttribute('aBord', new T.BufferAttribute(F.bord, 1));
+    g.setAttribute('aFold', new T.BufferAttribute(F.fold || new Float32Array(F.pos.length / 3), 1));
     const nv = F.pos.length / 3;
     g.setIndex(nv > 65535 ? new T.Uint32BufferAttribute(F.index, 1) : new T.Uint16BufferAttribute(F.index, 1));
     g.addGroup(0, F.nBody, 0);

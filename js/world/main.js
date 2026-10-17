@@ -475,7 +475,7 @@
   const sedanOpen = () => standOpen() || (unlock('car').ok && unlock('sedan').ok);
   // какая машина стоит в городе: седан — если он есть в сборке, открыт (вместе с машиной) и выбран
   function carWanted() { return savedCar() === 'sedan' && sedanOk() && sedanOpen() ? 'sedan' : 'coupe'; }
-  // где машина живёт: открыта — у старта прогулки, на Октябрьской у кинотеатра (купе и седан рядом — искать по карте не нужно);
+  // где машина живёт: открыта — у старта прогулки, через дорогу от кинотеатра (купе и седан рядом — искать по карте не нужно);
   // под чехлом — у кинотеатра, как в серии 1. Места у гаража «Круглые фары» — для выбора машины у гаража (garageSpot)
   function carHome(w, kind) {
     const sp = w.L.spawnPoints || {};
@@ -613,11 +613,16 @@
       hopT: -1, spinT: -1, waveT: -1, anim: null, moveTo: null, blockT: 0, held: null, heldG: null, sniffT: -1, sniffNext: 6,
       catOn: false, catX: 0, catZ: 0, catAng: 0, catPhase: 0, catWalk: 0, catPin: null, catPinWait: [], catSit: null,
       yaw: PI, dist: 9.5, manualT: 0, tx: 0, tz: 0, camInit: false, pitchK: 0, camOverride: null, camFocus: null,
+      // W7: взгляд вверх-вниз пальцем (pitch, рад, + вверх; pitchT — с последнего касания, с) и вид «из-за руля» (ck, ckYaw/ckPitch)
+      pitch: 0, pitchT: 99, pitchDeg: 0, ck: null, ckLook: { yaw: 0, pitch: 0 },
       greeted: new Set(), autoGreeted: new Set(), waveN: 0, farT: 0, nudgeT: -1e9, pkBusy: false, spotBusy: false, puddleIn: false,
       fpsT: 0, fpsSamples: [], fpsDone: !!qFixed(), fpsWait: 2, lamps: 0, kioskI: 0, weatherI: 0, coverI: 0, benchRec: null,
       py: 0, floor: 0, mvX: NaN, mvZ: NaN, air: false,   // волна 5 (Move): высота ног (скамейка, ящик, крыша машины), пол под ней, в воздухе
     };
     s.LI = LI;
+    // W7 (желание 10): вид «из-за руля» — общий модуль с горами (js/village/drive.js); кнопка 👁 в дуге за рулём (слот s4)
+    s.ck = window.VILLAGE && VILLAGE.drive && VILLAGE.drive.cockpit ? VILLAGE.drive.cockpit({ THREE: T, camera: cam, renderer: w.renderer }) : null;
+    if (s.ck && !ui.ck && window.HUD && HUD.sbtn) { ui.ck = HUD.sbtn(ui.ui, { slot: 's4', icon: '👁', label: 'Вид из-за руля', cls: 'w-ck' }); ui.ck.classList.add('hidden'); }
     const isLit = k => (FREE ? true : typeof o.isLit === 'function' ? !!o.isLit(k) : false);
     const residentsVis = Object.assign({}, story && !OW ? { hedgehog: false } : {}, ow.residents || {});
     // стенд world.html (не игра, «Замер» автора и проверки): всё открыто; ?debug=1&locks=1 — замки по датам, как в игре
@@ -873,6 +878,13 @@
     const onKeyUp = e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && w.mv) w.mv.holdRun(false); };
     const joyEnd = () => { joy.id = null; joy.x = joy.y = 0; if (ui.joyCtl) ui.joyCtl.end(); };
     const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joyEnd(); if (w.mv) w.mv.holdRun(false); };
+    // желание 7: палец дальше края кружка, до стрелок (HUD.joystick.running: порог и 0,15 с) — бег, пока держит; назад внутрь или
+    // отпустила — шаг. Бег тот же, что у кнопки «Бег» (Move.holdRun: кнопка горит), на старте — лёгкий отклик. Раз в кадр (s.update)
+    const joyRun = ok => {
+      const on = !!(ui.joyCtl && ui.joyCtl.running && ui.joyCtl.running(ok && joy.id !== null && !!w.mv));
+      if (on !== !!s.joyRun) { s.joyRun = on; if (w.mv) w.mv.holdRun(on); if (on) haptic('light'); }
+      else if (on && !w.mv.run) w.mv.holdRun(true);
+    };
     const onDown = e => {
       if (isUI(e.target) || s.finished || s.benching) return;
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
@@ -897,7 +909,9 @@
       const p = looks.get(e.pointerId); if (!p) return;
       const dx = x - p.x, dy = y - p.y; p.x = x; p.y = y; p.moved += Math.abs(dx) + Math.abs(dy);
       if (looks.size >= 2 && pinch0) { const [a, b] = [...looks.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); s.dist = clamp(pinch0.dist * pinch0.d / Math.max(20, d), 6, 15); s.manualT = 4; return; }
-      if (p.moved > 6 && !s.anim) { s.yaw -= dx * 0.0085; s.manualT = 4; s.pitchK = clamp(s.pitchK + dy * 0.004, -0.6, 0.8); }
+      // W7 (желание 3): палец вверх — взгляд вверх (до неба), вниз — сверху; в виде «из-за руля» — повернуть голову
+      if (p.moved > 6 && !s.anim && s.ck && s.ck.active) { s.ckLook.yaw = clamp(s.ckLook.yaw - dx * 0.006, -1.3, 1.3); s.ckLook.pitch = clamp(s.ckLook.pitch - dy * 0.005, -0.5, 0.75); s.manualT = 4; s.pitchT = 0; }
+      else if (p.moved > 6 && !s.anim) { s.yaw -= dx * 0.0085; s.manualT = 4; s.pitch = clamp(s.pitch - dy * 0.0045, -1.2, 1.6); s.pitchT = 0; }
     };
     const onUp = e => {
       if (e.pointerId === joy.id) {
@@ -916,6 +930,7 @@
     // тап по раскрытой карточке дела — камера показывает дверь цели (как раньше тап по карточке)
     const onCase = () => { const card = s.card; if (!card || card.tap === 'none' || s.finished) return; const d = card.door ? doors.get(card.door) : tgtDoor; if (d) focusDoor(d.id, 1300); haptic('light'); };
     const onHorn = e => { e.stopPropagation(); doHorn(); };
+    const onCk = e => { e.stopPropagation(); haptic('light'); ckSet(!(s.ck && s.ck.active)); };
     const onBell = e => { e.stopPropagation(); if (s.mode === 'ride' && w.bike) w.bike.ring(); };
     const onColor = e => { e.stopPropagation(); w.carColor = (w.carColor + 1) % WORLD.CAR_COLORS.length; car.setColor(WORLD.CAR_COLORS[w.carColor][1]); toast('Цвет: ' + WORLD.CAR_COLORS[w.carColor][0], 1400, { replace: true }); };
     const onReset = e => { e.stopPropagation(); car.reset(L.loopPath); ui.show(ui.reset, false); };
@@ -928,6 +943,7 @@
       w.root[f]('wheel', onWheel, { passive: false }); w.root[f]('contextmenu', onCtx);
       ui.act[f]('click', onAct); ui.onCaseTap = on ? onCase : null;
       ui.horn[f]('click', onHorn); ui.color[f]('click', onColor); ui.reset[f]('click', onReset);
+      if (ui.ck) ui.ck[f]('click', onCk);
       if (ui.bell) ui.bell[f]('click', onBell);
       if (ui.swap) ui.swap[f]('click', onSwap);
       if (!on) onBlur();
@@ -1199,10 +1215,13 @@
       if (auto) saveWorld({ guide: 1 });
       const cd = s.card && s.card.door && !s.card.lock ? doors.get(s.card.door) : tgtDoor;
       const cars = Object.keys(w.cars).filter(k => w.cars[k].car.root.visible).length, trip = tripOpen();
+      // машина на своём месте у старта (через дорогу от кинотеатра) — так и сказать; уехала — где она, покажет мини-карта
+      const home = carHome(w, w.carKind), atStart = !!(home && home.at === 'start' && Math.hypot(car.S.x - home.x, car.S.z - home.z) < 4);
+      const where = atStart ? (cars > 1 ? 'Машины ждут через дорогу от кинотеатра, у самой зебры. ' : 'Машина ждёт через дорогу от кинотеатра, у самой зебры. ') : 'Где машина — видно на мини-карте. ';
       const item = (ic, t, sub) => `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:0 0 10px;border-radius:18px;background:#FFF4EE"><b style="font-size:26px;line-height:1.1;flex:none">${ic}</b><div><b style="display:block;font-size:17px;color:#9E2F47">${t}</b><span style="display:block;font-size:15.5px;font-weight:600;color:#6E6272;line-height:1.35;margin-top:2px">${sub}</span></div></div>`;
       const body = '<p style="margin:0 0 12px">Город — твой. Можно так:</p>'
         + item('🔍', 'Распутать дело', cd ? 'Иди к дому, над которым светится луч. Что искать — в пилюле вверху экрана.' : 'Новое дело появится само — его покажет пилюля вверху. А пока — гуляй и заглядывай в лавки.')
-        + item('🚗', 'Или отдохнуть в горах', (cars > 1 ? 'Не хочется расследовать — не беда. Машины ждут у тротуара, в двух шагах. ' : 'Не хочется расследовать — не беда. Машина ждёт у тротуара, в двух шагах. ') + 'Садись за руль — и ' + villageWord() + ': серпантин, облака и башня.')
+        + item('🚗', 'Или отдохнуть в горах', 'Не хочется расследовать — не беда. ' + where + 'Садись за руль — и ' + villageWord() + ': серпантин, облака и башня.')
         + '<p style="margin:2px 0 0;font-size:15px;color:#8A7E8E">Эта подсказка — в меню ☰, «Как играть». Карта мест — там же.</p>';
       const acts = [];
       if (cd) acts.push({ label: '🔍 К делу', value: 'case' });
@@ -1212,11 +1231,11 @@
       try { r = await Town.sheet({ title: 'Что тут делать?', body, actions: acts }); } catch (e) { r = null; }
       guideOn = false;
       if (s.finished || S !== s) return true;
-      if (r === 'case' && cd) { haptic('light'); focusDoor(cd.id, 1500); }
+      if (r === 'case' && cd) { haptic('light'); focusDoor(cd.id, 1500, 1.6); }
       else if (r === 'cars') {
-        // камера — на машины у старта (с проезжей части, как у дверей); метка «📍» — к выезду из города
-        let x = 0, z = 0, n = 0; Object.keys(w.cars).forEach(k => { const c = w.cars[k].car; if (c.root.visible) { x += c.S.x; z += c.S.z; n++; } });
-        if (n) { x /= n; z /= n; s.camFocus = { pos: new T.Vector3(x + 1.5, 5.4, z + 10.5), look: new T.Vector3(x, 0.7, z), until: performance.now() + 3200 }; }
+        // камера — на машины, обе целиком в кадре (carsShot); метка «📍» — к выезду из города
+        const sh = carsShot();
+        if (sh) s.camFocus = { pos: new T.Vector3(sh.pos[0], sh.pos[1], sh.pos[2]), look: new T.Vector3(sh.look[0], sh.look[1], sh.look[2]), hold: 2.4, brk: true, mt: s.manualT };
         const e = L.edge;
         if (trip && e && isFinite(e.x) && WORLD.Minimap && WORLD.Minimap.setWaypoint) { try { WORLD.Minimap.setWaypoint({ rid: 'city', id: 'edge', x: e.x, z: e.z, label: e.label || 'За город ↑', kind: 'edge' }); } catch (x2) { /* без метки */ } }
         toast(trip && e && e.label ? `Садись за руль — и под арку с табличкой «${e.label}». Метка 📍 покажет путь.` : 'Подойди к машине и нажми «Сесть за руль».', 3600);
@@ -1227,11 +1246,82 @@
       if (n > 12 || s.finished || S !== s || wState().guide) return;
       setTimeout(() => { if (s.finished || S !== s || wState().guide) return; showGuide(true).then(ok => { if (!ok) guideLater(n + 1); }); }, n ? 2500 : 1400);
     }
-    function focusDoor(id, ms = 1200) {
+    // hold (с, время игры) — фокус как у подсказки (focusDone): доехать, постоять, вернуться; без него — ms по часам, как раньше
+    function focusDoor(id, ms = 1200, hold) {
       const d = doors.get(id); if (!d) return Promise.resolve();
       const yawOut = Math.atan2(d.nx, d.nz);
-      s.camFocus = { pos: new T.Vector3(d.ax + d.nx * 7.5 + Math.cos(yawOut) * 2, 5.6, d.az + d.nz * 7.5 - Math.sin(yawOut) * 2), look: new T.Vector3(d.x, 2.4, d.z), until: performance.now() + ms };
+      s.camFocus = { pos: new T.Vector3(d.ax + d.nx * 7.5 + Math.cos(yawOut) * 2, 5.6, d.az + d.nz * 7.5 - Math.sin(yawOut) * 2), look: new T.Vector3(d.x, 2.4, d.z), until: hold ? undefined : performance.now() + ms, hold, brk: !!hold, mt: s.manualT };
       return new Promise(r => setTimeout(r, ms + 300));
+    }
+    // фокус по времени игры (F.hold, с), а не по часам: на медленных кадрах камера успевает доехать. Доехала (≤ 0,4 м) —
+    // держит кадр F.hold с и плавно возвращается к героине (F.ret); F.brk — джойстик, палец по экрану или посадка в машину
+    // возвращают её сразу. Без F.hold — как раньше: до F.until по часам
+    function focusDone(F, dt) {
+      if (F.hold === undefined) return false;
+      F.t = (F.t || 0) + dt;
+      const fp = s.focusPos, fl = s.focusLook;
+      if (F.ret) { F.pos.copy(camPos); F.look.copy(lookAt); return !fp || (fp.distanceTo(camPos) < 0.3 && fl.distanceTo(lookAt) < 0.3) || F.t - F.ret > 2.5; }
+      if (!F.arr && fp && fp.distanceTo(F.pos) < 0.4) F.arr = F.t;
+      const drag = s.manualT > (F.mt || 0) + 0.01; F.mt = s.manualT;
+      if ((F.arr && F.t - F.arr > F.hold) || F.t > F.hold + 6 || (F.brk && (s.walking || drag || s.mode !== 'walk'))) F.ret = F.t;
+      return false;
+    }
+    // кадр «Покажи машины»: стоящие машины целиком в свободной части экрана (не под пилюлей и тостом сверху, не под
+    // джойстиком и картой снизу). Портрет узкий, поэтому смотрим вдоль ряда машин спереди-сбоку, с проезжей части:
+    // ближняя крупнее, дальняя — выше и мельче. Не влезли — камера отъезжает; машины дальше 16 м друг от друга
+    // (или вдвоём не влезли) — только ближняя к героине. Перебор поз — один раз на нажатие кнопки, не в кадре
+    const shotCam = new T.PerspectiveCamera(58, 0.5, 0.1, 300), shotV = new T.Vector3(), shotP = new T.Vector3();
+    function carsShot() {
+      const all = Object.keys(w.cars).map(k => w.cars[k].car).filter(c => c.root.visible).sort((a, b) => (a === car ? -1 : b === car ? 1 : 0));
+      if (!all.length) return null;
+      const dh = c => Math.hypot(c.S.x - s.px, c.S.z - s.pz), near = all.length > 1 && dh(all[1]) < dh(all[0]) ? all[1] : all[0];
+      const two = all.length > 1 && Math.hypot(all[1].S.x - all[0].S.x, all[1].S.z - all[0].S.z) <= 16;
+      let pair = all.slice(0, 2);
+      // обе смотрят в одну сторону (стоят рядом у бордюра) — камера спереди ряда, первой — передняя: видно «лица» обеих
+      if (two && Math.cos(pair[0].S.ry - pair[1].S.ry) > 0.8 && (pair[1].S.x - pair[0].S.x) * Math.sin(pair[0].S.ry) + (pair[1].S.z - pair[0].S.z) * Math.cos(pair[0].S.ry) > 0) pair = [pair[1], pair[0]];
+      return (two && shotOf(pair)) || shotOf([near]);
+    }
+    function shotOf(list) {
+      const pts = [];
+      list.forEach(c => {
+        const d = c.dims || {}, hw = d.halfW || 0.95, hl = d.halfL || 2.2, y0 = c.root.position.y, y1 = y0 + (d.height || 1.35), co = Math.cos(c.S.ry), si = Math.sin(c.S.ry);
+        for (const a of [-1, 1]) for (const b of [-1, 1]) for (const y of [y0, y1]) pts.push(c.S.x + a * hw * co + b * hl * si, y, c.S.z - a * hw * si + b * hl * co);
+      });
+      const A = list[0].S, B = list[1] ? list[1].S : null, dAB = B ? Math.hypot(B.x - A.x, B.z - A.z) || 1 : 0;
+      // ось ряда — от ближней к дальней; одна машина — камера спереди
+      const ux = B ? (B.x - A.x) / dAB : -Math.sin(A.ry), uz = B ? (B.z - A.z) / dAB : -Math.cos(A.ry);
+      // сторона проезжей части — где дорога «глубже»: камера над дорогой, а не над тротуаром с фонарями и деревьями
+      let nx = -uz, nz = ux;
+      if (L.roadSD && L.roadSD(A.x + nx * 3, A.z + nz * 3) > L.roadSD(A.x - nx * 3, A.z - nz * 3)) { nx = -nx; nz = -nz; }
+      shotCam.fov = w.portrait ? 58 : 48; shotCam.aspect = cam.aspect; shotCam.updateProjectionMatrix();
+      let best = null;
+      // точка взгляда — между машинами (t) и чуть вбок (o: к бордюру или к дороге), чтобы машины встали посередине кадра
+      for (const k of [5, 6.5, 8, 10, 12.5, 15, 18]) for (const m of [2.5, 4, 5.5]) for (const hy of [3.4, 4.6]) for (const t of B ? [0.3, 0.45] : [0]) for (const o of [-1.6, -0.8, 0, 0.8]) {
+        const px = A.x - ux * k + nx * m, pz = A.z - uz * k + nz * m, py = gy(L, px, pz) + hy, lx = A.x + ux * dAB * t + nx * o, lz = A.z + uz * dAB * t + nz * o, ly = gy(L, lx, lz) + 0.55;
+        shotCam.position.set(px, py, pz); shotCam.lookAt(lx, ly, lz); shotCam.updateMatrixWorld();
+        // рамки на экране: общая и у каждой машины (по 8 углов кузова)
+        let x0 = 1, x1 = -1, y0 = 1, y1 = -1, ok = true, aMin = 9, aMax = 0;
+        for (let j = 0; j < list.length && ok; j++) {
+          let cx0 = 1, cx1 = -1, cy0 = 1, cy1 = -1;
+          for (let i = j * 24; i < j * 24 + 24; i += 3) {
+            shotV.set(pts[i], pts[i + 1], pts[i + 2]).project(shotCam);
+            if (shotV.z > 1 || shotV.z < -1) { ok = false; break; }
+            cx0 = Math.min(cx0, shotV.x); cx1 = Math.max(cx1, shotV.x); cy0 = Math.min(cy0, shotV.y); cy1 = Math.max(cy1, shotV.y);
+          }
+          const a = (cx1 - cx0) * (cy1 - cy0); aMin = Math.min(aMin, a); aMax = Math.max(aMax, a);
+          x0 = Math.min(x0, cx0); x1 = Math.max(x1, cx1); y0 = Math.min(y0, cy0); y1 = Math.max(y1, cy1);
+        }
+        // доли экрана (x — слева, y — сверху): сверху пилюля дела и тост, снизу джойстик, мини-карта и кнопки, справа — стрелка к делу
+        if (!ok || (x0 + 1) / 2 < 0.07 || (x1 + 1) / 2 > 0.88 || (1 - y1) / 2 < 0.18 || (1 - y0) / 2 > 0.76) continue;
+        // камера в доме или дом между камерой и машиной — мимо
+        let inBox = false;
+        w.grid.near(px - 0.5, px + 0.5, pz - 0.5, pz + 0.5, null, bx => { if (px > bx.x0 && px < bx.x1 && pz > bx.z0 && pz < bx.z1 && py < bx.h + 0.5) inBox = true; });
+        if (inBox || list.some(c => occlude(shotCam.position, shotP.set(c.S.x, 0.8, c.S.z)) < 1)) continue;
+        // крупнее, ближе к середине кадра по горизонтали, и чтобы дальняя машина не потерялась за ближней
+        const sc = (x1 - x0) * (y1 - y0) * (1 - Math.abs(x0 + x1) * 0.45) * (0.4 + 0.6 * Math.sqrt(aMin / aMax));
+        if (!best || sc > best.sc) best = { sc, pos: [px, py, pz], look: [lx, ly, lz] };
+      }
+      return best;
     }
 
     /* ---------- машина ---------- */
@@ -1273,6 +1363,78 @@
       car = w.car; saveWorld({ car: w.carKind }); vehiclesSetup(); emit('world:car', { kind: w.carKind });
       return true;
     }
+    // бюджет (q=low ≤200k) и вид: стоящая машина издали дешевле — на низком качестве дальше 12 м без обводки (иначе — дальше
+    // начала тумана), дальше границы LOD города (та же, что у map.js: там дома уже «коробки») не рисуется. Не рисуем стоящую
+    // машину и когда она лезет в камеру: камера в кузове или ближе 0,8 м к нему, или кузов заслоняет цель камеры (взгляд
+    // вверх — камера у земли); вернётся, когда 0,4 с чисто — без мигания на границе. Прячем слоем (layers.mask = 0), а не
+    // visible: видимость машины — это логика (spare, carFree, карта). off — всё вернуть.
+    const lodHide = (m, on) => {
+      const u = m.userData;
+      if (on && !u.lodHid) { u.lodHid = 1; u.lodMask = m.layers.mask; m.layers.mask = 0; }
+      else if (!on && u.lodHid) { u.lodHid = 0; m.layers.mask = u.lodMask; }
+    };
+    // кадр камеры — по коробкам кузова (lodSet): сфера сеток машины велика (до 3,9 м), и машина под камерой или сбоку от
+    // кадра рисовалась бы зря
+    const lodFr = new T.Frustum(), lodPM = new T.Matrix4(), lodBox = new T.Box3();
+    // коробка по осям мира вокруг повёрнутого прямоугольника машины (полуширина w, полудлина l, запас 6 см — обводка), высота y0…y1
+    const lodSet = (c, co, si, w, l, y0, y1) => {
+      const ex = Math.abs(co) * w + Math.abs(si) * l + 0.06, ez = Math.abs(si) * w + Math.abs(co) * l + 0.06;
+      lodBox.min.set(c.S.x - ex, y0, c.S.z - ez); lodBox.max.set(c.S.x + ex, y1, c.S.z + ez);
+      return lodBox;
+    };
+    // отрезок «камера → цель камеры» (героиня, ведомая машина или велосипед; 1,2 м над землёй) против кузова — в осях стоящей
+    // машины; последние 1,5 м у цели не в счёт: героиня у двери машины её не прячет
+    let sgT0 = 0, sgT1 = 1;
+    const sgAx = (p, d, lo, hi) => {
+      if (Math.abs(d) < 1e-6) return p >= lo && p <= hi;
+      let u0 = (lo - p) / d, u1 = (hi - p) / d;
+      if (u0 > u1) { const q = u0; u0 = u1; u1 = q; }
+      if (u0 > sgT0) sgT0 = u0;
+      if (u1 < sgT1) sgT1 = u1;
+      return sgT0 <= sgT1;
+    };
+    function carLod(off, dt = 0) {
+      const cp = cam.position, fog = w.scene.fog, fN = fog ? fog.near : 22, fF = fog ? fog.far : 55;
+      // обзор с отодвинутым туманом (как у map.js, fog.near > 200) — без правил дальности; отладочная камера — как обычная,
+      // только без проверки «заслоняет цель»: камера не за героиней
+      const over = fN > 200, farD = over ? 1e9 : Math.min(fN + 0.42 * (fF - fN), 58), olD = over ? 1e9 : w.qKey === 'low' ? Math.min(12, fN) : fN, all = off || s.inTrip;
+      const tx = s.tx, ty = (s.ty || 0) + 1.2, tz = s.tz, tL = Math.hypot(tx - cp.x, ty - cp.y, tz - cp.z), tK = !s.camFocus && !s.camOverride && tL > 2 ? 1 - 1.5 / tL : 0;
+      let fr = false;
+      for (const k in w.cars) {
+        const e = w.cars[k], c = e.car;
+        let st = 0;
+        if (e.occT > 0) e.occT -= dt;
+        if (!all && c.root.visible && !(c === car && s.mode === 'drive') && (!e.ctl || e.ctl.mode === 'parked') && Math.abs(c.S.v) < 0.05) {
+          const dx = cp.x - c.S.x, dz = cp.z - c.S.z, d = Math.hypot(dx, dz), dm = c.dims, by = c.root.position.y, hy = by + ((dm && dm.height) || 1.4);
+          const hc = CAR_HALF[k] || CAR_HALF.coupe, hw = dm && dm.halfW ? dm.halfW : hc[0], hl = dm && dm.halfW ? dm.halfL : hc[1], co = Math.cos(c.S.ry), si = Math.sin(c.S.ry);
+          const lx = dx * co - dz * si, lz = dx * si + dz * co;
+          if (d > farD) st = 2;
+          else if (cp.y < hy + 0.8 && Math.abs(lx) < hw + 0.8 && Math.abs(lz) < hl + 0.8) st = 2;
+          else {
+            if (tK > 0) {
+              const qx = tx - c.S.x, qz = tz - c.S.z, ex = qx * co - qz * si, ez = qx * si + qz * co;
+              sgT0 = 0; sgT1 = tK;
+              if (sgAx(lx, ex - lx, -hw, hw) && sgAx(cp.y, ty - cp.y, by, hy) && sgAx(lz, ez - lz, -hl, hl)) e.occT = 0.4;
+            }
+            if (e.occT > 0) st = 2;
+            else {
+              if (!fr) { fr = true; cam.updateMatrixWorld(); lodFr.setFromProjectionMatrix(lodPM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); }
+              // две коробки — кузов до пояса и салон (уже и короче): у одной коробки верхние углы торчат в кадр, когда сама
+              // машина уже под его нижним краем (камера над стоящей машиной)
+              const hb = by + 0.62 * (hy - by);
+              let inF = lodFr.intersectsBox(lodSet(c, co, si, hw, hl, by - 0.05, hb + 0.12));
+              if (!inF) inF = lodFr.intersectsBox(lodSet(c, co, si, hw * 0.85, hl * 0.7, hb - 0.2, hy + 0.12));
+              st = !inF ? 2 : d > olD ? 1 : 0;
+            }
+          }
+        }
+        if ((e.lodSt || 0) === st) continue;
+        e.lodSt = st;
+        // свои меши машины — один раз, когда она стоит пустая (героиня и зверята в кузове сюда не попадут)
+        if (!e.lodM) { e.lodM = []; c.root.traverse(m => { if (m.isMesh || m.isSprite) e.lodM.push(m); }); }
+        for (const m of e.lodM) lodHide(m, st === 2 || (st === 1 && m === c.outline));
+      }
+    }
     // выбрать машину: у гаража — выбранная встаёт у гаража; иначе (кнопка «Другая машина», отладка) — на своё место у старта
     function swapCar(kind, at) {
       const toGarage = at === 'garage';
@@ -1285,7 +1447,7 @@
       saveWorld({ car: w.carKind });
       vehiclesSetup();
       sfx('pop'); haptic('success');
-      toast((CAR_TITLE[w.carKind] || CAR_TITLE.coupe) + (gsp ? ' ждёт у гаража!' : ' ждёт рядом, у кинотеатра!'), 2400);
+      toast((CAR_TITLE[w.carKind] || CAR_TITLE.coupe) + (gsp ? ' ждёт у гаража!' : ' ждёт через дорогу от кинотеатра!'), 2400);
       emit('world:car', { kind: w.carKind });
       return true;
     }
@@ -1296,7 +1458,7 @@
       let picked = null;
       try {
         const body = document.createElement('div');
-        const p0 = document.createElement('p'); p0.textContent = at === 'garage' ? 'Выбранная машина встанет здесь, у гаража «Круглые фары».' : 'Обе стоят здесь, у кинотеатра. Какую взять?'; p0.style.margin = '0 0 10px'; body.appendChild(p0);
+        const p0 = document.createElement('p'); p0.textContent = at === 'garage' ? 'Выбранная машина встанет здесь, у гаража «Круглые фары».' : 'Обе стоят через дорогу от кинотеатра. Какую взять?'; p0.style.margin = '0 0 10px'; body.appendChild(p0);
         picked = await Town.sheet({ title: 'Какую машину взять?', body, onMount: (b, close) => { const pk = VEHICLES.picker({ current: w.carKind, onPick: id => setTimeout(() => close(id), 180) }); b.appendChild(pk); } });
       } catch (e) { picked = null; }
       s.pickBusy = false;
@@ -1393,6 +1555,17 @@
         if (s.catOn) cat.root.position.set(seat.x + (ox - 0.8 - seat.x) * e, Math.sin(k * PI) * 0.8 + 0.6 * (1 - e), seat.z + (oz + 0.4 - seat.z) * e);
       }, done() { s.px = ox; s.pz = oz; s.catX = ox - 0.8; s.catZ = oz + 0.4; s.anim = null; w.heroBlob.visible = true; w.catBlob.visible = s.catOn; const ol = (hero.rig || hero.statue || {}).outline; if (ol) ol.visible = true; if (w.heroProxy) w.heroProxy.visible = true; if (hero.rig) hero.rig.prev = null; } };
     }
+    // W7: вид «из-за руля» вкл/выкл; наружу — камера плавно уходит назад от салона (camPos = где камера сейчас)
+    function ckSet(on) {
+      if (!s.ck) return false;
+      const was = s.ck.active;
+      on = !!on && s.mode === 'drive' && !!(car && car.cockpit);
+      s.ck.on(on); s.ckLook.yaw = s.ckLook.pitch = 0;
+      if (was && !on) camPos.copy(cam.position);
+      if (ui.ck && window.HUD) { ui.ck.classList.toggle('on', on); HUD.sicon(ui.ck, on ? '🎥' : '👁', on ? 'Вид сзади' : 'Вид из-за руля'); }
+      if (on && !was) toast('Вид из-за руля · 🎥 — снова сзади', 1800, { replace: true });
+      return on;
+    }
     function doHorn() {
       if (s.mode !== 'drive' || (w.carCtl && w.carCtl.mode !== 'drive')) return;
       if (w.carCtl) w.carCtl.horn(); else { sfx('blip'); setTimeout(() => sfx('blip'), 160); }
@@ -1406,7 +1579,9 @@
     let tripAsk = false;
     async function regionTrip(e, go) {   // go — с большой карты (MAP): { to: 'kubachi' | 'hotel' | 'serpentine', poi, at: { x, z, label }, note } (note — тост после шторки)
       if (s.finished || s.inTrip || !WORLD.Regions || !WORLD.Regions.can()) return false;
-      s.inTrip = true; s.moveTo = null;
+      s.inTrip = true; s.moveTo = null; ckSet(false);
+      // машина едет в регион целиком: вернуть её меши (могли быть спрятаны LOD стоящих машин)
+      carLod(true);
       if (s.mode === 'ride' && w.bike) { try { await w.bike.dismount({ instant: true }); } catch (x) { /* уже слезла */ } }
       const t0 = performance.now();
       s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off();
@@ -1602,7 +1777,8 @@
       if (w.minimap) { try { w.minimap.close(true); } catch (e) { /* ignore */ } }
       loopStop(); bindInput(false);
       ui.sayClear(); ui.setAct(null); ui.setCase(null); ui.setEdge(false); ui.setTag(false); ui.setNear(false); ui.hintOff();
-      [ui.horn, ui.bell, ui.color, ui.reset, ui.swap].forEach(el => ui.show(el, false));
+      [ui.horn, ui.bell, ui.color, ui.reset, ui.swap, ui.ck].forEach(el => ui.show(el, false));
+      ckSet(false);
       if (ui.joyCtl) { ui.joyCtl.end(); ui.joyCtl.show(false); }
       s.actWave = false; ui.setDayNight(false);
       w5Off(); if (w.mv) w.mv.setRun(false);
@@ -1963,7 +2139,7 @@
       pickups.forEach(pk => { if (pk.taken) return; pk.spr.position.y = 0.6 + Math.sin(t * 2 + pk.ph) * 0.08; const k = (t * 0.7 + pk.ph) % 1; pk.ring.scale.setScalar(1 + k * 0.5); pk.ring.material.opacity = 0.75 * (1 - k); });
       spotMarks.forEach((m, i) => { m.material.rotation = t * 0.6 + i; m.scale.setScalar(0.5 + Math.sin(t * 3 + i) * 0.06); });
     }
-    const camPos = new T.Vector3(), lookAt = new T.Vector3(), camWant = new T.Vector3();
+    const camPos = new T.Vector3(), lookAt = new T.Vector3(), camWant = new T.Vector3(), camAim = new T.Vector3();
     function updCamera(dt) {
       const drv = s.mode === 'drive', rd = s.mode === 'ride' && !!w.bike;
       const fx = drv ? car.S.x : s.px, fz = drv ? car.S.z : s.pz;
@@ -1979,28 +2155,57 @@
         else if (s.walking && s.moveT > 0.7) { const e = angDiff(s.ang, s.yaw); if (Math.abs(e) < 2.3) s.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
       }
       const sp = drv ? Math.abs(car.S.v) / car.VMAX : rd ? w.bike.speed / 5.5 * 0.6 : 0, hd = drv ? car.S.ry : rd ? w.bike.ry : 0;
-      const dist = drv ? 11 + sp * 1.5 : rd ? 8.5 + sp : s.dist, hgt = (drv ? 5 : rd ? 4.6 : 5.4) + s.pitchK * 3;
+      let dist = drv ? 11 + sp * 1.5 : rd ? 8.5 + sp : s.dist, hgt = drv ? 5 : rd ? 4.6 : 5.4;
       const f0 = Math.sin(s.yaw), f1 = Math.cos(s.yaw), ahead = drv ? 3 * sp * Math.sign(car.S.v || 1) : rd ? 3 * sp : 0;
       lookAt.set(s.tx + Math.sin(hd) * ahead, (drv ? 1.0 : rd ? 1.2 : 1.35) + (s.ty || 0), s.tz + Math.cos(hd) * ahead);
+      // W7 (желание 3): взгляд вверх-вниз пальцем — камера по дуге вокруг точки взгляда: вниз — выше, вверх — ниже и ближе
+      // (героиня или машина внизу кадра, выше — небо); у земли камера не ниже 0,45 м (за рулём 0,7) — дальше поднимается сам
+      // взгляд (у cam.lookAt ниже). Отпустила палец — на ходу через 4 с, стоя через 10 с наклон плавно возвращается к обычному
+      s.pitchT += dt;
+      if (s.pitch && (s.pitchT > 10 || (s.pitchT > 4 && (drv || rd || s.walking)))) { s.pitch *= Math.exp(-dt * 1.6); if (Math.abs(s.pitch) < 0.002) s.pitch = 0; }
+      const ly = lookAt.y - (s.ty || 0), th0 = -Math.atan2(hgt - ly, dist), thMax = drv ? 0.4 : rd ? 0.56 : 0.62;
+      s.pitch = clamp(s.pitch, -0.72 - th0, thMax - th0);
+      const th = th0 + s.pitch; s.pitchDeg = th * 180 / PI;
+      if (s.pitch) { const R = Math.hypot(dist, hgt - ly), R2 = R * (1 - (drv ? 0.3 : 0.45) * Math.max(0, th) / thMax); dist = R2 * Math.cos(th); hgt = ly - R2 * Math.sin(th); }
       camWant.set(s.tx - f0 * dist, hgt + (s.ty || 0), s.tz - f1 * dist);
+      if (s.pitch > 0) { const gMin = gy(L, camWant.x, camWant.z) + (drv ? 0.7 : 0.45); if (camWant.y < gMin) camWant.y = gMin; }
       const tHit = occlude(lookAt, camWant);
       if (tHit < 1) {
         const k = Math.max(0.1, tHit * 0.85), d0 = camWant.distanceTo(lookAt);
         camWant.lerpVectors(lookAt, camWant, k);
-        camWant.y = Math.max(camWant.y, lookAt.y + 1.6 + (1 - k) * 4.5);
-        if (d0 * k < 3.5) { camWant.x += (lookAt.x - camWant.x) * 0.3; camWant.z += (lookAt.z - camWant.z) * 0.3; }
+        // W7: смотрит вверх, а сзади дом — камера встаёт перед домом низко (подъём «над домом» — только если места совсем мало,
+        // ближе 1,3 м): иначе камера, поднятая под крышу, смотрела ещё выше — в кадре одно небо, героини нет
+        const upK = th > 0.02 && d0 * k > 1.3 ? Math.min(1, th / 0.2) : 0, lift = lookAt.y + 1.6 + (1 - k) * 4.5;
+        camWant.y = Math.max(camWant.y, lift + (camWant.y - lift) * upK);
+        if (d0 * k < 3.5 && upK < 0.5) { camWant.x += (lookAt.x - camWant.x) * 0.3; camWant.z += (lookAt.z - camWant.z) * 0.3; }
       }
       w.grid.near(camWant.x - 1, camWant.x + 1, camWant.z - 1, camWant.z + 1, null, bx => { if (camWant.x > bx.x0 && camWant.x < bx.x1 && camWant.z > bx.z0 && camWant.z < bx.z1 && camWant.y < bx.h + 0.8) camWant.y = bx.h + 0.8; });
       if (!s.camInit) { camPos.copy(camWant); s.camInit = true; }
       camPos.lerp(camWant, 1 - Math.exp(-dt * (drv ? 6 : 7)));
       if (s.camFocus) {
         const F = s.camFocus;
-        if (performance.now() > F.until) s.camFocus = null;
+        if (performance.now() > F.until || focusDone(F, dt)) s.camFocus = null;
         else { s.focusPos = s.focusPos || camPos.clone(); s.focusPos.lerp(F.pos, 1 - Math.exp(-dt * 4)); s.focusLook = s.focusLook || lookAt.clone(); s.focusLook.lerp(F.look, 1 - Math.exp(-dt * 4)); cam.position.copy(s.focusPos); cam.lookAt(s.focusLook); }
       }
-      if (!s.camFocus) { s.focusPos = null; s.focusLook = null; cam.position.copy(camPos); cam.lookAt(lookAt); }
+      if (!s.camFocus) {
+        s.focusPos = null; s.focusLook = null; cam.position.copy(camPos);
+        // взгляд вверх: камера у земли (или поднята домом) — точка взгляда поднимается до нужного наклона
+        // W7: героиня (машина) в кадре не ниже ~72 % высоты — над джойстиком и радаром: наклон вверх не больше угла до неё + запас
+        if (s.pitch > 0.001) {
+          const hz = Math.hypot(lookAt.x - camPos.x, lookAt.z - camPos.z), sub = lookAt.y - (drv ? 0.2 : 0.35);
+          const thE = Math.min(th, Math.atan2(sub - camPos.y, Math.max(0.5, hz)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
+          camAim.copy(lookAt); camAim.y = Math.max(lookAt.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(camAim);
+        } else cam.lookAt(lookAt);
+      }
+      // W7 (желание 10): вид «из-за руля» (VILLAGE.drive.cockpit) — камера в салоне; вышла из машины — вид выключается сам;
+      // палец — повернуть голову (s.ckLook), через 2,5 с без касаний взгляд плавно возвращается вперёд
+      const ckOn = !!(s.ck && s.ck.active);
+      if (ckOn) {
+        if (s.manualT <= 0 && s.pitchT > 2.5) { const k = Math.exp(-dt * 2.2); s.ckLook.yaw *= k; s.ckLook.pitch *= k; }
+        if (!drv || !s.ck.update(dt, car, hero, s.ckLook)) ckSet(false);
+      }
       if (s.camOverride) { const v = s.camOverride; cam.position.set(v[0], v[1], v[2]); cam.lookAt(v[3], v[4], v[5]); }
-      const fovT = (w.portrait ? 58 : 48) + sp * 6; if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
+      if (!ckOn) { const fovT = (w.portrait ? 58 : 48) + sp * 6; if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); } }
       const off = s.off || LOOKS[3].off;
       w.sun.target.position.set(s.tx, 0, s.tz); w.sun.position.set(s.tx + off[0] * 2, off[1] * 2, s.tz + off[2] * 2);
     }
@@ -2111,6 +2316,7 @@
       if (nearTxt && nearPos) { tmpV.set(nearPos[0], nearPos[1], nearPos[2]).project(cam); ui.setNear(tmpV.z < 1, (tmpV.x + 1) / 2 * Wd, (1 - tmpV.y) / 2 * Ht, nearTxt); } else ui.setNear(false);
       const drv = s.mode === 'drive' && !s.anim && !busy && (!w.carCtl || w.carCtl.mode === 'drive');
       ui.show(ui.horn, drv); ui.show(ui.color, drv && car.kind !== 'sedan');   // седан — красный: перекрашивать не даём
+      ui.show(ui.ck, drv && !!(s.ck && car.cockpit));
       ui.show(ui.swap, !busy && !blk && !s.anim && s.mode === 'walk' && !s.sitting && !iaBusy() && !nearGarage() && nearCar() && canPickCar() && carAtHome());
       if (w.dn && (uiF % 15 === 0 || s.dnDirty)) dnTick();
       ui.show(ui.bell, s.mode === 'ride' && !busy && !blk && !!w.bike && !w.bike.busy);
@@ -2188,6 +2394,8 @@
 
     s.update = (dt, t) => {
       if (s.paused) return;
+      // желание 7: палец дальше края джойстика — бег (только пешком: в машине и на велосипеде — нет)
+      joyRun(s.mode === 'walk' && !s.anim && !s.sitting && !s.busy && !s.finished);
       if (s.mode === 'drive' && !s.anim) stepDrive(dt); else if (s.mode === 'ride' && w.bike) stepRide(dt); else stepWalk(dt);
       if (w.carCtl && s.mode !== 'drive') w.carCtl.update(dt, null);       // посадка/выход идут и в этом кадре
       if (w.bike && s.mode !== 'ride') w.bike.update(dt, null);            // подножка, LOD, высадка
@@ -2198,6 +2406,7 @@
       if (w.bikeRack) w.bikeRack.lod(cam);
       w.markers.update(cam, dt);
       updCamera(dt); updDetail(); updUI(); checks(dt); fpsLadder(dt);
+      carLod(false, dt);
       if (w.minimap) w.minimap.update(dt);
     };
 
@@ -2246,7 +2455,7 @@
       if (o.showHint) ui.hintShow(matchMedia('(pointer: coarse)').matches ? 'Кружок внизу — идти · тап по двери — войти' : 'WASD — идти · Enter — действие · Q/E — камера', 4000);
     };
     s.api = api;
-    s.dbg = { regionTrip, onEdge, rideOn, nearBike, doorState, tryDoor, goDoor, useSpot, spots, pickups, greet, doWave, enterCar, exitCar, doHorn, collect, setLit, focusDoor, placeAt, setHud, speak, lifeCtx, get bikeMode() { return bikeMode; }, get vehicles() { return vehicles; },
+    s.dbg = { regionTrip, onEdge, ckSet, rideOn, nearBike, doorState, tryDoor, goDoor, useSpot, spots, pickups, greet, doWave, enterCar, exitCar, doHorn, collect, setLit, focusDoor, placeAt, setHud, speak, lifeCtx, get bikeMode() { return bikeMode; }, get vehicles() { return vehicles; },
       swapCar, pickCar, nearGarage, canPickCar, carAtHome, iaTake, iaNibble, iaPet, takeBouquet, heldDone, dnTick, dnToggle, hudRects };
     return s;
   }
@@ -2384,6 +2593,8 @@
       dnClock: h => { if (!window.DayNight) return null; DayNight.setClock(h == null ? null : () => h); if (S) S.dnDirty = true; return DayNight.phase(); },
       dnSet: v => { if (!window.DayNight) return null; DayNight.set(v === undefined ? null : v); if (S) S.dnDirty = true; return DayNight.override(); },
       cam: v => { if (S) S.camOverride = v; },
+      // W7: вид «из-за руля» (on: true/false; без аргумента — состояние) и наклон взгляда пальцем
+      ck: on => (S ? (on === undefined ? !!(S.ck && S.ck.active) : S.dbg.ckSet(on)) : null), look: () => (S ? { pitch: S.pitch, pitchDeg: S.pitchDeg, yaw: S.yaw, ck: S.ckLook } : null),
       overview: v => { if (!S || !W) return; S.camOverride = v; S.overview = !!v; if (v) { W.scene.fog.near = 400; W.scene.fog.far = 900; W.camera.far = 600; } else { W.scene.fog.near = W.Q.fog[0]; W.scene.fog.far = W.Q.fog[1]; W.camera.far = W.Q.far; } W.camera.updateProjectionMatrix(); },
       doors: () => World.doors(),
       trip: () => (S && S.dbg.regionTrip ? (S.dbg.regionTrip(null), true) : false),

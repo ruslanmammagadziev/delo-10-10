@@ -215,7 +215,7 @@
 .wm-list{padding:2px 10px 16px}
 .wm-list.pad{padding:2px 10px 230px}
 .wm-empty{padding:18px 10px;text-align:center;font-size:15px;font-weight:800;color:#8A7E8E}
-.wm-group{font-size:13.5px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#C2405B;margin:16px 6px 2px}
+.wm-group{font-size:15px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#C2405B;margin:16px 6px 2px}
 .wm-group.hidden,.wm-row.hidden{display:none}
 .wm-row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;border:0;background:#fff;border-radius:16px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .wm-row img{width:40px;height:40px;flex:none;pointer-events:none}
@@ -1533,10 +1533,12 @@
       if (n.id === 'fork' || n.id === 'zip') { p.kind = n.kind; p.label = n.label; }
       mtnCard(ctx, p, o.here || null, () => { sel = null; route.classList.remove('pad'); Vw.req(); });
     }
-    // где машины: у старта, на Октябрьской у кинотеатра (обе, если вторая открыта)
+    // где машины: у старта — через дорогу от кинотеатра (обе, если вторая открыта); под чехлом — у самого кинотеатра
     function carsLine(car) {
       const w = live().w, two = !!(w && w.cars && Object.keys(w.cars).filter(k => w.cars[k].car.root.visible).length > 1);
-      return two ? 'Обе машины ждут у кинотеатра, прямо у старта.' : car + ' ждёт у кинотеатра, прямо у старта.';
+      const sp = L && L.spawnPoints && L.spawnPoints.carStart, c = w && w.car;
+      const at = sp && c && c.S && Math.hypot(c.S.x - sp.x, c.S.z - sp.z) < 12 ? 'через дорогу от кинотеатра' : 'у кинотеатра';
+      return two ? 'Обе машины ждут ' + at + ', прямо у старта.' : car + ' ждёт ' + at + ', прямо у старта.';
     }
     // шаги «как попасть»
     function steps() {

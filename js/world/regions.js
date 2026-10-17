@@ -277,6 +277,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // волна 5: бег и прыжки (Move), параплан, спорт отеля, «Бум!» (PlayFight), зиплайн «держись», фразы в тумане, «Помахать»
       mv: null, floor: null, camY: null, fly: null, flyLog: [], sport: null, sportLog: [], pf: null, pfLog: [], zipPts: 0, zipHoldKey: false, zipDrops: 0,
       fogLog: [], waveN: 0, waveLog: [], greeted: new Set(), mvLog: [], voiceLog: [],
+      // W7: взгляд пальцем вверх-вниз (pitch, рад, + вверх; pitchT — с последнего касания, с), за рулём — вокруг машины (dYaw);
+      // вид «из-за руля» (ck — VILLAGE.drive.cockpit, ckLook — поворот головы)
+      pitch: 0, pitchT: 99, dYaw: 0, ck: null, ckLook: { yaw: 0, pitch: 0 },
     };
     let renderer = refs.renderer || null, ownR = false, canvas = null, host = refs.host || null, cam = null, scene = null;
     let ui = null, raf = 0, last = 0, cap = null, tripRes = null, drv = null, chase = null, blob = null, hidden = [], prevSpk = null, inCarNow = false;
@@ -582,6 +585,13 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (ui.J) { if (was || ui.J.active) ui.J.end(); joyRest(); return; }
       show(ui.joy, false);
     }
+    // желание 7: палец дальше края кружка, до стрелок (HUD.joystick.running: порог и 0,15 с) — бег, пока держит; назад внутрь или
+    // отпустила — шаг. Бег тот же, что у кнопки «Бег» (Move.holdRun: кнопка горит), на старте — лёгкий отклик. Раз в кадр (tick)
+    function joyRun(ok) {
+      const on = !!(ui && ui.J && ui.J.running && ui.J.running(ok && joy.live && !!S.mv));
+      if (on !== !!S.joyRun) { S.joyRun = on; if (S.mv) S.mv.holdRun(on); if (on) haptic('light'); }
+      else if (on && !S.mv.run) S.mv.holdRun(true);
+    }
     // кружок в покое (только на сенсорных экранах): когда можно идти, ехать, рулить крылом или шагать по лестнице
     function joyRest() {
       if (!ui || !ui.J) return;
@@ -626,7 +636,12 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       const p = look.get(e.pointerId); if (!p) return;
       const dx = x - p.x, dy = y - p.y; p.x = x; p.y = y; p.moved += Math.abs(dx) + Math.abs(dy);
-      if (p.moved > 6) { S.yaw -= dx * 0.0085; S.manualT = 3; }
+      // W7 (желание 3): палец вверх — взгляд на небо, вниз — сверху; за рулём — ещё и вокруг машины; в виде из-за руля — голова
+      if (p.moved > 6) {
+        if (S.ck && S.ck.active) { S.ckLook.yaw = clamp(S.ckLook.yaw - dx * 0.006, -1.3, 1.3); S.ckLook.pitch = clamp(S.ckLook.pitch - dy * 0.005, -0.5, 0.75); }
+        else { if (S.mode === 'drive') S.dYaw = clamp(S.dYaw - dx * 0.0085, -1.4, 1.4); else S.yaw -= dx * 0.0085; S.pitch = clamp(S.pitch - dy * 0.0045, -1.2, 1.6); }
+        S.manualT = 3; S.pitchT = 0;
+      }
     };
     const onUp = e => {
       e.stopPropagation();
@@ -906,10 +921,22 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.carLamps = null;
       return c;
     }
+    // W7 (желание 10): вид «из-за руля» вкл/выкл; наружу — следилка продолжает с того места, где камера (без рывка)
+    function ckSet(on) {
+      if (!S.ck) return false;
+      const was = S.ck.active;
+      on = !!on && S.mode === 'drive' && !!(car && car.cockpit);
+      S.ck.on(on); S.ckLook.yaw = S.ckLook.pitch = 0;
+      if (was && !on && chase && chase.resume) chase.resume();
+      const H = HUD_(); if (ui && ui.ck && H && H.sicon) { ui.ck.classList.toggle('on', on); H.sicon(ui.ck, on ? '🎥' : '👁', on ? 'Вид сзади' : 'Вид из-за руля'); }
+      if (on && !was) hint('Вид из-за руля · 🎥 — снова сзади', 1800);
+      return on;
+    }
+    function ckBtn(sitLike) { if (ui && ui.ck) show(ui.ck, S.mode === 'drive' && !sitLike && !S.busy && !!(S.ck && car && car.cockpit && drv)); }
     // «Выйти» где угодно (машина сама дотормаживает), «Сесть за руль» у стоящей машины
     async function getOut() {
       if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
-      S.busy = true; let r = null;
+      ckSet(false); S.busy = true; let r = null;
       try { r = await drv.heroOut(hero, scene, {}); } catch (e) { console.warn('region heroOut', e); }
       S.busy = false;
       if (!r || !S.active) return false;
@@ -1179,6 +1206,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     function load(id, from) {
       const mod = REG(id); if (!mod) throw new Error('region ' + id + ' missing');
+      // W7: смена места — вид «из-за руля» выключается (камера и её near — уже нового места; включить можно снова)
+      ckSet(false);
       const prev = S.rid;
       const kazBack = prev === 'kubachi' && id !== 'kubachi' && kazRemove();
       unload();
@@ -1376,6 +1405,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       scene = new T.Scene();
       cam = new T.PerspectiveCamera(58, 390 / 844, 0.1, 1600);
       ui = makeUI();
+      // W7 (желание 10): вид «из-за руля» — тот же модуль, что в городе; кнопка 👁 в дуге (слот s4 — слева от тормоза: угол P у педалей)
+      S.ck = V_() && V_().drive && V_().drive.cockpit ? V_().drive.cockpit({ THREE: T, camera: cam, renderer: () => renderer }) : null;
+      { const H = HUD_(); if (S.ck && H && H.sbtn) { ui.ck = H.sbtn(ui.root, { slot: 's4', icon: '👁', label: 'Вид из-за руля', cls: 'wr-ck hidden', onPress: () => ckSet(!(S.ck && S.ck.active)) }); ui.ck.style.setProperty('--s4-dx', '62px'); ui.ck.style.setProperty('--s4-dy', '82px'); } }
       // интерфейс города прячем (его кнопки и карточки), свой — поверх холста
       hidden = [];
       Array.from(host.children).forEach(el => { if (el === canvas || el.tagName === 'CANVAS') return; hidden.push([el, el.style.display]); el.style.display = 'none'; });
@@ -1438,6 +1470,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       cancelAnimationFrame(raf); raf = 0;
       bindInput(false);
       hudEnd();
+      if (S.ck) { try { S.ck.on(false); } catch (e) { /* ok */ } S.ck = null; }
       const kazBack = kazRemove();
       unload();
       // руки: отпустить предметы, вернуть привязку города (или отвязать)
@@ -2532,6 +2565,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const sitLike = !!(S.sitting || S.view || S.look || S.inShop || S.golf);
       ui.root.classList.toggle('sit', sitLike);
       hudMode(); updW5Ui(); joyRest(); hudStatus();
+      ckBtn(sitLike);
       const car = S.mode === 'drive' && !sitLike;
       const main = (t, soft) => paintBtn(a, t, soft, car ? 'a2' : 'P');
       const second = t => paintBtn(a2, t, true, car ? 's3' : 'a2');
@@ -2652,8 +2686,22 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function camAt(out, yaw, dist, hgt, top) {
       const h = S.h;
       out.set(S.px - Math.sin(yaw) * dist, camBase + hgt, S.pz - Math.cos(yaw) * dist);
-      const gy = h.ground(out.x, out.z); if (out.y < gy + 1.2) out.y = gy + 1.2;
+      const gy = h.ground(out.x, out.z), lo = S.pitch > 0.05 && S.mode !== 'drive' ? 0.6 : 1.2; if (out.y < gy + lo) out.y = gy + lo;
       if (!top) { let up = 0; for (const t of [0.5, 0.75]) { camUp.lerpVectors(lookP, out, t); const g = h.ground(camUp.x, camUp.z) + 0.35; if (camUp.y + up * t < g) up = (g - camUp.y) / t; } out.y += Math.min(3.5, up); }
+      return camOverCar(out);
+    }
+    // W7: пешком камера не влезает в стоящую машину и не смотрит на героиню сквозь неё — низко (взгляд вверх) камера
+    // оказывалась в кузове (весь кадр — стенка машины) или за машиной (видна одна макушка): тогда она поднимается над крышей
+    function camOverCar(out) {
+      const d = drv && drv.S, cf = drv && drv.cfg;
+      if (!d || !cf || S.mode === 'drive' || !car || !car.root || !car.root.visible) return out;
+      const co = Math.cos(d.ry), si = Math.sin(d.ry), hw = (cf.halfW || 0.9) + 0.4, hl = (cf.halfL || 2) + 0.4;
+      const inCar = (x, z) => { const dx = x - d.x, dz = z - d.z; return Math.abs(dx * co - dz * si) < hw && Math.abs(dx * si + dz * co) < hl; };
+      const top = (d.yb != null ? d.yb : d.y) + ((car.dims && car.dims.height) || 1.4) + 0.35;
+      if (inCar(out.x, out.z) && out.y < top) out.y = top;
+      for (const t of [0.35, 0.65]) {
+        if (inCar(out.x + (lookP.x - out.x) * t, out.z + (lookP.z - out.z) * t) && out.y + (lookP.y - out.y) * t < top) out.y = Math.max(out.y, (top - lookP.y * t) / (1 - t));
+      }
       return out;
     }
     function updCamera(dt) {
@@ -2688,16 +2736,31 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const fovT = 66; if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 4); cam.updateProjectionMatrix(); }
         return;
       }
+      if (S.ck && S.ck.active && S.mode !== 'drive') ckSet(false);
       if ((S.mode === 'drive' || inCarMode()) && chase && drv) {
         let bias = 0; try { bias = h.cameraBias ? h.cameraBias(drv.S.x, drv.S.y, drv.S.z, drv.S.ry, drv.S.s) : 0; } catch (e) { bias = 0; }
         if (S.dir === 'down') bias = 0;
-        chase.update(dt, drv, { yawBias: bias, look: momentLook, lookW: momentW });
+        // W7 (желание 3): палец — вокруг машины (dYaw) и вверх-вниз (pitch); 3 с без касаний — плавно назад за машину
+        S.manualT = Math.max(0, S.manualT - dt); S.pitchT += dt;
+        if (S.manualT <= 0) { const k = Math.exp(-dt * 1.6); S.dYaw *= k; S.pitch *= k; S.ckLook.yaw *= k; S.ckLook.pitch *= k; if (Math.abs(S.dYaw) < 0.002) S.dYaw = 0; if (Math.abs(S.pitch) < 0.002) S.pitch = 0; }
+        // W7 (желание 10): вид «из-за руля» — камера в салоне (момент «посмотри туда» её не уводит)
+        if (S.ck && S.ck.active) { if (S.ck.update(dt, car, hero, S.ckLook)) return; ckSet(false); }
+        chase.update(dt, drv, { yawBias: bias, look: momentLook, lookW: momentW, yawOff: S.dYaw, pitch: S.pitch });
         return;
       }
       if (keys.q) { S.yaw += dt * 1.8; S.manualT = 2.5; } if (keys.e) { S.yaw -= dt * 1.8; S.manualT = 2.5; }
       S.manualT = Math.max(0, S.manualT - dt);
       if (S.manualT <= 0 && S.walking && S.moveT > 0.6) { const e = angDiff(S.ang, S.yaw); if (Math.abs(e) < 2.3) S.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
-      const top = S.level === 'top', dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      const top = S.level === 'top';
+      let dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      // W7 (желание 3): взгляд вверх-вниз пальцем — камера по дуге вокруг головы: вниз — выше, вверх — ниже и ближе (небо,
+      // героиня внизу кадра; у земли камера не ниже 0,6 м — дальше поднимается сам взгляд, у cam.lookAt). Отпустила — на ходу
+      // через 4 с, стоя через 10 с плавно к обычному
+      S.pitchT += dt; S.dYaw = 0;
+      if (S.pitch && (S.pitchT > 10 || (S.pitchT > 4 && S.walking))) { S.pitch *= Math.exp(-dt * 1.6); if (Math.abs(S.pitch) < 0.002) S.pitch = 0; }
+      const th0 = -Math.atan2(hgt - 1.35, dist); S.pitch = clamp(S.pitch, -0.72 - th0, 0.62 - th0);
+      const th = th0 + S.pitch;
+      if (S.pitch) { const R = Math.hypot(dist, hgt - 1.35), R2 = R * (1 - 0.45 * Math.max(0, th) / 0.62); dist = R2 * Math.cos(th); hgt = 1.35 - R2 * Math.sin(th); }
       // W5: прыжок и падение — камера догоняет мягко (в воздухе медленнее), после возврата/телепорта — сразу
       const air = mvOn() && !S.mv.state.grounded;
       S.camY = S.camY == null || !S.camInit ? S.py : S.camY + (S.py - S.camY) * (1 - Math.exp(-(air ? 3 : 12) * dt));
@@ -2744,11 +2807,18 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
+      camOverCar(camPos);
       if (h.rayHit && !top) { const t2 = h.rayHit(lookP, camPos); if (t2 < 1) camPos.lerpVectors(lookP, camPos, Math.max(0.03, t2 - 0.07)); }
       cam.position.copy(camPos);
       // взгляд: если камера всё же над головой, смотреть чуть ниже груди — кадр не «сверху на макушку»
       const hz = Math.hypot(camPos.x - lookP.x, camPos.z - lookP.z), dyc = camPos.y - lookP.y;
-      if (hz < 1.2 && dyc > 1.5) { lk.copy(lookP); lk.x += (lookP.x - camPos.x) * 0.8; lk.z += (lookP.z - camPos.z) * 0.8; cam.lookAt(lk); } else cam.lookAt(lookP);
+      if (hz < 1.2 && dyc > 1.5) { lk.copy(lookP); lk.x += (lookP.x - camPos.x) * 0.8; lk.z += (lookP.z - camPos.z) * 0.8; cam.lookAt(lk); }
+      // W7: героиня в кадре не ниже ~72 % высоты (над джойстиком): наклон вверх не больше угла до пояса + запас
+      else if (S.pitch > 0.001) {
+        const thE = Math.min(th, Math.atan2(lookP.y - 0.35 - camPos.y, Math.max(0.5, hz)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
+        lk.copy(lookP); lk.y = Math.max(lookP.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(lk);
+      }
+      else cam.lookAt(lookP);
       const fovT = cam.aspect < 0.8 ? 58 : 48; if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
     }
 
@@ -2774,6 +2844,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
       fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
       try {
+        // желание 7: палец дальше края джойстика — бег (только пешком: не в машине, не на лестнице, не в полёте и не в игре)
+        joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive());
         if (S.zip && S.mode === 'zip') {   // зиплайн: поездка сама ведёт героиню, руки и камеру
           S.zip.update(dt);
           if (hero) { hero.root.getWorldPosition(tmpV); S.px = tmpV.x; S.py = tmpV.y; S.pz = tmpV.z; }
