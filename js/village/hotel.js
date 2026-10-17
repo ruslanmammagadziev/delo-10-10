@@ -142,8 +142,9 @@
   // кровля корпуса (общая для mainBuilding и distant): свес по бокам ov и над фронтонами og, толщина th; трубы chim —
   // [X от оси (вправо, если смотреть на фронтон снаружи), расстояние от фронтона назад, ширина поперёк ската, высота над скатом]
   const MROOF = { ov: 1.5, og: 0.9, th: 0.45, chim: [[-11.0, 8, 0.9, 1.7], [-6.2, 14, 1.6, 1.5], [4.3, 14, 0.9, 1.5], [10.1, 8, 1.6, 1.7]] };
-  // пруд под лестницей (нижняя площадка): линза rx × rz, вода чуть ниже каменного борта
-  const POND = { x: -22, z: -80, rx: 8, rz: 5.2 };
+  // пруд под лестницей (нижняя площадка): вытянутая линза rx × rz (к концам уже на долю lens), вода чуть ниже каменного борта;
+  // с дорожкой и фонарями — между тропой к костру (x −36) и краем площадки (x −12)
+  const POND = { x: -24.5, z: -80, rx: 9.5, rz: 4.5, lens: 0.35 };
   const POOL = { x0: 24, x1: 48, z0: 6, z1: 30, h: 6.4, px0: 27, px1: 45, pz0: 15, pz1: 22 };
   const FOUNT = { x: -3, z: -3, r: 3.3 };
   const PARKING = { x: -50, z: 13, ry: PI / 2 };
@@ -208,8 +209,17 @@
     const t = (z - s.z0) / (s.z1 - s.z0), ys = lerp(s.ya, s.yb, stairK(s, t)) - 0.06;
     return lerp(ys, y, sst(0.3, 5, dx));
   }
+  // фото h3/h4: от двора к нижней и средней площадкам — травяные откосы, а не подпорные стенки. Склон над ними в EMB м от края
+  // подведён к их уровню; между нижней (x ≤ −12) и средней (x ≥ −4) — ровный скат (западный край средней тоже без стенки)
+  const EMB = 8, P_LOW = PADS.find(p => p.id === 'low'), P_MID = PADS.find(p => p.id === 'mid');
+  const outD = (x, z, p) => Math.hypot(Math.max(p.x0 - x, 0, x - p.x1), Math.max(p.z0 - z, 0, z - p.z1));
+  function embank(x, z, y) {
+    for (const p of [P_LOW, P_MID]) { if (y <= p.y) continue; const d = outD(x, z, p); if (d < EMB) y = lerp(p.y, y, sst(0, EMB, d)); }
+    const m = P_MID; if (x < m.x0 && x > m.x0 - EMB && z > m.z0 && z < m.z1 && y < m.y) { const w = sst(m.z1, m.z1 - 4, z) * sst(m.z0, m.z0 + 4, z); y = lerp(y, lerp(m.y, y, sst(0, EMB, m.x0 - x)), w); }
+    return y;
+  }
   function hillY(x, z) {
-    let y = stairCut(x, z, Math.max(hillRaw(x, z), natLocal(x, z)));
+    let y = stairCut(x, z, embank(x, z, Math.max(hillRaw(x, z), natLocal(x, z))));
     const r = ROAD.near(x, z);
     if (r && r.d < 30) { const e = Math.max(0, r.d - ROAD.w - 0.6) * 0.9; y = r.d < ROAD.w + 0.6 ? r.y - 0.08 : lerp(clamp(y, r.y - 0.08 - e, r.y - 0.08 + e), y, sst(21, 30, r.d)); }   // 4B: плавный выход из «выемки» дороги (без ступеньки-обрыва на 30 м)
     return y;
@@ -368,15 +378,19 @@
     const WHITE = rgb('#F6F3EC'), CREAM = rgb('#EFE8DA'), WOOD = rgb('#A9805A'), WOODD = rgb('#7E5A3E'), STEEL = rgb('#9AA0A8'), DARK = rgb('#3E3A44');
     const LAWN = WIN ? rgb('#EEF2F6') : rgb('#93A65A'), LAWN2 = WIN ? rgb('#E6ECF2') : rgb('#86994F'), GRAVEL = WIN ? rgb('#E9EDF1') : rgb('#CFC6B4');
     function padSurfaces() {
-      const q = (x0, z0, x1, z1, y, col, s = S.FLAT, bk = vc) => bk.quad([x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], col, s);
-      // верх: двор — светлая плитка (атлас «плиты»), газон по бокам, деревянная терраса у бассейна
-      const PAVE = WIN ? rgb('#E9EDF2') : rgb('#E4DACA');
-      q(-34, -30, 54, 40, 0.0, LAWN, S.FLAT);
-      q(-27, -21, 23, 15.5, 0.04, PAVE, S.SLAB, at);            // двор
-      q(-34, -30, 24, -21, 0.04, PAVE, S.SLAB, at);             // смотровая
-      q(-34, 1, -27, 11, 0.04, PAVE, S.SLAB, at);               // дорожка от парковки
-      q(23, -6, 24, 6, 0.04, PAVE, S.SLAB, at); q(24, -30, 46, -21, 0.04, PAVE, S.SLAB, at); q(33, -21, 43, -6, 0.04, PAVE, S.SLAB, at);   // к бассейну и к лестнице на спорт
-      q(24, -6, 48, 6, 0.06, WIN ? mix(WOOD, SNOW, 0.6) : rgb('#B58B62'), S.FLAT);
+      // t — плитками ≤ t м: склейка режется на куски по центрам треугольников, и один квад во весь верх раздувал сферы кусков
+      // ('main', 'topF', 'topB'): со смотровой и с башни они не отсекались
+      const q = (x0, z0, x1, z1, y, col, s = S.FLAT, bk = vc, t = 0) => { const nx = t ? Math.max(1, Math.round((x1 - x0) / t)) : 1, nz = t ? Math.max(1, Math.round((z1 - z0) / t)) : 1;
+        for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const a = lerp(x0, x1, i / nx), b = lerp(x0, x1, (i + 1) / nx), c = lerp(z0, z1, j / nz), d = lerp(z0, z1, (j + 1) / nz); bk.quad([a, y, d], [b, y, d], [b, y, c], [a, y, c], col, s); } };
+      // верх: двор — светлые бетонные плиты (атлас «плиты», серо-бежевые, как на h1/h3), газон по бокам, деревянная терраса у бассейна
+      const PAVE = WIN ? rgb('#E9EDF2') : rgb('#D6CFC2');
+      q(-34, -30, 54, 40, 0.0, LAWN, S.FLAT, vc, 12);
+      q(-27, -21, 23, 15.5, 0.04, PAVE, S.SLAB, at, 12);            // двор
+      q(-34, -30, 24, -21, 0.04, PAVE, S.SLAB, at, 12);             // смотровая
+      q(-34, 2, -27, 10, 0.04, PAVE, S.SLAB, at);               // дорожка от парковки во двор
+      q(-34, 21, -25.45, 31, 0.04, PAVE, S.SLAB, at);           // и под перголой — к дверям бока
+      q(23, -6, 24, 6, 0.04, PAVE, S.SLAB, at); q(24, -30, 46, -21, 0.04, PAVE, S.SLAB, at, 12); q(33, -21, 43, -6, 0.04, PAVE, S.SLAB, at);   // к бассейну и к лестнице на спорт
+      q(24, -6, 48, 6, 0.06, WIN ? mix(WOOD, SNOW, 0.6) : rgb('#B58B62'), S.FLAT, vc, 12);
       // парковка: тёмный асфальт с белыми линиями
       q(-68, -4, -34, 30, 0.01, WIN ? rgb('#D9DEE4') : rgb('#6E6C70'));
       for (let i = 0; i < 6; i++) { const z = 0 + i * 4.6; q(-60, z - 0.06, -54, z + 0.06, 0.03, rgb('#F2F2EE')); q(-46, z - 0.06, -40, z + 0.06, 0.03, rgb('#F2F2EE')); }
@@ -386,7 +400,7 @@
       // нижний: газон, каменные дорожки, настил у купелей
       q(-98, -102, -12, -46, 0.0, LAWN, S.FLAT);
       // от фото-лестницы — прямая дорожка к пруду
-      q(-20.75, POND.z + POND.rz + 2.2, -18.25, -46, 0.02, GRAVEL); q(-86, -66, -12, -63, 0.02, GRAVEL); q(-22, -56, -12, -47, 0.02, GRAVEL); q(-44, -100, -36, -66, 0.02, GRAVEL);
+      q(-20.75, POND.z + POND.rz + 0.8, -18.25, -46, 0.02, GRAVEL); q(-86, -66, -12, -63, 0.02, GRAVEL); q(-22, -56, -12, -47, 0.02, GRAVEL); q(-44, -100, -36, -66, 0.02, GRAVEL);
       q(-40, -62, -22, -48, 0.05, WIN ? mix(WOOD, SNOW, 0.5) : rgb('#B58B62'));
     }
     // покрытия кладём на свои высоты (у каждой площадки — своя y): сдвигаем вершины по padAt после постройки
@@ -396,21 +410,21 @@
     liftToPads(vc, vc0); liftToPads(at, at0);
     // бетон (фото-лестница, бортик двора) и тёмный металл (поручни, ограды, перила)
     const CONC = WIN ? rgb('#E4E8EC') : rgb('#D4D2CA'), METAL = rgb('#2E2D31');
-    // лестницы: ступени (атлас «тёсаный камень»); фото-лестница — своя (photoStair)
+    // лестницы: ступени и бортики — светлый бетон, как фото-лестница (своя, photoStair)
     STAIRS.forEach(s => {
       if (s.land) { photoStair(s); return; }
       const run = s.axis === 'z' ? s.z1 - s.z0 : s.x1 - s.x0, rise = s.yb - s.ya, n = Math.max(4, Math.round(Math.abs(rise) / 0.17)), w = s.axis === 'z' ? s.x1 - s.x0 : s.z1 - s.z0;
       for (let i = 0; i < n; i++) {
         const y = s.ya + rise * (i + 1) / n, a = run * i / n, b = run * (i + 1) / n;
-        const tc = WIN ? mix(C('tread'), SNOW, 0.6) : mix(C('tread'), rgb('#F4EFE4'), 0.3);
-        if (s.axis === 'z') { const cz = s.z0 + (a + b) / 2, bot = Math.min(y - 0.45, hillY((s.x0 + s.x1) / 2, cz) - 0.25, hillY(s.x0, cz) - 0.25, hillY(s.x1, cz) - 0.25); at.box(F0, (s.x0 + s.x1) / 2, (y + bot) / 2, cz, w, y - bot, b - a, { col: tc, s: S.ASHLAR }); }
-        else { const cx = s.x0 + (a + b) / 2, bot = Math.min(y - 0.45, hillY(cx, (s.z0 + s.z1) / 2) - 0.25, hillY(cx, s.z0) - 0.25, hillY(cx, s.z1) - 0.25); at.box(F0, cx, (y + bot) / 2, (s.z0 + s.z1) / 2, b - a, y - bot, w, { col: tc, s: S.ASHLAR }); }
+        const tc = WIN ? mix(CONC, SNOW, 0.5) : CONC, tco = { col: tc, cols: { nz: mul(tc, 0.82), nx: mul(tc, 0.82) }, s: S.FLAT };
+        if (s.axis === 'z') { const cz = s.z0 + (a + b) / 2, bot = Math.min(y - 0.45, hillY((s.x0 + s.x1) / 2, cz) - 0.25, hillY(s.x0, cz) - 0.25, hillY(s.x1, cz) - 0.25); at.box(F0, (s.x0 + s.x1) / 2, (y + bot) / 2, cz, w, y - bot, b - a, tco); }
+        else { const cx = s.x0 + (a + b) / 2, bot = Math.min(y - 0.45, hillY(cx, (s.z0 + s.z1) / 2) - 0.25, hillY(cx, s.z0) - 0.25, hillY(cx, s.z1) - 0.25); at.box(F0, cx, (y + bot) / 2, (s.z0 + s.z1) / 2, b - a, y - bot, w, tco); }
       }
-      // бортики-перила по сторонам (каменные)
+      // бортики по сторонам (бетон) с тёмной стойкой поручня
       [0, 1].forEach(k => { const steps = 6; for (let i = 0; i < steps; i++) { const t0_ = i / steps, t1_ = (i + 1) / steps, ya = lerp(s.ya, s.yb, t0_) + 0.85, yb = lerp(s.ya, s.yb, t1_) + 0.85;
-        const lo = Math.min(ya, yb) - 0.85 - 0.6, hi = Math.max(ya, yb) - 0.85 + 0.45, cc = mix(C('rubbleY'), rgb('#F2EDE2'), 0.35);
-        if (s.axis === 'z') { const x = k ? s.x1 - 0.12 : s.x0 + 0.12, z0 = lerp(s.z0, s.z1, t0_), z1 = lerp(s.z0, s.z1, t1_); at.box(F0, x, (lo + hi) / 2, (z0 + z1) / 2, 0.24, hi - lo, z1 - z0, { col: cc, s: S.ASHLAR }); if (k) vc.cyl(x, (ya + yb) / 2 - 0.85 + 0.45, (z0 + z1) / 2, 0.035, 0.035, 0.5, { seg: 5, col: DARK }); }
-        else { const z = k ? s.z1 - 0.12 : s.z0 + 0.12, x0 = lerp(s.x0, s.x1, t0_), x1 = lerp(s.x0, s.x1, t1_); at.box(F0, (x0 + x1) / 2, (lo + hi) / 2, z, x1 - x0, hi - lo, 0.24, { col: cc, s: S.ASHLAR }); } } });
+        const lo = Math.min(ya, yb) - 0.85 - 0.6, hi = Math.max(ya, yb) - 0.85 + 0.45, cc = WIN ? mix(CONC, SNOW, 0.4) : mul(CONC, 0.95);
+        if (s.axis === 'z') { const x = k ? s.x1 - 0.12 : s.x0 + 0.12, z0 = lerp(s.z0, s.z1, t0_), z1 = lerp(s.z0, s.z1, t1_); at.box(F0, x, (lo + hi) / 2, (z0 + z1) / 2, 0.24, hi - lo, z1 - z0, { col: cc, s: S.FLAT }); if (k) vc.cyl(x, (ya + yb) / 2 - 0.85 + 0.45, (z0 + z1) / 2, 0.035, 0.035, 0.5, { seg: 5, col: DARK }); }
+        else { const z = k ? s.z1 - 0.12 : s.z0 + 0.12, x0 = lerp(s.x0, s.x1, t0_), x1 = lerp(s.x0, s.x1, t1_); at.box(F0, (x0 + x1) / 2, (lo + hi) / 2, z, x1 - x0, hi - lo, 0.24, { col: cc, s: S.FLAT }); } } });
     });
 
     // лестница по фото (h3–h5): длинная прямая из светлого бетона, площадка посередине, наклонные бетонные бортики,
@@ -460,15 +474,29 @@
     SEGS.forEach(sg => {
       if (sg.id === 'deck') return;
       // край двора к долине — низкий бетонный бортик и металлическая ограда (фото h3); бортики фото-лестницы — в photoStair
-      const fenceEdge = sg.id === 'top' && sg.ax === 'z' && sg.sgn < 0, photo = sg.id === 'st_top';
-      const n = photo ? 0 : Math.max(1, Math.ceil((sg.b - sg.a) / 2)), step = (sg.b - sg.a) / Math.max(1, n);
+      const fenceEdge = sg.id === 'top' && sg.ax === 'z' && sg.sgn < 0, photo = sg.id === 'st_top', stE = /^st_/.test(sg.id);
+      const n = Math.max(1, Math.ceil((sg.b - sg.a) / 2)), step = (sg.b - sg.a) / n;
       for (let i = 0; i < n; i++) {
         const a = sg.a + i * step, b = a + step, m = (a + b) / 2;
-        const ox = sg.ax === 'x' ? sg.c + sg.sgn * 0.6 : m, oz = sg.ax === 'z' ? sg.c + sg.sgn * 0.6 : m, hOut = hillY(ox, oz), yP = sg.y;
+        // у лестницы — высота её проступи у этого куска (sg.y — максимум по всему краю)
+        const ox = sg.ax === 'x' ? sg.c + sg.sgn * 0.6 : m, oz = sg.ax === 'z' ? sg.c + sg.sgn * 0.6 : m, hOut = hillY(ox, oz), st = stE && padAt(sg.ax === 'x' ? sg.c - sg.sgn * 0.05 : m, sg.ax === 'z' ? sg.c - sg.sgn * 0.05 : m), yP = st ? st.y : sg.y;
+        const rd = ROAD.near(ox, oz), road = !!rd && rd.d < ROAD.w + 1.2;
+        // снаружи склон вровень с площадкой или выше (откосы embank, у фото-лестницы — stairCut, стенки вверх): коллайдер края
+        // 'edge' (Move: 'ledge') прыжок пропускает, а стенки рельефа, как раньше, тут нет — героиня скакала вверх по траве. Тонкая
+        // сплошная коробка до y + 1,35 (выше прыжка; ниже 1,6 — камера её не видит), у дороги (ворота парковки) — нет. У лестниц —
+        // кусками по 0,5 м от высоты верхнего конца куска (на 2 м марш поднимается на метр — через низкий конец перепрыгнула бы)
+        if (!fenceEdge && !road) { const ns = stE ? 4 : 1, sl = step / ns, yIn = t => { const p = padAt(sg.ax === 'x' ? sg.c - sg.sgn * 0.05 : t, sg.ax === 'z' ? sg.c - sg.sgn * 0.05 : t); return p ? p.y : yP; };
+          for (let k = 0; k < ns; k++) { const q0 = a + k * sl, qm = q0 + sl / 2, yLo = stE ? Math.min(yIn(q0), yIn(q0 + sl)) : yP, yHi = stE ? Math.max(yIn(q0), yIn(q0 + sl)) : yP, ho = stE ? hillY(sg.ax === 'x' ? ox : qm, sg.ax === 'z' ? oz : qm) : hOut;
+            if (ho > yLo - 0.35) colliders.push({ type: 'box', x: sg.ax === 'x' ? sg.c + sg.sgn * 0.15 : qm, z: sg.ax === 'z' ? sg.c + sg.sgn * 0.15 : qm, w: sg.ax === 'z' ? sl + 0.02 : 0.3, d: sg.ax === 'z' ? 0.3 : sl + 0.02, ry: 0, y0: yHi - 0.2, y1: yHi + 1.35, id: 'edgeUp', move: 'solid', noCar: true }); } }
+        if (photo) continue;
         const lo = Math.min(hOut, yP) - 0.6, hi = fenceEdge ? yP + 0.14 : Math.max(hOut, yP) + (hOut < yP - 0.8 ? 0.7 : 0.05);
         const cx = sg.ax === 'x' ? sg.c + sg.sgn * 0.2 : m, cz = sg.ax === 'z' ? sg.c + sg.sgn * 0.2 : m, w = sg.ax === 'z' ? step + 0.02 : 0.4, d = sg.ax === 'z' ? 0.4 : step + 0.02;
-        at.box(F0, cx, (lo + hi) / 2, cz, w, hi - lo, d, fenceEdge ? { col: CONC, s: S.FLAT } : { col: mix(hOut < yP ? C('rubbleY') : C('rubble'), rgb('#F4EFE4'), 0.42), s: hOut < yP - 3 ? S.BIG : S.ASHLAR });
-        if (hOut < yP - 0.8 && !fenceEdge) { at.box(F0, cx, hi + 0.04, cz, w + (sg.ax === 'z' ? 0 : 0.12), 0.08, d + (sg.ax === 'z' ? 0.12 : 0), { col: snowTop(C('parapetCap'), 0.9), s: S.ASHLAR }); }
+        // склон подведён к площадке (откос, embank): вместо стенки — низкая стриженая изгородь по краю газона (граница видна:
+        // за ней коробка края), у лестниц и дороги — травяной бортик вровень (у лестниц границу держат их бетонные бортики)
+        if (!fenceEdge && Math.abs(hOut - yP) < 0.35) { const hg = !stE && !road, top = yP + (hg ? 0.55 : 0.02), gc = WIN ? rgb('#EEF2F6') : hg ? rgb('#5E8A4E') : mix(LAWN, rgb('#6E9636'), 0.3), gt = WIN ? SNOW : hg ? rgb('#6E9A58') : gc;
+          vc.box(F0, cx, (lo + top) / 2, cz, w, top - lo, d, { col: gc, cols: { py: gt }, skip: { ny: true } }); continue; }
+        at.box(F0, cx, (lo + hi) / 2, cz, w, hi - lo, d, fenceEdge || stE ? { col: stE ? (WIN ? mix(CONC, SNOW, 0.4) : mul(CONC, 0.95)) : CONC, s: S.FLAT } : { col: mix(hOut < yP ? C('rubbleY') : C('rubble'), rgb('#F4EFE4'), 0.42), s: hOut < yP - 3 ? S.BIG : S.ASHLAR });
+        if (hOut < yP - 0.8 && !fenceEdge) { at.box(F0, cx, hi + 0.04, cz, w + (sg.ax === 'z' ? 0 : 0.12), 0.08, d + (sg.ax === 'z' ? 0.12 : 0), stE ? { col: WIN ? SNOW : CONC, s: S.FLAT } : { col: snowTop(C('parapetCap'), 0.9), s: S.ASHLAR }); }
       }
       if (fenceEdge) fence(sg.a, sg.b, sg.c - 0.2, sg.y + 0.14);
       const cx = sg.ax === 'x' ? sg.c : (sg.a + sg.b) / 2, cz = sg.ax === 'z' ? sg.c : (sg.a + sg.b) / 2;
@@ -550,7 +578,8 @@
       const snowT = rgb('#F2F5F9');
       // у фото-лестницы — гладкий газонный склон с саженцами (h4), без ступеней
       const lawn = (x, z) => Math.abs(x - (ST_TOP.x0 + ST_TOP.x1) / 2) < 12.5 && z > ST_TOP.z0 - 1.5 && z < ST_TOP.z1 + 1;
-      const ok = (x, z, f) => { if (f && (f.near ? !inNear(x, z) : f.outer && inNear(x, z))) return false; if (padAt(x, z) || sdUnion(x, z) < 2.5 || lawn(x, z)) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 13) return false; return hillY(x, z) > -84; };   // волна 6: ниже по склону — до облаков (−90)
+      // (и не на травяных откосах у нижней и средней площадок — embank: там склон круче, ступени шли бы чаще, а на фото — газон)
+      const ok = (x, z, f) => { if (f && (f.near ? !inNear(x, z) : f.outer && inNear(x, z))) return false; if (padAt(x, z) || sdUnion(x, z) < 2.5 || lawn(x, z)) return false; if (outD(x, z, P_LOW) < EMB || outD(x, z, P_MID) < EMB) return false; const rn = ROAD.near(x, z); if (rn && rn.d < 13) return false; return hillY(x, z) > -84; };   // волна 6: ниже по склону — до облаков (−90)
       // волна 6: одно поле по настоящим горизонталям вокруг холма (±300 м): ступени и на пологих холмах вокруг, как на p11
       // ближе к холму (±140 м) — полный профиль со скруглённой бровкой; дальше (до ±300 м) — проще (2 квада, реже точки)
       // (low: шаг ступени вдоль горизонтали 6,4 м у холма и 8,5 м дальше — виды со смотровой и с лестницы ≤ 200 тыс. треугольников
@@ -593,11 +622,11 @@
     const sdUnion = (x, z) => { let d = 1e9; PADS.forEach(p => { d = Math.min(d, sdRect(x, z, p, p.float ? 1 : 6)); }); STAIRS.forEach(s => { d = Math.min(d, sdRect(x, z, s, 0.5)); }); return d; };
 
     /* ---------- 3.3 деревья, камни ---------- */
-    const TREE_COL = { lone: ['#2F5523', '#3A6229', '#284A1F'], fruit: ['#D9A23A', '#C8702A', '#B9A04A'], rowan: ['#D9682E', '#C8502A', '#E08A3A'], pine: ['#3E5E40', '#36533A', '#46684A'], birch: ['#E0B040', '#D9C050', '#C8A040'] };
-    function treeItem(x, y, z, s, kind) { const c = WIN ? (kind === 'pine' ? rgb('#E9EEF3') : rgb('#9A8E84')) : rgb(TREE_COL[kind][Math.floor(R() * 3)]); return { p: [x, y, z], s: [s, s, s], r: [0, R() * TAU, 0], c, kind }; }
+    const TREE_COL = { young: ['#8FB04A', '#7FA040', '#9AB850'], lone: ['#2F5523', '#3A6229', '#284A1F'], fruit: ['#D9A23A', '#C8702A', '#B9A04A'], rowan: ['#D9682E', '#C8502A', '#E08A3A'], pine: ['#3E5E40', '#36533A', '#46684A'], birch: ['#E0B040', '#D9C050', '#C8A040'] };
+    function treeItem(x, y, z, s, kind, rr = R) { const c = WIN ? (kind === 'pine' ? rgb('#E9EEF3') : rgb('#9A8E84')) : rgb(TREE_COL[kind][Math.floor(rr() * 3)]); return { p: [x, y, z], s: [s, s, s], r: [0, rr() * TAU, 0], c, kind }; }
     // ROAD2: пары крона+ствол (лоза перголы — крона без ствола, по индексу не сопоставить) — для посадки на видимую землю
     const TREES = [];
-    function addTree(x, z, s, kind, y) { const yy = y !== undefined ? y : groundY(x, z), c = treeItem(x, yy, z, s, kind), t = { p: [x, yy, z], s: [s, s * (kind === 'pine' ? 0.8 : 1.6), s], c: [1, 1, 1] }; crowns.push(c); trunks.push(t); TREES.push({ c, t }); }
+    function addTree(x, z, s, kind, y, rr) { const yy = y !== undefined ? y : groundY(x, z), c = treeItem(x, yy, z, s, kind, rr), t = { p: [x, yy, z], s: [s, s * (kind === 'pine' ? 0.8 : 1.6), s], c: [1, 1, 1] }; crowns.push(c); trunks.push(t); TREES.push({ c, t }); }
 
     /* ---------- общие помощники построек (баня, сауна, коттеджи): цвета, стекло, наличник, двускатная кровля ---------- */
     const WALLC = WIN ? [1.1, 1.08, 1.04] : [1.13, 1.04, 0.87], TRIMC = [1.16, 1.13, 1.05], ROOFC = WIN ? rgb('#9C5A48') : rgb('#9A4E3C'), ROOFD = rgb('#743A2E');
@@ -659,18 +688,21 @@
        4 кирпичные трубы с бетонными шапками. Тёмно-серые рамы без наличников, светлые отливы, у французских окон внизу
        решётка-ограждение; поясок над первым этажом; во фронтоне 4 широких окна с тёмными балконами; внизу — только 2 стеклянных
        портала со ступенями. Светло-серые рельефы: ступенчатый «домик» с плоским верхом, овальный медальон, ромбовые решётки,
-       сбоку ромб-узел; пилястры и «домик» — с LED-линией (ночью тёплое золото, свой материал ledMat; углы не светятся).
+       сбоку ромб-узел; пилястры и «домик» — с LED-линией (днём светлый рельеф, ночью тёплое золото в ночной сетке; углы не светятся).
        Без надписей, эмблем и знаков на фасаде ---------- */
     // штукатурка (множитель белой плитки атласа; на low свет запечён — множитель выше), рельефы и цоколь — в долях штукатурки
-    const HWALL = HI ? (WIN ? [0.98, 0.97, 0.95] : [0.96, 0.92, 0.86]) : WIN ? [1.18, 1.17, 1.14] : [1.16, 1.12, 1.05];
+    // (low: свет запечён; стена на солнце ≈ 1,0 — без пересвета в белое, иначе рельефы на боку и зимой пропадают)
+    // зимой — тёплая сливочная, а не белая (на снегу корпус не светлее снега)
+    const HWALL = HI ? (WIN ? [0.98, 0.93, 0.85] : [0.96, 0.92, 0.86]) : WIN ? [1.0, 0.95, 0.86] : [1.06, 1.02, 0.95];
     const HREL = WIN ? mul(HWALL, 0.95) : [HWALL[0] * 0.95, HWALL[1] * 0.97, HWALL[2] * 1.0], HPLI = WIN ? mul(HWALL, 0.92) : [HWALL[0] * 0.88, HWALL[1] * 0.86, HWALL[2] * 0.8], HSILL = mix(HREL, [1.1, 1.1, 1.1], 0.4);
-    const HFRAME = rgb('#3A393F'), HDOOR = rgb('#3A3934'), HROOF = rgb('#E2B3A9'), HFASC = rgb('#CF6249'), HSOFF = rgb('#8A4A3B'), HGUT = rgb('#9C5B45');
+    const HFRAME = rgb('#3A393F'), HDOOR = rgb('#3A3934'), HROOF = HI ? rgb('#E2B3A9') : rgb('#EDC9C1'), HFASC = rgb('#CF6249'), HSOFF = rgb('#8A4A3B'), HGUT = rgb('#9C5B45');
     const HRAIL = rgb('#3F3432'), HSLAT = rgb('#5A4E46'), HBRICK = rgb('#B07468'), HCAP = rgb('#9A8F88');
     // стекло (цвет инстанса × плитка 3 атласа окон): небо в стекле; дверь балкона темнее; портал — тёмный холл; остеклённый низ — бирюзово-серый
     const GLASS = [1.28, 1.1, 1.14], GLASS_D = [0.86, 0.8, 0.88], PORTAL = [0.95, 0.92, 0.78], GLASS_CY = [0.95, 1.18, 1.22];
-    const LEDC = [1, 1, 1], LEDGLOW = rgb('#FFB347');
-    // LED-линии корпуса: днём светлый рельеф, ночью тёплое золото (setNight); мягкий ореол LED (сложение, только ночью)
-    const ledB = new K.Baker('vc'), ledGlowB = new K.Baker('vc');
+    // (сложением поверх ночной стены: зелёный и синий — с запасом ниже, иначе линия выходит белой, а не золотой)
+    const LEDC = rgb('#FF8A10'), LEDGLOW = rgb('#FF9428');
+    // ночная сетка (сложение, только ночью): LED-линии корпуса тёплым золотом с мягким ореолом, отблески фонарей на пруду
+    const ledGlowB = new K.Baker('vc');
     function mainBuilding() {
       const M = MAIN, cx = (M.x0 + M.x1) / 2, zf = M.z0, zb = M.z1, HW = (M.x1 - M.x0) / 2, DEP = zb - zf, EV = M.eave, AP = M.apex, KP = (AP - EV) / HW;
       // свой генератор (какие окна горят ночью): число окон не сдвигает случайную раскладку двора и склонов
@@ -694,9 +726,11 @@
       // полоса по отрезку a→b (u, v) шириной wd в плоскости стены; концы продлены на полширины — стыки без щелей
       const fseg = (bk, f, a, b, wd, k, col) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy * wd / 2, py = ux * wd / 2, ex = ux * wd / 2, ey = uy * wd / 2;
         bk.quadF(f.P(a[0] - ex + px, a[1] - ey + py, k), f.P(a[0] - ex - px, a[1] - ey - py, k), f.P(b[0] + ex - px, b[1] + ey - py, k), f.P(b[0] + ex + px, b[1] + ey + py, k), col, S.FLAT, DIR(f)); };
-      // LED-линия: светящаяся полоса и ореол (две полосы от оси к краям: у края чёрный — при сложении не виден)
+      // LED-линия: днём — светлая полоса рельефа в общей сетке корпуса; ночью поверх — светящаяся полоса и ореол (две полосы
+      // от оси к краям: у края чёрный — при сложении не виден) в ночной сетке
       const led = (f, a, b, k) => {
-        fseg(ledB, f, a, b, 0.14, k, LEDC);
+        fseg(vc, f, a, b, 0.14, k - 0.004, HSILL);
+        fseg(ledGlowB, f, a, b, 0.16, k + 0.006, LEDC);
         const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, px = -dy / L * 0.45, py = dx / L * 0.45, z0 = [0, 0, 0];
         [1, -1].forEach(sg => ledGlowB.quad(f.P(a[0], a[1], k + 0.01), f.P(b[0], b[1], k + 0.01), f.P(b[0] + sg * px, b[1] + sg * py, k + 0.01), f.P(a[0] + sg * px, a[1] + sg * py, k + 0.01), [LEDGLOW, LEDGLOW, z0, z0]));
       };
@@ -799,12 +833,12 @@
       }
       // ---- рельефы (светло-серые, чуть выступают; под каждым — тёмная кайма-тень, иначе светлое на сливочном не читается):
       // эллипс-кольцо, ромб ----
-      const RSH = mul(HWALL, 0.84);
-      const rring = (f, u, v, rx, ry, t, n, k, col, sh = true) => { if (sh) rring(f, u, v, rx + 0.04, ry + 0.04, t + 0.08, n, k - 0.025, RSH, false); for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; fq4(f, [u + Math.cos(a) * rx, v + Math.sin(a) * ry], [u + Math.cos(b) * rx, v + Math.sin(b) * ry], [u + Math.cos(b) * (rx - t), v + Math.sin(b) * (ry - t)], [u + Math.cos(a) * (rx - t), v + Math.sin(a) * (ry - t)], k, col); } };
-      const rdiamond = (f, u, v, r0, r1, k, col, sh = true) => { if (sh) rdiamond(f, u, v, r0 + 0.06, Math.max(0, r1 - 0.06), k - 0.025, RSH, false); const P4 = r => [[u, v + r], [u + r, v], [u, v - r], [u - r, v]], A = P4(r0), B = P4(r1); for (let i = 0; i < 4; i++) fq4(f, A[i], A[(i + 1) % 4], B[(i + 1) % 4], B[i], k, col); };
+      const RSH = mul(HWALL, 0.76);
+      const rring = (f, u, v, rx, ry, t, n, k, col, sh = true) => { if (sh) rring(f, u, v, rx + 0.06, ry + 0.06, t + 0.12, n, k - 0.025, RSH, false); for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; fq4(f, [u + Math.cos(a) * rx, v + Math.sin(a) * ry], [u + Math.cos(b) * rx, v + Math.sin(b) * ry], [u + Math.cos(b) * (rx - t), v + Math.sin(b) * (ry - t)], [u + Math.cos(a) * (rx - t), v + Math.sin(a) * (ry - t)], k, col); } };
+      const rdiamond = (f, u, v, r0, r1, k, col, sh = true) => { if (sh) rdiamond(f, u, v, r0 + 0.09, Math.max(0, r1 - 0.09), k - 0.025, RSH, false); const P4 = r => [[u, v + r], [u + r, v], [u, v - r], [u - r, v]], A = P4(r0), B = P4(r1); for (let i = 0; i < 4; i++) fq4(f, A[i], A[(i + 1) % 4], B[(i + 1) % 4], B[i], k, col); };
       // ромбовая решётка: серое поле, светлые ромбы в шахматном порядке
       function lattice(f, u, v, w, h) {
-        fq(vc, f, u - w / 2, v - h / 2, u + w / 2, v + h / 2, 0.03, mul(HWALL, 0.88));
+        fq(vc, f, u - w / 2, v - h / 2, u + w / 2, v + h / 2, 0.03, mul(HWALL, 0.84));
         const u0 = u - w / 2 + 0.12, u1 = u + w / 2 - 0.12, v0 = v - h / 2 + 0.12, v1 = v + h / 2 - 0.12, hx = 0.21, hy = 0.21;
         for (let j = 0; v0 + hy + j * 0.25 + hy <= v1 + 1e-6; j++) for (let i = 0; ; i++) { const cu = u0 + hx + (j % 2) * 0.25 + i * 0.5, cv = v0 + hy + j * 0.25; if (cu + hx > u1 + 1e-6) break; fq4(f, [cu, cv + hy], [cu + hx, cv], [cu, cv - hy], [cu - hx, cv], 0.045, HREL); }
       }
@@ -832,7 +866,8 @@
           const stc = snowTop(mix(HPLI, [1.05, 1.05, 1.05], 0.35), 0.9);
           fb(vc, Fr, u, 0, 0.75, 5.3, 0.34, 1.5, { col: stc, skip: { nz: true, ny: true } });
           fb(vc, Fr, u, 0, 1.675, 5.3, 0.17, 0.35, { col: stc, skip: { nz: true, ny: true } });
-          const c = Fr.P(u, 0, 0.93); colBox(c[0], c[2], 5.4, 1.9, -1, 0.4, 'steps'); }
+          // две ступени — два коллайдера (подъём по 0,17 < boxStep: заходит шагом)
+          const c1 = Fr.P(u, 0, 0.75), c2 = Fr.P(u, 0, 1.675); colBox(c1[0], c1[2], 5.4, 1.5, -1, 0.34, 'steps'); colBox(c2[0], c2[2], 5.4, 0.37, -1, 0.17, 'steps'); }
         // пилястра с LED-линией (в 3,9 м от угла; сам угол не светится) и светильник у подножия
         { const u = s * 16.0; fb(vc, Fr, u, 1.1, 0.03, 0.5, 11.9, 0.06, { col: HREL, skip: { nz: true } }); led(Fr, [u, 1.18], [u, 12.92], 0.068);
           fb(vc, Fr, u, 0, 0.2, 0.32, 0.16, 0.32, { col: HFRAME, skip: { nz: true } }); }
@@ -841,7 +876,7 @@
       });
       // ступенчатый «домик» (полоса 0,4 м, плоский верх) с LED-линией по оси; ореолы — над ним (высоко: без пятен на земле)
       const HOUSE = [[-4.2, 13.95], [-4.2, 15.1], [-1.3, 16.4], [-1.3, 17.7], [1.3, 17.7], [1.3, 16.4], [4.2, 15.1], [4.2, 13.95]];
-      for (let i = 0; i < HOUSE.length - 1; i++) { fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.52, 0.02, mul(HWALL, 0.84)); fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.4, 0.05, HREL); led(Fr, HOUSE[i], HOUSE[i + 1], 0.066); }
+      for (let i = 0; i < HOUSE.length - 1; i++) { fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.52, 0.02, RSH); fseg(vc, Fr, HOUSE[i], HOUSE[i + 1], 0.4, 0.05, HREL); led(Fr, HOUSE[i], HOUSE[i + 1], 0.066); }
       [[0, 17.7], [-2.75, 15.75], [2.75, 15.75], [-4.2, 14.3], [4.2, 14.3]].forEach(([u, v]) => NIGHT.lamps.push(Fr.P(u, v, 0.25)));
       // овальный медальон под «башенкой» домика: поле, два кольца и лепестки (обычный орнамент, без букв)
       { const u = 0, v = 15.0, rx = 1.9, ry = 0.85, fill = mul(HWALL, 0.93);
@@ -867,6 +902,8 @@
       frWin(Wf, 10.3, 7.9, 1.6, 2.4, { bars: 1.0 });
       frWin(Wf, 10.3, 4.0, 1.6, 2.9, {});
       balcony(Wf, 11.2, 3.65, 3.6, 1.2, HSLAT, HI ? 6 : 4, 1.2);
+      // балкон низко над полосой у бока (из-под перголы камера за героиней заходила в него)
+      { const c = Wf.P(11.2, 0, 0.6); camColliders.push({ type: 'box', x: c[0], z: c[2], w: 1.4, d: 3.8, ry: 0, y0: 3.5, y1: 5.2, id: 'balconyCam', cam: true }); }
       doorGl(Wf, 7.0, 0.15, 2.4, 3.15, true); doorGl(Wf, 15.6, 0.15, 2.0, 3.15, true);
 
       // ---- бок к бассейну (фото h4/h5, u — от переднего угла): остеклённый низ во всю длину (5 пролётов, светлые импосты,
@@ -940,81 +977,88 @@
       for (let i = 0; i < seg; i++) waterB.I.push(i0, i0 + 1 + i, i0 + 2 + i);
     }
 
-    /* ---------- 3.6 двор (волна 4B): мощение узором — круг из колец вокруг фонтана, четыре дорожки-луча, бордюр;
-       фонтан-чаша в два яруса, клумбы с каменным бортиком, деревья в кадках, перголa с вьюнком у входа с парковки,
-       гирлянды над двором, фонари, лавки; смотровая с парапетом ---------- */
+    /* ---------- 3.6 двор: открытая бетонная площадь, как на фото h1/h3 — светлые плиты, круг у фонтана в тон, дорожки-лучи
+       чуть темнее; фонтан-чаша в два яруса, газонные островки с бордюром и саженцами на кольях (на одном — молодая ель),
+       молодые деревца в кадках, пергола с вьюнком у входа с парковки, гирлянды по краям двора, фонари, лавки у фонтана ---------- */
     function courtyard() {
       const f = FOUNT, yP = 0.055;
-      // мощение: кольца вокруг фонтана (тёплый камень двух тонов), лучи-дорожки к входу, смотровой, парковке и бассейну, бордюр
-      const ringC = WIN ? [rgb('#E2E8EE'), rgb('#EEF2F6')] : [rgb('#CDAF86'), rgb('#ECDDC2'), rgb('#D8BE96'), rgb('#E9D8BA')];
-      const RR = [3.75, 4.6, 5.5, 6.6, 7.7, 8.5], NSg = 36;
+      // мощение: у фонтана — узкий круглый фартук в тон двора (дальше — прямоугольные плиты двора, как на h1: круга на оси
+      // фасада нет), лучи-дорожки к входу, смотровой, парковке и бассейну, бордюр по краю двора
+      const ringC = WIN ? [rgb('#E2E8EE'), rgb('#EEF2F6')] : [rgb('#D3CCBF')];
+      const RR = [3.75, 4.6, 5.5], NSg = 36;
       for (let i = 0; i < RR.length - 1; i++) for (let j = 0; j < NSg; j++) {
-        const a = j / NSg * TAU, b = (j + 1) / NSg * TAU, r0 = RR[i], r1 = RR[i + 1], c = i === RR.length - 2 ? mul(ringC[0], 0.92) : ringC[(i + (i === 2 && j % 2 ? 1 : 0)) % ringC.length];
+        const a = j / NSg * TAU, b = (j + 1) / NSg * TAU, r0 = RR[i], r1 = RR[i + 1], c = ringC[i % ringC.length];
         at.quadF([f.x + Math.sin(a) * r0, yP, f.z + Math.cos(a) * r0], [f.x + Math.sin(b) * r0, yP, f.z + Math.cos(b) * r0], [f.x + Math.sin(b) * r1, yP, f.z + Math.cos(b) * r1], [f.x + Math.sin(a) * r1, yP, f.z + Math.cos(a) * r1], c, S.SLAB, [0, 1, 0]);
       }
-      const pathC = WIN ? rgb('#DCE3EA') : rgb('#D3B88E'), edgeC = WIN ? rgb('#C9D3DD') : rgb('#BFA27A');
+      const pathC = WIN ? rgb('#DCE3EA') : rgb('#CBC4B6'), edgeC = WIN ? rgb('#C9D3DD') : rgb('#BDB5A7');
       const band = (x0, z0, x1, z1, c) => at.quadF([x0, yP - 0.004, z0], [x1, yP - 0.004, z0], [x1, yP - 0.004, z1], [x0, yP - 0.004, z1], c, S.SLAB, [0, 1, 0]);
-      band(f.x - 1.3, f.z + 8.5, f.x + 1.3, 14.6, pathC); band(f.x - 1.3, -21, f.x + 1.3, f.z - 8.5, pathC);
-      band(-27, f.z - 1.3, f.x - 8.5, f.z + 1.3, pathC); band(f.x + 8.5, f.z - 1.3, 23, f.z + 1.3, pathC);
+      band(f.x - 1.3, f.z + 5.5, f.x + 1.3, 14.6, pathC); band(f.x - 1.3, -21, f.x + 1.3, f.z - 5.5, pathC);
+      band(-27, f.z - 1.3, f.x - 5.5, f.z + 1.3, pathC); band(f.x + 5.5, f.z - 1.3, 23, f.z + 1.3, pathC);
       [[-27, -21, 23, -20.4], [-27, 14.9, 23, 15.5], [-27, -21, -26.4, 15.5], [22.4, -21, 23, 15.5]].forEach(([a, b, c, d]) => band(a, b, c, d, edgeC));
       // фонтан: восьмигранная чаша из светлого камня, вода, колонна, верхняя чаша, струя
-      at.cyl(f.x, 0, f.z, f.r + 0.15, f.r, 0.55, { seg: 16, col: mix(C('tower'), rgb('#FFF4E2'), 0.35), s: S.ASHLAR, cap: false });
-      at.cyl(f.x, 0.55, f.z, f.r + 0.28, f.r + 0.28, 0.14, { seg: 16, col: snowTop(mix(C('ashlarJoint'), rgb('#FFF4E2'), 0.3), 0.9), s: S.ASHLAR });
+      const fc = mul(CONC, 0.97), fcD = mul(CONC, 0.88);
+      at.cyl(f.x, 0, f.z, f.r + 0.15, f.r, 0.55, { seg: 16, col: fcD, s: S.FLAT, cap: false });
+      at.cyl(f.x, 0.55, f.z, f.r + 0.28, f.r + 0.28, 0.14, { seg: 16, col: snowTop(fc, 0.9), s: S.FLAT });
       waterDisc(f.x, f.z, f.r - 0.1, 0.42, rgb('#6BC4E0'), 24);
-      at.cyl(f.x, 0.42, f.z, 0.36, 0.28, 1.25, { seg: 10, col: mix(C('tower'), rgb('#FFF4E2'), 0.3), s: S.ASHLAR });
-      at.cyl(f.x, 1.6, f.z, 0.3, 1.1, 0.36, { seg: 14, col: mix(C('tower'), rgb('#FFF4E2'), 0.3), s: S.ASHLAR });
+      at.cyl(f.x, 0.42, f.z, 0.36, 0.28, 1.25, { seg: 10, col: fc, s: S.FLAT });
+      at.cyl(f.x, 1.6, f.z, 0.3, 1.1, 0.36, { seg: 14, col: fc, s: S.FLAT });
       waterDisc(f.x, f.z, 1.0, 1.94, rgb('#7FD0E8'), 14);
-      at.cyl(f.x, 1.94, f.z, 0.12, 0.08, 0.5, { seg: 8, col: mix(C('tower'), rgb('#FFF4E2'), 0.3), s: S.ASHLAR });
+      at.cyl(f.x, 1.94, f.z, 0.12, 0.08, 0.5, { seg: 8, col: fc, s: S.FLAT });
       colCirc(f.x, f.z, f.r + 0.3, -1, 0.7, 'fountain');
-      // клумбы: бортик из тёсаного камня, земля, цветы (герань, лаванда, астры, бархатцы), кустик в середине — зимой под снегом
-      // (у фасада клумб нет — к порталам ведёт открытое мощение, как на фото h1)
-      const beds = [[-18, -9, 7, 2.6], [12, -9, 7, 2.6], [-18, 5, 7, 2.6], [12, 5, 7, 2.6]];
+      // газонные островки (фото h1): низкий бетонный бордюр, газон вровень с ним, по два саженца на кольях; на одном — молодая
+      // ель. Газон низкий — на него можно зайти (коллайдер по бордюр), саженцы и ель — свои круги
+      // (свой генератор RY; из общего R — тот же отрезок, что брали прежние клумбы с цветами: раскладка склонов не сдвигается)
+      const beds = [[-18, -9, 7, 2.6], [12, -9, 7, 2.6], [-18, 5, 7, 2.6], [12, 5, 7, 2.6]], kerbB = WIN ? rgb('#DDE3E9') : rgb('#CFC6B8'), lawnB = WIN ? rgb('#EEF2F6') : rgb('#6F8E2E'), RY = rng(946);
+      if (!WIN) for (let i = 0; i < 4 * 51 * 6; i++) R();
       beds.forEach(([x, z, w, d], bi) => {
-        at.box(F0, x, 0.22, z, w, 0.44, d, { col: mix(C('ashlarJoint'), rgb('#F2E6CE'), 0.35), s: S.ASHLAR });
-        vc.quad([x - w / 2 + 0.16, 0.45, z + d / 2 - 0.16], [x + w / 2 - 0.16, 0.45, z + d / 2 - 0.16], [x + w / 2 - 0.16, 0.45, z - d / 2 + 0.16], [x - w / 2 + 0.16, 0.45, z - d / 2 + 0.16], WIN ? SNOW : rgb('#6E5440'));
-        if (!WIN) {
-          const pal = bi % 2 ? ['#D9455A', '#F2B544', '#FFFFFF', '#E87A9A'] : ['#9C7BC8', '#E87A9A', '#FFFFFF', '#D9455A'];
-          for (let i = 0; i < Math.round(w * d * 2.8); i++) { const fx = x + (R() - 0.5) * (w - 0.5), fz = z + (R() - 0.5) * (d - 0.5); flowers.push({ p: [fx, 0.45, fz], s: [0.13 + R() * 0.05, 0.17 + R() * 0.12, 0.13 + R() * 0.05], c: rgb(pal[Math.floor(R() * pal.length)]) }); }
-          if (w > 4) [-w / 4, w / 4].forEach(dx => vc.sph(x + dx, 0.85, z, 0.55, 0.42, 0.5, rgb('#5E8A4E'), { seg: 7, rings: 4 }));
-        }
-        colBox(x, z, w, d, -1, 0.5, 'bed');
+        at.box(F0, x, 0.09, z, w, 0.18, d, { col: kerbB, s: S.FLAT, skip: { ny: true } });
+        vc.quad([x - w / 2 + 0.16, 0.185, z + d / 2 - 0.16], [x + w / 2 - 0.16, 0.185, z + d / 2 - 0.16], [x + w / 2 - 0.16, 0.185, z - d / 2 + 0.16], [x - w / 2 + 0.16, 0.185, z - d / 2 + 0.16], lawnB);
+        if (bi === 3) { addTree(x - w / 4, z, 0.8, 'pine', 0.185, RY); colCirc(x - w / 4, z, 0.55, -1, 2.5, 'fir'); sapling(x + w / 4, 0.185, z, 2.5, true, RY); }
+        else [-1, 1].forEach(sg => sapling(x + sg * w / 4 + (RY() - 0.5) * 0.4, 0.185, z + (RY() - 0.5) * 0.4, 2.3 + RY() * 0.6, true, RY));
+        colBox(x, z, w, d, -1, 0.18, 'bed');
       });
-      // деревья в круглых кадках
-      [[-22, -14], [18, -14], [-22, 10], [18, 10]].forEach(([x, z]) => { at.cyl(x, 0, z, 0.95, 0.95, 0.55, { seg: 12, col: mix(C('ashlarJoint'), rgb('#F2E6CE'), 0.35), s: S.ASHLAR }); vc.cyl(x, 0.55, z, 0.85, 0.85, 0.02, { seg: 12, col: WIN ? SNOW : rgb('#6E5A44') }); addTree(x, z, 1.05, 'rowan', 0.55); colCirc(x, z, 1.0, -1, 0.7, 'planter'); });
+      // молодые деревца в круглых кадках
+      [[-22, -14], [18, -14], [-22, 10], [18, 10]].forEach(([x, z]) => { at.cyl(x, 0, z, 0.95, 0.95, 0.55, { seg: 12, col: mix(kerbB, [1, 1, 1], 0.2), s: S.FLAT }); vc.cyl(x, 0.55, z, 0.85, 0.85, 0.02, { seg: 12, col: WIN ? SNOW : rgb('#6E5A44') }); addTree(x, z, 0.62, 'young', 0.55); colCirc(x, z, 1.0, -1, 0.7, 'planter'); });
       // живая изгородь вдоль мощения (с проходами) и деревья на газонах
       const hedge = (x0, z0, x1, z1) => { const w = Math.abs(x1 - x0) || 0.7, d = Math.abs(z1 - z0) || 0.7; vc.box(F0, (x0 + x1) / 2, 0.42, (z0 + z1) / 2, w, 0.84, d, { col: WIN ? rgb('#E8EEF2') : rgb('#5E8A4E'), cols: { py: WIN ? SNOW : rgb('#6E9A58') } }); colBox((x0 + x1) / 2, (z0 + z1) / 2, w, d, -1, 0.9, 'hedge'); };
-      hedge(-27.4, -19, -27.4, -1); hedge(-27.4, 11.5, -27.4, 15); hedge(23.4, -19, 23.4, -7); hedge(23.4, 7, 23.4, 15);
-      [[-31, -14], [-31, -4], [-31, 20], [50, -18], [50, -8], [51, 12], [51, 24], [28, -16], [44, -16]].forEach(([x, z], i) => addTree(x, z, 0.95 + (i % 3) * 0.12, i % 3 === 0 ? 'birch' : 'rowan'));
-      // лавки вокруг фонтана и вдоль смотровой
-      [[f.x, f.z - 6.2, 0], [f.x, f.z + 6.2, PI], [f.x - 7, f.z, PI / 2], [f.x + 7, f.z, -PI / 2]].forEach(([x, z, ry]) => bench(x, 0, z, ry));
+      // у западного края двора — только южный кусок: угол корпуса с парковки (h2) открыт
+      hedge(-27.4, -19, -27.4, -1); hedge(23.4, -19, 23.4, -7); hedge(23.4, 7, 23.4, 15);
+      [[-31, -14], [-31, -19.5], [-31, -8], [50, -18], [50, -8], [51, 12], [51, 24], [28, -16], [44, -16]].forEach(([x, z], i) => addTree(x, z, 0.95 + (i % 3) * 0.12, i % 3 === 0 ? 'birch' : 'rowan'));
+      // лавка за фонтаном (со стороны корпуса её закрывает чаша; на оси перед фасадом пусто, как на h1) и вдоль смотровой
+      bench(f.x, 0, f.z + 6.2, PI);
       [[-18, -19.6, PI], [12, -19.6, PI]].forEach(([x, z, ry]) => bench(x, 0, z, ry));
       // фонари-торшеры
       [[-26, -18], [-10, -18], [6, -18], [20, -18], [-26, 13], [20, 13], [-12.9, 12.4], [8.9, 12.4]].forEach(([x, z]) => lampPost(x, 0, z));
-      // пергола у входа с парковки: деревянные стойки, балки, обрешётка, вьюнок с цветами; гирлянда
-      { const xs = [-33.6, -30.7, -27.8], zs = [1.4, 10.6], hh = 3.5, wc = WIN ? mix(WOODW, SNOW, 0.2) : WOODW;   // 4B: высоко и редкая обрешётка — камера за героиней не смотрит сквозь брусья
+      // пергола над дорожкой от парковки к дверям бока (фото h2: вход с парковки — в этом боку): деревянные стойки, балки,
+      // обрешётка, вьюнок с цветами; гирлянда. Стоит у бока корпуса, а не у двора: из угла парковки (вид hotel_corner, h2)
+      // угол корпуса открыт целиком
+      { const xs = [-33.4, -31.1, -28.8], zs = [21.4, 30.6], hh = 3.5, wc = WIN ? mix(WOODW, SNOW, 0.2) : WOODW, xa = xs[0], xb = xs[2], za = zs[0], zb = zs[1];   // 4B: высоко и редкая обрешётка — камера за героиней не смотрит сквозь брусья
         xs.forEach(x => zs.forEach(z => { vc.box(F0, x, hh / 2, z, 0.2, hh, 0.2, { col: wc }); vc.box(F0, x, 0.2, z, 0.34, 0.4, 0.34, { col: STONEW }); colCirc(x, z, 0.2, -1, hh, 'pergola'); }));
-        zs.forEach(z => vc.box(F0, (xs[0] + xs[2]) / 2, hh + 0.12, z, xs[2] - xs[0] + 0.9, 0.24, 0.16, { col: wc }));
-        for (let i = 0; i < 4; i++) { const x = xs[0] - 0.2 + i * (xs[2] - xs[0] + 0.4) / 3; vc.box(F0, x, hh + 0.3, (zs[0] + zs[1]) / 2, 0.09, 0.12, zs[1] - zs[0] + 0.8, { col: snowTop(WOODL, 0.8) }); }
-        if (!WIN) { [[-33.2, 1.6], [-28.2, 1.6], [-33.2, 10.4], [-28.2, 10.4], [-31.73, 4.6], [-29.67, 7.4]].forEach(([x, z], i) => { crowns.push({ p: [x, hh + 0.35 - 2.1 * 0.42, z], s: [0.75, 0.42, 0.9], r: [0, i, 0], c: rgb(i % 2 ? '#5E8A4E' : '#6E9A58'), kind: 'vine' });
+        zs.forEach(z => vc.box(F0, (xa + xb) / 2, hh + 0.12, z, xb - xa + 0.9, 0.24, 0.16, { col: wc }));
+        for (let i = 0; i < 4; i++) { const x = xa - 0.2 + i * (xb - xa + 0.4) / 3; vc.box(F0, x, hh + 0.3, (za + zb) / 2, 0.09, 0.12, zb - za + 0.8, { col: snowTop(WOODL, 0.8) }); }
+        if (!WIN) { [[xa + 0.4, za + 0.2], [xb - 0.4, za + 0.2], [xa + 0.4, zb - 0.2], [xb - 0.4, zb - 0.2], [lerp(xa, xb, 0.32), lerp(za, zb, 0.35)], [lerp(xa, xb, 0.68), lerp(za, zb, 0.65)]].forEach(([x, z], i) => { crowns.push({ p: [x, hh + 0.35 - 2.1 * 0.42, z], s: [0.75, 0.42, 0.9], r: [0, i, 0], c: rgb(i % 2 ? '#5E8A4E' : '#6E9A58'), kind: 'vine' });
             for (let k = 0; k < 4; k++) flowers.push({ p: [x + (R() - 0.5) * 1.2, hh + 0.42 + R() * 0.12, z + (R() - 0.5) * 1.4], s: [0.12, 0.1, 0.12], c: rgb(['#E87A9A', '#FFFFFF', '#D9455A'][k % 3]) }); });
-          [[xs[0], 1.4], [xs[2], 10.6], [xs[0], 10.6], [xs[2], 1.4]].forEach(([x, z]) => { crowns.push({ p: [x, -0.4, z], s: [0.3, 0.85, 0.3], r: [0, 1, 0], c: rgb('#5E8A4E'), kind: 'vine' }); }); }
-        festoon([xs[0], hh + 0.05, 1.4], [xs[2], hh + 0.05, 1.4], 0.3); festoon([xs[0], hh + 0.05, 10.6], [xs[2], hh + 0.05, 10.6], 0.3); }
-      // гирлянды над двором: две нити между деревянными столбами вдоль боковых краёв двора (поперёк двора нитей нет — фронтон
-      // с площади виден целиком, как на фото h1)
-      { const poles = [[[-26.6, -14], [-26.6, -3.2]], [[22.6, -14], [22.6, -6.6]]], hp = 4.3;
+          [[xa, za], [xb, zb], [xa, zb], [xb, za]].forEach(([x, z]) => { crowns.push({ p: [x, -0.4, z], s: [0.3, 0.85, 0.3], r: [0, 1, 0], c: rgb('#5E8A4E'), kind: 'vine' }); }); }
+        festoon([xa, hh + 0.05, za], [xb, hh + 0.05, za], 0.3); festoon([xa, hh + 0.05, zb], [xb, hh + 0.05, zb], 0.3);
+        // кровля перголы — для камеры (у бока корпуса камера за героиней иначе смотрела сверху сквозь брусья и вьюнок)
+        camColliders.push({ type: 'box', x: (xa + xb) / 2, z: (za + zb) / 2, w: xb - xa + 1.2, d: zb - za + 1.0, ry: 0, y0: hh - 0.15, y1: hh + 0.75, id: 'pergolaCam', cam: true }); }
+      // гирлянда над двором: нить между деревянными столбами вдоль восточного края двора (поперёк двора нитей нет — фронтон
+      // с площади виден целиком, как на фото h1; у западного края нет — с угла парковки она висела в небе над корпусом)
+      { const poles = [[[22.6, -14], [22.6, -6.6]]], hp = 4.3;
         poles.forEach(([a, b]) => { [a, b].forEach(([x, z]) => { vc.cyl(x, 0, z, 0.09, 0.07, hp + 0.15, { seg: 6, col: WOODK }); vc.cyl(x, 0, z, 0.16, 0.14, 0.35, { seg: 6, col: STONEW }); colCirc(x, z, 0.14, -1, hp, 'festoonPole'); });
-          festoon([a[0], hp, a[1]], [b[0], hp, b[1]], 0.45); }); }
+          festoon([a[0], hp, a[1]], [b[0], hp, b[1]], 0.45, false); }); }
       // смотровая у переднего края: лавка «вид на село» и бинокль на стойке
       bench(-5, 0, -36.9, PI, 'view');
       { const x = -2.4, z = -37.7; vc.cyl(x, 0, z, 0.07, 0.07, 1.25, { seg: 6, col: DARK }); vc.box(F0, x, 1.32, z, 0.34, 0.2, 0.3, { col: rgb('#4A90D8') }); [-1, 1].forEach(s => vc.cyl(x + s * 0.08, 1.32, z - 0.18, 0.06, 0.07, 0.12, { seg: 8, col: DARK })); colCirc(x, z, 0.25, -1, 1.5, 'binoc'); }
     }
-    // гирлянда: тёплые лампочки-ромбики по провисающей нити (в сетке плафонов — ночью светятся); в точки ночи — каждая восьмая
-    function festoon(a, b, sag) {
+    // гирлянда: тёплые лампочки-ромбики по провисающей нити (в сетке плафонов — ночью светятся); в точки ночи (ореолы) — каждая
+    // восьмая, если lamps
+    function festoon(a, b, sag, lamps = true) {
       const L = Math.hypot(b[0] - a[0], b[2] - a[2]), n = Math.max(3, Math.round(L / 1.1)), r = 0.075;
       for (let i = 0; i <= n; i++) { const t = i / n, x = lerp(a[0], b[0], t), z = lerp(a[2], b[2], t), y = lerp(a[1], b[1], t) - sag * 4 * t * (1 - t) - 0.12;
         const c = rgb(['#FFE2A8', '#FFD08A', '#FFF0C8'][i % 3]), P = [[x, y + r * 1.3, z], [x + r, y, z], [x, y, z + r], [x - r, y, z], [x, y, z - r], [x, y - r * 1.3, z]];
         [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1], [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4]].forEach(([p, q, s2]) => lantB.tri(P[p], P[q], P[s2], c));
-        if (i % 8 === 4) NIGHT.lamps.push([x, y, z]); }
+        if (lamps && i % 8 === 4) NIGHT.lamps.push([x, y, z]); }
       // нить — тонкая тёмная лента
       for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, p0 = [lerp(a[0], b[0], t0), lerp(a[1], b[1], t0) - sag * 4 * t0 * (1 - t0), lerp(a[2], b[2], t0)], p1 = [lerp(a[0], b[0], t1), lerp(a[1], b[1], t1) - sag * 4 * t1 * (1 - t1), lerp(a[2], b[2], t1)];
         vcD.quad([p0[0], p0[1], p0[2]], [p1[0], p1[1], p1[2]], [p1[0], p1[1] - 0.016, p1[2]], [p0[0], p0[1] - 0.016, p0[2]], rgb('#6A6470')); }
@@ -1298,28 +1342,33 @@
     }
     /* ---------- 3.10б окрестности по фото (h3–h5): фонари по краю двора, ряды саженцев на газонном склоне у лестницы,
        пруд-линза под холмом — каменный борт, тёмная вода с отражением неба, низкие перила, кольцевая дорожка, шары-фонари ---------- */
+    // саженец (фото h1/h4): тонкий ствол, два кола с жёлтой подвязкой, редкая крона (зимой — голый); col — свой круг-коллайдер
+    function sapling(x, y, z, h, col, rr = R) {
+      const stake = rgb('#B9A27E'), tie = rgb('#E8C547'), bark = rgb('#7A6A55');
+      vc.cyl(x, y, z, 0.05, 0.03, h, { seg: 4, col: bark, cap: false });
+      [-1, 1].forEach(sg => vcD.quad([x + sg * 0.22 - 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y + 1.35, z + sg * 0.05], [x + sg * 0.22 - 0.025, y + 1.35, z + sg * 0.05], stake));
+      vcD.quad([x - 0.24, y + 1.06, z], [x + 0.24, y + 1.06, z + 0.1], [x + 0.24, y + 1.11, z + 0.1], [x - 0.24, y + 1.11, z], tie);
+      if (!WIN) vc.sph(x, y + h - 0.05, z, 0.42, 0.58, 0.42, rr() < 0.5 ? rgb('#8FB04A') : rgb('#AFBE52'), { seg: 5, rings: 2 });
+      if (col) colCirc(x, z, 0.3, y - 1, y + 2, 'sapling');
+    }
     function photoGrounds() {
       // фонари по краю двора у ограды и столбики-огоньки между ними (ночью — пунктир огней по краю плато, как на h5)
       [[-28, -28.6], [-12.9, -28.6], [12, -28.6], [27, -28.6], [47, -28.6]].forEach(([x, z]) => lampPost(x, 0, z));
       [-31.5, -24, 2, 7, 19.5, 31, 44, 51.5].forEach(x => { bollard(x, 0.04, -29.35); colCirc(x, -29.35, 0.12, -1, 0.7, 'bollard'); });
-      // саженцы рядами по склону по обе стороны лестницы: тонкий ствол, два кола с жёлтой подвязкой, редкая крона
-      const xm = (ST_TOP.x0 + ST_TOP.x1) / 2, stake = rgb('#B9A27E'), tie = rgb('#E8C547'), bark = rgb('#7A6A55');
+      // саженцы рядами по склону по обе стороны лестницы
+      const xm = (ST_TOP.x0 + ST_TOP.x1) / 2;
       for (let j = 0; j < 5; j++) for (const i of [-3, -2, -1, 1, 2, 3]) {
-        const x = xm + i * 3.2 + Math.sign(i) * 0.6 + (R() - 0.5) * 0.5, z = -32.6 - j * 3.0 + (R() - 0.5) * 0.5, y = hillY(x, z) - 0.05, h = 2.3 + R() * 0.7;
-        vc.cyl(x, y, z, 0.05, 0.03, h, { seg: 4, col: bark, cap: false });
-        [-1, 1].forEach(sg => vcD.quad([x + sg * 0.22 - 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y, z + sg * 0.05], [x + sg * 0.22 + 0.025, y + 1.35, z + sg * 0.05], [x + sg * 0.22 - 0.025, y + 1.35, z + sg * 0.05], stake));
-        vcD.quad([x - 0.24, y + 1.06, z], [x + 0.24, y + 1.06, z + 0.1], [x + 0.24, y + 1.11, z + 0.1], [x - 0.24, y + 1.11, z], tie);
-        if (!WIN) vc.sph(x, y + h - 0.05, z, 0.42, 0.58, 0.42, R() < 0.5 ? rgb('#8FB04A') : rgb('#AFBE52'), { seg: 5, rings: 2 });
+        const x = xm + i * 3.2 + Math.sign(i) * 0.6 + (R() - 0.5) * 0.5, z = -32.6 - j * 3.0 + (R() - 0.5) * 0.5;
+        sapling(x, hillY(x, z) - 0.05, z, 2.3 + R() * 0.7);
       }
       // пруд: контур-линза (к концам уже), кольца — борт, перила, дорожка, фонари
       const P = POND, N = 36, yW = -8 + 0.08, yR = -8 + 0.16;
-      const ring = k => { const out = []; for (let i = 0; i < N; i++) { const a = i / N * TAU, ca = Math.cos(a), sa = Math.sin(a); out.push([P.x + ca * (P.rx + k), P.z + sa * (P.rz * (1 - 0.22 * ca * ca) + k)]); } return out; };
-      const Ri = ring(0), Ro = ring(0.4), Rr = ring(0.25), Rp = ring(2.4);
-      // вода (в общей сетке воды): светлее в середине — небо, к берегу темнее; зимой — лёд
-      { const i0 = waterB.n, wc = WIN ? rgb('#E6EEF5') : rgb('#7F96AB'), we = WIN ? rgb('#C9D6E2') : rgb('#3F5266');
-        waterB.P.push(P.x, yW, P.z); waterB.U.push(P.x / 6, P.z / 6); waterB.C.push(...wc); waterB.n++;
-        Ri.forEach(([x, z]) => { waterB.P.push(x, yW, z); waterB.U.push(x / 6, z / 6); waterB.C.push(...we); waterB.n++; });
-        for (let i = 0; i < N; i++) waterB.I.push(i0, i0 + 1 + ((i + 1) % N), i0 + 1 + i); }
+      const ring = k => { const out = []; for (let i = 0; i < N; i++) { const a = i / N * TAU, ca = Math.cos(a), sa = Math.sin(a); out.push([P.x + ca * (P.rx + k), P.z + sa * (P.rz * (1 - P.lens * ca * ca) + k)]); } return out; };
+      const Ri = ring(0), Ro = ring(0.4), Rr = ring(0.25), Rp = ring(1.6);
+      // вода — в общей освещённой сетке (не в сетке бассейна: та ночью светится сама): светлее в середине — небо, к берегу
+      // темнее; ночью темнеет вместе со склоном (h5), отблески фонарей — полосы в ночной сетке LED; зимой — лёд
+      { const wc = WIN ? rgb('#E6EEF5') : rgb('#6F8499'), we = WIN ? rgb('#C9D6E2') : rgb('#3E4C5A'), C3 = [P.x, yW, P.z];
+        for (let i = 0; i < N; i++) { const j = (i + 1) % N; vc.tri(C3, [Ri[j][0], yW, Ri[j][1]], [Ri[i][0], yW, Ri[i][1]], [wc, we, we], S.FLAT, null, [0, 1, 0]); } }
       const rimC = WIN ? rgb('#E2E6EA') : rgb('#C9C3B6'), pathC = WIN ? rgb('#E9EDF1') : rgb('#C2BEB2');
       for (let i = 0; i < N; i++) { const j = (i + 1) % N, P3 = (q, y) => [q[0], y, q[1]];
         at.quadF(P3(Ri[i], yR), P3(Ri[j], yR), P3(Ro[j], yR), P3(Ro[i], yR), rimC, S.SLAB, [0, 1, 0]);
@@ -1329,12 +1378,23 @@
         // низкие перила по борту: стойки через 2 м, две перекладины
         if (i % 2 === 0) vc.cyl(Rr[i][0], yR, Rr[i][1], 0.03, 0.03, 1.0, { seg: 4, col: METAL, cap: false });
         [0.5, 0.95].forEach(h => vcD.quad(P3(Rr[i], yR + h), P3(Rr[j], yR + h), P3(Rr[j], yR + h + 0.04), P3(Rr[i], yR + h + 0.04), METAL)); }
-      // шары-фонари по внешнему краю дорожки
-      for (let k = 0; k < 6; k++) { const q = ring(2.7)[Math.round((k + 0.5) / 6 * N) % N], x = q[0], z = q[1];
+      // шары-фонари по внешнему краю дорожки; под каждым на воде — тёплая полоса отблеска (ночная сетка LED: днём её нет)
+      const Rl = ring(1.9);
+      for (let k = 0; k < 6; k++) { const ik = Math.round((k + 0.5) / 6 * N) % N, q = Rl[ik], x = q[0], z = q[1];
         vc.cyl(x, -8, z, 0.06, 0.05, 2.0, { seg: 5, col: METAL, cap: false }); lantB.sph(x, -8 + 2.12, z, 0.2, 0.2, 0.2, rgb('#FFE6B8'), { seg: 6, rings: 4 });
-        NIGHT.lamps.push([x, -8 + 2.12, z]); colCirc(x, z, 0.12, -9, -6, 'lamp'); }
-      // вода и борт — непроходимы (низкие круги: камера сквозь них смотрит)
-      [[0, 1.0, 0.4], [0.38, 0.93, 0.4], [-0.38, 0.93, 0.4], [0.7, 0.6, 0.3], [-0.7, 0.6, 0.3]].forEach(([fx, fr, ad]) => colCirc(P.x + fx * P.rx, P.z, P.rz * fr + ad, -9, -7.2, 'pond'));
+        NIGHT.lamps.push([x, -8 + 2.12, z]); colCirc(x, z, 0.12, -9, -6, 'lamp');
+        const e = Ri[ik], dx = P.x - e[0], dz = P.z - e[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, w = 0.13, a0 = 0.25, a1 = Math.min(2.4, L * 0.6), y = yW + 0.012, hot = mul(LEDGLOW, 0.8), dim = [0, 0, 0];
+        ledGlowB.quad([e[0] + ux * a0 + uz * w, y, e[1] + uz * a0 - ux * w], [e[0] + ux * a0 - uz * w, y, e[1] + uz * a0 + ux * w], [e[0] + ux * a1 - uz * w * 0.5, y, e[1] + uz * a1 + ux * w * 0.5], [e[0] + ux * a1 + uz * w * 0.5, y, e[1] + uz * a1 - ux * w * 0.5], [hot, hot, dim, dim], S.FLAT, null, [0, 1, 0]); }
+      // у подножия лестницы — киоск из тёмно-красного кирпича с плоской крышей (h4): дверь к лестнице, окошко на юг
+      { const x = -14.5, z = -47.6, y = -8, kc = rgb('#8E4A3E');
+        box(at, F0, x, y, z, 2.2, 2.4, 2.2, kc, { s: S.ASHLAR, skip: { ny: true } });
+        box(vc, F0, x, y + 2.4, z, 2.6, 0.16, 2.6, snowTop(rgb('#5A4E46'), 0.9));
+        vc.quadF([x - 1.11, y, z + 0.45], [x - 1.11, y, z - 0.45], [x - 1.11, y + 2.0, z - 0.45], [x - 1.11, y + 2.0, z + 0.45], HDOOR, S.FLAT, [-1, 0, 0]);
+        vc.quadF([x - 0.6, y + 1.1, z - 1.11], [x + 0.6, y + 1.1, z - 1.11], [x + 0.6, y + 1.8, z - 1.11], [x - 0.6, y + 1.8, z - 1.11], rgb('#4A4E58'), S.FLAT, [0, 0, -1]);
+        colBox(x, z, 2.3, 2.3, y - 1, y + 2.6, 'kiosk'); }
+      // вода и борт — непроходимы: круги вдоль линзы (радиус — полуширина воды у центра круга + борт); выше прыжка (перила не
+      // перепрыгнуть), камера сквозь круги смотрит
+      [0, 0.3, -0.3, 0.55, -0.55, 0.78, -0.78].forEach(fx => { const hz = P.rz * (1 - P.lens * fx * fx) * Math.sqrt(1 - fx * fx); colCirc(P.x + fx * P.rx, P.z, hz + 0.35, -9, -6.6, 'pond'); });
     }
 
     /* ---------- 3.11 вывески — один атлас-канвас, одна сетка ---------- */
@@ -1485,9 +1545,9 @@
     /* =====================================================================
        СБОРКА
        ===================================================================== */
-    const bTri0 = vc.count() + at.count() + ledB.count() + ledGlowB.count(), bWin0 = glaz.length;
+    const bTri0 = vc.count() + at.count() + ledGlowB.count(), bWin0 = glaz.length;
     mainBuilding();
-    const mainTris = vc.count() + at.count() + ledB.count() + ledGlowB.count() - bTri0 + (glaz.length - bWin0) * 2;
+    const mainTris = vc.count() + at.count() + ledGlowB.count() - bTri0 + (glaz.length - bWin0) * 2;
     poolHall(); courtyard(); tower(); parking(); sports(); relax(); photoGrounds();
     // деревья на склонах и у подножия (не на дороге, не на площадках)
     { let k = 0; for (let tries = 0; tries < 2600 && k < (HI ? 170 : 120); tries++) { const a = R() * TAU, r = 30 + Math.pow(R(), 0.8) * 200, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r;
@@ -1510,21 +1570,27 @@
     const litMesh = m => { if (!m || !K.BAKED) return m; const g = m.geometry; if (g.attributes.color && g.attributes.normal) LIT.push({ col: g.attributes.color, alb: Float32Array.from(g.attributes.color.array), nor: g.attributes.normal }); return m; };
     // 4B: склеенные сетки — кусками по 40 м (отсечение по пирамиде камеры: со смотровой корпус за спиной не рисуется)
     // ключ куска: 'zone' — по площадкам (двор у фасада / двор у смотровой / парковка / спорт / отдых / прочее), 'quad' — четверти вокруг холма
-    // корпус и зал бассейна — свои куски (тесные сферы: со смотровой и с башни, спиной к ним, не рисуются)
-    const ZONE = (x, z) => (z < -36 ? (x > -6 ? 'mid' : 'low') : x < -34 ? 'park' : z < -6 ? 'topF' : z > MAIN.z0 - 1.7 && x > MAIN.x0 - 1.5 && x < MAIN.x1 + 1.5 ? 'main' : x < 23 ? 'topB' : 'pool');
+    // корпус вместе с залом бассейна — свой кусок (со смотровой и с башни, спиной к ним, не рисуется; один кусок, а не два —
+    // −2 вызова в видах на корпус). Земля (газон, плиты, настил — грани не выше 0,1 м) — в 'topB': кусок 'main' ночью
+    // приглушается, и плитка газона, разрезанная по центрам треугольников, светилась клином рядом с тёмным треугольником
+    const ZONE = (x, z, hy) => (z < -36 ? (x > -6 ? 'mid' : 'low') : x < -34 ? 'park' : z < -6 ? 'topF' : ((z > MAIN.z0 - 1.7 && x > MAIN.x0 - 1.5 && x < MAIN.x1 + 1.5) || x >= 23) && !(hy < 0.1) ? 'main' : 'topB');
     const QUAD = (x, z) => String(Math.floor((Math.atan2(x - HC.x, z - HC.z) + PI) / (PI / 2)) % 4);
     function splitGeo(g, keyFn) {
       const P = g.attributes.position.array, names = Object.keys(g.attributes), nIdx = g.index ? g.index.count : g.attributes.position.count, IX = g.index ? g.index.array : null, groups = new Map();
       for (let t = 0; t < nIdx; t += 3) { const a = IX ? IX[t] : t, b = IX ? IX[t + 1] : t + 1, c = IX ? IX[t + 2] : t + 2, cx = (P[a * 3] + P[b * 3] + P[c * 3]) / 3, cz = (P[a * 3 + 2] + P[b * 3 + 2] + P[c * 3 + 2]) / 3;
-        const k = keyFn(cx, cz); let L = groups.get(k); if (!L) groups.set(k, L = []); L.push(a, b, c); }
+        const k = keyFn(cx, cz, Math.max(P[a * 3 + 1], P[b * 3 + 1], P[c * 3 + 1])); let L = groups.get(k); if (!L) groups.set(k, L = []); L.push(a, b, c); }
       if (groups.size < 2) return [g];
       const out = [];
-      groups.forEach(L => { const map = new Map(), ni = new Array(L.length); let n = 0; for (let i = 0; i < L.length; i++) { let v = map.get(L[i]); if (v === undefined) { v = n++; map.set(L[i], v); } ni[i] = v; }
+      groups.forEach((L, key) => { const map = new Map(), ni = new Array(L.length); let n = 0; for (let i = 0; i < L.length; i++) { let v = map.get(L[i]); if (v === undefined) { v = n++; map.set(L[i], v); } ni[i] = v; }
         const ng = new T.BufferGeometry(); names.forEach(nm => { const A = g.attributes[nm], sz = A.itemSize, src = A.array, dst = new src.constructor(n * sz); map.forEach((v, o) => { for (let q = 0; q < sz; q++) dst[v * sz + q] = src[o * sz + q]; }); ng.setAttribute(nm, new T.BufferAttribute(dst, sz)); });
-        ng.setIndex(n > 65535 ? new T.Uint32BufferAttribute(ni, 1) : new T.Uint16BufferAttribute(ni, 1)); ng.computeBoundingSphere(); out.push(K.keep(ng)); });
+        ng.setIndex(n > 65535 ? new T.Uint32BufferAttribute(ni, 1) : new T.Uint16BufferAttribute(ni, 1)); ng.computeBoundingSphere(); ng.userData.zone = key; out.push(K.keep(ng)); });
       g.dispose(); return out;
     }
-    const addSplit = (m, o = {}, keyFn = ZONE) => { if (!m) return null; if (!keyFn) { add(litMesh(m), o); return m; } const gs = splitGeo(m.geometry, keyFn); const list = gs.map((g, i) => { const mm = gs.length > 1 ? new T.Mesh(g, m.material) : m; if (gs.length > 1) Object.assign(mm.userData, m.userData); add(litMesh(mm), Object.assign({}, o, { name: (o.name || 'part') + (gs.length > 1 ? '#' + i : '') })); return mm; }); return list[0]; };
+    // корпус ночью темнее (h5: тёмный объём с золотыми линиями): у куска 'main' — свой экземпляр материала (тот же шейдер, 0
+    // новых вызовов), setNight приглушает его цвет
+    const mainMats = [];
+    const mainMat = src => { const m2 = K.keep(src.clone()); ['onBeforeCompile', 'customProgramCacheKey'].forEach(k => { if (src.hasOwnProperty(k)) m2[k] = src[k]; }); mainMats.push(m2); return m2; };
+    const addSplit = (m, o = {}, keyFn = ZONE) => { if (!m) return null; if (!keyFn) { add(litMesh(m), o); return m; } const gs = splitGeo(m.geometry, keyFn); const list = gs.map((g, i) => { const mm = gs.length > 1 ? new T.Mesh(g, g.userData.zone === 'main' && (m.material === K.vcMat || m.material === K.atlasMat) ? mainMat(m.material) : m.material) : m; if (gs.length > 1) Object.assign(mm.userData, m.userData); add(litMesh(mm), Object.assign({}, o, { name: (o.name || 'part') + (gs.length > 1 ? '#' + i : '') })); return mm; }); return list[0]; };
     snowify(at); snowify(vc);
     const meshAt = addSplit(at.mesh(K.atlasMat), { cast: true, name: 'stone' });
     const meshVC = addSplit(vc.mesh(K.vcMat), { cast: true, name: 'hotelVC' });
@@ -1568,12 +1634,17 @@
     const paneMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide })); paneMat.userData.dn = 'window'; NIGHT.mats.push(paneMat);
     add(paneB.mesh(paneMat), { cast: false, receive: false, name: 'panes' });
     const lanternMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, color: new T.Color(0.78, 0.76, 0.72) })); NIGHT.mats.push(lanternMat);
-    const meshLant = add(lantB.mesh(lanternMat), { cast: false, receive: false, name: 'lanterns' }); if (meshLant) meshLant.userData.dn = 'lamp';
-    // LED-линии корпуса: днём — светлая полоса рельефа, ночью — тёплое золото (DayNight: 'lamp' — не темнеет); ореол — сложением, только ночью
-    const LED_DAY = WIN ? [0.93, 0.93, 0.92] : [0.9, 0.87, 0.8], LED_NIGHT = [1.0, 0.8, 0.3];
-    const ledMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, color: new T.Color(...LED_DAY) })); ledMat.userData.dn = 'lamp'; NIGHT.mats.push(ledMat);
-    add(ledB.mesh(ledMat), { cast: false, receive: false, name: 'led' });
+    // плафоны — вид DayNight 'glow' (не 'lamp'): иначе второй проход dn.attach(scene) ищет лампы в сетке по скоплениям вершин и
+    // вешает ореол на каждую лампочку гирлянд (шары перед фасадом в виде hotel_corner); ореолы — только в точках NIGHT.lamps
+    const meshLant = add(lantB.mesh(lanternMat), { cast: false, receive: false, name: 'lanterns' }); if (meshLant) meshLant.userData.dn = 'glow';
+    // ночная сетка: LED-линии корпуса с ореолом и отблески фонарей на пруду — одной сеткой сложением (DayNight её не трогает),
+    // днём скрыта (рельеф LED — в общей сетке корпуса): ночью +1 вызов, днём 0
     const ledGlowMat = K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: false })); ledGlowMat.userData.dn = 'none';
+    // издалека (h5, из села) фонари ночью — цепочки тёплых точек по краю площадок, лестнице и пруду: у каждой точки
+    // NIGHT.lamps — две скрещённые «звёздочки» 0,7 м (яркий центр, края гаснут) в той же ночной сетке: 0 вызовов, 8 тр. на фонарь
+    { const hot = rgb('#FFC870'), z0 = [0, 0, 0], r = 0.35;
+      NIGHT.lamps.forEach(([x, y, z]) => [[1, 0], [0, 1]].forEach(([ux, uz]) => { const c = [x, y, z], P = [[x + ux * r, y, z + uz * r], [x, y + r, z], [x - ux * r, y, z - uz * r], [x, y - r, z]];
+        for (let k = 0; k < 4; k++) ledGlowB.tri(c, P[k], P[(k + 1) % 4], [hot, z0, z0]); })); }
     const meshLedGlow = add(ledGlowB.mesh(ledGlowMat), { cast: false, receive: false, order: 5, name: 'ledGlow' }); if (meshLedGlow) { meshLedGlow.visible = false; meshLedGlow.userData.dn = 'none'; }
     // вода: рябь — мягкие волны на канвасе
     const waterTex = (() => { const [cv, c] = K.cnv(128, 128); c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, 128, 128); c.strokeStyle = 'rgba(255,255,255,0.0)'; const R2 = rng(77); for (let i = 0; i < 60; i++) { const x = R2() * 128, y = R2() * 128, r = 6 + R2() * 18; c.strokeStyle = `rgba(${200 + R2() * 55 | 0},${235},${255},0.55)`; c.lineWidth = 1.5 + R2() * 2; for (const dx of [-128, 0, 128]) for (const dy of [-128, 0, 128]) { c.beginPath(); c.arc(x + dx, y + dy, r, 0.3, 2.4); c.stroke(); } } const t = K.tex(cv, { repeat: true }); return t; })();
@@ -1684,8 +1755,9 @@
       lanternMat.color.setRGB(lerp(0.78, 1.3, k), lerp(0.76, 1.18, k), lerp(0.72, 0.92, k));
       glowMat.color.setRGB(lerp(0.88, 1.25, k), lerp(0.88, 1.12, k), lerp(0.88, 0.95, k));
       paneMat.color.setRGB(lerp(1, 2.1, k), lerp(1, 1.75, k), lerp(1, 1.05, k));
-      ledMat.color.setRGB(lerp(LED_DAY[0], LED_NIGHT[0], k), lerp(LED_DAY[1], LED_NIGHT[1], k), lerp(LED_DAY[2], LED_NIGHT[2], k));
-      ledGlowMat.opacity = sst(0.1, 0.7, k) * 0.85; if (meshLedGlow) meshLedGlow.visible = k > 0.1;
+      mainMats.forEach(m => m.color.setScalar(lerp(1, 0.7, k)));
+      // LED и отблески — когда зажглись фонари (village.html: с фонарями k ≥ 0,65; до них в сумерках k ≤ 0,5)
+      ledGlowMat.opacity = sst(0.5, 0.7, k) * 0.95; if (meshLedGlow) meshLedGlow.visible = k > 0.55;
       if (meshWater) meshWater.material.color.setRGB(lerp(1, 0.95, k), lerp(1, 1.15, k), lerp(1, 1.3, k));
       glassMat.opacity = lerp(0.4, 0.26, k);
       fire.glowSpr.material.opacity = lerp(0.45, 0.85, k); fire.glowSpr.scale.setScalar(lerp(4.2, 7.5, k));
@@ -1728,7 +1800,7 @@
       spots.push({ id: 'fire_pit', x: FIRE.x, y: -8, z: FIRE.z + 4.3, r: 1.5, icon: '🔥', label: 'Костровой круг', action: 'Посидеть у огня', seat: [FIRE.x, -8 + 0.46, FIRE.z + 3.3], ry: PI, view: 'fire_pit' });
       spots.push({ id: 'spa_look', x: -31, y: -8, z: -47.2, r: 1.6, icon: '♨️', label: 'Купели с паром', action: 'Посмотреть', view: 'spa' });
       spots.push({ id: 'sports_look', x: 40, y: -4, z: -62, r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Посмотреть', view: 'sports' });   // 4B (NEEDS REGION 1)
-      spots.push({ id: 'pond_look', x: -19.5, y: -8, z: POND.z + POND.rz + 1.6, r: 1.5, icon: '🦆', label: 'Пруд под холмом', action: 'Посмотреть', view: 'pond' });
+      spots.push({ id: 'pond_look', x: -19.5, y: -8, z: POND.z + POND.rz + 1.3, r: 1.5, icon: '🦆', label: 'Пруд под холмом', action: 'Посмотреть', view: 'pond' });
       spots.push({ id: 'hotel_tower', x: TW.x + TW.rB + 0.8, y: 0, z: TW.z, r: 1.3, icon: '🏰', label: 'Башня во дворе', action: 'Подняться наверх' });
       spots.push({ id: 'zipline_start', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, icon: '🪂', label: 'Зиплайн — в село', action: 'Пристегнуться и ехать!', level: 'top' });
       spots.push({ id: 'tower_down', x: TW.x - R0.dir.x * 0.85, y: TW.floor, z: TW.z - R0.dir.z * 0.85, r: 0.75, icon: '⬇️', label: 'Спуститься', action: 'Вниз', level: 'top' });
@@ -1778,8 +1850,8 @@
       village_far: { pos: [-5, 1.8, -37.0], target: [vT.x, vT.y - 14, vT.z], fov: 9 },
       // по фото: фронтон с двора (h1), угол со стороны парковки (h2), пруд и лестница снизу (h4)
       hotel_front: { pos: [-2, 4.5, -64], target: [-2, 9.5, MAIN.z0], fov: 64 },
-      hotel_corner: { pos: [-38, 1.6, -12], target: [-17, 9, 20], fov: 56 },
-      pond: { pos: [-14.5, -5.6, -99], target: [-21, 3, -8], fov: 50 },
+      hotel_corner: { pos: [-38.1, 1.7, 2.2], target: [-18.8, 8.7, 16.5], fov: 50 },
+      pond: { pos: [-15.5, -5.6, -99], target: [-23, 3, -8], fov: 50 },
     };
 
     /* ---------- обновление кадра ---------- */
@@ -1930,7 +2002,7 @@
       night: { lamps: NIGHT.lamps, glow: K.GLOW.amt, sky: BG.sky, lampSize: 1.2 },
       nightMaterials: NIGHT.mats,
       setNight,
-      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: -5, z: -36.9 }, main: MAIN, road: { len: ROAD.len, end: ROAD.end },
+      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: -5, z: -36.9 }, main: MAIN, pond: POND, road: { len: ROAD.len, end: ROAD.end },
         village: { x: FROM_VILLAGE.exit.x, z: FROM_VILLAGE.exit.z, car: FROM_VILLAGE.car, hero: FROM_VILLAGE.hero }, parking: { x: PARKING.x, z: PARKING.z, ry: PARKING.ry } },   // волна 6: приезд из села
       zipline: ZR, golf: GOLF,
       frame: { x: FR.x, y: FR.y, z: FR.z, ry: FR.ry, toMacro, toLocal },
@@ -1970,14 +2042,15 @@
       return B; };
     const H = mk(), Bd = mk();
     // холм: полярная сетка (те же площадки и профиль, что в регионе), снаружи — опускается под естественный склон
-    const rings = [0, 20, 40, 60, 80, 100, 125, 150, 180, 210], NA = 48;
-    for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i]; const p = padAt(x, z); const y = p ? p.y : Math.max(hillRaw(x, z), natLocal(x, z)) - (i === rings.length - 1 ? 8 : 0); const c = WIN ? rgb('#EEF2F6') : p ? (p.id === 'mid' || p.id === 'low' ? rgb('#93A65A') : rgb('#D9D0BE')) : mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), 0.5 + 0.5 * Math.sin(x * 0.07 + z * 0.05)); H.put([x, y, z], c); }   // волна 6: зелёный холм (полосы террас — шейдером)
+    // (смотровая на консоли — не площадка: центр сетки на склоне под ней, без светлого клина плитки на вершине)
+    const rings = [0, 10, 20, 40, 60, 80, 100, 125, 150, 180, 210], NA = 48;
+    for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i]; const p0 = padAt(x, z), p = p0 && !p0.float ? p0 : null; const y = p ? p.y : Math.max(hillRaw(x, z), natLocal(x, z)) - (i === rings.length - 1 ? 8 : 0); const c = WIN ? rgb('#EEF2F6') : p ? (p.id === 'mid' || p.id === 'low' ? rgb('#93A65A') : rgb('#D9D0BE')) : mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), 0.5 + 0.5 * Math.sin(x * 0.07 + z * 0.05)); H.put([x, y, z], c); }   // волна 6: зелёный холм (полосы террас — шейдером)
     for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; H.I.push(a, b, a + 1, a + 1, b, b + 1); }
     // корпус по фото (чертёж v2): сливочный объём 39,7 × 21 × 12, низкий бледно-розовый фронтон 20° к двору (конёк вдоль z, свесы
-    // MROOF), терракотовые кромки, 4 трубы; LED-линии («домик» и 4 вертикали) — своей сеткой Ld: днём светлый рельеф, ночью
+    // MROOF), терракотовые кромки, 4 трубы; LED-линии («домик» и 4 вертикали) — своей сеткой Ld: днём в цвет корпуса, ночью
     // DayNight села теплит её как окна ('window') — золотой контур виден через долину (h5)
     const M = MAIN, cxm = (M.x0 + M.x1) / 2, HW = (M.x1 - M.x0) / 2, KP = (M.apex - M.eave) / HW, yR = M.apex + MROOF.th, xE = HW + MROOF.ov, yE = yR - KP * xE;
-    const W = WIN ? rgb('#FFFFFF') : rgb('#F4ECDD'), roofC = WIN ? rgb('#F4F7FA') : rgb('#E2B3A9'), fasc = rgb('#CF6249');
+    const W = WIN ? rgb('#F6F0E4') : rgb('#F2E6CF'), roofC = WIN ? rgb('#F4F7FA') : rgb('#E2B3A9'), fasc = rgb('#CF6249');
     Bd.box(M.x0, M.x1, 0, M.eave, M.z0, M.z1, W, W);
     [M.z0, M.z1].forEach(z => Bd.tri([M.x0, M.eave, z], [M.x1, M.eave, z], [cxm, M.apex, z], W));
     { const za = M.z0 - MROOF.og, zz = M.z1 + MROOF.og; Bd.prismZ(cxm - xE, cxm + xE, za, zz, yE, yR, roofC);
@@ -1985,8 +2058,16 @@
       [za, zz].forEach(z => [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.45, z], [cxm, yR - 0.45, z], [cxm, yR + 0.05, z], [cxm + sx * xE, yE + 0.05, z], fasc)));
       [-1, 1].forEach(sx => Bd.quad([cxm + sx * xE, yE - 0.45, za], [cxm + sx * xE, yE - 0.45, zz], [cxm + sx * xE, yE + 0.05, zz], [cxm + sx * xE, yE + 0.05, za], fasc));
       MROOF.chim.forEach(([X, dz, w, hh]) => { const x = cxm - X, z = M.z0 + dz, ys = yR - KP * (Math.abs(X) - w / 2); Bd.box(x - w / 2, x + w / 2, ys - 0.6, ys + hh, z - 0.45, z + 0.45, rgb('#B07468')); }); }
+    // окна фронтона (колонки чертежа v2): 2 этажа × 12 французских окон, 4 широких окна с балконами, 2 портала — тёмные
+    // проёмы; несколько окон — в сетке Ld (ночью теплеют вместе с LED)
+    // Ld — без света и тумана (ночью DayNight теплит её как окна), поэтому днём у LED, окон Ld и ромбиков фонарей — цвет
+    // корпуса, окон и склона в дымке с села: днём не выделяются
+    const Ld = mk(), ledC = WIN ? rgb('#C8CDD3') : rgb('#8C8F91'), winL = WIN ? rgb('#777B83') : rgb('#61676D'), winC = rgb('#4A4E58'), balC = rgb('#3F3432'), porC = rgb('#4C4A3E');
+    { const zf = M.z0 - 0.05, q = (B, u, v, w, h, c) => B.quad([cxm - u + w / 2, v, zf], [cxm - u - w / 2, v, zf], [cxm - u - w / 2, v + h, zf], [cxm - u + w / 2, v + h, zf], c);
+      [-1, 1].forEach(s => { [1.15, 3.5, 6.0, 8.55, 14.1, 17.9].forEach((X, i) => [4.3, 7.65].forEach((v, j) => { const lit = !((i + 2 * j + (s > 0 ? 3 : 0)) % 5); q(lit ? Ld : Bd, s * X, v, 1.6, 2.45, lit ? winL : winC); }));
+        [2.3, 7.3].forEach(X => { q(Bd, s * X, 10.9, 4.2, 2.6, winC); q(Bd, s * X, 10.55, 4.3, 1.3, balC); });
+        q(Bd, s * 7.1, 0.4, 4.7, 2.9, porC); }); }
     // LED-линии (шире настоящих: издалека — 1–2 пикселя)
-    const Ld = mk(), ledC = WIN ? rgb('#F2F0EC') : rgb('#E2DACB');
     { const seg = (P, a, b, wd) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, px = -dy / L * wd / 2, py = dx / L * wd / 2, ex = dx / L * wd / 2, ey = dy / L * wd / 2;
         Ld.quad(P(a[0] - ex + px, a[1] - ey + py), P(a[0] - ex - px, a[1] - ey - py), P(b[0] + ex - px, b[1] + ey - py), P(b[0] + ex + px, b[1] + ey + py), ledC); };
       const Pf = (u, v) => [cxm - u, v, M.z0 - 0.08], Pe = (u, v) => [M.x1 + 0.08, v, M.z0 + u];
@@ -1994,11 +2075,19 @@
       for (let i = 0; i < HOUSE.length - 1; i++) seg(Pf, HOUSE[i], HOUSE[i + 1], 0.8);
       [-16, 16].forEach(u => seg(Pf, [u, 1.1], [u, 13.0], 0.8));
       [2.2, 18.8].forEach(u => seg(Pe, [u, 1.0], [u, 11.6], 0.8)); }
+    // фонари (h5): ночью из села — цепочки тёплых точек по краю двора, вдоль фото-лестницы и вокруг пруда. Ромбик 1,2 м
+    // лицом к селу в сетке Ld (ночью теплеет вместе с окнами), 2 тр. на фонарь
+    { const vt = toLocal(-11.2, 12, -15.4), s = STAIRS.find(q => q.id === 'st_top'), L = [];
+      const rim = WIN ? rgb('#CDD4DA') : rgb('#9A9C98'); [-28, -12.9, 12, 27, 47].forEach(x => L.push([x, 3.2, -28.6, rim])); [-31.5, -24, 2, 7, 19.5, 31, 44, 51.5].forEach(x => L.push([x, 0.6, -29.35, rim]));
+      for (let z = s.z0 + 1.2; z < s.z1 - 0.5; z += 3.0) { const y = lerp(s.ya, s.yb, stairK(s, (z - s.z0) / (s.z1 - s.z0))) + 0.6; L.push([s.x0 - 0.4, y, z], [s.x1 + 0.4, y, z]); }
+      for (let k = 0; k < 6; k++) { const t = (k + 0.5) / 6 * TAU, c = Math.cos(t); L.push([POND.x + c * (POND.rx + 2.2), -8 + 2.12, POND.z + Math.sin(t) * (POND.rz * (1 - POND.lens * c * c) + 2.2)]); }
+      const dc = WIN ? rgb('#CDD4DA') : rgb('#8EA071'), r = 0.6;
+      L.forEach(([x, y, z, c]) => { const dx = vt.x - x, dz = vt.z - z, l = Math.hypot(dx, dz) || 1, ux = -dz / l * r, uz = dx / l * r; Ld.quad([x - ux, y, z - uz], [x, y + r, z], [x + ux, y, z + uz], [x, y - r, z], c || dc); }); }
     Bd.box(POOL.x0, POOL.x1, 0, POOL.h, POOL.z0, POOL.z1, WIN ? rgb('#D6E6EE') : rgb('#9CC8DC'), WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
     Bd.box(SPA.x0, SPA.x1, -8, -8 + SPA.h, SPA.z0, SPA.z1, W, WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
     COTT.forEach(([x, z]) => { Bd.box(x - 4, x + 4, -8, -3.6, z - 4.5, z + 4.5, WIN ? rgb('#E9E2DA') : rgb('#B07A4E'), rgb('#5E4A44')); Bd.prismZ(x - 4.5, x + 4.5, z - 5, z + 5, -3.6, 0.4, WIN ? rgb('#F4F7FA') : rgb('#5E4A44'), rgb('#9FC0D6')); });
     // пруд под холмом (тёмная вода; зимой лёд) и светлая лестница по склону
-    { const yy = -8 + 0.12, c = WIN ? rgb('#E2EAF2') : rgb('#4E657A'), n = 12; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; Bd.tri([POND.x, yy, POND.z], [POND.x + Math.cos(b) * POND.rx, yy, POND.z + Math.sin(b) * POND.rz], [POND.x + Math.cos(a) * POND.rx, yy, POND.z + Math.sin(a) * POND.rz], c); } }
+    { const yy = -8 + 0.12, c = WIN ? rgb('#E2EAF2') : rgb('#4E657A'), n = 12; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; const P2 = t => [POND.x + Math.cos(t) * POND.rx, yy, POND.z + Math.sin(t) * POND.rz * (1 - POND.lens * Math.cos(t) * Math.cos(t))]; Bd.tri([POND.x, yy, POND.z], P2(b), P2(a), c); } }
     { const s = STAIRS.find(q => q.id === 'st_top'), c = WIN ? rgb('#F4F6F8') : rgb('#D8D6CE'), L = s.z1 - s.z0, y = t => lerp(s.ya, s.yb, stairK(s, t)) + 0.1; [[0, s.land[0]], [s.land[0], s.land[1]], [s.land[1], 1]].forEach(([t0, t1]) => Bd.quad([s.x0, y(t0), s.z0 + L * t0], [s.x1, y(t0), s.z0 + L * t0], [s.x1, y(t1), s.z0 + L * t1], [s.x0, y(t1), s.z0 + L * t1], c)); }
     // башня-копия (12 граней) с поясом зубцов
     { const seg = 12, tc = WIN ? rgb('#E6E2DA') : rgb('#D8C29A'); for (let i = 0; i < seg; i++) { const a = i / seg * TAU, b = (i + 1) / seg * TAU; Bd.quad([TW.x + Math.sin(a) * TW.rB, 0, TW.z + Math.cos(a) * TW.rB], [TW.x + Math.sin(b) * TW.rB, 0, TW.z + Math.cos(b) * TW.rB], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.92 + 0.1 * Math.cos(a)));
@@ -2009,7 +2098,8 @@
     const grp = new T.Group(); grp.name = 'hotel:distant';
     const mesh = new T.Mesh(gH, matH); mesh.name = 'hotelDistant'; grp.add(mesh);
     const meshB = new T.Mesh(gB, matB); meshB.name = 'hotelDistantBuildings'; grp.add(meshB);
-    const matL = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide }); matL.userData.dn = 'window';
+    // без тумана: ночью золотой контур и окна доходят до села тёплыми, а не персиковой дымкой
+    const matL = new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, fog: false }); matL.userData.dn = 'window';
     const meshL = new T.Mesh(gL, matL); meshL.name = 'hotelDistantLed'; grp.add(meshL);
     // трос — линия до площадки у села
     let cm = null; if (V.zipline && V.zipline.route) { const R = V.zipline.route('macro'); cm = V.zipline.cableMesh(T, V.zipline.cable(R.from, R.to, R.sag), { color: '#4E4A52' }); grp.add(cm); }

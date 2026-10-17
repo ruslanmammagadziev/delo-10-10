@@ -1564,12 +1564,12 @@
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
       // волна 6: дороги села — школа, школьный двор, разворот у башни, дорога к отелю
       ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 18.65, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'], ['toHotel', 'hotel', 76.9, -99.7]],
-    hotel: [['main', 'hotel', -2, 23], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
+    hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', -5, -36.9], ['tower', 'zip', -26, -24], ['park', 'parking', -50, 13]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
       ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['fork', 'fork', 266.6, 386.8], ['toHotel', 'hotel', 325.8, 409.5], ['toVillage', 'gate', 313, 350.4]],
   };
-  const STATIC_HOTEL = { main: { x0: -26, x1: 22, z0: 16, z1: 30 }, pool: { x0: 24, x1: 48, z0: 6, z1: 30, px0: 27, px1: 45, pz0: 15, pz1: 22 }, spa: { x0: -66, x1: -42, z0: -62, z1: -48 },
+  const STATIC_HOTEL = { main: { x0: -21.85, x1: 17.85, z0: 15, z1: 36 }, pool: { x0: 24, x1: 48, z0: 6, z1: 30, px0: 27, px1: 45, pz0: 15, pz1: 22 }, spa: { x0: -66, x1: -42, z0: -62, z1: -48 },
     green: { x: 27, z: -56, rx: 9.5, rz: 7 }, fire: { x: -40, z: -86, r: 1.3 }, tower: { x: -26, z: -24 }, courtyard: { x: -3, z: -3 } };
   // подписи точек гор (одинаковые для радара, списка и карточки); named:false — без названия села и этнографии
   function mtnLabel(id, kind, named, rid) {
