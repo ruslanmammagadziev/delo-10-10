@@ -1699,6 +1699,9 @@
     // берет — HERO.beretOf(бант): к розовому банту — бордовый берет с рисунка.
     function heroCols(lk) {
       const H = window.HERO, same = (a, b) => !!a && !!b && String(a).toUpperCase() === String(b).toUpperCase();
+      // образ (js/hero_looks.js): кукла — в палитре образа (пальто, волосы, акцент вместо банта)
+      const HL = window.HeroLooks;
+      if (lk && HL && HL.valid(lk.look)) { const pal = HL.get(lk.look).pal; lk = { hair: pal.hair, coat: pal.main, bow: pal.accent }; }
       const hair = lk.hair || '#4A3128', coat = lk.coat || '#E9D4B6', bw = lk.bow || '#F08FA8';
       if (!H || !H.base || !H.defaults) return { hair, tips: hair, coat, bow: bw, beret: shade(bw, -35), shoes: '#6B3A4F', tights: INK, skin: SKIN, skinD: '#EBC4AC' };
       const d = H.defaults, B0 = H.base, dh = same(hair, d.hair);
@@ -2428,9 +2431,17 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (!hero) { try { hero = buildHeroGLB(o.hero, H3); } catch (e) { console.warn('hero3d', e); hero = null; } }   // статуэтка
     }
     if (!hero) hero = buildHero(o.hero, await heroFaceImgs());
-    // образ на модели автора (бант и берет, тренч, волосы): перекрашенная текстура, общая с открытым городом и горами
+    // образ на модели автора: одежда и причёска одного из шести образов (js/hero_outfits.js), общие с открытым городом и горами;
+    // без образов — перекраска тренча (js/hero_look3d.js)
     const H3L = H3 && (hero.rig || hero.statue) && window.HeroLook3D ? H3 : null;
-    if (H3L) { try { HeroLook3D.apply(H3L, o.hero || {}); } catch (e) { console.warn('hero look', e); } }
+    let lookId = null;
+    const wearLook = lk => {
+      if (H3L && window.HeroOutfits) { const r = HeroOutfits.wear(H3L, hero, lk); if (r) { lookId = r.id; return true; } }
+      lookId = null;
+      if (H3L) HeroLook3D.apply(H3L, lk);
+      return !!H3L;
+    };
+    if (H3L) { try { wearLook(o.hero || {}); } catch (e) { console.warn('hero look', e); } }
     scene.add(hero.root);
     const heroBlob = put(scene, GEO.plane, blobMat, [0, 0.012, 0], [0.8, 0.5, 1], [-PI / 2, 0, 0]); heroBlob.castShadow = false; heroBlob.receiveShadow = false;
     const cat = buildCat(); cat.root.visible = false; scene.add(cat.root);
@@ -2718,7 +2729,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const spotNear = () => spots.find(sp => Math.hypot(px - sp.x, pz - sp.z) < 0.95) || null;
     let camOverride = null, walkWaiters = [];
     let sitting = null, sitWaiters = [], faceLock = null, interceptFn = null, headG = null, catPin = null, catPinWait = [], catY = 0;
-    const lookNow = { bow: o.hero.bow, coat: o.hero.coat, hair: o.hero.hair };
+    const lookNow = { look: o.hero.look, bow: o.hero.bow, coat: o.hero.coat, hair: o.hero.hair };
     const tweenObj = (n, pts, speed = 1.6, opt = {}) => new Promise(res => {
       if (typeof n === 'string') n = RM && RM.npcs[n];
       if (!n) return res();
@@ -2737,8 +2748,10 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       requestAnimationFrame(step);
     });
     const recolor = lk => {
-      Object.assign(lookNow, lk);
-      if (H3L) { try { HeroLook3D.apply(H3L, lookNow); } catch (e) { console.warn('hero look', e); } } else hero.setCols(heroCols(lookNow), lk);
+      // новый образ (look) — старые цвета образа тоже его; старые цвета без look — образ по ним
+      if (lk.look && window.HeroLooks && HeroLooks.valid(lk.look)) Object.assign(lookNow, HeroLooks.legacy(lk.look), lk);
+      else { Object.assign(lookNow, lk); if (lk.bow || lk.coat) lookNow.look = null; }
+      if (H3L) { try { wearLook(lookNow); } catch (e) { console.warn('hero look', e); } } else hero.setCols(heroCols(lookNow), lk.look ? lookNow : lk);
     };
     let dimK = 1, fitTarget = null;
     const refit = () => {
@@ -2771,7 +2784,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       // у модели автора образ перекрашивает её текстуру (js/hero_look3d.js), у рисованной героини — материалы
       get canRecolor() { return !!H3L || (!hero.statue && !hero.rig); },
       setLook: lk => recolor(lk || {}),
-      look: () => Object.assign({}, lookNow),
+      look: () => Object.assign({}, lookNow, lookId ? { look: lookId } : null),
       heroHead: () => { if (!headG) { headG = new T.Group(); hero.head.add(headG); } return headG; },
       dim: (k = 1, ms = 800) => new Promise(r => { const a = dimK, t0 = performance.now(); const st2 = () => { const q = Math.min(1, (performance.now() - t0) / Math.max(1, ms)); dimK = a + (k - a) * q; hemi.intensity = LK.hi * dimK; sun.intensity = LK.si * dimK; if (q < 1 && !finished) requestAnimationFrame(st2); else r(); }; st2(); }),
       tween: (n, pts, speed, opt) => tweenObj(n, pts, speed, opt),
@@ -3181,6 +3194,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     let last = performance.now(), raf = 0;
     const tick = now => {
       if (!renderer) return;
+      // комнату закрыл непрозрачный экран (гардероб в ателье, body.scene-paused): кадры не считаем и не рисуем
+      if (document.body.classList.contains('scene-paused')) { last = now; raf = requestAnimationFrame(tick); return; }
       const rawDt = Math.max(0, (now - last) / 1000), dt = Math.min(0.12, rawDt); last = now;
       const t = now / 1000;
       let vx = 0, vz = 0;
@@ -3306,7 +3321,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
         }
         // шапка поверх запечённого берета (как у статуэтки)
         R.cap += ((hero.beret.visible ? 0 : 1) - R.cap) * Math.min(1, dt * 10);
-        if (headG) { headG.position.y = 0.13 * R.cap; headG.scale.setScalar(1 + 0.14 * R.cap); }
+        // у образов берета нет: шапка садится на волосы (подъём и размер — по причёске, js/hero_outfits.js)
+        if (headG) { const hl = lookId && window.HeroOutfits ? HeroOutfits.hatLift(lookId) : { y: 0.13, s: 1.14 }; headG.position.y = hl.y * R.cap; headG.scale.setScalar(1 + (hl.s - 1) * R.cap); }
+        if (hero._outfit && window.HeroOutfits) HeroOutfits.update(hero, dt, { sit: !!sitting });
       } else if (hero.statue) {
         // статуэтка: игрушечный шаг (ноги качаются в шейдере, тело переваливается ±6° и подпрыгивает), посадка — «присела»
         const S = hero.statue, U = S.U;
@@ -3324,7 +3341,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
         hero.arms[0].pv.rotation.x = Math.sin(phase) * 0.12 * walkAmt;               // предмет в руке чуть качается в такт
         // берет спрятан (ателье надело шапку): у модели берет запечён, поэтому шапка садится поверх него
         S.cap = (S.cap || 0) + ((hero.beret.visible ? 0 : 1) - (S.cap || 0)) * Math.min(1, dt * 10);
-        if (headG) { headG.position.y = 0.13 * S.cap; headG.scale.setScalar(1 + 0.14 * S.cap); }
+        if (headG) { const hl = lookId && window.HeroOutfits ? HeroOutfits.hatLift(lookId) : { y: 0.13, s: 1.14 }; headG.position.y = hl.y * S.cap; headG.scale.setScalar(1 + (hl.s - 1) * S.cap); }
+        if (hero._outfit && window.HeroOutfits) HeroOutfits.update(hero, dt, { sit: !!sitting });
       } else {
         hero.legs[0].rotation.x = sw * 0.6; hero.legs[1].rotation.x = -sw * 0.6;
         hero.arms[0].pv.rotation.x = -sw * 0.5; hero.arms[1].pv.rotation.x = sw * 0.5;

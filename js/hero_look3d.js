@@ -13,6 +13,7 @@
    HeroLook3D.look() — последний применённый образ; HeroLook3D.stats — время разметки и перекраски (для тестов).
    HeroLook3D.source(map) — исходная картинка текстуры (авторские цвета) — для тех, кто ищет по цвету пикселя
      (лупа в js/interact.js, берет и пряди под казом в js/village/kaz.js): разметка не должна зависеть от образа.
+   HeroLook3D.setSource(map, img) — запомнить исходную картинку заранее (до первой подмены map.image образом).
    HeroLook3D.hair() — цвет волос на модели в нынешнем образе (как HERO3D.hair, но перекрашенный): «шапочка» под казом и т. п.
    Рамки лица (глаза, брови, губы) и банта заданы в метрах под нынешнюю модель: при замене js/hero3d.js — перепроверить.
    ===================================================================== */
@@ -161,7 +162,8 @@
     if (preps.has(H3)) return preps.get(H3);
     let P = null;
     try {
-      const t0 = performance.now(), map = H3.map, img = map && map.image, geo = H3.geometry;
+      // исходная картинка: образ (js/hero_outfits.js) мог уже подменить map.image своей перекраской
+      const t0 = performance.now(), map = H3.map, img = map && (srcs.get(map) || map.image), geo = H3.geometry;
       const W = img && (img.naturalWidth || img.width), H = img && (img.naturalHeight || img.height);
       if (!W || !H || !geo || !geo.attributes.uv || typeof document === 'undefined') throw new Error('no texture');
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -283,6 +285,8 @@
     apply,
     look: () => Object.assign({}, DEF, lastLook || {}),
     source: map => (map && srcs.get(map)) || (map && map.image) || null,
+    // зарегистрировать исходную картинку текстуры до первой подмены map.image (образы js/hero_outfits.js)
+    setSource: (map, img) => { if (map && img && !srcs.has(map)) srcs.set(map, img); },
     hair: () => tone(0, (window.HERO3D && HERO3D.hair) || '#3B1E0A'),
     stats,
     // для отладки: какие пиксели к какой области (0 — нет, 1 волосы, 2 тренч, 3 бант, 4 берет)

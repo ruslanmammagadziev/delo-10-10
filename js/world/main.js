@@ -156,9 +156,12 @@
     if (!hero && H3) { try { hero = A.buildHeroGLB(null, H3); } catch (e) { console.warn('world hero glb', e); hero = null; } }
     if (!hero) hero = fallbackHero(H);
     w.hero = hero; w.heroKind = hero.rig ? 'rig' : hero.statue ? 'statue' : 'doll';
-    // образ из кастинга/ателье (бант и берет, тренч, волосы): перекрашенная текстура модели, общая с комнатами и горами
+    // образ (один из шести, js/hero_looks.js): одежда и причёска на модели автора (js/hero_outfits.js) — общие с комнатами и горами;
+    // без образов — прежняя перекраска тренча (js/hero_look3d.js)
     w.H3 = (hero.rig || hero.statue) && window.HeroLook3D ? H3 : null;
-    { const st = window.G && G.state ? G.state() : {}; heroLookSet(w, { bow: st.bow, coat: st.coat, hair: st.hair }); }
+    // одежда образа на низком качестве — без оболочки контура (бюджет q=low ≤ 200 тыс.)
+    if (window.HeroOutfits && HeroOutfits.setQuality) HeroOutfits.setQuality(w.qKey);
+    { const st = window.G && G.state ? G.state() : {}; heroLookSet(w, { look: st.look, bow: st.bow, coat: st.coat, hair: st.hair }); }
     { const rimmed = new Set(); hero.root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !rimmed.has(m.material)) { rimmed.add(m.material); H.addRim(m.material, 1); } }); }
     scene.add(hero.root);
     // тень героини — от простой «куклы», а не от модели в 28 тыс. треугольников (на земле разницы не видно)
@@ -336,6 +339,7 @@
   function setQuality(k, say) {
     const w = W; if (!w || !QUAL[k] || k === w.qKey) return false;
     const shadowWas = w.Q.shadow, mapWas = w.Q.map; w.qKey = k; w.Q = QUAL[k];
+    if (window.HeroOutfits && HeroOutfits.setQuality) HeroOutfits.setQuality(k);
     w.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, w.Q.dpr));
     if (w.root.isConnected) resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844);
     w.scene.fog.near = w.Q.fog[0]; w.scene.fog.far = w.Q.fog[1]; w.camera.far = w.Q.far; w.camera.updateProjectionMatrix();
@@ -448,14 +452,24 @@
     const hand = p => { const pv = new T.Group(); pv.position.fromArray(p); body.add(pv); const inner = new T.Group(); pv.add(inner); return { pv, inner }; };
     return { root, body, legs, head, arms: [hand([0.24, 0.72, 0.05]), hand([-0.24, 0.72, 0.05])], mats: [coat, skin, hair, beret, bow, shoe], statue: null, rig: null, doll: { coat, hair, beret, bow } };
   }
-  // образ героини (бант и берет, тренч, волосы): у модели автора — перекраска текстуры (js/hero_look3d.js), у «куклы» — цвета материалов
+  // образ героини: у модели автора — одежда и причёска образа (js/hero_outfits.js; без него — перекраска тренча, js/hero_look3d.js),
+  // у «куклы» — цвета материалов (по палитре образа: пальто, волосы; берета и банта у образов нет)
   function heroLookSet(w, lk) {
     if (!lk) return;
     try {
-      if (w.H3) { HeroLook3D.apply(w.H3, lk); return; }
+      if (w.H3 && window.HeroOutfits) { const r = HeroOutfits.wear(w.H3, w.hero, lk); if (r) { w.lookId = r.id; return; } }
+      if (w.H3) { w.lookId = null; HeroLook3D.apply(w.H3, lk); return; }
       const d = w.hero && w.hero.doll;
       if (!d) return;
+      const HL = window.HeroLooks, id = HL && HL.valid(lk.look) ? lk.look : null;
+      if (id) {
+        const pal = HL.get(id).pal;
+        w.lookId = id; w.dollLook = Object.assign({ look: id }, HL.legacy(id));
+        d.coat.color.set(pal.main); d.hair.color.set(pal.hair); d.bow.visible = false; d.beret.visible = false;
+        return;
+      }
       w.dollLook = Object.assign(w.dollLook || {}, lk);
+      d.bow.visible = true; d.beret.visible = true;
       if (lk.coat) d.coat.color.set(lk.coat);
       if (lk.hair) d.hair.color.set(lk.hair);
       if (lk.bow) { let br = null; try { br = window.HERO && HERO.beretOf ? HERO.beretOf(lk.bow) : null; } catch (e) { br = null; } d.bow.color.set(lk.bow); d.beret.color.set(br || '#C2405B'); }
@@ -1729,7 +1743,7 @@
       get isSitting() { return !!(s.sitting && !s.sitting.car); },
       get canRecolor() { return !!(w.H3 || w.hero.doll); },
       setLook: lk => heroLookSet(w, lk || {}),
-      look: () => Object.assign({}, o.hero || {}, w.H3 ? HeroLook3D.look() : w.dollLook || {}),
+      look: () => (w.lookId && window.HeroLooks ? Object.assign({ look: w.lookId }, HeroLooks.legacy(w.lookId)) : Object.assign({}, o.hero || {}, w.H3 ? HeroLook3D.look() : w.dollLook || {})),
       walkTo: (x, z) => new Promise(r => { standUp(); s.moveTo = { x, z, stop: 0.15, script: true, then: () => r() }; }),
       heroPos: () => ({ x: s.px, z: s.pz }),
       heroHead: () => heroHeadG(),
@@ -2079,6 +2093,8 @@
         hero.body.position.y = hop;
       }
       if (s.headG && hero.rig) { const R = hero.rig; R.cap += ((hero.beret && hero.beret.visible === false ? 1 : 0) - R.cap) * Math.min(1, dt * 10); }
+      // образ: сумочка в машине и на велосипеде прячется, длинный подол подбирается
+      if (hero._outfit && window.HeroOutfits) HeroOutfits.update(hero, dt, { drive: s.mode === 'drive' && !s.anim, bike: s.mode === 'ride' && !s.anim, sit: !!s.sitting });
     }
     function animCat(dt, t) {
       if (s.catInBasket) { cat.root.visible = true; w.catBlob.visible = false; cat.body.position.y = Math.abs(Math.sin(t * 5)) * 0.008 * Math.min(1, w.bike ? w.bike.speed : 0); cat.tail.rotation.z = Math.sin(t * 3) * 0.3; return; }

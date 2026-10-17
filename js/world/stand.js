@@ -47,7 +47,15 @@
       done, fallback: () => done('2d'),
     };
   }
-  const lookOf = () => { try { const s = G.state(); return { bow: s.bow, coat: s.coat, hair: s.hair }; } catch (e) { return {}; } };
+  // образ героини: из сейва (G.look); ?look=<id> — посмотреть другой образ на стенде (только отладка, в сейв не пишется)
+  const lookOf = () => {
+    try {
+      const HL = window.HeroLooks, q = new URLSearchParams(location.search).get('look');
+      const id = HL && HL.valid(q) ? q : (G.look ? G.look() : null);
+      if (HL && HL.valid(id)) return Object.assign({ look: id }, HL.legacy(id));
+      const s = G.state(); return { bow: s.bow, coat: s.coat, hair: s.hair };
+    } catch (e) { return {}; }
+  };
   const unlocked = () => { try { return !!(G.state().eps[1] && G.state().eps[1].done); } catch (e) { return false; } };
 
   async function enterRoom(id) {

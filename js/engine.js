@@ -321,6 +321,8 @@
   const defaults = () => ({
     v: 1, sound: !!C.SOUND_DEFAULT,
     name: '', bow: '#F08FA8', coat: '#E9D4B6', hair: '#4A3128',
+    // образ героини (js/hero_looks.js): один из шести id; null — ещё не выбран (старый сейв берёт ближайший по bow/coat)
+    look: null,
     team: { bunny: '', fox: '', hedgehog: '' },
     catHelper: null, drink: null, stickers: [], finds: [], versions: {}, ratings: {}, riddles: {},
     eps: {}, // eps[1] = { cp: [...], done, start, time, recap }
@@ -386,6 +388,20 @@
     });
   }
   load();
+  // образ героини: всегда один из шести id (st.look, иначе ближайший по старым цветам, иначе образ по умолчанию)
+  const LK = () => window.HeroLooks || null;
+  // стенды: ?debug=1&look=<id> — показать образ, не трогая сейв (в --prod отладка вырезана)
+  const dbgLook = () => { try { const q = new URLSearchParams(location.search).get('look'); return /[?&]debug=1/.test(location.search) && LK() && LK().valid(q) ? q : null; } catch (e) { return null; } };
+  function look() { const H = LK(); return dbgLook() || (H ? H.current(state) : 'suede'); }
+  // смена образа: старые bow/coat/hair тоже пишутся (старые сборки и читатели видят близкий цвет); событие herolook — 3D/2D
+  function setLook(id, o = {}) {
+    const H = LK();
+    if (!H || !H.valid(id)) return false;
+    state.look = id; Object.assign(state, H.legacy(id));
+    if (o.save !== false) save();
+    try { window.dispatchEvent(new CustomEvent('herolook', { detail: { id } })); } catch (e) { /* ignore */ }
+    return true;
+  }
   function resetAll() {
     state = defaults();
     try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_TOWN); } catch (e) { /* ignore */ }
@@ -413,7 +429,7 @@
 
   /* ---------- Говорящие ---------- */
   const speakers = {
-    hero: { name: () => herName(), art: () => Art.heroine({ crop: true, bow: state.bow, coat: state.coat, hair: state.hair }) },
+    hero: { name: () => herName(), art: () => Art.heroine({ crop: true, look: look(), bow: state.bow, coat: state.coat, hair: state.hair }) },
     cat: { name: () => 'Пирожок', art: () => Art.cat({ crop: true }) },
     raccoon: { name: () => 'Енот-киномеханик', art: () => Art.raccoon({ crop: true }) },
     parrot: { name: () => 'Попугай-стажёр', art: () => Art.parrot({ crop: true }) },
@@ -821,8 +837,8 @@
       c.fillStyle = '#3A2E3F'; c.font = '900 34px Nunito, sans-serif'; c.fillText('Блокнот следователя', W / 2, 345);
       c.font = '700 64px Caveat, Nunito, sans-serif'; c.fillStyle = '#4A3A55'; c.fillText(herName(), W / 2, 440, W - 200);
       // героиня по рисунку — сразу растром (SVG с вложенной картинкой Safari рисует на canvas ненадёжно); кадр 120×188 без растяжения
-      const look = { bow: state.bow, coat: state.coat, hair: state.hair, mood: 'happy', magnifier: true };
-      const hero = (Art.heroineRaster && await Art.heroineRaster(look)) || await svgToImg(Art.heroine(look));
+      const lk = { look: look(), bow: state.bow, coat: state.coat, hair: state.hair, mood: 'happy', magnifier: true };
+      const hero = (Art.heroineRaster && await Art.heroineRaster(lk)) || await svgToImg(Art.heroine(lk));
       if (hero) c.drawImage(hero, W / 2 - 154, 470, 308, 482);
       const got = SEASON_SLOTS.filter(k => STICKERS[k] && state.stickers.includes(k));
       let i = 0;
@@ -949,7 +965,7 @@
   }
 
   window.G = {
-    C, TG, inTG, CFG_BAD, state: () => state, setState: s => { state = s; }, save, loadCloud, defaults, resetAll, wantsReset, markResetDone,
+    C, TG, inTG, CFG_BAD, state: () => state, setState: s => { state = s; }, save, loadCloud, defaults, resetAll, wantsReset, markResetDone, look, setLook,
     $, esc, wait, skipDialogs, isSkipping, untilNotSkipping, onSkip, show, tapOnce, say, choose, ask, toast, suspicion, sparkle, sparkleAt, confetti,
     haptic, sfx, audio, audioBus, babble: (who, ch) => babble(voiceOf(who), ch || 'а', {}), voiceLine, soundSheet, bindSoundBtn, toggleSound, soundIcon, setHud, giveSticker, registerFinds, giveFind, FINDS, notebook, exportNotebook, STICKERS, team, teamName, herName,
     addSpeakers, emojiAvatar, speakers, bumpNb, nbCount, nbExtras: null, nbBind: null, nbExtraCount: null, saveSizes: () => ({ main: mainRaw().length, town: (townRaw() || '').length }),

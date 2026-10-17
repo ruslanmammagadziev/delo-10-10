@@ -5,8 +5,8 @@
    стойка, манекен в тренче с огромным карманом, зонтики, полочка с
    туфельками, раскройный стол; овечка Кашемира вяжет на табурете.
    Статика склеена (стены/пол без теней, мебель с тенью), у всех точек —
-   невидимые «ловушки тапа». Мини «Примерка»: лист с живым зеркалом-овалом
-   (Art.heroine), ряды образцов Ep1.kit.BOWS/COATS/HAIRS + цвета недели.
+   невидимые «ловушки тапа». Зеркало — «Гардероб»: та же карусель шести
+   роликов, что и на кастинге (Looks.atelier), «Надеть» меняет образ сразу.
    ===================================================================== */
 (function () {
   if (!window.Town) return;
@@ -362,84 +362,27 @@
   });
 
   /* ---------- Содержимое ---------- */
-  const FB = {
-    BOWS: [['#F08FA8', 'розовый'], ['#FFF1E6', 'молочный'], ['#B0304A', 'вишнёвый'], ['#2E2A3B', 'чёрный'], ['#A98BE8', 'лавандовый']],
-    COATS: [['#E9D4B6', 'бежевый'], ['#F2C4CE', 'пудровый'], ['#6B6F7A', 'графитовый'], ['#FFFDF9', 'молочный']],
-    HAIRS: [['#4A3128', 'тёмные'], ['#1F1A1D', 'чёрные'], ['#7A4A2E', 'каштановые'], ['#D9B27A', 'светлые'], ['#F2A7C0', 'розовые']],
-  };
-  const KIT = () => (window.Ep1 && Ep1.kit) || {};
-  const UNLOCK = [null,
-    { k: 'bow', c: '#EE9A55', n: 'тыквенный' }, { k: 'coat', c: '#B0304A', n: 'вишнёвый' }, { k: 'bow', c: '#BFE6D3', n: 'мятный' },
-    { k: 'coat', c: '#D9CCF4', n: 'лавандовый' }, { k: 'bow', c: '#C9CED6', n: 'жемчужный' }, { k: 'coat', c: '#3E4C72', n: 'звёздный' }];
-  const unlockName = w => { const u = UNLOCK[w]; return u ? `${u.n} ${u.k === 'bow' ? 'бант' : 'тренч'}` : ''; };
-  function palette(key, w) {
-    const base = (KIT()[key === 'bow' ? 'BOWS' : key === 'coat' ? 'COATS' : 'HAIRS'] || FB[key === 'bow' ? 'BOWS' : key === 'coat' ? 'COATS' : 'HAIRS']).map(([c, n]) => ({ c, n }));
-    if (key !== 'hair') for (let i = 1; i <= Math.min(6, w); i++) { const u = UNLOCK[i]; if (u && u.k === key && !base.some(x => x.c.toLowerCase() === u.c.toLowerCase())) base.push({ c: u.c, n: u.n, fresh: i === w }); }
-    return base;
-  }
-  const LOOKS = new WeakMap();
+  // образы, просмотренные в гардеробе за визит (секрет «Показ мод» — пять разных)
+  const SEEN = new WeakMap();
   const room = ctx => (ctx.is3d && ctx.api.room) || null;
   const S2 = ctx => { const r = room(ctx); return (r && r.i2) || null; };
+  const lookId = ctx => { const lk = ctx.look || {}; return lk.look || (G.look ? G.look() : null); };
 
-  Town.style(P, `
-.at-fit { display: flex; flex-direction: column; gap: 2px; }
-.at-oval { width: 118px; height: 156px; margin: 0 auto 4px; border-radius: 50%; border: 5px solid #E8C770; box-shadow: 0 0 0 3px #FFF4EC, 0 4px 12px rgba(58,46,63,.18);
-  background: radial-gradient(120% 90% at 35% 25%, #FFFFFF 0%, #EEF2F8 45%, #DDE6F2 100%); overflow: hidden; display: grid; place-items: end center; position: relative; }
-.at-oval::after { content: ""; position: absolute; left: 22%; top: 12%; width: 9px; height: 46%; border-radius: 9px; background: rgba(255,255,255,.65); transform: rotate(18deg); }
-.at-oval svg { width: 96px; height: auto; display: block; margin-bottom: -10px; }
-.at-row { display: flex; flex-wrap: wrap; gap: 9px; padding: 2px 0 4px; }
-.at-row .swatch { width: 40px; height: 40px; position: relative; }
-.at-row .swatch.fresh::after { content: "✦"; position: absolute; right: -6px; top: -8px; color: #E5A93B; font-size: 14px; font-weight: 900; text-shadow: 0 0 3px #fff; }
-.at-note { font-size: 12.5px; color: var(--ink-2); font-weight: 700; text-align: center; margin: 2px 0 0; }
-.modal.sheet.at-sheet { background: rgba(58,46,63,.08); }
-.at-sheet .sheet-actions { flex-direction: row; }
-.at-sheet .sheet-actions .btn { flex: 1 1 0; min-width: 0; }
-`);
-
-  function heroSvg(lk) { try { return Art.heroine({ bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { return ''; } }
-
-  async function fitting(ctx) {
-    const orig = ctx.look, look = { bow: orig.bow, coat: orig.coat, hair: orig.hair }, w = ctx.week;
+  // «Гардероб»: карусель шести роликов поверх комнаты; «Надеть» — новый образ сразу в 3D и 2D
+  async function wardrobe(ctx) {
     if (ctx.is3d) { if (ctx.api.isSitting) ctx.stand(); await ctx.api.walkTo(0.6, -3.6); ctx.api.faceCamera(); ctx.focus(0.6); }
-    // в 3D зеркало — сама героиня: овал с рисунком не нужен, лист ниже и почти без затемнения, камера ставит её над листом
-    const mini = ctx.is3d && typeof ctx.api.focusHeroIn === 'function';
-    const row = key => palette(key, w).map(x => `<button class="swatch${look[key] && look[key].toLowerCase() === x.c.toLowerCase() ? ' on' : ''}${x.fresh ? ' fresh' : ''}" data-k="${key}" data-c="${x.c}" style="background:${x.c}" aria-label="${x.n}"></button>`).join('');
-    const body = document.createElement('div'); body.className = 'at-fit';
-    body.innerHTML = `${mini ? '' : `<div class="at-oval">${heroSvg(look)}</div>`}
-      <div class="opt-label">Бант и берет</div><div class="at-row">${row('bow')}</div>
-      <div class="opt-label">Тренч</div><div class="at-row">${row('coat')}</div>
-      <div class="opt-label">Волосы</div><div class="at-row">${row('hair')}</div>
-      ${UNLOCK[w] ? `<p class="at-note">✦ цвет недели: ${unlockName(w)}</p>` : ''}`;
-    let r = null;
+    const seen = SEEN.get(ctx) || new Set();
+    SEEN.set(ctx, seen);
     try {
-      r = await ctx.sheet({
-        title: 'Примерочная', body, cls: mini ? 'at-sheet' : '',
-        actions: [{ label: 'Готово', value: 'ok' }, { label: 'Как было', value: 'back', cls: 'soft' }],
-        onMount(el, close, m) {
-          if (mini && m) {
-            try {
-              const card = m.querySelector('.sheet-card'), hud = document.getElementById('hud');
-              const top = hud && hud.offsetHeight ? hud.getBoundingClientRect().bottom : 0;
-              ctx.api.focusHeroIn(top + 4, m.getBoundingClientRect().top + card.offsetTop - 4);
-            } catch (e) { /* ушла */ }
-          }
-          el.addEventListener('click', e => {
-            const b = e.target.closest('.swatch'); if (!b || ctx.gone) return;
-            e.stopPropagation();
-            const k = b.dataset.k, c = b.dataset.c;
-            look[k] = c;
-            el.querySelectorAll(`.swatch[data-k="${k}"]`).forEach(x => x.classList.toggle('on', x === b));
-            const ov = el.querySelector('.at-oval'); if (ov) ov.innerHTML = heroSvg(look);
-            try { ctx.setLook({ [k]: c }, false); ctx.haptic('select'); ctx.sfx('tap'); } catch (x) { return; }
-            LOOKS.set(ctx, (LOOKS.get(ctx) || 0) + 1);
-          });
-        },
-      });
+      const id = window.Looks ? await Looks.atelier(ctx, { onChange: lid => seen.add(lid) }) : null;
+      if (ctx.gone) return true;
+      if (id && id !== lookId(ctx)) {
+        ctx.setLook({ look: id }, true); ctx.sparkle('star');
+        await ctx.say({ who: 'sheep', text: 'Вот теперь идеально. Хотя было хорошо и до этого.' });
+      } else if (id) await ctx.say({ who: 'sheep', text: 'Этот образ уже на тебе. Зеркало подтверждает.' });
     } finally { if (!ctx.gone && ctx.is3d) { try { ctx.release(); } catch (e) { /* ignore */ } } }
-    if (r === 'ok') { ctx.setLook(look, true); await ctx.say({ who: 'sheep', text: 'Вот теперь идеально. Хотя было хорошо и до этого.' }); }
-    else ctx.setLook(orig, false);
     if (ctx.catHere) await ctx.say({ who: 'cat', text: 'В зеркале какой-то кот. Симпатичный, но подозрительно похож на меня.' });
-    if ((LOOKS.get(ctx) || 0) >= 5 && !ctx.has('a_show')) await ctx.say({ who: 'sheep', text: 'Пятый образ за визит! Ты не примеряешь, ты устраиваешь Неделю моды.', s: 'a_show' });
+    if (seen.size >= 5 && !ctx.has('a_show')) await ctx.say({ who: 'sheep', text: 'Пятый образ за визит! Ты не примеряешь, ты устраиваешь Неделю моды.', s: 'a_show' });
     return true;
   }
 
@@ -474,7 +417,14 @@
       away: ctx => (ctx.week >= 1 ? 'Новости ателье: я связала фонарю свитер. Он мёрз.' : 'Новости ателье: распустила свитер и связала обратно. Для спокойствия.'),
     },
     bark: 'Снова вы! Ленты на месте.',
-    weekly: [1, 2, 3, 4, 5, 6].reduce((o, w) => { o[w] = `В примерочной новый цвет: ${unlockName(w)}. Можешь примерить, если захочешь.`; return o; }, {}),
+    weekly: {
+      1: 'Кашемира отпарила все шесть образов. Пар до сих пор под потолком.',
+      2: 'Новая вешалка для сумочек. Сумочки довольны.',
+      3: 'Зеркало протёрто до блеска. Оно уверяет, что видит лучше всех.',
+      4: 'В каждый образ вшит кармашек для улик. Незаметный.',
+      5: 'В гардеробе пахнет корицей. Это не улика, это уют.',
+      6: 'Шесть образов, один вопрос: какой сегодня?',
+    },
     fresh: [1, 2, 3, 4, 5, 6],
     react: {
       bouquet: 'Какая лента у букета! Говорю как специалист по лентам.',
@@ -483,7 +433,7 @@
       sweater: 'Кот в свитере! Какой важный. Я бы добавила помпон, но он не простит.',
     },
     spots: {
-      mirror: { icon: '🪞', label: 'Зеркало', secret: 'a_show', onUse: fitting },
+      mirror: { icon: '🪞', label: 'Зеркало', secret: 'a_show', onUse: wardrobe },
       ribbons: {
         icon: '🎀', label: 'Стена лент',
         lines: [{ f: 'bant' }, 'Ленты подписаны: «на выход», «на каждый день», «быть легендой».'],
@@ -491,16 +441,16 @@
       hats: {
         icon: '🎩', label: 'Шляпная стойка', secret: 'a_holm',
         onUse: async ctx => {
-          if (ctx.look.coat === BEIGE) {
+          if (lookId(ctx) === 'suede') {
             wearDeer(ctx);
-            if (!ctx.has('a_holm')) { await ctx.say({ text: 'Бежевый тренч и шапка Холмса. Дедукция включилась автоматически.', s: 'a_holm' }); return true; }
+            if (!ctx.has('a_holm')) { await ctx.say({ text: 'Замшевое пальто и шапка Холмса. Дедукция включилась автоматически.', s: 'a_holm' }); return true; }
           }
           return false;
         },
         lines: [
           { f: 'deer' },
           'Берет носят чуть набок. Ровно — только на очень серьёзном расследовании.',
-          { text: 'Шапка Холмса просится к бежевому тренчу.', if: ctx => ctx.look.coat !== BEIGE },
+          { text: 'Шапка Холмса просится к замшевому пальто.', if: ctx => lookId(ctx) !== 'suede' },
         ],
       },
       pockets: {
@@ -547,8 +497,8 @@
       cashm: { text: 'Да, кашемир делают из козьего пуха. Я овечка. Я просто люблю красивое имя.' },
     },
     secrets: [
-      { id: 'a_show', title: 'Показ мод', trigger: 'примерка: 5 образов за визит' },
-      { id: 'a_holm', title: 'Шапка Холмса', trigger: 'шляпы в бежевом тренче' },
+      { id: 'a_show', title: 'Показ мод', trigger: 'гардероб: 5 образов за визит' },
+      { id: 'a_holm', title: 'Шапка Холмса', trigger: 'шляпы в замшевом пальто' },
       { id: 'a_beret', title: 'Кот-художник', trigger: 'маленький берет, кот рядом' },
     ],
     stamp: { title: 'Ателье', icon: '🎀' },

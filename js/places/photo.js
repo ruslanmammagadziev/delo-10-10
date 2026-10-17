@@ -347,7 +347,7 @@
   const ddmm = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`; };
   function cardHTML(ctx, o) {
     const lk = ctx.look, pr = PROPS[o.p], cat = (() => { try { return Art.cat({ noHat: !!ctx.flag('cb') }); } catch (e) { return ''; } })();
-    let hero = ''; try { hero = Art.heroine({ bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { hero = ''; }
+    let hero = ''; try { hero = Art.heroine({ look: lk.look, bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { hero = ''; }
     const prop = pr && pr.e ? `<div class="ph-prop${pr.sign ? ' sign' : ''}">${pr.e}</div>` : '';
     const cats = o.c ? `<div class="ph-cat ghost a">${cat}</div><div class="ph-cat ghost b">${cat}</div>` : '';
     return `<div class="ph-card"><div class="ph-img" style="background:${BD[o.b].css}">${cats}<div class="ph-hero">${hero}</div>${prop}</div>
@@ -442,8 +442,8 @@
     const t = ctx.town;
     if (!t.ph || !ctx.has('photo')) return false;
     const dv = ctx.flag('dv'), stage = ctx.week - (typeof dv === 'number' ? dv : ctx.week);
-    if (stage <= 0) await ctx.say({ who: 'turtle', text: 'Большой снимок ещё проявляется. Пока получился один бант. Красивый, кстати.' });
-    else if (stage === 1) await ctx.say({ who: 'turtle', text: 'Проступили берет и фон. Проявляется… не спеша.' });
+    if (stage <= 0) await ctx.say({ who: 'turtle', text: 'Большой снимок ещё проявляется. Пока получилась одна лупа. Красивая, кстати.' });
+    else if (stage === 1) await ctx.say({ who: 'turtle', text: 'Проступили причёска и фон. Проявляется… не спеша.' });
     else { await ctx.say({ who: 'turtle', text: 'Готово! Снимок в витрине. Теперь прохожие будут думать, что здесь снимается кино.' }); if (!ctx.flag('wp')) ctx.flag('wp', 1); }
     return true;
   }

@@ -106,6 +106,9 @@
   <script src="js/vendor/GLTFLoader.js"></script>
   <script src="js/hero3d.js" onerror="void 0"></script>
   <script src="js/hero_look3d.js" onerror="void 0"></script>
+  <script src="js/hero_looks.js" onerror="void 0"></script>
+  <script src="js/hero_zones.js" onerror="void 0"></script>
+  <script src="js/hero_outfits.js" onerror="void 0"></script>
   <script src="js/hero_anim.js" onerror="void 0"></script>
   <script src="js/world/kit.js" onerror="void 0"></script>
   <script src="js/world/actors.js" onerror="void 0"></script>
@@ -173,6 +176,8 @@
       if (H3 && A) { try { hero = A.buildHeroRig(null, H3); if (hero) heroKind = 'rig'; } catch (e) { console.warn('village: hero rig', e); hero = null; } }
       if (!hero && H3 && A) { try { hero = A.buildHeroGLB(null, H3); heroKind = 'statue'; } catch (e) { hero = null; } }
       if (!hero) { hero = dollHero(); heroKind = 'doll'; }
+      // образ героини (js/hero_outfits.js): ?look=<id> или образ по умолчанию (на стенде села сохранения нет)
+      if (H3 && (hero.rig || hero.statue) && window.HeroOutfits) { try { if (HeroOutfits.setQuality) HeroOutfits.setQuality(quality); HeroOutfits.wear(H3, hero, { look: Q.get('look') || (window.HeroLooks ? HeroLooks.DEFAULT : null) }); } catch (e) { console.warn('village: outfit', e); } }
       if (H && hero.root) { const seen = new Set(); hero.root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !seen.has(m.material)) { seen.add(m.material); H.addRim(m.material, 1); } }); }
       const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 2, 32, 32, 30); g.addColorStop(0, 'rgba(70,58,72,.34)'); g.addColorStop(1, 'rgba(70,58,72,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64);
       blob = new T.Mesh(new T.PlaneGeometry(0.85, 0.55), new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true, depthWrite: false })); blob.rotation.x = -PI / 2; blob.renderOrder = 1;
@@ -1128,6 +1133,7 @@
       if (IA) { IA.update(dt); if (!IA.busy() && S.iaDy) { S.iaDy *= 0.7; if (Math.abs(S.iaDy) < 0.01) S.iaDy = 0; } }
       if (S.golf && hero && hero.rig) { S.walking = false; S.golf.G.heroPose(hero.rig.anim, dt, hero.root); }
       if (kazWorn()) { try { V.kaz.update(dt, S.animSt || {}); } catch (e) { if (!S.kazErr) { S.kazErr = true; console.warn('village: kaz update', e); } } }
+      if (hero && hero._outfit && window.HeroOutfits) HeroOutfits.update(hero, dt, Object.assign({ drive: S.mode === 'drive' }, S.animSt, S.golf ? { sport: true } : null));
       if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
       updCamera(dt);
       S.region.update(dt, { x: S.px, y: S.py, z: S.pz }, camera);

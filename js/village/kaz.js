@@ -222,7 +222,9 @@
      --------------------------------------------------------------------- */
   const fitCache = new WeakMap();
   function fitModel(T, geo, map, rigBones, opts) {
-    const key = (opts.quality || 'high') + ':w6:' + (opts.hem || DIM.hem || 'hips') + (opts.snug === false ? ':loose' : '');
+    // образ героини (js/hero_outfits.js) меняет форму причёски — подгонка своя на каждый образ
+    const look = window.HeroOutfits && HeroOutfits.id ? HeroOutfits.id() || '' : '';
+    const key = (opts.quality || 'high') + ':w6:' + (opts.hem || DIM.hem || 'hips') + (opts.snug === false ? ':loose' : '') + ':' + look;
     let fc = fitCache.get(geo);
     if (fc && fc[key]) return fc[key];
     const t0 = performance.now();
@@ -1007,6 +1009,8 @@
       if (par) par.add(kz.group);
     }
     if (hero && hero.beret) { cur && void 0; kz.beretWas = hero.beret.visible; hero.beret.visible = false; }
+    // образ (js/hero_outfits.js): под казом без серёг, очков и пучка
+    if (hero && hero.root) hero.root.userData.kaz = true;
     kz.reveal = opts.instant ? 1 : 0;
     cur = { hero, anim, kz, IA, saved, t: 0, instant: !!opts.instant };
     kz.update(0, {});
@@ -1017,6 +1021,7 @@
     const { hero, kz, IA, saved } = cur;
     if (IA && saved.length) { const a = IA.array; for (let q = 0; q < saved.length; q += 4) { const t = saved[q]; a[t] = saved[q + 1]; a[t + 1] = saved[q + 2]; a[t + 2] = saved[q + 3]; } IA.needsUpdate = true; }
     if (hero && hero.beret) hero.beret.visible = kz.beretWas !== undefined ? kz.beretWas : true;
+    if (hero && hero.root) delete hero.root.userData.kaz;
     if (kz.group.parent) kz.group.parent.remove(kz.group);
     kz.dispose();
     cur = null;
@@ -1057,7 +1062,7 @@
       const T = window.THREE, B = hero.rig && hero.rig.anim && hero.rig.anim.bones;
       if (T && B && B.head) {
         const A = window.HERO3D.anchors || {}, C = A.head || [0, 1.5, -0.093], J = (window.HERO3D.rig.bones.find(b => b[0] === 'head') || [0, 0, [0, 1.335, -0.012]])[2];
-        capM = new T.Mesh(new T.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new T.MeshToonMaterial({ color: (window.HeroLook3D && HeroLook3D.hair && HeroLook3D.hair()) || window.HERO3D.hair || '#3B1E0A' }));
+        capM = new T.Mesh(new T.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new T.MeshToonMaterial({ color: (window.HeroOutfits && HeroOutfits.id && HeroOutfits.id() ? HeroOutfits.hairColor() : null) || (window.HeroLook3D && HeroLook3D.hair && HeroLook3D.hair()) || window.HERO3D.hair || '#3B1E0A' }));
         capM.position.set(C[0] - J[0], C[1] - J[1] + 0.01, C[2] - J[2] - 0.03); capM.scale.set(0.262, 0.27, 0.282); capM.rotation.x = -0.38; capM.name = 'kaz:hairCap';
         B.head.add(capM);
       }

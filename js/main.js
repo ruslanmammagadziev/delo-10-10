@@ -84,7 +84,7 @@
       <div class="grow season pad col" style="gap:12px;padding-bottom:calc(26px + var(--safe-bottom))">
         <div style="text-align:center"><div class="case-badge">Сезон 1</div></div>
         <div class="title h2" style="text-align:center">${esc(C.SEASON_TITLE)}</div>
-        <div class="char bob" style="width:110px;margin:0 auto">${Art.heroine({ bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
+        <div class="char bob" style="width:110px;margin:0 auto">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
         <div class="col">${C.EPISODES.map((ep, i) => card(ep) + (i === 0 ? townCard() : '')).join('')}</div>
         <div class="row" style="gap:10px;margin-top:4px">
           <button class="btn soft grow" id="nb">📒 Блокнот</button>
@@ -125,7 +125,7 @@
     const card = window.Missions ? Missions.cardHTML(Missions.caseCard(), { inline: true }) : '';
     show(`<div class="grow col center pad title-screen" style="gap:12px">
       <div class="case-badge">Дело №\u00A010/10</div>
-      <div class="char bob" style="width:130px">${Art.heroine({ bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
+      <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
       <div class="title h2">Город на месте</div>
       <p class="muted" style="font-weight:800">Фонари горят, кот делает вид, что не скучал.</p>
       ${card ? `<div class="title-case">${card}</div>` : ''}</div>`);
@@ -139,7 +139,7 @@
     const st = S();
     window.City3D.run({
       room: rid, hudLabel: 'Комната: ' + rid, mode: /[?&]mode=free/.test(location.search) ? 'free' : 'story',
-      hero: { bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128', cup: null },
+      hero: { look: G.look(), bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128', cup: null },
       catHelper: true, held: st.bouquet ? { kind: 'bouquet', data: st.bouquet } : null,
       onSpot: id => toast('spot: ' + id, 1500), onNpc: id => toast('npc: ' + id, 1500),
       done: v => { toast('done: ' + v, 1500); setTimeout(() => roomHarness(rid), 800); },
@@ -154,7 +154,7 @@
     window.City3D.run({
       free: { doors: D.map(([id, x, label, mark, bkey]) => ({ id, x, label, mark, bkey })), spawnAt, bounds: { x0: -16.2, x1: 39.6 }, cam: { x0: -14.6, x1: 37.6 }, catAt: { x: 1.3, z: -0.9 }, hintDoor: 'silver', exitText: '← в меню' },
       idx: 4, hudLabel: 'Город нараспашку (стенд)',
-      hero: { bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128', cup: null }, catHelper: false,
+      hero: { look: G.look(), bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128', cup: null }, catHelper: false,
       spots: [{ id: 'kiosk', x: 9.6, z: -0.3, act: 'Газета', bubble: 'киоск' }, { id: 'mailbox', x: 13.6, z: -0.9, act: 'Почта', bubble: 'почта' }, { id: 'endL', x: -16.6, z: -0.5, act: 'Смотреть', bubble: 'конец улицы' }],
       onSpot: id => toast('spot: ' + id, 1200), onNpc: id => toast('npc: ' + id, 1200),
       done: r => { toast('итог: ' + JSON.stringify(r), 1200); window.__lastDoor = r; if (r !== 'menu') setTimeout(() => freeHarness(r.door), 900); },
@@ -176,6 +176,11 @@
     const inv = G.readInvite();
     if (inv && !st.invite) await inviteWelcome(inv);
     const e = st.eps[1];
+    // старый сейв: кастинг пройден, а образа нет — один раз гардероб из шести роликов (до прогрева города);
+    // ?nolook=1 — пропустить (стенды и тесты; лучше класть look в сейв теста)
+    if (e && (e.cp || []).includes('casting') && window.Looks && window.HeroLooks && !HeroLooks.valid(st.look) && !/[?&]nolook=1/.test(location.search)) {
+      await Looks.wardrobe({ mode: 'migrate', start: G.look() });
+    }
     if (!e || !e.cp.length) {
       const mode = await Ep1.title();
       prewarm();
@@ -184,7 +189,7 @@
       G.setHud({ hidden: true });
       show(`<div class="grow col center pad title-screen" style="gap:12px">
         <div class="case-badge">Дело №\u00A010/10</div>
-        <div class="char bob" style="width:130px">${Art.heroine({ bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
+        <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
         <div class="title h2">А вот и главная героиня</div>
         <p class="muted" style="font-weight:800">Твоё расследование на месте. Кот делает вид, что не ждал.</p></div>`);
       const v = await choose('', [{ label: 'Продолжить', value: 'go' }, { label: 'Начать сначала', value: 'again' }]);

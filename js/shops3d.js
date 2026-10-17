@@ -188,6 +188,25 @@
       eyes(0.5, 0.45, 0.13, 0.035); E(0.5, 0.57, 0.04, 0.03, '#2E2A3B');
       c.fillStyle = '#F7A8BE'; c.beginPath(); c.moveTo(x + 0.62 * w, y + 0.95 * h); c.lineTo(x + 0.96 * w, y + 0.7 * h); c.lineTo(x + 0.92 * w, y + 0.98 * h); c.closePath(); c.fill();
       E(0.5, 0.95, 0.4, 0.16, '#B1A9BA');
+    } else if (kind === 'hero' && look && window.HeroLooks && (HeroLooks.valid(look.look) || look.coat)) {
+      // снимок героини в образе из ролика: волосы, плечи в цвете образа и его примета (без банта и берета)
+      const HL = window.HeroLooks, id = HL.valid(look.look) ? look.look : HL.fromLegacy(look), p = HL.get(id).pal;
+      const cx = (a, b) => [x + a * w, y + b * h];
+      const sleek = id === 'cream';
+      E(0.5, sleek ? 0.42 : 0.55, sleek ? 0.26 : (id === 'floral' ? 0.37 : 0.33), sleek ? 0.27 : 0.42, p.hair);
+      E(0.5, 0.98, 0.46, 0.26, p.main);
+      c.fillStyle = SKIN; c.fillRect(x + 0.44 * w, y + 0.66 * h, 0.12 * w, 0.14 * h);
+      if (id === 'aurora') { E(0.5, 0.95, 0.12, 0.1, '#1C1C20'); E(0.72, 0.86, 0.09, 0.06, '#3FA88C'); E(0.8, 0.95, 0.06, 0.05, '#3D4E96'); }
+      else if (id === 'suede') { E(0.5, 0.95, 0.13, 0.12, p.accent); E(0.5, 0.79, 0.09, 0.05, p.accent); }
+      else if (id === 'pink') { E(0.5, 0.95, 0.12, 0.1, p.main2); for (let i = 0; i < 7; i++) E(0.4 + i * 0.033, 0.8 + 0.025 * Math.sin(Math.PI * i / 6), 0.014, 0.014, '#FFFFFF'); }
+      else if (id === 'rust') { c.fillStyle = SKIN; c.beginPath(); c.moveTo(...cx(0.42, 0.79)); c.lineTo(...cx(0.58, 0.79)); c.lineTo(...cx(0.5, 0.97)); c.closePath(); c.fill(); }
+      else if (id === 'cream') { E(0.5, 0.95, 0.11, 0.1, '#F6F4EF'); E(0.38, 0.92, 0.05, 0.12, '#FBF8F0'); E(0.62, 0.92, 0.05, 0.12, '#FBF8F0'); }
+      else if (id === 'floral') { E(0.5, 0.8, 0.12, 0.05, '#F4EFE8'); E(0.5, 0.97, 0.08, 0.05, p.accent); E(0.56, 0.95, 0.04, 0.025, '#7F8E52'); }
+      E(0.5, 0.48, 0.23, 0.25, SKIN);
+      c.fillStyle = p.hair; c.beginPath(); c.ellipse(x + 0.5 * w, y + 0.3 * h, 0.25 * w, sleek ? 0.1 * w : 0.13 * w, 0, PI2(1), 0); c.fill();
+      if (id === 'pink') { E(0.42, 0.22, 0.06, 0.03, '#2B1D1A'); E(0.58, 0.22, 0.06, 0.03, '#2B1D1A'); }
+      if (id === 'rust' || id === 'cream') { E(0.27, 0.6, 0.025, id === 'rust' ? 0.04 : 0.025, p.accent); E(0.73, 0.6, 0.025, id === 'rust' ? 0.04 : 0.025, p.accent); }
+      eyes(0.5, 0.5, 0.09, 0.028); E(0.39, 0.6, 0.04, 0.022, '#F59AAE'); E(0.61, 0.6, 0.04, 0.022, '#F59AAE');
     } else if (kind === 'hero' && look) {   // снимок героини — когда Минутка повесит его в витрину
       E(0.5, 0.95, 0.44, 0.24, look.coat || '#E9D4B6');
       E(0.5, 0.5, 0.31, 0.36, look.hair || '#4A3128'); E(0.5, 0.48, 0.23, 0.25, SKIN);
