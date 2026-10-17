@@ -8,8 +8,8 @@
    с тёмной сеткой и чёрной рамкой (внутренний край вдоль щита, наружный загнут вверх), фары-«миндаль» со светодиодной
    бровью и линзой; жабра за передним колесом, чёрные зеркала, тонированные стёкла в чёрных рамках, тёмные диски
    «телефонный диск» на пять круглых окон с красными суппортами; сзади — фонари на углах, диффузор и четыре патрубка.
-   БЕЗ значков, эмблем, надписей и текста на номерах (номера пустые); на щите вместо значка — гладкая красная точка
-   в серебряном ободке. Подпись в игре — «Красный седан».
+   БЕЗ значков, эмблем, надписей и текста на номерах (номера пустые); щит — просто тёмная решётка в тёмной рамке
+   (без светлого контура и без «точки» на месте значка — не читается как эмблема). Подпись в игре — «Красный седан».
    v3: масштаб один по всем осям — машина настоящих пропорций (высота 1,56; v2 была на 7 % выше). Героиня сидит
    в низком спортивном кресле: driveInput() отдаёт HeroAnim seat: 'low' (таз ниже, ноги вытянуты к педалям pedal,
    корпус чуть откинут, руки на руле); у ретро-купе поза прежняя. Её видно сквозь тонированные заднее и боковые стёкла.
@@ -47,7 +47,7 @@
        Своё: kind 'sedan', model, dims, driveCfg, doors, seats, steeringWheel, lights, lamps, stats, lod,
          cockpit (W7) { eye, wheel: { c, r, tilt, axis }, gripL, gripR } — оси body, для вида «из-за руля» (как у кабриолета),
          openDoor(id, open = true, dur) → Promise, setDoor(id, k), doorK(id), doorsBusy, tick(dt), setWheelLift(k, lift),
-         setBrake(k|null), setHeadlights(k), setNight(k 0..1), autoLights, doorStand(id) → Vector3 (оси body),
+         setBrake(k|null), setHeadlights(k), setNight(k 0..1), setFar(k) (дальний вид, k > 0: без салона), autoLights, doorStand(id) → Vector3 (оси body),
          makeCover() → чехол с бантом на крыше (setOn), dispose()
        ВАЖНО (желание автора): без газа машина только мягко катится (o.coast), сама не тормозит перед бордюром
          (o.autoBrake: false) и не сбавляет ход в повороте (o.turnSlow: false); руль — только от игрока.
@@ -686,7 +686,7 @@
     const torus = (r, t, rs, ts) => ge(new T.TorusGeometry(r, t, rs || 5, ts || 18));
     const pil = (acc, col, p, s, r, bone, lg, e, res) => acc.geo(pillow(e, res === undefined ? (LITE ? 0 : 1) : res), M(p, r, [s[0] / 2, s[1] / 2, s[2] / 2]), col, bone, lg);
 
-    /* ---------- нос: щит с сотами и серебряной рамкой, точка вместо значка, фары с бровью, заборники, губа, номер ---------- */
+    /* ---------- нос: щит с сотами в тёмной рамке, фары с бровью, заборники, губа, номер ---------- */
     const lamps = { head: [], tail: [], brake: [] };
     const KPT = {};   // ключевые точки (оси body) — для сверки с фото
     const kpt = (k, h) => { if (h) KPT[k] = h.p.map(v => +v.toFixed(3)); };
@@ -696,22 +696,16 @@
       const yT = Math.min(0.775, faceTop(0) - 0.022), yB0 = 0.318, th0 = 9.2;
       const w = v => th0 * Math.pow(Math.sin(clamp(v, 0, 1) * PI / 2), 0.8);
       const yAt = u => lerp(yT, yB0, u), vAt = u => (yAt(u) - yB0) / (yT - yB0);
-      decal(AT, rayF, u => [-w(vAt(u)), yAt(u)], u => [w(vAt(u)), yAt(u)], NU, LITE ? 4 : 6, 0.011, C.mesh, 0, 5);
+      // облегчённой сборке — те же 6 рядов и решётка на 3 мм выше: иначе сквозь неё у «клюва» проступало красное пятнышко-«значок»
+      decal(AT, rayF, u => [-w(vAt(u)), yAt(u)], u => [w(vAt(u)), yAt(u)], NU, 6, LITE ? 0.014 : 0.011, C.mesh, 0, 5);
       kpt('shieldTop', rayF(0, yT)); kpt('shieldTip', rayF(0, yB0)); kpt('shieldTL', rayF(th0, yT)); kpt('shieldTR', rayF(-th0, yT));   // чётное число колонок: средняя — по гребню «клюва»
-      // серебряная рамка по контуру (верх — с лёгкой «шапочкой» посередине)
+      // тёмная рамка по контуру (верх — с лёгкой «шапочкой» посередине); светлый контур читался как эмблема — убран
       const outline = [], nO = LITE ? 14 : 22;
       for (let i = 0; i <= nO; i++) { const u = i / nO; outline.push([w(vAt(u)), yAt(u)]); }
       for (let i = nO - 1; i >= 1; i--) { const u = i / nO; outline.push([-w(vAt(u)), yAt(u)]); }
       for (let i = 0; i <= 6; i++) { const th = lerp(-th0 * 0.94, th0 * 0.94, i / 6); outline.push([th, yT + 0.012 * (1 - Math.pow(th / th0, 2))]); }
       const op = []; outline.forEach(([th, y]) => { const h = rayF(th, y); if (h) op.push([h.p[0] + h.n[0] * 0.013, h.p[1] + h.n[1] * 0.013, h.p[2] + h.n[2] * 0.013]); });
-      tubeAlong(AT, op, LITE ? 0.009 : 0.0075, LITE ? 24 : 44, LITE ? 3 : 4, C.frame, 0, 0, true);
-      // гладкая точка вместо значка: красная, в серебряном ободке (без рисунка)
-      const hb = rayF(0, yT - 0.045);
-      if (hb) {
-        const q = qOf(hb.n), base = new T.Vector3(hb.p[0], hb.p[1], hb.p[2]).addScaledVector(new T.Vector3(hb.n[0], hb.n[1], hb.n[2]), 0.016);
-        AT.geo(torus(0.032, 0.007, 4, LITE ? 12 : 16), new T.Matrix4().compose(base, q, new T.Vector3(1, 1, 1)), C.frame, 0, 0);
-        AT.geo(pillow(0.5, LITE ? 0 : 1), new T.Matrix4().compose(base, q, new T.Vector3(0.028, 0.028, 0.01)), C.red, 0, 0);
-      }
+      tubeAlong(AT, op, LITE ? 0.009 : 0.0075, LITE ? 24 : 44, LITE ? 3 : 4, C.black, 0, 0, true);
       [1, -1].forEach(sd => {
         // фары (фото c1/c4/c5): узкая тёмная линза; внутренний конец острый — у верхнего угла щита, к наружному концу
         // фара толще и скруглена, заходит на крыло; верх — по кромке капота; светодиодная бровь по верху и «подводка» снизу
@@ -918,6 +912,10 @@
     });
     mark('wheels');
     /* ---------- сетки ---------- */
+    // дальний вид (js/world/main.js carLod: стоит далеко): салон — в конце индекса отделки, setFar(true) его не рисует
+    const cab0 = (parts.nose + parts.tail + parts.sides) * 3, cab1 = cab0 + parts.cabin * 3;
+    AT.i = AT.i.slice(0, cab0).concat(AT.i.slice(cab1), AT.i.slice(cab0, cab1));
+    const trimFarN = cab0 + AT.i.length - cab1;
     const paintGeo = AP.build(false), trimGeo = AT.build(true), glassGeo = AG.build(false);
     GE.forEach(x => x.dispose());
     [paintGeo, trimGeo, glassGeo].forEach(gm => { keep(gm); gm.boundingSphere.radius += 1.3; });
@@ -969,6 +967,7 @@
       heroSeat: v3(HERO_SEAT), wheelCenter: v3(WHEEL_C), wheelRel: v3(WHEEL_REL),
       stats: { kp: KPT, parts, stations: NSt, paintTris: paintGeo.index.count / 3, trimTris: trimGeo.index.count / 3, glassTris: glassGeo.index.count / 3, lite: LITE, tris: Math.round(tris), verts: paintGeo.attributes.position.count + trimGeo.attributes.position.count + glassGeo.attributes.position.count, calls: 4, shadowCalls: 2, buildMs: Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0) },
       setColor(hex) { paintMat.color.set(hex); },
+      setFar(on) { trimGeo.setDrawRange(0, on ? trimFarN : Infinity); },
       setDoor,
       // колёса, руль и кузов по состоянию S (как car.js: x, z, ry, v, steer, spin, pitch, roll, sq)
       pose(S, noRoot) {
@@ -1222,6 +1221,8 @@
       setBrake(k) { anim.brakeOverride = k === null || k === undefined ? null : clamp(+k, 0, 1); },
       setHeadlights(k) { md.lights.head.value = clamp(+k || 0, 0, 2); },
       setNight(k) { anim.night = clamp(+k || 0, 0, 1); md.lights.head.value = lerp(0.22, 1.25, anim.night); md.lights.tail.value = lerp(0.12, 0.55, anim.night); },
+      // дальний вид стоящей машины: без салона (js/world/main.js carLod)
+      setFar: md.setFar,
       set autoLights(b) { anim.autoLights = !!b; }, get autoLights() { return anim.autoLights; },
       makeCover, lod: LOD,
       on(n, f) { (ev[n] = ev[n] || []).push(f); return () => car.off(n, f); },

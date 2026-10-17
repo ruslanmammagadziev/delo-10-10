@@ -1364,7 +1364,9 @@
       return true;
     }
     // бюджет (q=low ≤200k) и вид: стоящая машина издали дешевле — на низком качестве дальше 12 м без обводки (иначе — дальше
-    // начала тумана), дальше границы LOD города (та же, что у map.js: там дома уже «коробки») не рисуется. Не рисуем стоящую
+    // начала тумана) и дальний вид car.setFar(1): кузов реже, без мелочей салона (кабриолет ≈ 9 тыс. треуг. вместо 16,6),
+    // с 18 м (на низком) — setFar(2): и колёса без спиц (≈ 6 тыс.); дальше границы LOD города (та же, что у map.js: там дома
+    // уже «коробки») не рисуется. Не рисуем стоящую
     // машину и когда она лезет в камеру: камера в кузове или ближе 0,8 м к нему, или кузов заслоняет цель камеры (взгляд
     // вверх — камера у земли); вернётся, когда 0,4 с чисто — без мигания на границе. Прячем слоем (layers.mask = 0), а не
     // visible: видимость машины — это логика (spare, carFree, карта). off — всё вернуть.
@@ -1398,11 +1400,13 @@
       // обзор с отодвинутым туманом (как у map.js, fog.near > 200) — без правил дальности; отладочная камера — как обычная,
       // только без проверки «заслоняет цель»: камера не за героиней
       const over = fN > 200, farD = over ? 1e9 : Math.min(fN + 0.42 * (fF - fN), 58), olD = over ? 1e9 : w.qKey === 'low' ? Math.min(12, fN) : fN, all = off || s.inTrip;
+      // дальний вид машины (car.setFar): 1 — как пропала обводка, 2 (колёса без спиц) — на низком с 18 м, иначе — сразу
+      const fgD = w.qKey === 'low' ? olD + 6 : olD;
       const tx = s.tx, ty = (s.ty || 0) + 1.2, tz = s.tz, tL = Math.hypot(tx - cp.x, ty - cp.y, tz - cp.z), tK = !s.camFocus && !s.camOverride && tL > 2 ? 1 - 1.5 / tL : 0;
       let fr = false;
       for (const k in w.cars) {
         const e = w.cars[k], c = e.car;
-        let st = 0;
+        let st = 0, far = 0;
         if (e.occT > 0) e.occT -= dt;
         if (!all && c.root.visible && !(c === car && s.mode === 'drive') && (!e.ctl || e.ctl.mode === 'parked') && Math.abs(c.S.v) < 0.05) {
           const dx = cp.x - c.S.x, dz = cp.z - c.S.z, d = Math.hypot(dx, dz), dm = c.dims, by = c.root.position.y, hy = by + ((dm && dm.height) || 1.4);
@@ -1425,9 +1429,12 @@
               let inF = lodFr.intersectsBox(lodSet(c, co, si, hw, hl, by - 0.05, hb + 0.12));
               if (!inF) inF = lodFr.intersectsBox(lodSet(c, co, si, hw * 0.85, hl * 0.7, hb - 0.2, hy + 0.12));
               st = !inF ? 2 : d > olD ? 1 : 0;
+              // камера показывает машины («Покажи машины», карточка дела) — без дальнего вида: их как раз разглядывают
+              far = st === 1 && !s.camFocus ? (d > fgD ? 2 : 1) : 0;
             }
           }
         }
+        if ((e.farSt || 0) !== far) { e.farSt = far; if (c.setFar) c.setFar(far); }
         if ((e.lodSt || 0) === st) continue;
         e.lodSt = st;
         // свои меши машины — один раз, когда она стоит пустая (героиня и зверята в кузове сюда не попадут)

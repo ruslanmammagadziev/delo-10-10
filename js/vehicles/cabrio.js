@@ -1,5 +1,5 @@
 /* =====================================================================
-   ТРАНСПОРТ: жёлтый кабриолет (W7, желание автора «сделать прям как 911») — кузов городской машинки js/world/car.js.
+   ТРАНСПОРТ: жёлтый кабриолет (W7, желание автора: «как на фото» — классический заднемоторный кабриолет) — кузов городской машинки js/world/car.js.
    Силуэт классической заднемоторной спортивной машины с открытым верхом по двум фото автора (сзади и спереди, 3/4):
    капот ниже гребней передних крыльев (шов капота по ложбинкам), стоячие овальные фары-купола на передних крыльях (верх
    вровень с гребнем, завал назад ≈ 25°, крыло обнимает фару), ветровое стекло в чёрной рамке, короткий свес спереди
@@ -19,7 +19,9 @@
    Размеры: длина 4,0 (z −2,02…1,98), ширина 1,86 (по задним «бёдрам»), верх рамки стекла 1,32; база 2,18 (оси z +1,13 / −1,05),
    колея 1,44 / 1,52, R колеса 0,355 (диски крупные, шины низкие). Места (героиня, кот, собачка), двери и коробки
    для ходьбы (js/move.js PROFILES.coupe) — как у прежнего купе: HeroAnim — прежняя поза «как на стуле», driveInput() без seat.
-   ≈ 22,8 тыс. треугольников вместе с контуром и колёсами.
+   ≈ 22,8 тыс. треугольников вместе с контуром и колёсами. Дальний вид (setFar(1 | 2) — стоящая машина далеко, js/world/main.js
+   carLod): те же сетки и вызовы, но кузов по сечениям через одно и без мелочей салона (≈ 9 тыс. без контура), дальше —
+   и колёса без спиц (≈ 6 тыс.).
 
    API
      VEHICLES.cabrio.build(H, o) → кузов для WORLD.makeCar (H — набор строителя города WORLD.createKit):
@@ -28,7 +30,9 @@
            wheels (InstancedMesh ×4), WP [[x, z] ×4: FL, FR, RL, RR], WR, WB { f, r }, TRACK, WHEEL_C, COL_AX,
            seats { heroSeat, seatDriver, seatPass, seatDog, doorL, doorR } (Vector3, оси body), cockpit, lamps { head, tail },
            dims, driveCfg (поля CFG VILLAGE.drive: wb, track, wf, wr, halfW, halfL, wheelR), stats { tris, verts }, setColor(hex),
-           setNight(k 0..1) — фары ночью (WORLD.makeCar отдаёт его машине: car.setNight) }
+           setNight(k 0..1) — фары ночью (WORLD.makeCar отдаёт его машине: car.setNight),
+           setFar(0 | 1 | 2) — дальний вид: 1 — реже индекс кузова, отделка без мелочей; 2 — ещё и колёса без спиц
+           (drawRange, без новых сеток; car.setFar) }
      VEHICLES.cabrio.COCKPIT · HERO_SEAT · WHEEL_C · TILT · WHEEL_RAD · COLOR — те же числа без постройки
      car.cockpit (WORLD.makeCar кладёт его в машину) — для вида «из-за руля» (оси car.body):
        { eye: [x, y, z] — глаза героини за рулём, wheel: { c: [x, y, z] — центр руля, r — радиус, tilt — наклон плоскости руля
@@ -172,6 +176,17 @@
     const tail = [[-1.968, 0.86], [-1.988, 0.66], [-2.006, 0.4], [-2.02, 0]], nose = [[1.948, 0.86], [1.964, 0.66], [1.975, 0.4], [1.98, 0]];
     return tail.reverse().map(([z, k]) => ({ z, k, base: -1.95, c: [0, 0.64] })).concat(out, nose.map(([z, k]) => ({ z, k, base: 1.93, c: [0, 0.47] })));
   }
+  // дальний вид: сечения через одно (шаг ≥ 0,13), но края и скругления арок, переходы салона, «лицо» фар, нос и корма — всегда
+  function farRows(ST) {
+    const must = [-1.95, -1.87, -0.98, -0.9, -0.48, -0.44, 0.72, 0.8, 1.645, 1.7, 1.755, 1.86, 1.93];
+    [[D.wf, D.archR], [D.wr, D.archRR]].forEach(([zc, r]) => { [-1, -0.88, -0.6, 0, 0.6, 0.88, 1].forEach(k => must.push(zc + k * r)); must.push(zc - r - 0.004, zc + r + 0.004); });
+    let last = -9;
+    return ST.map((st, i) => {
+      const keep = i === 0 || i === ST.length - 1 || st.k < 1 || st.z - last >= 0.13 || must.some(z => Math.abs(z - st.z) < 0.019);
+      if (keep) last = st.z;
+      return keep;
+    });
+  }
 
   // склейка геометрий (позиция, нормаль, цвет, свечение); skin — жёсткие веса скелета: [[geo, bone], …]
   function mergeGeos(T, list, skin) {
@@ -224,22 +239,40 @@
     };
     const gs = grid(skin, 1), gb = grid(bot, 0.26);
     // грани должны смотреть наружу: середина верха (капот) — нормаль вверх; иначе перевернуть обход
-    const fix = (g, test) => { if (!test(g)) { const a = g.index.array; for (let i = 0; i < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; } g.index.needsUpdate = true; g.computeVertexNormals(); } };
+    const fix = (g, test) => { if (test(g)) return false; const a = g.index.array; for (let i = 0; i < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; } g.index.needsUpdate = true; g.computeVertexNormals(); return true; };
     const nc = skin[0].ring.length, mid = (nc - 1) / 2, row = Math.floor(skin.length * 0.8);
-    fix(gs, g => g.attributes.normal.getY(row * nc + mid) > 0);
+    const flS = fix(gs, g => g.attributes.normal.getY(row * nc + mid) > 0);
     const ncb = bot[0].ring.length;
-    fix(gb, g => g.attributes.normal.getY(row * ncb + 3) < 0);
-    return [gs, gb];
+    const flB = fix(gb, g => g.attributes.normal.getY(row * ncb + 3) < 0);
+    // дальний вид: те же вершины, сетка реже — сечения farRows, по кольцу только опорные точки сечения (без подразбиения SUB)
+    const rows = [], ctl = new Set([0]), half = (nc + 1) / 2, colS = [];
+    farRows(ST).forEach((k, i) => { if (k) rows.push(i); });
+    SUB.reduce((a, n) => { ctl.add(a + n); return a + n; }, 0);
+    for (let j = 0; j < nc; j++) if (ctl.has(j < half ? j : nc - 1 - j)) colS.push(j);
+    const farIdx = (cols, w, flip) => {
+      const out = [];
+      for (let a = 0; a < rows.length - 1; a++) for (let b = 0; b < cols.length - 1; b++) {
+        const p = rows[a] * w + cols[b], q = rows[a] * w + cols[b + 1], r = rows[a + 1] * w + cols[b], t = rows[a + 1] * w + cols[b + 1];
+        if (flip) out.push(p, q, r, q, t, r); else out.push(p, r, q, q, r, t);
+      }
+      return out;
+    };
+    return [gs, gb, farIdx(colS, nc, flS), farIdx([0, 1, 2, 3, 4, 5, 6], ncb, flB)];
   }
 
   /* ---------- колесо: шина и пятилучевой диск с обеих сторон (ось вдоль x), одна сетка на 4 инстанса ---------- */
+  // в начале индекса — только дальний вид (простая шина и светлый диск: farN треугольников), за ним — колесо целиком:
+  // ближний вид рисует индекс с farN, дальний — до farN
   function wheelGeo(H) {
-    const T = H.T, { keep, GEO, put, toon } = H, g = new T.Group(), R = D.WR;
+    const T = H.T, { keep, GEO, put, toon } = H, gF = new T.Group(), g = new T.Group(), R = D.WR;
     const rubber = toon('#2E2A31'), rim = toon('#DCDFE6'), dark = toon('#3E3A44'), disc = toon('#8A8790');
     // шина низкого профиля: боковина ≈ 0,22 R — обод крупный, колесо кажется больше
     const RR = 0.78 * R;
     const tire = keep(new T.LatheGeometry([[0.775, -0.13], [0.93, -0.13], [0.985, -0.1], [1, -0.045], [1, 0.045], [0.985, 0.1], [0.93, 0.13], [0.775, 0.13]].map(([r, y]) => new T.Vector2(r * R, y)), 16));
     put(g, tire, rubber, [0, 0, 0], null, [0, 0, PI / 2]);
+    // дальний вид: шина на 10 граней и светлый диск без спиц
+    put(gF, keep(new T.LatheGeometry([[0.775, -0.13], [0.985, -0.115], [1, 0], [0.985, 0.115], [0.775, 0.13]].map(([r, y]) => new T.Vector2(r * R, y)), 10)), rubber, [0, 0, 0], null, [0, 0, PI / 2]);
+    [-1, 1].forEach(s => put(gF, GEO.cyl, rim, [s * 0.1, 0, 0], [RR - 0.004, 0.02, RR - 0.004], [0, 0, PI / 2]));
     put(g, GEO.cylLo, disc, [0, 0, 0], [0.2, 0.03, 0.2], [0, 0, PI / 2]);
     const lip = keep(new T.TorusGeometry(RR - 0.006, 0.013, 3, 18));
     [-1, 1].forEach(s => {
@@ -255,7 +288,10 @@
       }
       put(g, GEO.cyl, rim, [s * 0.124, 0, 0], [0.058, 0.022, 0.058], [0, 0, PI / 2]);
     });
-    return H.geoOf(g);
+    const a = H.geoOf(gF), farN = a.index ? a.index.count : a.attributes.position.count;
+    const geo = keep(mergeGeos(T, [[a], [H.geoOf(g)]]));
+    geo.userData.farN = farN;
+    return geo;
   }
 
   /* =====================================================================
@@ -271,7 +307,8 @@
     };
 
     /* --- краска: кузов-лофт + зеркала (цвет вершин белый, цвет краски — у материала) --- */
-    const [gSkin, gBot] = loftGeo(T);
+    const [gSkin, gBot, fS, fB] = loftGeo(T);
+    const nSV = gSkin.attributes.position.count, nIS = gSkin.index.count, nIB = gBot.index.count;
     const pods = new T.Group(), white = toon('#FFFFFF');
     [-1, 1].forEach(s => {
       const m = put(pods, GEO.sph, white, [s * 0.87, 0.99, 0.6], [0.06, 0.05, 0.105], [0, s * 0.18, s * -0.08]);
@@ -295,29 +332,39 @@
       put(pods, g, white);
     }
     const paintGeo = keep(mergeGeos(T, [[gSkin], [gBot], [H.geoOf(pods)]]));
+    // дальний вид: свой индекс по тем же вершинам — обшивка и низ реже, «чашки» фар, зеркала и губка как есть
+    const fullIdx = paintGeo.index, fa = fullIdx.array, farA = new fa.constructor(fS.length + fB.length + fa.length - nIS - nIB);
+    farA.set(fS, 0);
+    for (let i = 0; i < fB.length; i++) farA[fS.length + i] = fB[i] + nSV;
+    farA.set(fa.subarray(nIS + nIB), fS.length + fB.length);
+    const farIdx = new T.BufferAttribute(farA, 1);
     const paintMat = H.addRim(toon('#FFFFFF', { vertexColors: true }), 0.9); paintMat.color.set(color);
     const paintMesh = new T.Mesh(paintGeo, paintMat); paintMesh.castShadow = true; paintMesh.receiveShadow = false; paintMesh.name = 'cabrioPaint';
     const outline = new T.Mesh(paintGeo, H.outlineMat); outline.castShadow = false; outline.raycast = () => {};
 
     /* --- отделка: салон, рамка стекла, фары, фонари, решётки, трубы — один меш с цветами вершин --- */
-    const trim = new T.Group();
+    // trim — видно и издали (рамка стекла, фары, фонари, бамперы, чёрный салон и спинки кресел); trimN — мелочи только вблизи
+    // (приборы, рычаг, папка, зеркальца, швы, ручки, руль, подушки кресел, хром фар и труб): в индексе они после trim,
+    // дальний вид их не рисует (drawRange)
+    const trim = new T.Group(), trimN = new T.Group();
+    let tg = trim;
     const blk = toon('#2C2830'), blkL = toon('#3B3641'), blkD = toon('#211E25'), chrome = toon('#E9ECF2'), chromeD = toon('#A9ADB8');
     const led = toon('#FFFBF0', { emissive: new T.Color('#FFF4D6'), emissiveIntensity: 0.9 });
     const amber = toon('#F7B267', { emissive: new T.Color('#F09A3E'), emissiveIntensity: 0.45 }), tail = toon('#E2405E', { emissive: new T.Color('#D9304E'), emissiveIntensity: 0.5 }), tailD = toon('#9C2236', { emissive: new T.Color('#8A1A2C'), emissiveIntensity: 0.3 });
     const gauge = toon('#F6EFE4'), needle = toon('#E2405E'), plateM = toon('#FBF7F0');
     // простая коробка (12 граней) — для скрытого и мелкого; скруглённые rbox — только там, где видно форму
-    const bx = (mat, x, y, z, w, h, d, rot) => put(trim, GEO.box, mat, [x, y, z], [w, h, d], rot);
+    const bx = (mat, x, y, z, w, h, d, rot) => put(tg, GEO.box, mat, [x, y, z], [w, h, d], rot);
     // салон: пол, щит под приборами, внутренние панели дверей, тоннель с рычагом
     bx(blkD, 0, 0.535, -0.08, 1.2, 0.05, 1.62);
     bx(blkD, 0, 0.73, 0.735, 1.2, 0.42, 0.07);
     [-1, 1].forEach(s => bx(blk, s * 0.585, 0.73, 0.135, 0.04, 0.35, 1.15));
     bx(blk, 0, 0.69, 0.2, 0.22, 0.3, 0.8);
-    bar(trim, chromeD, [0, 0.82, 0.3], [0, 0.91, 0.27], 0.012); put(trim, GEO.sphLo, blkL, [0, 0.92, 0.268], [0.032, 0.032, 0.032]);
+    bar(trimN, chromeD, [0, 0.82, 0.3], [0, 0.91, 0.27], 0.012); put(trimN, GEO.sphLo, blkL, [0, 0.92, 0.268], [0.032, 0.032, 0.032]);
     // приборная панель: козырёк над пятью круглыми приборами (стрелки, без цифр и надписей)
     rbox(trim, blk, 0, 0.965, 0.68, 1.24, 0.11, 0.25, 0.04);
-    rbox(trim, blk, 0.31, 1.035, 0.63, 0.52, 0.05, 0.14, 0.025);
+    rbox(trimN, blk, 0.31, 1.035, 0.63, 0.52, 0.05, 0.14, 0.025);
     [[-0.17, 0.034], [-0.085, 0.04], [0, 0.05], [0.085, 0.04], [0.17, 0.034]].forEach(([dx, r]) => {
-      const g = new T.Group(); g.position.set(0.31 + dx, 0.972 + (r - 0.034) * 0.6, 0.553); g.rotation.x = -0.18; trim.add(g);
+      const g = new T.Group(); g.position.set(0.31 + dx, 0.972 + (r - 0.034) * 0.6, 0.553); g.rotation.x = -0.18; trimN.add(g);
       put(g, GEO.cylLo, chromeD, [0, 0, 0], [r + 0.008, 0.012, r + 0.008], [PI / 2, 0, 0]);
       put(g, GEO.cylLo, gauge, [0, 0, -0.004], [r, 0.012, r], [PI / 2, 0, 0]);
       put(g, GEO.box, needle, [r * 0.3, r * 0.15, -0.012], [r * 0.7, 0.006, 0.004], [0, 0, 0.5]);
@@ -335,11 +382,11 @@
     [-1, 1].forEach(s => {
       const x = s * 0.31;
       bx(blkD, x, 0.73, -0.07, 0.34, 0.36, 0.34);
-      rbox(trim, blk, x, 0.915, -0.06, 0.44, 0.07, 0.48, 0.03);
-      [-1, 1].forEach(b => rbox(trim, blk, x + b * 0.185, 0.945, -0.08, 0.07, 0.06, 0.42, 0.025));
+      rbox(trimN, blk, x, 0.915, -0.06, 0.44, 0.07, 0.48, 0.03);
+      [-1, 1].forEach(b => rbox(trimN, blk, x + b * 0.185, 0.945, -0.08, 0.07, 0.06, 0.42, 0.025));
       put(trim, backG, blk, [x, 0.9, -0.29], null, [-0.2, 0, 0]);
       // светлая вставка по центру спинки
-      bx(blkL, x, 1.016, -0.262, 0.17, 0.15, 0.012, [-0.2, 0, 0]);
+      put(trimN, GEO.box, blkL, [x, 1.016, -0.262], [0.17, 0.15, 0.012], [-0.2, 0, 0]);
     });
     // за креслами — чёрная перегородка салона; сложенный мягкий верх спрятан под крышкой цвета кузова,
     // по её переднему краю — чёрный кант (передняя дуга верха)
@@ -351,15 +398,17 @@
       put(trim, g, blkD);
     }
     // папка «дела» на пассажирском кресле: картон, красная тесёмка, белая наклейка
+    tg = trimN;
     bx(toon('#E6C79C'), -0.31, 0.963, -0.03, 0.24, 0.026, 0.31, [0, 0.18, 0]);
     bx(toon('#C2405B'), -0.31, 0.978, -0.03, 0.245, 0.006, 0.022, [0, 0.18, 0]);
     bx(toon('#FFFDF9'), -0.335, 0.978, 0.04, 0.1, 0.004, 0.06, [0, 0.18, 0]);
+    tg = trim;
     // ветровое стекло в чёрной рамке: стойки, верхняя перекладина (по изгибу стекла), низ
     const wsAt = (x, t) => { const z = D.ws0[0] + (D.ws1[0] - D.ws0[0]) * t, y = D.ws0[1] + (D.ws1[1] - D.ws0[1]) * t, hw = D.wsW[0] + (D.wsW[1] - D.wsW[0]) * t, u = x * hw; return [u, y, z - 0.07 * (u / 0.6) * (u / 0.6)]; };
     [-1, 1].forEach(s => bar(trim, blk, wsAt(s * 1.02, -0.02), wsAt(s * 1.02, 1.03), 0.028));
     for (let i = 0; i < 4; i++) { bar(trim, blk, wsAt(-1.02 + i * 0.51, 1.0), wsAt(-1.02 + (i + 1) * 0.51, 1.0), 0.028); bar(trim, blkD, wsAt(-1 + i * 0.5, 0.0), wsAt(-1 + (i + 1) * 0.5, 0.0), 0.02); }
     // зеркала: чёрная ножка от двери и зеркальце (корпус зеркала — в краске)
-    [-1, 1].forEach(s => { bar(trim, blk, [s * 0.74, 0.91, 0.64], [s * 0.84, 0.98, 0.61], 0.015); put(trim, GEO.sphLo, toon('#BFD3E2'), [s * 0.865, 0.99, 0.555], [0.07, 0.038, 0.01]); });
+    [-1, 1].forEach(s => { bar(trimN, blk, [s * 0.74, 0.91, 0.64], [s * 0.84, 0.98, 0.61], 0.015); put(trimN, GEO.sphLo, toon('#BFD3E2'), [s * 0.865, 0.99, 0.555], [0.07, 0.038, 0.01]); });
     // фары: стоячие овалы на передних крыльях — верх фары вровень с гребнем крыла, капот ниже между ними; стекло-купол
     // завалено назад (≈ 25°, по «лицу» крыла) и чуть смотрит наружу; хромовый ободок, внутри светлый отражатель,
     // линза-прожектор в хромовом колечке (вверху, ближе к капоту) и маленький огонёк внизу — без тёмного «зрачка»
@@ -367,13 +416,13 @@
     const ringL = keep(new T.TorusGeometry(1, 0.14, 5, 22)), ringS = keep(new T.TorusGeometry(1, 0.2, 4, 12)), refl = toon('#BAC2CE', { emissive: new T.Color('#FFF8EE'), emissiveIntensity: 0.02 }), lensP = toon('#AFBACA', { emissive: new T.Color('#FFF1D6'), emissiveIntensity: 0.08 }), lensS = toon('#DCE2E9');
     [-1, 1].forEach(s => {
       const x = s * LAMP.x, y = lampY, z = LAMP.z;
-      const g = new T.Group(); g.position.set(x, y, z); g.rotation.set(-LAMP.tilt, s * LAMP.yaw, 0); trim.add(g);
-      put(g, ringL, chrome, [0, 0, 0.006], [LW, LH, 0.09]);
+      const g = new T.Group(), gN = new T.Group(); g.position.set(x, y, z); g.rotation.set(-LAMP.tilt, s * LAMP.yaw, 0); gN.position.copy(g.position); gN.rotation.copy(g.rotation); trim.add(g); trimN.add(gN);
+      put(gN, ringL, chrome, [0, 0, 0.006], [LW, LH, 0.09]);
       put(g, GEO.sph, refl, [0, 0, 0], [LW * 0.93, LH * 0.93, 0.04]);
-      put(g, ringS, chrome, [-s * 0.014, 0.034, 0.04], [0.04, 0.04, 0.04]);
-      put(g, GEO.sphLo, lensP, [-s * 0.014, 0.034, 0.036], [0.034, 0.034, 0.014]);
-      put(g, ringS, chromeD, [s * 0.03, -0.054, 0.034], [0.022, 0.022, 0.03]);
-      put(g, GEO.sphLo, lensS, [s * 0.03, -0.054, 0.031], [0.018, 0.018, 0.01]);
+      put(gN, ringS, chrome, [-s * 0.014, 0.034, 0.04], [0.04, 0.04, 0.04]);
+      put(gN, GEO.sphLo, lensP, [-s * 0.014, 0.034, 0.036], [0.034, 0.034, 0.014]);
+      put(gN, ringS, chromeD, [s * 0.03, -0.054, 0.034], [0.022, 0.022, 0.03]);
+      put(gN, GEO.sphLo, lensS, [s * 0.03, -0.054, 0.031], [0.018, 0.018, 0.01]);
       heads.push([x, y, z + 0.08]);
     });
     // перед: три заборника в бампере (широкий посередине, боковые с полосками огней), поворотники по углам
@@ -403,7 +452,8 @@
     const pipe = keep(new T.TorusGeometry(0.045, 0.012, 4, 12));
     [-1, 1].forEach(s => {
       const g = new T.Group(); g.position.set(s * 0.4, 0.4, -1.982); g.scale.set(1.6, 1.05, 1); trim.add(g);
-      put(g, pipe, chrome, [0, 0, 0]);
+      const gN = g.clone(false); trimN.add(gN);
+      put(gN, pipe, chrome, [0, 0, 0]);
       put(g, GEO.cylLo, blkD, [0, 0, 0.01], [0.042, 0.04, 0.042], [PI / 2, 0, 0]);
     });
     bx(blkD, 0, 0.57, -2.008, 0.45, 0.17, 0.02);
@@ -412,11 +462,11 @@
     {
       const half = [[0.47, 0.83], [0.456, 1.13], [0.442, 1.45], [0.418, 1.62], [0.4, 1.71], [0.375, 1.782], [0.29, 1.828], [0.14, 1.848], [0, 1.852]].map(([x, z]) => new T.Vector3(x, topY(z, x) + 0.003, z));
       const pts = half.concat(half.slice(0, -1).reverse().map(p => new T.Vector3(-p.x, p.y, p.z)));
-      put(trim, keep(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 48, 0.004, 3, false)), blk);
+      put(trimN, keep(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 48, 0.004, 3, false)), blk);
     }
     // швы дверей, ручки
-    [[0.68, 0.38, 0.88], [-0.52, 0.36, 0.9]].forEach(([z, y0, y1]) => [-1, 1].forEach(s => bar(trim, blkD, [s * (sideX(z, y0) + 0.004), y0, z], [s * (sideX(z, y1) + 0.004), y1, z], 0.0045)));
-    [-1, 1].forEach(s => { const y = 0.83, z = -0.36, x = sideX(z, y) + 0.008; bx(chromeD, s * x, y, z, 0.02, 0.022, 0.13); });
+    [[0.68, 0.38, 0.88], [-0.52, 0.36, 0.9]].forEach(([z, y0, y1]) => [-1, 1].forEach(s => bar(trimN, blkD, [s * (sideX(z, y0) + 0.004), y0, z], [s * (sideX(z, y1) + 0.004), y1, z], 0.0045)));
+    [-1, 1].forEach(s => { const y = 0.83, z = -0.36, x = sideX(z, y) + 0.008; put(trimN, GEO.box, chromeD, [s * x, y, z], [0.02, 0.022, 0.13]); });
     // руль и колонка — отдельной костью (крутится вместе с колёсами): чёрный обод, три серебристые спицы, гладкая ступица
     const WC = v3(WHEEL_C), COL_AX = new T.Vector3(0, -Math.sin(TILT), Math.cos(TILT));
     const wheelPart = new T.Group();
@@ -425,7 +475,8 @@
     [0, PI, -PI / 2].forEach(d => { const g = new T.Group(); g.position.copy(WC); g.rotation.x = TILT; wheelPart.add(g); put(g, GEO.box, chromeD, [Math.cos(d) * 0.085, Math.sin(d) * 0.085, 0.004], [0.026, 0.15, 0.012], [0, 0, d - PI / 2]); });
     { const g = new T.Group(); g.position.copy(WC); g.rotation.x = TILT; wheelPart.add(g); put(g, GEO.cyl, blkL, [0, 0, 0.008], [0.048, 0.03, 0.048], [PI / 2, 0, 0]); }
     bar(wheelPart, blk, [WC.x, WC.y, WC.z], [WC.x + COL_AX.x * 0.3, WC.y + COL_AX.y * 0.3, WC.z + COL_AX.z * 0.3], 0.024);
-    const trimGeo = keep(mergeGeos(T, [[H.geoOf(trim), 0], [H.geoOf(wheelPart), 1]], true));
+    const gTF = H.geoOf(trim), trimFarN = gTF.index ? gTF.index.count : gTF.attributes.position.count;
+    const trimGeo = keep(mergeGeos(T, [[gTF, 0], [H.geoOf(trimN), 0], [H.geoOf(wheelPart), 1]], true));
     const trimMesh = new T.SkinnedMesh(trimGeo, H.emisPatch(toon('#FFFFFF', { vertexColors: true }), 'car'));
     const boneRoot = new T.Bone(), boneWheel = new T.Bone(); boneWheel.position.copy(WC); boneRoot.add(boneWheel); trimMesh.add(boneRoot);
     trimMesh.castShadow = true; trimMesh.receiveShadow = false; trimMesh.name = 'cabrioTrim';
@@ -452,6 +503,17 @@
 
     /* --- колёса: инстансы одной сетки (FL, FR, RL, RR) --- */
     const wheels = new T.InstancedMesh(wheelGeo(H), H.VC.front, 4);
+    wheels.geometry.setDrawRange(wheels.geometry.userData.farN, Infinity);
+    // дальний вид (js/world/main.js carLod: стоит далеко): 1 — индекс кузова пореже и отделка без мелочей (начало индекса),
+    // колёса как вблизи; 2 (или true) — ещё и колёса без спиц
+    let farOn = 0;
+    function setFar(k) {
+      k = k === true ? 2 : +k || 0; if (k === farOn) return; farOn = k;
+      paintGeo.setIndex(k ? farIdx : fullIdx);
+      trimGeo.setDrawRange(0, k ? trimFarN : Infinity);
+      const wf = wheels.geometry.userData.farN;
+      if (k > 1) wheels.geometry.setDrawRange(0, wf); else wheels.geometry.setDrawRange(wf, Infinity);
+    }
     wheels.castShadow = true; wheels.frustumCulled = false; wheels.name = 'cabrioWheels';
     const WP = [[D.tf, D.wf], [-D.tf, D.wf], [D.tr, D.wr], [-D.tr, D.wr]];
 
@@ -472,9 +534,10 @@
       lamps: { head: heads, tail: tails },
       dims: { length: D.zF - D.zR, width: halfW * 2, height: D.ws1[1], wheelBase: D.wf - D.wr, track: D.tf * 2, trackR: D.tr * 2, wheelR: D.WR, halfW, halfL, wf: D.wf, wr: D.wr, front: D.zF, rear: D.zR },
       driveCfg: { wb: +(D.wf - D.wr).toFixed(3), track: D.tf, wf: D.wf, wr: D.wr, halfW: 0.88, halfL, wheelR: D.WR },
-      stats: { tris: Math.round(tris(paintGeo) * 2 + tris(trimGeo) + tris(gg) + tris(wheels.geometry) * 4), verts: paintGeo.attributes.position.count + trimGeo.attributes.position.count, calls: 5 },
+      stats: { tris: Math.round(tris(paintGeo) * 2 + tris(trimGeo) + tris(gg) + (tris(wheels.geometry) - wheels.geometry.userData.farN / 3) * 4), farTris: Math.round((farA.length + trimFarN + wheels.geometry.userData.farN * 4) / 3 + tris(gg)), verts: paintGeo.attributes.position.count + trimGeo.attributes.position.count, calls: 5 },
       setColor(hex) { paintMat.color.set(hex); },
       setNight,
+      setFar,
     };
   }
 

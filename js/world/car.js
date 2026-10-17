@@ -1,6 +1,6 @@
 /* =====================================================================
    ОТКРЫТЫЙ ГОРОД: машинка.
-   W7 (желание автора «сделать прям как 911»): кузов — жёлтый кабриолет из js/vehicles/cabrio.js (силуэт классической
+   W7 (желание автора: машина «как на фото»): кузов — жёлтый кабриолет из js/vehicles/cabrio.js (силуэт классической
    заднемоторной спортивной машины: овальные фары на гребнях крыльев, капот ниже крыльев, «утиный хвост», широкие задние
    «бёдра», две трубы, крупные колёса, сложенный мягкий верх под крышкой цвета кузова, низкие кресла, чёрный салон; без значков и надписей,
    номер пустой), 5 вызовов отрисовки.
@@ -16,7 +16,8 @@
        car.update(dt, ctl) → { bumped, edge } — ctl = { dir: [dx,dz,mag] | null, thr, str, brake }
        car.root, body, wheels, paintMesh, trimMesh, glass, plate, outline, S, place(), reset(path), setColor(hex), VMAX
        W7: car.cockpit = { eye: [x,y,z], wheel: { c: [x,y,z], r, tilt, axis }, gripL, gripR } (оси car.body) — вид «из-за руля»;
-         car.lamps { head, tail } (точки фар/фонарей), car.dims, car.driveCfg (размеры для VILLAGE.drive), car.setNight(k) — у кабриолета
+         car.lamps { head, tail } (точки фар/фонарей), car.dims, car.driveCfg (размеры для VILLAGE.drive), car.setNight(k) — у кабриолета;
+         car.setFar(0 | 1 | 2) — дешёвый дальний вид стоящей машины (кабриолет; js/world/main.js carLod)
        car.seatDriver / seatPass (кот, сзади справа) / seatDog (собачка, сзади слева) / heroSeat (куда ставить корень
          героини в car.body) / doorL / doorR — точки в осях кузова (car.body)
        car.on('edge' | 'bump' | 'horn', fn) / off — 'edge' — машина въехала в зону выезда из города (layout.edge)
@@ -360,6 +361,8 @@
       cockpit: M.cockpit || cockpitOf(heroSeat, WHEEL_C, COL_AX), lamps: M.lamps || undefined, dims: M.dims, driveCfg: M.driveCfg, stats: M.stats,
       // фары ночью (у кабриолета: setNight(0..1), как у седана; main.js и regions.js зовут его сами)
       setNight: M.setNight || undefined,
+      // дальний вид стоящей машины (у кабриолета: setFar(0 | 1 | 2); main.js carLod зовёт его сам)
+      setFar: M.setFar || undefined,
       on(n, f) { (ev[n] = ev[n] || []).push(f); return () => car.off(n, f); },
       off(n, f) { ev[n] = (ev[n] || []).filter(x => x !== f); },
       horn() { hornSound(); emit('horn', { x: S.x, z: S.z }); return true; },
