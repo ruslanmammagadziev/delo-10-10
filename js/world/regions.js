@@ -1210,7 +1210,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (blob) blob.visible = S.mode === 'walk';
       if (shadowProxy) shadowProxy.attach(scene);
       // W4A: свадьба — героиня модулю (розыгрыш с беретом), облачка пальтара
-      if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); if (h.wedding.onEvent) h.wedding.onEvent(onWedEvent); } catch (e) { console.warn('region wedding hero', e); } }
+      if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); if (h.wedding.onEvent) h.wedding.onEvent(onWedEvent); if (h.wedding.setBusy) h.wedding.setBusy(() => S.busy || blocked()); } catch (e) { console.warn('region wedding hero', e); } }
       // день и ночь (R2): свет, жители, небо, окна и фонари региона
       if (dn) { try { dn.apply(id === 'serpentine' ? 'road' : 'village'); dn.attachRegion(h); dn.attach(scene); } catch (e) { console.warn('region daynight', e); } }
       ui.root.classList.toggle('drive', S.mode === 'drive');
@@ -1827,16 +1827,21 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     /* ---------- W4A: свадьба во дворе (VILLAGE.wedding) — героиня приглашена на праздник ---------- */
     function onPrank(ev) {
       const W = S.h && S.h.wedding; if (!W || !ev) return;
-      const n = S.h.npcs.filter(q => q.ext && (q.id === ev.who || q.speaker === 'paltar')).sort((a, b) => Math.hypot(a.root.position.x - S.px, a.root.position.z - S.pz) - Math.hypot(b.root.position.x - S.px, b.root.position.z - S.pz))[0];
-      if (ev.text && n) { bubble(npcHead(n), ev.text, n.name, 2600); voiceBubble(n.speaker || 'paltar', ev.text); }
-      if (ev.type === 'beret' && ev.phase === 'take') { S.cheerT = 0.8; later(700, () => heroSay2(SAY.beret, 1600)); }
-      if (ev.phase === 'end') later(300, () => heroSay2(ev.type === 'beret' ? SAY.beretBack : SAY.jingle, 1500));
-      if (ev.phase === 'start' || ev.phase === 'take') sfx('chime', { f: 1568 });
       S.prankLog.push(ev.type + ':' + ev.phase);
+      // поверх окна диалога (и тихо отложенный розыгрыш) — без облачков, голоса и звона
+      if (ev.quiet || S.busy || blocked()) return;
+      // облачко — над тем, кто разыгрывает (ev.who — id ряженого); не нашли — над ближайшим ряженым
+      const n = S.h.npcs.find(q => q.ext && q.animal && q.animal.id === ev.who) || S.h.npcs.filter(q => q.ext && q.speaker === 'paltar').sort((a, b) => Math.hypot(a.root.position.x - S.px, a.root.position.z - S.pz) - Math.hypot(b.root.position.x - S.px, b.root.position.z - S.pz))[0];
+      if (ev.text && n) { bubble(npcHead(n), ev.text, n.name, 2600); voiceBubble(n.speaker || 'paltar', ev.text); }
+      if (ev.type === 'beret' && ev.phase === 'take') { S.cheerT = 0.8; later(700, () => { if (!S.busy && !blocked()) heroSay2(SAY.beret, 1600); }); }
+      if (ev.phase === 'end') later(300, () => { if (!S.busy && !blocked()) heroSay2(ev.type === 'beret' ? SAY.beretBack : SAY.jingle, 1500); });
+      if (ev.phase === 'start' || ev.phase === 'take') sfx('chime', { f: 1568 });
     }
     // пальтары: звон кольчуги, щелчок плёткой в воздухе, «вспышка» фото, короткие возгласы — только рядом с героиней (≤ 14 м)
     function onWedEvent(ev) {
       if (!ev || !S.h || !S.h.wedding || !/^(jingle|bell|crack|flash|say)$/.test(ev.type)) return;
+      // открыто окно диалога (или шторка) — ряженые не перебивают ни облачком, ни звоном
+      if (S.busy || blocked()) return;
       const n = ev.who ? S.h.npcs.find(q => q.ext && q.animal && q.animal.id === ev.who) : null;
       if (!n || Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz) > 14) return;
       const pf = k => { try { if (window.PlayFight && PlayFight.synth) PlayFight.synth(k); } catch (e) { /* звук не главное */ } };
@@ -2620,10 +2625,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (sp > 0.25) { S.ang += angDiff(Math.atan2(S.vx, S.vz), S.ang) * Math.min(1, dt * 11); S.moveT += dt; } else S.moveT = 0;
       greetNear();
     }
-    // жители здороваются сами, когда подходишь (не чаще раза в 25 с; не посреди возни «Бум!» с этим жителем)
+    // жители здороваются сами, когда подходишь (не чаще раза в 25 с; не посреди возни «Бум!» с этим жителем); ряженые свадьбы —
+    // не больше одного за 6 с (их много и они подходят сами — облачка не громоздятся)
     function greetNear() {
       const h = S.h, now = performance.now();
-      h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) greet(n); });
+      h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; if (n.paltar && now - (S.palGreetT || -1e9) < 6000) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) { if (n.paltar) S.palGreetT = now; greet(n); } });
     }
     function arrive() {
       const m = S.moveTo; S.moveTo = null; if (!m || !m.thing) return;
