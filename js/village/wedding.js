@@ -42,6 +42,8 @@
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const lerp = (a, b, k) => a + (b - a) * k;
   const sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  // «колокол» 0 → 1 → 0 на x 0..1 с нулевой скоростью на краях (синус на краях трогал позу с места рывком)
+  const bell = x => { const s = Math.sin(clamp(x, 0, 1) * PI); return s * s; };
   const angW = a => a - TAU * Math.round(a / TAU);
   const hex = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
   function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -121,8 +123,8 @@
   const KY = 0.86;
   const PCOL = {
     feltK: '#23201E', chalk: '#EEE8DE', edgeK: '#141210', skin: '#E8B596', eye: '#2E2A3B', lip: '#C9474B', mouth: '#4A2430', teeth: '#FFF8F0',
-    cBase: '#B8B19B', cDark: '#4F473B', cFur: '#DAD5C4', dBase: '#2F251E', dGold: '#D4A848', dGoldS: '#B98A2A', dFelt: '#4A3828', dLip: '#C0605A',
-    dBeard: '#7C6A58', dBeardL: '#A08C76', eRed: '#B83A5E', eRedS: '#7E2643', eWool: '#EEE6E9', eNose: '#F6F0F2',
+    cBase: '#B8B19B', cDark: '#4F473B', cFur: '#DAD5C4', dBase: '#2F251E', dGold: '#CBA046', dGoldS: '#B98A2A', dFelt: '#4A3828', dLip: '#C0605A',
+    eRed: '#B83A5E', eRedS: '#7E2643', eWool: '#EEE6E9',
     mailGap: '#34363C', mail: '#8C9098', mailHi: '#D8DBE0', mailLo: '#5C5F66',
   };
   const hexRGB = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -233,7 +235,7 @@
     c.stroke();
   }
   // маски по видам: field — фон и узор по пикселям (на затылке — то же поле дальше по кругу), paths — штрихи в осях лица (на затылок
-  // тоже, сжатыми), feats — только на лице (глаза, рот), fuzz — ворс, top — пушистая макушка, bib — нагрудник.
+  // тоже, сжатыми), feats — только на лице (глаза, рот), fuzz — ворс, glit — искры нити, nape — низ затылка, top — пушистая макушка, bib — нагрудник.
   // A — чёрно-белый «вихрь», B — «совиные» кольца с «сердцем», C — лохматый серо-кремовый «ёлочкой», D — тёмный с золотом,
   // E — малиновый вязаный с белыми зигзагами (по фото p1–p4)
   const PAINT = {
@@ -296,14 +298,21 @@
         c.strokeStyle = PCOL.dGold; c.lineWidth = 13; c.lineCap = 'butt';
         [20, 46].forEach(yc => { c.beginPath(); for (let xv = -192; xv <= 448; xv += 4) { const s = Math.sin(Math.min(Math.abs(xv - 128) * 0.01023, PI / 2)), y = yc + 50.4 * s * s; if (xv > -192) c.lineTo(xv, y); else c.moveTo(xv, y); } c.stroke(); });
       },
-      // рта не видно — его закрывает борода (как на фото p3)
-      feats(c) { [87, 169].forEach(x => { pDisc(c, x, 119, 20, PCOL.dFelt); pEye(c, x, 119, 10, '#C99470'); }); },
+      // рот открыт, с губами, на тёмном войлоке между носом и бородой (фото p3; без рта нос с золотыми кольцами читался совой)
+      feats(c) {
+        [87, 169].forEach(x => { pDisc(c, x, 119, 20, PCOL.dFelt); pEye(c, x, 119, 10, '#C99470'); });
+        c.fillStyle = PCOL.dBase; c.beginPath(); c.ellipse(128, 163, 25, 16, 0, 0, TAU); c.fill(); pMouth(c, 128, 164, 11, 8, PCOL.dLip, true);
+      },
       fuzz: [900, ['#5A4636', '#1C1612'], 0.3, 21, 4],
+      // золотая нить блестит искрами (фото p3), а не ровной жёлтой краской
+      glit: [900, ['#F4E2A0', '#8C6A28'], 0.4, 22, 2],
       bib(c, x0, y0, sh) {
         c.fillStyle = PCOL.dBase; c.fillRect(x0, y0, 128, 256);
         c.save(); shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.clip();
-        [34, 86, 138, 190].forEach(y => pChev(c, x0, y0, y, 44, 16, PCOL.dGold, 2, 0.85));
+        // три острые «ёлочки» (фото p3: V, а не U — полосы-дуги под бородой читались брюшком пчелы)
+        [50, 114, 178].forEach(y => pChev(c, x0, y0, y, 48, 17, PCOL.dGold, 2, 0.42));
         c.strokeStyle = PCOL.dGoldS; c.lineWidth = 8; shieldPath(c, x0, y0, sh[0], sh[1], sh[2]); c.stroke(); c.restore();
+        pFuzz(c, x0, y0, 128, 256, 450, ['#F4E2A0', '#8C6A28'], 0.4, 24, 2);
       },
     },
     E: {
@@ -319,6 +328,9 @@
         pMouth(c, 128, 176, 12, 6, PCOL.eRedS, true);
       },
       fuzz: [1200, [PCOL.eRedS, PCOL.eWool, '#D8668A'], 0.25, 31, 3],
+      // низ затылка (шея под воротом и лоскут на спине) — малиновая вязка без зигзагов: на лоскуте под воротом зигзаги
+      // складывались в ряд белых зубцов
+      nape(c, x0, y0, w) { const g = c.createLinearGradient(0, y0 + 196, 0, y0 + 205); g.addColorStop(0, 'rgba(184,58,94,0)'); g.addColorStop(1, PCOL.eRed); c.fillStyle = g; c.fillRect(x0, y0 + 196, w, 60); pFuzz(c, x0, y0 + 200, w, 56, 160, [PCOL.eRedS, '#D8668A'], 0.3, 34, 3); },
       // макушка — пушистая, без полос
       top(c, x0, y0, w) { c.save(); c.globalAlpha = 0.92; const g = c.createLinearGradient(0, y0, 0, y0 + 28); g.addColorStop(0, PCOL.eRed); g.addColorStop(1, 'rgba(184,58,94,0)'); c.fillStyle = g; c.fillRect(x0, y0, w, 28); c.restore(); },
       bib(c, x0, y0, sh) {
@@ -337,12 +349,15 @@
     Pn.field(c, x0, y0, 256, null);
     c.save(); c.translate(x0, y0); if (Pn.paths) Pn.paths(c); Pn.feats(c); c.restore();
     if (Pn.fuzz) pFuzz(c, x0, y0, 256, 256, Pn.fuzz[0], Pn.fuzz[1], Pn.fuzz[2], Pn.fuzz[3], Pn.fuzz[4]);
+    if (Pn.glit) pFuzz(c, x0, y0, 256, 256, Pn.glit[0], Pn.glit[1], Pn.glit[2], Pn.glit[3], Pn.glit[4]);
     if (Pn.top) Pn.top(c, x0, y0, 256);
   }
   function paintHood(c, x0, y0, Pn) {
     Pn.field(c, x0, y0, 128, backX);
     if (Pn.paths) pBack(c, x0, y0, Pn.paths);
     if (Pn.fuzz) pFuzz(c, x0, y0, 128, 256, Pn.fuzz[0] >> 1, Pn.fuzz[1], Pn.fuzz[2], Pn.fuzz[3] + 1, Pn.fuzz[4]);
+    if (Pn.glit) pFuzz(c, x0, y0, 128, 256, Pn.glit[0] >> 1, Pn.glit[1], Pn.glit[2], Pn.glit[3] + 1, Pn.glit[4]);
+    if (Pn.nape) Pn.nape(c, x0, y0, 128);
     if (Pn.top) Pn.top(c, x0, y0, 128);
   }
   // нагрудники-щиты (px в клетке 128×256): верх, самая широкая часть, где она
@@ -380,15 +395,39 @@
     c.strokeStyle = '#E8EEF5'; c.lineWidth = 3.5; for (let y = 8; y < 128; y += 12) { c.beginPath(); for (let x = 0; x <= 128; x += 4) { const yy = y + ((x / 4) % 2 ? 3 : -3); if (x) c.lineTo(gx + 128 + x, gy + 128 + yy); else c.moveTo(gx + 128 + x, gy + 128 + yy); } c.stroke(); }
     // жёлтая резиновая (клетка про запас: перчатки C — цветом вершин)
     const gr = c.createLinearGradient(gx, gy, gx + 128, gy + 128); gr.addColorStop(0, '#FFF07A'); gr.addColorStop(0.45, '#F6D23C'); gr.addColorStop(1, '#D9AE2C'); c.fillStyle = gr; c.fillRect(gx, gy, 128, 128);
-    // войлочная борода D, мех C, малиновый ворот E, серая вязаная гетра E
+    // малиновый ворот E, серая вязаная гетра E (бороды D и C — ниже, прядками)
     const woolly = (x, y, w, h, base, cols, seed) => { c.fillStyle = base; c.fillRect(x, y, w, h); pFuzz(c, x, y, w, h, Math.round(w * h / 18), cols, 0.55, seed, 6); };
-    woolly(ox + 512, oy + 768, 128, 256, PCOL.dBeard, [PCOL.dBeardL, '#5E4E40', '#8E7C68'], 51);
-    woolly(ox + 640, oy + 768, 128, 256, '#8A7A5C', ['#B5A585', '#5E5240', '#DAD5C4'], 52);
     woolly(ox + 768, oy + 768, 128, 128, PCOL.eRed, [PCOL.eRedS, '#D8668A', '#9E2E50'], 53);
     c.fillStyle = '#C9D1D6'; c.fillRect(ox + 896, oy + 768, 128, 128); c.strokeStyle = '#AEB8BF'; c.lineWidth = 3; for (let x = 4; x < 128; x += 8) { c.beginPath(); c.moveTo(ox + 896 + x, oy + 768); c.lineTo(ox + 896 + x, oy + 896); c.stroke(); }
     // плётка: кожаная косичка (256×64) и рукоять с латунными кольцами (256×64)
     for (let i = 0; i < 33; i++) { c.fillStyle = i % 2 ? '#8A5E3E' : '#5E3E26'; c.beginPath(); c.moveTo(ox + 768 + i * 8, oy + 896); c.lineTo(ox + 768 + i * 8 + 8, oy + 928); c.lineTo(ox + 768 + i * 8, oy + 960); c.lineTo(ox + 768 + i * 8 - 8, oy + 928); c.closePath(); c.fill(); }
     c.fillStyle = '#3A2A20'; c.fillRect(ox + 768, oy + 960, 256, 64); c.fillStyle = '#C9A23F'; [40, 120, 200].forEach(x => c.fillRect(ox + 768 + x, oy + 960, 10, 64));
+    // войлочный нос (128×64: верх — корень в маске, низ — кончик): полосы маски идут по нему кольцами — C тёмный с волнистыми
+    // полосами, E малиновый с белыми зигзагами (фото p1, p4: нос — невысокий бугорок в узоре, а не гладкий «клюв» или рожок)
+    const nose = (y, base, col, rows, zig, fz) => {
+      c.save(); c.beginPath(); c.rect(ox + 512, oy + y, 128, 64); c.clip(); c.fillStyle = base; c.fillRect(ox + 512, oy + y, 128, 64);
+      c.strokeStyle = col; c.lineWidth = 8;
+      rows.forEach(ry => { c.beginPath(); for (let x = 0; x <= 128; x += 4) { const yy = oy + y + ry + (zig ? ((x / 4) % 2 ? 2.5 : -2.5) : Math.sin(x / 128 * TAU * 2) * 2.5); if (x) c.lineTo(ox + 512 + x, yy); else c.moveTo(ox + 512 + x, yy); } c.stroke(); });
+      c.restore(); pFuzz(c, ox + 512, oy + y, 128, 64, 260, fz, 0.35, 61 + y, 3);
+    };
+    const has = k => !used || used.includes(k);
+    if (has('C')) nose(512, '#8E8672', PCOL.cDark, [12, 38], false, [PCOL.cFur, PCOL.cDark]);
+    // E: малиновый нос с бело-розовым вязаным кончиком (фото p4; белый зигзаг поверх носа читался колпачком, большой белый
+    // кончик — шариком клоуна)
+    if (has('E')) { nose(576, PCOL.eRed, PCOL.eWool, [], true, [PCOL.eRedS, PCOL.eWool]); c.fillStyle = '#F0D4DC'; c.fillRect(ox + 512, oy + 576 + 47, 128, 17); pFuzz(c, ox + 512, oy + 576 + 42, 128, 22, 220, [PCOL.eRed, '#E8A0B8', PCOL.eWool], 0.5, 66, 3); }
+    // пряди-«волосы» (клетка образца конуса: v — вдоль пряди): продольные волоски — толстая прядь читается копной конского волоса,
+    // а не гладким шипом. C — соломенная (128×256), A — чёрная (128×128)
+    const streak = (x, y, w, h, base, cols, seed) => {
+      const R = rng(seed); c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = base; c.fillRect(x, y, w, h); c.lineWidth = 2;
+      for (let i = 0; i < w * 1.4; i++) { const sx = x + R() * w, a2 = (R() - 0.5) * 10; c.globalAlpha = 0.45 + R() * 0.5; c.strokeStyle = cols[i % cols.length]; c.beginPath(); c.moveTo(sx, y); c.bezierCurveTo(sx + a2, y + h * 0.33, sx - a2, y + h * 0.66, sx + a2 * 0.5, y + h); c.stroke(); }
+      c.restore();
+    };
+    if (has('C')) streak(ox + 640, oy + 512, 128, 256, '#B5AE96', ['#DAD5C4', '#8E8672', '#C9C2AE', '#6E6858'], 71);
+    if (has('A')) streak(ox + 512, oy + 640, 128, 128, '#201E22', ['#46424C', '#0E0D10', '#33303A'], 72);
+    // бороды D (тёмно-бурая) и C (серо-оливковая): шерсть волнистыми прядками сверху вниз, поверх — короткий ворс (ровный ворс во
+    // все стороны на гладкой бороде читался картонкой, войлочной подушкой)
+    if (has('D')) { streak(ox + 512, oy + 768, 128, 256, '#4A3B2E', ['#5E4E3E', '#342A20', '#6A5848', '#3E3226'], 73); pFuzz(c, ox + 512, oy + 768, 128, 256, 1400, ['#7E6C58', '#2A2018', '#5E4E3E'], 0.45, 74, 6); }
+    if (has('C')) { streak(ox + 640, oy + 768, 128, 256, '#665C48', ['#776C54', '#4E4636', '#867A62', '#463E30'], 75); pFuzz(c, ox + 640, oy + 768, 128, 256, 1400, ['#9C9076', '#3E3828', '#6E644E'], 0.45, 76, 6); }
   }
   function paintAtlas(faceCanvas, used) {
     const [cv, c] = cnv(1024, 2048);
@@ -438,7 +477,8 @@
   const PUV = {};
   PKEYS.forEach((key, k) => { const x0 = (k % 2) * 512, y0 = Math.floor(k / 2) * 256; PUV[key] = { face: PR(x0, y0, 256, 256), hood: PR(x0 + 256, y0, 128, 256), bib: PR(x0 + 384, y0, 128, 256) }; });
   Object.assign(PUV, { mail: PR(0, 768, 512, 256), gYellow: PR(768, 512, 128, 128), gDots: PR(896, 512, 128, 128), gCream: PR(768, 640, 128, 128), gNavy: PR(896, 640, 128, 128),
-    beardD: PR(512, 768, 128, 256), furC: PR(640, 768, 128, 256), ruff: PR(768, 768, 128, 128), warmer: PR(896, 768, 128, 128), lash: PR(768, 896, 256, 64), grip: PR(768, 960, 256, 64) });
+    beardD: PR(512, 768, 128, 256), furC: PR(640, 768, 128, 256), ruff: PR(768, 768, 128, 128), warmer: PR(896, 768, 128, 128), lash: PR(768, 896, 256, 64), grip: PR(768, 960, 256, 64),
+    noseC: PR(514, 514, 124, 60), noseE: PR(514, 578, 124, 60), hairA: PR(516, 644, 120, 120), hairC: PR(644, 516, 120, 248) });
 
   /* ---------------------------------------------------------------------
      ТОЛПА СО СКЕЛЕТОМ: детали (сфера, капсула, конус...) копятся в общие буферы; у каждой — своя кость
@@ -708,10 +748,10 @@
     const PH = { hip: 1.0, waist: 1.24, neck: 1.8, shX: 0.29, shY: 1.685, elb: 1.35, wri: 1.035, fing: 0.075, kn: 0.53, legX: 0.105 };
     const PV = {
       A: { base: '#23201E', glove: 'bare', belt: '#6B3A22', buckle: null, hair: 'pony', bibW: 0.2, bibL: 0.46 },
-      B: { base: '#23201E', glove: 'dots', belt: '#3A2A22', buckle: 'iron', hair: 'plume', bibW: 0.27, bibL: 0.48 },
-      C: { base: '#B8B19B', snout: '#7E7764', glove: 'yellow', belt: '#3A2A22', buckle: 'brass', hair: 'shag', bibW: 0.28, bibL: 0.44 },
+      B: { base: '#23201E', glove: 'dots', belt: '#3A2A22', buckle: 'iron', hair: 'plume', bibW: 0.27, bibL: 0.43 },
+      C: { base: '#B8B19B', glove: 'yellow', belt: '#3A2A22', buckle: 'brass', hair: 'shag', bibW: 0.28, bibL: 0.4 },
       D: { base: '#2F251E', glove: 'cream', belt: '#3A2A22', buckle: null, hair: 'beard', bibW: 0.27, bibL: 0.52, whip: true, satin: true },
-      E: { base: '#B83A5E', glove: 'navy', belt: '#2A221F', buckle: 'brass', hair: 'tuft', bibW: 0.28, bibL: 0.46, whip: true, ruff: true },
+      E: { base: '#B83A5E', glove: 'navy', belt: '#2A221F', buckle: 'brass', hair: 'tuft', bibW: 0.28, bibL: 0.42, whip: true, ruff: true },
     };
     // профиль, у которого v текстуры — линейно по высоте (как на рисунке лица): точки снизу вверх [r, y]
     function latheV(pts, segs, phi0, phiL, y0, y1) {
@@ -736,29 +776,33 @@
       sleeve: keep(new T.CylinderGeometry(0.075, 0.128, 0.33, 10, 1, true)),
       // пушистый ворот E: спереди открыт (нагрудник идёт от подбородка без разрыва, концы ворота — за его краями), невысокий
       // мягкий валик у основания капюшона (сечение — замкнутый четырёхугольник): сверху и сзади не просвечивает (материал
-      // атласа — односторонний); зубцы снизу мелкие — глубокие показывали кольчугу
-      ruff: keep(new T.LatheGeometry([[0.235, -0.05], [0.15, 0.05], [0.13, 0.04], [0.215, -0.06], [0.235, -0.05]].map(p => new T.Vector2(p[0], p[1])), 22, PI * 48 / 180, PI * 264 / 180)),
+      // атласа — односторонний); низ ровный и плотный — сквозь зубцы просвечивал лоскут
+      ruff: keep(new T.LatheGeometry([[0.24, -0.06], [0.14, 0.05], [0.115, 0.03], [0.215, -0.07], [0.24, -0.06]].map(p => new T.Vector2(p[0], p[1])), 22, PI * 48 / 180, PI * 264 / 180)),
       // пальцы: кончик (−y) тоньше основания — на low не «корона» из плоских цилиндров
       finger: HI ? keep(new T.CapsuleGeometry(1, 1, 1, 4)) : keep(new T.CylinderGeometry(1, 0.6, 3, 5)),
       cone5: keep(new T.ConeGeometry(1, 1, 5, 1, true)), cyl6: keep(new T.CylinderGeometry(1, 1, 1, 6)), cylO8: keep(new T.CylinderGeometry(1, 1, 1, 8, 1, true)),
-      cyl8: keep(new T.CylinderGeometry(1, 1, 1, 8)), sph5: keep(new T.SphereGeometry(1, 5, 3)), sph6: keep(new T.SphereGeometry(1, 6, 4)), coil: keep(new T.TorusGeometry(1, 0.26, 4, 9)),
+      // прядь с волосками: у корня полная, кончик тупой и круглый (острый конус в копне читался иглой, «аниме»-шипами, заострённые
+      // лопасти — соломенной крышей); на low — на одно кольцо меньше
+      lock: keep(new T.LatheGeometry((HI ? [[0.9, -0.5], [1, -0.15], [0.8, 0.27], [0, 0.45]] : [[0.9, -0.5], [0.86, 0.2], [0, 0.44]]).map(p => new T.Vector2(p[0], p[1])), 5)),
+      // coil — виток свёрнутой плётки: тонкий и круглый (толстые квадратные витки читались стопкой блинов)
+      cyl8: keep(new T.CylinderGeometry(1, 1, 1, 8)), sph5: keep(new T.SphereGeometry(1, 5, 3)), sph6: keep(new T.SphereGeometry(1, 6, 4)), coil: keep(new T.TorusGeometry(1, 0.12, 5, 12)),
       // нос: войлочный, к кончику сужается и скругляется (+y — корень в маске, −y — кончик); плоский торец читался пятачком
-      snout: keep(new T.LatheGeometry([[0, -0.044], [0.013, -0.04], [0.019, -0.028], [0.023, -0.006], [0.029, 0.02], [0.034, 0.04]].map(p => new T.Vector2(p[0], p[1])), HI ? 7 : 6)),
-      tri: keep(new T.CylinderGeometry(1, 1, 1, 3)), ring: keep(new T.TorusGeometry(1, 0.28, 3, 8)),
-      // кольцо вдоль оси y (белые полосы вязки на носу E)
-      ringY: keep(new T.TorusGeometry(1, 0.22, 3, 8).rotateX(PI / 2)),
-      // борода D: плоский клин остриём вниз; верхний край загнут назад по щекам (не висит доской перед круглой маской)
-      wedge: keep(new T.ConeGeometry(1, 1, 10, 2)),
+      snout: keep(new T.LatheGeometry([[0, -0.04], [0.017, -0.037], [0.024, -0.026], [0.027, -0.007], [0.03, 0.018], [0.034, 0.04]].map(p => new T.Vector2(p[0], p[1])), HI ? 7 : 6)),
+      // тот же нос круглее (10 граней) — для C и E: кольца полос на 6–7 гранях спереди читались гайкой
+      snout10: keep(new T.LatheGeometry([[0, -0.044], [0.013, -0.04], [0.019, -0.028], [0.023, -0.006], [0.029, 0.02], [0.034, 0.04]].map(p => new T.Vector2(p[0], p[1])), 10)),
+      // нос C: низкий бугор-эллипсоид, наполовину в маске (цилиндр с круглым торцом в 3/4 читался пробкой, пятачком)
+      mound: keep(new T.SphereGeometry(1, 10, 6)), tri: keep(new T.CylinderGeometry(1, 1, 1, 3)), ring: keep(new T.TorusGeometry(1, 0.28, 3, 8)),
     };
     // рваный край: каждая вторая вершина нижнего кольца — ниже
     const ragged = (g, yBottom, dy, segs) => { const P = g.attributes.position; for (let i = 0; i < P.count; i++) if (Math.abs(P.getY(i) - yBottom) < 1e-4) { const k = Math.round((Math.atan2(P.getX(i), P.getZ(i)) + PI) / TAU * segs); if (k % 2) P.setY(i, yBottom - dy); } P.needsUpdate = true; g.computeVertexNormals(); };
     ragged(PG.mailLo, 0.84, 0.035, MSEG); ragged(PG.sleeve, -0.165, 0.035, 10);
     {
-      // ворот: лохматые оба края (сдвиг — по сегменту дуги, верх и низ сечения вместе), кончики ворса снизу темнее (цвет вершин)
+      // ворот: лохматый верхний край (сдвиг — по сегменту дуги), нижний — ровный мягкий валик (зубцы снизу читались зубами или
+      // бумажной короной), кончики ворса снизу темнее (цвет вершин)
       const P = PG.ruff.attributes.position, NP = 5, Cv = new Float32Array(P.count * 3);
       for (let i = 0; i < P.count; i++) {
         const sg = Math.floor(i / NP), j = i % NP, top = j === 1 || j === 2, k = top ? 1 : 0.7;
-        P.setY(i, P.getY(i) + (top ? ((sg * 5) % 3) * 0.008 : -((sg * 7) % 3) * 0.012));
+        if (top) P.setY(i, P.getY(i) + ((sg * 5) % 3) * 0.008);
         Cv[i * 3] = k; Cv[i * 3 + 1] = k * 0.92; Cv[i * 3 + 2] = k * 0.95;
       }
       PG.ruff.setAttribute('color', new T.BufferAttribute(Cv, 3)); P.needsUpdate = true; PG.ruff.computeVertexNormals();
@@ -769,7 +813,6 @@
       PG.ruffCap.setAttribute('uv', new T.Float32BufferAttribute(new Array(cp.length / 3 * 2).fill(0.5), 2));
       PG.ruffCap.setAttribute('color', new T.Float32BufferAttribute(new Array(cp.length).fill(0.75), 3)); PG.ruffCap.computeVertexNormals();
     }
-    { const P = PG.wedge.attributes.position; for (let i = 0; i < P.count; i++) if (P.getY(i) < 0) P.setZ(i, P.getZ(i) + 1.5 * P.getX(i) * P.getX(i) * (-2 * P.getY(i))); P.needsUpdate = true; PG.wedge.computeVertexNormals(); }
     // кольчуга одной текстурой: юбка и верх — v 0..0,75 клетки по высоте 0,84..1,80; рукав — та же частота колец
     const MAILR = PUV.mail, SLVR = [PUV.mail[0], PUV.mail[1], PUV.mail[2] * 0.49, PUV.mail[3] * 0.34], MAILT = '#BCC0C6';
     // поверхность груди (для нагрудника, косы): радиус кольчуги на высоте y; спереди назад сплюснута (× MZ)
@@ -809,6 +852,30 @@
       return g;
     }
     const FLAPG = flapGeo();
+    // борода (C, D) сеткой: мягкая выпуклая «подушка» с волнистым нижним краем (o.nl лопастей глубиной o.lobe, края — короче на
+    // o.pt), сверху уже (o.w0), книзу сужается (o.taper), края у щёк загнуты назад (o.curl), низ — вперёд по груди (o.tilt); перед и
+    // тонкая спинка — сбоку линза, насквозь не видно; v текстуры — сверху вниз (пряди шерсти идут по бороде вниз)
+    function beardGeo(o) {
+      const NR = HI ? 6 : 4, NC = HI ? 8 : 6, P = [], Uv = [], I = [];
+      for (let sd = 0; sd < 2; sd++) {
+        const b0 = P.length / 3;
+        for (let i = 0; i <= NR; i++) for (let j = 0; j <= NC; j++) {
+          const u = j / NC * 2 - 1, v = i / NR * (1 - o.lobe * (1 - Math.cos(o.nl * PI * u)) / 2) * (1 - o.pt * u * u);
+          const hw = o.w * lerp(o.w0, 1, sst(0, 0.35, v)) * lerp(1, o.taper, sst(0.35, 1, v));
+          const dome = Math.pow(Math.max(0, 1 - u * u), 0.6) * (0.3 + 0.7 * sst(0, 0.45, v)) * (1 - 0.3 * sst(0.6, 1, v));
+          const zc = o.z0 + o.tilt * v - o.curl * u * u * (1 - v) * (1 - v);
+          P.push(u * hw, -o.l * v, zc + (sd ? -0.3 : 1) * o.d * dome); Uv.push(0.5 + u * 0.5, 1 - v);
+        }
+        for (let i = 0; i < NR; i++) for (let j = 0; j < NC; j++) { const a = b0 + i * (NC + 1) + j, b = a + NC + 1; if (sd) I.push(a, a + 1, b, a + 1, b + 1, b); else I.push(a, b, a + 1, a + 1, b, b + 1); }
+      }
+      const g = keep(new T.BufferGeometry()); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(Uv, 2)); g.setIndex(I); g.computeVertexNormals();
+      return g;
+    }
+    const BEARDO = {
+      D: { w: 0.118, w0: 0.78, taper: 0.8, l: 0.21, nl: 3, lobe: 0.13, pt: 0.12, d: 0.042, tilt: 0.035, curl: 0.05, z0: -0.008 },
+      C: { w: 0.072, w0: 0.85, taper: 0.5, l: 0.18, nl: 3, lobe: 0.1, pt: 0.25, d: 0.034, tilt: 0.03, curl: 0.03, z0: -0.006 },
+    };
+    const BEARDG = {};
     const BIBG = {};
     const _up = new T.Vector3(0, 1, 0), _dv = new T.Vector3(), _eu = new T.Euler();
     // поворот, который ведёт ось +y к направлению d (для конусов, прядей, усов)
@@ -852,16 +919,20 @@
       partFns(a, B, off, rootM);
       const P = a.P, tex = (bone, geo, uv, p, s, r, col, ol) => { const part = P(bone, geo, col || '#FFFFFF', p, s, r, { uv }); part.uv = uv; if (ol) partsOl.push(part); return part; };
       const cap = capP, skin = '#E8B596';
-      // прядь-конус: корень (оси кости), направление, длина, толщина у корня
-      const strand = (bone, rt, d, L2, r, col) => { const l = Math.hypot(d[0], d[1], d[2]); P(bone, PG.cone5, col, [rt[0] + d[0] / l * L2 * 0.5, rt[1] + d[1] / l * L2 * 0.5, rt[2] + d[2] / l * L2 * 0.5], [r, L2, r], aimE(d[0], d[1], d[2]), 'plain'); return [rt[0] + d[0] / l * L2, rt[1] + d[1] / l * L2, rt[2] + d[2] / l * L2]; };
+      // прядь-конус: корень (оси кости), направление, длина, толщина у корня; uv — прядь с волосками из атласа (цвет — множитель)
+      const strand = (bone, rt, d, L2, r, col, uv) => { const l = Math.hypot(d[0], d[1], d[2]), c3 = [rt[0] + d[0] / l * L2 * 0.5, rt[1] + d[1] / l * L2 * 0.5, rt[2] + d[2] / l * L2 * 0.5]; if (uv) tex(bone, PG.lock, uv, c3, [r, L2, r], aimE(d[0], d[1], d[2]), col); else P(bone, PG.cone5, col, c3, [r, L2, r], aimE(d[0], d[1], d[2]), 'plain'); return [rt[0] + d[0] / l * L2, rt[1] + d[1] / l * L2, rt[2] + d[2] / l * L2]; };
       // точка на поверхности капюшона (оси головы): азимут an (0 — вперёд, + — к левому плечу), высота yl
       const onHood = (an, yl, out) => { const r = hoodR(yl) + (out || 0); return [Math.sin(an) * r, yl, Math.cos(an) * r * 1.09]; };
       // --- капюшон-маска, нос, нагрудник, лоскут сзади ---
       tex('head', PG.hoodF, U.face, [0, 0, 0], [1, 1, 1.09], null, null, true);
       tex('head', PG.hoodB, U.hood, [0, 0, 0], [1, 1, 1.09], null, null, true);
-      P('head', PG.snout, v.snout || v.base, [0, 0.221, 0.214], [1.12, 1, 1], aimE(0, 0.05, -0.075), 'plain');
-      // E: вязаный нос с белыми полосами до самого кончика (фото p4; малиновый кончик без полосы читался шариком клоуна)
-      if (key === 'E') [[-0.034, 0.017], [-0.012, 0.0255], [0.014, 0.031]].forEach(([yl, r]) => P('head', PG.ringY, PCOL.eWool, [0, 0.221 + yl * 0.555, 0.214 - yl * 0.832], [r * 1.12, r, r], aimE(0, 0.05, -0.075), 'plain'));
+      // нос: у C и E — короткий круглый войлочный бугорок, полосы маски идут по нему кольцами (атлас; длинный гладкий нос читался
+      // клювом, нос с белыми обручами — рожком-дуделкой); у A, B, D — тёмный войлок, короче и площе (длинный острый в 3/4 — клюв, у D
+      // с кольцами вокруг глаз — сова)
+      // C: тёмный войлочный бугор (фото p1: нос темнее полос), низ чуть вперёд
+      if (key === 'C') P('head', PG.mound, '#5E5646', [0, 0.205, 0.1855], [0.028, 0.042, 0.03], [-0.3, 0, 0], 'plain');
+      else if (key === 'E') tex('head', PG.snout10, PUV.noseE, [0, 0.221, 0.207], [1.1, 0.5, 1.1], aimE(0, 0.05, -0.075), '#FFFFFF');
+      else P('head', PG.snout, v.base, [0, 0.221, 0.209], [1.1, 0.78, 1], aimE(0, 0.05, -0.075), 'plain');
       if (!BIBG[key]) BIBG[key] = bibGeo(key);
       tex('chest', BIBG[key], U.bib, [0, -PH.waist, 0], [1, 1, 1]);
       // лоскут сзади (затылок переходит на спину): полосы капюшона
@@ -901,9 +972,11 @@
         P('shin' + s, HI ? PG.sph6 : PG.sph5, '#3A2E28', [0, -0.47, 0.055], [0.085, 0.06, 0.15], null, 'plain');
       });
       // пояс с пряжкой (A — тёплая коричневая кожа; B — тёмная железная бляха с тиснёным треугольником; C, E — латунная пряжка)
-      P('body', G.cylO, v.belt, [0, 0.28, 0], [0.252, 0.065, 0.252 * MZ], null, 'plain');
-      if (v.buckle === 'brass') { P('body', G.box, '#C9A23F', [0, 0.28, 0.252 * MZ + 0.006], [0.085, 0.075, 0.015], null, 'plain'); P('body', G.box, '#7A5A20', [0, 0.28, 0.252 * MZ + 0.014], [0.05, 0.04, 0.006], null, 'plain'); }
-      if (v.buckle === 'iron') { P('body', G.box, '#3E3A42', [0, 0.28, 0.252 * MZ + 0.006], [0.078, 0.066, 0.012], null, 'plain'); P('body', PG.tri, '#6E6A74', [0, 0.282, 0.252 * MZ + 0.014], [0.03, 0.006, 0.03], [PI / 2, 0, 0], 'plain'); }
+      // радиус пояса — с запасом над кольчугой (у подола пояса не торчат её углы)
+      const BR = 0.258;
+      P('body', G.cylO, v.belt, [0, 0.28, 0], [BR, 0.065, BR * MZ], null, 'plain');
+      if (v.buckle === 'brass') { P('body', G.box, '#C9A23F', [0, 0.28, BR * MZ + 0.006], [0.085, 0.075, 0.015], null, 'plain'); P('body', G.box, '#7A5A20', [0, 0.28, BR * MZ + 0.014], [0.05, 0.04, 0.006], null, 'plain'); }
+      if (v.buckle === 'iron') { P('body', G.box, '#3E3A42', [0, 0.28, BR * MZ + 0.006], [0.078, 0.066, 0.012], null, 'plain'); P('body', PG.tri, '#6E6A74', [0, 0.282, BR * MZ + 0.014], [0.03, 0.006, 0.03], [PI / 2, 0, 0], 'plain'); }
       P('body', G.box, v.belt, [0.2, 0.22, 0.12], [0.03, 0.11, 0.008], [0, 0.6, 0], 'plain');
       // --- волосы, мех, бороды по видам (фото p1–p4) ---
       if (v.hair === 'pony') {
@@ -911,22 +984,28 @@
         // правому плечу (в кадре спереди — слева от маски); пряди свисают и сбоку от маски
         P('hair0', PG.cyl6, '#6A4A3A', [0, 0.01, 0], [0.024, 0.035, 0.024], null, 'plain');
         const R = rng(77), cols = ['#1A181C', '#3E3A44', '#28252B'];
-        for (let i = 0; i < 18; i++) {
-          const sx = -0.15 - R() * 0.65 + (i % 6 === 0 ? 0.55 : 0), sz = -0.5 - R() * 0.45;
-          const e = strand('hair0', [0, 0.02, 0], [sx * 0.45, -0.04 + R() * 0.1, sz], 0.05 + R() * 0.02, 0.021, cols[i % 3]);
-          strand('hair0', e, [sx, -1, sz * 0.35], 0.28 + R() * 0.17, 0.02, cols[(i + 1) % 3]);
+        // масса гривы: толстые пряди с волосками (атлас) от правого бока макушки вниз по капюшону к плечу — мягкая чёрная копна, а не
+        // веер игл (на кости хвоста — пружинят вместе)
+        const onH0 = (an, yl, o) => { const q = onHood(an, yl, o); return [q[0] - hb[0], q[1] - hb[1], q[2] - hb[2]]; };
+        for (let i = 0, nm = HI ? 9 : 6; i < nm; i++) { const an = -lerp(0.95, 2.7, (i + R() * 0.6) / nm); strand('hair0', onH0(an, 0.39 + R() * 0.04, -0.012), [Math.sin(an) * 0.25, -1, Math.cos(an) * 0.2], 0.3 + R() * 0.14, 0.046 + R() * 0.01, i % 2 ? '#FFFFFF' : '#CFCAD4', PUV.hairA); }
+        // отдельные пряди по краю копны: корень лежит назад, дальше — прямо вниз (вбок торчали крылом)
+        for (let i = 0, ne = HI ? 12 : 8; i < ne; i++) {
+          const sx = -0.05 - R() * 0.25 + (i % 6 === 0 ? 0.25 : 0), sz = -0.5 - R() * 0.45;
+          const e = strand('hair0', [0, 0.02, 0], [sx * 0.45, -0.04 + R() * 0.1, sz], 0.05 + R() * 0.02, 0.02, cols[i % 3]);
+          strand('hair0', e, [sx * 0.4, -1, sz * 0.2], 0.28 + R() * 0.17, 0.018, cols[(i + 1) % 3]);
         }
         for (let i = 0; i < 6; i++) strand('head', onHood(-1.2 - i * 0.08, 0.4, 0.005), [-0.25 - R() * 0.15, -1, -0.1 + R() * 0.15], 0.25 + R() * 0.1, 0.015, cols[i % 3]);
         // короткая кисточка над завязкой
         for (let k = 0; k < 3; k++) strand('hair0', [0, 0.03, 0], [(k - 1) * 0.3, 1, -0.2], 0.05, 0.012, '#1A181C');
       } else if (v.hair === 'plume') {
-        // B: мягкий белый султан конского волоса на макушке (пружинит): пряди вверх, кончики расходятся и свисают; светлая коса —
-        // гладким жгутом-основой с косичкой из перекрывающихся наклонённых звеньев поверх
+        // B: мягкий белый султан конского волоса на макушке (пружинит): пучок вверх, кончики мягко свисают назад (фото p2; веер
+        // кончиков во все стороны читался звёздочкой из шипов); светлая коса — гладким жгутом-основой с косичкой из перекрывающихся
+        // наклонённых звеньев поверх
         const RB = rng(91);
         for (let i = 0, npl = HI ? 22 : 14; i < npl; i++) {
           const an = i / npl * TAU + RB() * 0.3, rr = 0.011 + RB() * 0.003, c2 = i % 3 ? '#F4EFE6' : '#CFC6B8';
-          const e = strand('hair0', [Math.sin(an) * 0.012, 0, Math.cos(an) * 0.012], [Math.sin(an) * 0.3, 1, Math.cos(an) * 0.3 - 0.15], 0.06 + RB() * 0.02, rr, c2);
-          strand('hair0', e, [Math.sin(an) * 0.9, -0.35 - RB() * 0.4, Math.cos(an) * 0.9 - 0.3], 0.06 + RB() * 0.06, rr * 0.85, c2);
+          const e = strand('hair0', [Math.sin(an) * 0.012, 0, Math.cos(an) * 0.012], [Math.sin(an) * 0.16, 1, Math.cos(an) * 0.16 - 0.1], 0.09 + RB() * 0.04, rr, c2);
+          strand('hair0', e, [Math.sin(an) * 0.45, 0.15 - RB() * 0.55, Math.cos(an) * 0.35 - 0.6], 0.05 + RB() * 0.05, rr * 0.85, c2);
         }
         const pts = [], seg = [];
         for (let i = 1; i < BRAID.length; i++) seg.push(Math.hypot(BRAID[i][0] - BRAID[i - 1][0], BRAID[i][1] - BRAID[i - 1][1], BRAID[i][2] - BRAID[i - 1][2]));
@@ -944,46 +1023,55 @@
         P('hair1', PG.cyl6, '#5E3E26', [e[0] - o[0], e[1] - o[1] + 0.005, e[2] - o[2]], [0.017, 0.02, 0.017], null, 'plain');
         for (let i = 0; i < 3; i++) strand('hair1', [e[0] - o[0], e[1] - o[1], e[2] - o[2]], [(i - 1) * 0.25, -1, 0.05], 0.07, 0.013, '#D4AE82');
       } else if (v.hair === 'shag') {
-        // C (фото p1): лохматые светлые пряди-«солома» торчат в стороны и вверх, свисают по бокам и сзади (лоб с полосами
-        // открыт; гладкой «шапки» нет — читалась яичной скорлупой), вихры на макушке, мягкие меховые брови, борода — свалявшийся
-        // серо-бурый клин из-под красных губ (усов не видно)
-        const R = rng(33), cols = ['#C9C2AE', '#9C9682', '#DAD5C4', '#B5AE96'], NH = HI ? 26 : 16;
-        // над ушами — короткий корень вбок и мягкий свес вниз (солома, а не жёсткие «иглы»-ореол), сзади — свисают по капюшону
-        // (темнее: не белые «лезвия»)
-        for (let i = 0; i < NH; i++) {
-          const an = (i % 2 ? 1 : -1) * lerp(0.9, 3.14, ((i >> 1) + R() * 0.6) / Math.ceil(NH / 2)), side = Math.abs(an) < 1.9, yl = (side ? 0.34 : 0.37) + R() * 0.08;
-          if (side) { const e = strand('head', onHood(an, yl, 0.004), [Math.sin(an), 0.1 + R() * 0.15, Math.cos(an) * 0.5], 0.03 + R() * 0.02, 0.008, cols[i % 4]); strand('head', e, [Math.sin(an) * 0.3 + (R() - 0.5) * 0.25, -1, Math.cos(an) * 0.3], 0.06 + R() * 0.06, 0.006, cols[(i + 1) % 4]); }
-          else strand('head', onHood(an, yl, 0.006), [Math.sin(an) * 0.35, -1, Math.cos(an) * 0.4], 0.07 + R() * 0.07, 0.009 + R() * 0.004, cols[1 + (i % 2) * 2]);
+        // C (фото p1): копна светлой «соломы» — толстые мягкие пряди с волосками (атлас) лежат от макушки наружу и вниз, концы
+        // свисают за край капюшона по бокам и сзади (вбок и вверх торчавшие у углов макушки читались ушками-рожками); спереди
+        // макушку накрывает чёлка-соломка; поверх — тонкие волоски одним конусом (ломаные пряди с «коленом» читались ногами
+        // паука); мягкие брови; борода — тёмная шерстяная бородка прямо из-под губ
+        const R = rng(33), cols = ['#C9C2AE', '#9C9682', '#B5AE96', '#A8A08A'], tint = ['#E4DECD', '#D2CBB8', '#C2BBA6'];
+        for (let i = 0, nm = HI ? 12 : 8; i < nm; i++) {
+          const an = lerp(0.85, TAU - 0.85, (i + 0.2 + R() * 0.6) / nm);
+          strand('head', onHood(an, 0.4 + R() * 0.02, -0.006), [Math.sin(an) * 0.6, -0.8 - R() * 0.3, Math.cos(an) * 0.6], 0.16 + R() * 0.05, 0.034 + R() * 0.008, tint[i % 3], PUV.hairC);
         }
-        // вихры на макушке (пружинят): короткий подъём и мягкий свес наружу — копна соломы, а не ёжик из прямых «игл»
-        for (let i = 0, nc = HI ? 10 : 8; i < nc; i++) {
-          const an = i / nc * TAU + R() * 0.5, e = strand('hair0', [Math.sin(an) * 0.025, -0.005, Math.cos(an) * 0.025 - 0.01], [Math.sin(an) * 0.7, 0.6 + R() * 0.2, Math.cos(an) * 0.7 - 0.15], 0.035 + R() * 0.015, 0.009, cols[(i + 1) % 4]);
-          strand('hair0', e, [Math.sin(an) * 0.8 + (R() - 0.5) * 0.3, -0.7, Math.cos(an) * 0.8 - 0.1], 0.05 + R() * 0.04, 0.0065, cols[i % 4]);
+        // чёлка: короткие пряди с темени вперёд и вниз — макушка без лысины между прядями; крайние — ниже, к вискам (копна одна, а
+        // не «шапочка» и отдельные пряди-уши по бокам)
+        for (let i = 0, nf = HI ? 7 : 5; i < nf; i++) {
+          const u = (i + 0.5) / nf * 2 - 1, an = u * 1.05;
+          strand('head', onHood(an, 0.445 - 0.035 * u * u, -0.01), [Math.sin(an) * (0.5 + 0.3 * u * u), -0.45 - 0.3 * u * u, 0.9 - 0.3 * u * u], 0.11 + R() * 0.03, 0.036, tint[(i + 2) % 3], PUV.hairC);
+        }
+        for (let i = 0, ns = HI ? 8 : 6; i < ns; i++) {
+          const an = (i % 2 ? 1 : -1) * lerp(1.2, 2.9, ((i >> 1) + R() * 0.5) / Math.ceil(ns / 2));
+          strand('head', onHood(an, 0.33 + R() * 0.05, -0.006), [Math.sin(an) * 0.45, -1, Math.cos(an) * 0.3], 0.14 + R() * 0.05, 0.03 + R() * 0.006, tint[(i + 1) % 3], PUV.hairC);
+        }
+        // волоски-вихры (пружинят): на макушке — наружу почти лёжа (вверх торчали шипами), по краю копны — в стороны и вниз
+        for (let i = 0, nw = HI ? 16 : 9; i < nw; i++) {
+          const an = i / nw * TAU + R() * 0.4, up = i % 3 === 0;
+          strand('hair0', [Math.sin(an) * 0.03, -0.01, Math.cos(an) * 0.03 - 0.01], [Math.sin(an) * (up ? 0.75 : 0.95), up ? -0.12 : -0.35 + R() * 0.3, Math.cos(an) * (up ? 0.75 : 0.95) - 0.1], (up ? 0.06 : 0.13) + R() * 0.04, 0.0065, cols[i % 4]);
         }
         // брови: короткие пушистые пряди над глазами, вверх и чуть в стороны (длинные «в стороны» читались кошачьими усами)
         [-1, 1].forEach(sd => { for (let i = 0; i < 6; i++) strand('head', [sd * (0.05 + i * 0.011), 0.266 + (i % 2) * 0.008, 0.172 - i * 0.006], [sd * (0.55 + R() * 0.3), 0.55 + R() * 0.35, 0.55], 0.03 + R() * 0.02, 0.007, i % 2 ? '#9C9682' : '#B5AE96'); });
-        // борода: войлочный клин (мех атласа) от нижней губы вниз и клочья по краям и на кончике
-        tex('beard', PG.wedge, PUV.furC, [0, -0.14, 0.022], [0.075, 0.28, 0.03], [PI - 0.12, 0, 0], '#FFFFFF');
-        const bc = ['#6E6250', '#8A7A5C', '#5C502F', '#9C8C6A'];
-        for (let i = 0; i < 7; i++) {
-          const tip = i === 6, t = tip ? 0.97 : 0.15 + (i >> 1) * 0.3, sd = i % 2 ? 1 : -1;
-          strand('beard', [tip ? 0 : sd * (1 - t) * 0.065, -t * 0.28, 0.03], [tip ? 0 : sd * (0.1 + R() * 0.2), -1, 0.1 + R() * 0.2], tip ? 0.1 : 0.05 + R() * 0.06, 0.007 + R() * 0.004, bc[i % 4]);
-        }
+        // борода (фото p1): тёмная серо-оливковая шерстяная бородка из-под губ, уже лица, книзу сужается, низ волнистый (клин с
+        // плоскими прядями сверху читался бумажным абажуром, морковкой; комки — плюшевым мишкой)
+        if (!BEARDG.C) BEARDG.C = beardGeo(BEARDO.C);
+        tex('beard', BEARDG.C, PUV.furC, [0, 0.008, 0.008], [1, 1, 1]);
       } else if (v.hair === 'beard') {
-        // D (фото p3): широкая войлочная борода клином — от щёк под носом до середины груди, клочья по краям
-        tex('beard', PG.wedge, PUV.beardD, [0, -0.215, 0.032], [0.105, 0.47, 0.04], [PI - 0.09, 0, 0], '#FFFFFF');
-        const R = rng(44), dc = ['#7C6A58', '#A08C76', '#5E4E40'];
-        // клочья по краям клина (край у верха загнут назад к щекам — корень там же)
-        for (let i = 0; i < 10; i++) { const t = 0.1 + (i >> 1) * 0.19, sd = i % 2 ? 1 : -1, ze = 0.011 + 0.042 * t - 0.054 * (1 - t) * (1 - t) * Math.max(0, 1 - 2 * t); strand('beard', [sd * (1 - t) * 0.088, 0.02 - t * 0.46, ze + 0.01], [sd * 0.28, -1, 0.12], 0.06 + R() * 0.04, 0.009, dc[(i % 2) * 2]); }
-        for (let i = 0; i < 3; i++) strand('beard', [(i - 1) * 0.012, -0.44, 0.065], [(i - 1) * 0.3, -1, 0.15], 0.07, 0.012, dc[(i + 1) % 3]);
-        [-1, 1].forEach(sd => { for (let i = 0; i < 2; i++) strand('head', onHood(sd * (0.62 + i * 0.12), 0.115 - i * 0.02, -0.004), [sd * 0.25, -1, 0.35], 0.12 - i * 0.02, 0.02, dc[i]); });
+        // D (фото p3): широкая тёмная шерстяная борода из-под рта — шире низа лица, мягкой подушкой до первой «ёлочки» нагрудника,
+        // низ волнистый (клин с плоскими прядями сверху читался бумажным абажуром, клочья по краям — шипами, комки — картошкой)
+        // (светлые пряди на щеках у бороды в 3/4 читались бумажными клиньями — их нет, борода и так шире низа лица)
+        if (!BEARDG.D) BEARDG.D = beardGeo(BEARDO.D);
+        tex('beard', BEARDG.D, PUV.beardD, [0, 0.012, 0.012], [1, 1, 1]);
         // соломинка поперёк лица (фото p3): светлая, длиной с лицо
         strand('head', [-0.02, 0.19, 0.25], [-1, 0.15, 0.2], 0.22, 0.005, '#CDB98A');
       } else if (v.hair === 'tuft') {
-        // E: рыжеватая кисточка, пушистый малиновый ворот на плечах (шишек на висках нет — читались ушками)
-        for (let i = 0; i < 6; i++) P('hair0', PG.cone5, i % 2 ? '#C07A52' : '#9A5434', [(i - 2.5) * 0.008, 0.0, 0], [0.016, 0.13 + (i % 3) * 0.015, 0.016], aimE(0.25 + (i - 2.5) * 0.1, 0.8, -0.55), 'plain');
+        // E: тонкая рыже-бурая кисточка от завязки — пучок вверх, кончики загибаются назад и чуть расходятся (фото p4; веер прядей из
+        // одной точки читался гребнем-ирокезом), пушистый малиновый ворот на плечах (шишек на висках нет — читались ушками)
+        for (let i = 0; i < 8; i++) {
+          const sx = (i - 3.5) * 0.01, e = strand('hair0', [sx * 0.3, -0.01, 0], [0.1 + sx * 2, 1, -0.15], 0.09, 0.014, i % 2 ? '#9A5434' : '#7A3E2C');
+          strand('hair0', e, [0.25 + sx * 9, 0.35, -0.9], 0.09 + (i % 3) * 0.02, 0.011, i % 2 ? '#C07A52' : '#9A5434');
+        }
+        P('hair0', PG.cyl6, '#5A2A1E', [0, 0.004, 0], [0.016, 0.02, 0.016], null, 'plain');
       }
-      if (v.ruff) [PG.ruff, PG.ruffCap].forEach(g => tex('chest', g, PUV.ruff, [0, 0.545, -0.012], [1, 1, 0.8], null, '#FFFFFF'));
+      // (сзади ворот шире по глубине — лоскут под ним не торчит наружу полосатой лентой)
+      if (v.ruff) [PG.ruff, PG.ruffCap].forEach(g => tex('chest', g, PUV.ruff, [0, 0.545, -0.022], [1, 1, 0.92], null, '#FFFFFF'));
       // --- плётка (D, E): рукоять с латунными кольцами в кулаке, косичка из 4 звеньев, кисточка; на поясе — свёрнутая ---
       if (v.whip) {
         tex('whip0', PG.cyl6, PUV.grip, [0, 0, 0.06], [0.016, 0.28, 0.016], [PI / 2, 0, 0]);
@@ -992,9 +1080,10 @@
         for (let i = 1; i <= 5; i++) tex('whip' + i, PG.cyl6, PUV.lash, [0, -0.05, 0], [0.012 - i * 0.0014, 0.105, 0.012 - i * 0.0014]);
         const tc = key === 'E' ? '#2F4F7A' : '#8A5E3E';
         for (let i = 0; i < 3; i++) P('whip5', PG.cone5, tc, [(i - 1) * 0.006, -0.13, 0], [0.008, 0.07, 0.008], aimE((i - 1) * 0.3, -1, 0), 'plain');
-        // два витка кольцом к зрителю, под поясом и чуть снаружи бедра (ребром спереди или наполовину в кольчуге — крючок)
-        P('coil', PG.coil, '#7A5034', [-0.06, -0.05, 0.02], [0.075, 0.075, 0.09], [0, 0.8, 0], 'plain');
-        P('coil', PG.coil, '#6A4430', [-0.05, -0.075, 0.035], [0.066, 0.066, 0.08], [0, 0.8, 0], 'plain');
+        // три тонких круглых витка кожи один в другом (видны дырки витков), к зрителю и с наклоном, под поясом снаружи бедра (ребром
+        // спереди или наполовину в кольчуге — крючок; толстые веером — стопкой блинов); рукоять — над поясом, с латунной головкой
+        for (let i = 0; i < 3; i++) P('coil', PG.coil, ['#7A5034', '#5E3E2A', '#86603E'][i], [-0.06 + i * 0.006, -0.06 - i * 0.006, 0.02 + i * 0.01], [0.068 - i * 0.01, 0.09 - i * 0.012, 0.09], [0.35, 1.15, 0], 'plain');
+        P('coil', PG.sph5, '#C9A23F', [-0.026, 0.165, 0.02], [0.02, 0.02, 0.02], null, 'plain');
         P('coil', PG.cyl6, '#3A2A20', [-0.01, 0.06, 0.02], [0.015, 0.2, 0.015], [0, 0, 0.15], 'plain');
       }
       a.headR = [0.17, 0.25, 0.18];
@@ -1402,7 +1491,10 @@
       A.curl = curl || 0; A.spread = spread || 0; A.flex = flex || 0;
     }
     const mixV = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
-    function armMix(q, s, A1, A2, k) { arm(q, s, mixV(A1[0], A2[0], k), mixV(A1[1], A2[1], k), A1[2] && A2[2] ? mixV(A1[2], A2[2], k) : (k < 0.5 ? A1[2] : A2[2]), lerp(A1[3] || 0, A2[3] || 0, k), lerp(A1[4] || 0, A2[4] || 0, k)); }
+    const smix = (a, b, k) => { const o = b.slice(); slerpV(a, o, k); return o; };
+    // смесь двух положений руки: плечо и предплечье — по дуге (прямая между почти противоположными «вниз» и «вверх» шла через
+    // «ноль»: рука до середины стояла, потом за 2 кадра перелетала вверх)
+    function armMix(q, s, A1, A2, k) { arm(q, s, smix(A1[0], A2[0], k), smix(A1[1], A2[1], k), A1[2] && A2[2] ? mixV(A1[2], A2[2], k) : (k < 0.5 ? A1[2] : A2[2]), lerp(A1[3] || 0, A2[3] || 0, k), lerp(A1[4] || 0, A2[4] || 0, k)); }
     // готовые положения рук: [up, fo, palm, curl, spread]
     const AP = {
       hang: [[0.12, -1, 0.03], [0.1, -1, 0.15], [-1, 0, 0.3], 0.35, 0],
@@ -1420,6 +1512,8 @@
       face: [[0.3, 0.05, 0.92], [-0.58, 0.78, -0.12], [0, 0, -1], 0.3, 0],
     };
     const setArm = (q, s, k) => arm(q, s, k[0], k[1], k[2], k[3], k[4], k[5]);
+    // рука стороны s — от того, где она в позе сейчас, к положению A2 (доля k)
+    const armTo = (q, s, A2, k) => { const A = s > 0 ? q.L : q.R; armMix(q, s, [[A.up[0] * s, A.up[1], A.up[2]], [A.fo[0] * s, A.fo[1], A.fo[2]], A.palm ? [A.palm[0] * s, A.palm[1], A.palm[2]] : null, A.curl, A.spread], A2, k); };
     const leg = (q, s, sw, kn, ab) => { if (s > 0) { q.lx = sw; q.lk = kn; q.lz = ab || 0; } else { q.rx = sw; q.rk = kn; q.rz = ab || 0; } };
     function palReset(a) {
       const q = a.q || (a.q = { L: ARM0(), R: ARM0() });
@@ -1429,9 +1523,13 @@
       return q;
     }
     // ходьба «важным шагом»: фаза — по пройденному пути (ноги не скользят)
-    function gait(a, q, k, amp) {
+    function gaitLegs(a, q, k, amp) {
       const ph = a.gph || 0, sw = Math.sin(ph) * (amp || 0.36) * k, ks = Math.max(0, Math.sin(ph + 1.9)), kr = Math.max(0, Math.sin(ph + 1.9 + PI));
       leg(q, 1, -sw, (0.08 + 0.75 * ks) * k); leg(q, -1, sw, (0.08 + 0.75 * kr) * k);
+      return ph;
+    }
+    function gait(a, q, k, amp) {
+      const ph = gaitLegs(a, q, k, amp);
       q.y = Math.abs(Math.cos(ph)) * 0.035 * k; q.twist = Math.sin(ph) * 0.09 * k; q.lean = -0.05 * k; q.hx = -0.07;
       const as = Math.sin(ph) * 0.5 * k;
       arm(q, 1, [0.16, -1, as], [0.12, -1, as + 0.4], [-1, 0, 0.3], 0.75); arm(q, -1, [0.16, -1, -as], [0.12, -1, -as + 0.4], [-1, 0, 0.3], 0.75);
@@ -1440,8 +1538,9 @@
     function crouch(q, d) { const al = Math.acos(clamp(1 - d, -1, 1)); q.drop += d; q.lx -= al; q.rx -= al; q.lk += 2 * al; q.rk += 2 * al; q.lean += al * 0.35; }
     // сидит на земле (упал понарошку)
     // таз опускается не ниже, чем позволяют ноги (бедро 0,47 + голень 0,53): сапоги не уходят в землю ни на одном кадре
-    function sitPose(q, k) { q.lx = q.rx = -1.5 * k; q.lk = q.rk = 0.12 * k; q.lz = 0.12 * k; q.rz = 0.12 * k; q.drop += Math.min(0.82 * k, Math.max(0, 1 - 0.47 * Math.cos(q.lx) - 0.53 * Math.cos(q.lx + q.lk) - 0.01)); q.lean = -0.25 * k; setArm(q, 1, AP.back); setArm(q, -1, AP.back); }
-    function bowPose(q, k) { q.lean = 0.85 * k; q.hx = 0.3 * k; armMix(q, -1, AP.hang, AP.chest, k); armMix(q, 1, AP.hang, AP.out, k); }
+    function sitPose(q, k) { q.lx = q.rx = -1.5 * k; q.lk = q.rk = 0.12 * k; q.lz = 0.12 * k; q.rz = 0.12 * k; q.drop += Math.min(0.82 * k, Math.max(0, 1 - 0.47 * Math.cos(q.lx) - 0.53 * Math.cos(q.lx + q.lk) - 0.01)); q.lean = -0.25 * k; armMix(q, 1, AP.hang, AP.back, k); armMix(q, -1, AP.hang, AP.back, k); }
+    // (наклон и голова — от того, что было в позе: в начале и в конце поклона без скачка)
+    function bowPose(q, k) { q.lean = lerp(q.lean, 0.85, k); q.hx = lerp(q.hx, 0.3, k); armMix(q, -1, AP.hang, AP.chest, k); armMix(q, 1, AP.hang, AP.out, k); }
     function palApply(a, dt) {
       const B = a.B, q = a.q;
       B.root.position.y = q.y - q.drop;
@@ -1464,7 +1563,8 @@
       }
       if (B.hair0) B.hair0.rotation.set(sp.x * 0.8, 0, sp.z * 0.8);
       if (B.hair1) B.hair1.rotation.set(-Math.abs(sp.x2) * 0.08 - q.lean * 0.3, 0, sp.z2 * 0.12);
-      if (B.beard) B.beard.rotation.set(clamp(-q.lean * 0.6 + sp.x * 0.4, -0.5, 0.15), 0, sp.z * 0.4);
+      // борода висит: голова запрокинута — борода не торчит вперёд доской (поворот головы по x почти снят), опущена — ложится на грудь
+      if (B.beard) B.beard.rotation.set(clamp(-q.lean * 0.6 + sp.x * 0.4, -0.5, 0.15) - (q.hx < 0 ? 0.85 : 0.15) * q.hx, 0, sp.z * 0.4);
       // плётка: в руке (косичка висит вниз по миру и пружинит) или свёрнута на поясе
       if (B.whip0) {
         const inHand = q.whip === 'hand';
@@ -1483,17 +1583,37 @@
       }
     }
     // ---- кто где: герой, дети, гости (оси двора) ----
-    const HEROC = { x: 0, z: 0, ok: false, still: 0, lx: 0, lz: 0 };
+    const HEROC = { x: 0, z: 0, ok: false, still: 0, lx: 0, lz: 0, vx: 0, vz: 0 };
     function heroUpdate(dt) {
       const hl = heroLocal(); HEROC.ok = !!hl && Math.abs(hl.x) < HW + 0.5 && Math.abs(hl.z) < HD + 0.5;
       if (!hl) return;
       const mv = Math.hypot(hl.x - HEROC.lx, hl.z - HEROC.lz);
       HEROC.still = mv < 0.3 * Math.max(dt, 0.016) ? HEROC.still + dt : 0;
+      // скорость героини (сглаженная; скачок — телепорт, вход во двор — не скорость)
+      if (dt > 1e-3 && mv < 0.5) { const k = Math.min(1, dt * 8); HEROC.vx += ((hl.x - HEROC.lx) / dt - HEROC.vx) * k; HEROC.vz += ((hl.z - HEROC.lz) / dt - HEROC.vz) * k; } else if (mv >= 0.5) { HEROC.vx = 0; HEROC.vz = 0; }
       HEROC.lx = HEROC.x = hl.x; HEROC.lz = HEROC.z = hl.z;
+    }
+    // куда отступать от героини: от неё, а если она идёт или бежит прямо на него — ещё и вбок, с её пути (бегущую прямо от неё не
+    // обогнать — толкала его перед собой и догоняла); la — насколько раньше (м) начинать отступ при её скорости
+    function heroAway(a, ex, ez, e) {
+      let nx = ex / e, nz = ez / e, la = 0;
+      const hv = Math.hypot(HEROC.vx, HEROC.vz);
+      if (hv > 0.6) {
+        const ux = HEROC.vx / hv, uz = HEROC.vz / hv, ah = nx * ux + nz * uz;
+        if (ah > 0.2) {
+          let px = -uz, pz = ux; const pn = px * nx + pz * nz; if (pn < 0 || (Math.abs(pn) < 0.05 && a.idx % 2)) { px = -px; pz = -pz; }
+          const w = (ah - 0.2) * 1.8; nx += px * w; nz += pz * w; const l = Math.hypot(nx, nz); nx /= l; nz /= l;
+          la = Math.min(1.2, 0.35 * hv) * ah;
+        }
+      }
+      return [nx, nz, la];
     }
     const dist2 = (a, x, z) => Math.hypot(x - a.px, z - a.pz);
     const facing = (a, x, z) => Math.abs(angW(Math.atan2(x - a.px, z - a.pz) - a.pry));
-    const turnTo = (a, x, z, dt, k) => { a.pry += angW(Math.atan2(x - a.px, z - a.pz) - a.pry) * Math.min(1, dt * (k || 6)); };
+    // поворот к курсу goal: мягко (доля k·dt), но не быстрее YAWR рад/с — рослый ряженый не разворачивается на 40–60° за кадр
+    const YAWR = 5;
+    const steer = (a, goal, dt, k, lim) => { const r = (lim || YAWR) * dt; a.pry += clamp(angW(goal - a.pry) * Math.min(1, dt * k), -r, r); };
+    const turnTo = (a, x, z, dt, k) => steer(a, Math.atan2(x - a.px, z - a.pz), dt, k || 6);
     // флажки над двором: сколько места над головой (м) в точке — для прыжков
     function headroom(x, z) {
       let h = 9;
@@ -1550,6 +1670,10 @@
     // розыгрыш ждёт
     const heroTalking = () => npcs.some(n => n.faceHero > 3) || !!(st.busyFn && st.busyFn());
     const say = (a, key) => { if (heroTalking() || (a.npc && a.npc.faceHero > 3)) return; const l = pick(EV.palSay[key], named); if (l) emit('say', { who: a.id, text: l.text }); };
+    // руки крадущегося в догонялках: вперёд и вверх, пальцы растопырены
+    const CREEP = [[0.55, 0.4, 0.6], [0.1, 1, 0.35], [0, 0, 1], 0, 1];
+    // плётка: сколько секунд достают с пояса (и убирают обратно) и где кисть в этот миг — у свёрнутой плётки на правом бедре
+    const WD = 0.35, WDRAW = [[0.42, -0.85, 0.3], [0.08, -0.72, 0.68], [-1, 0, 0], 1, 0];
     // ---- выступления ----
     const ACTS = {
       // важный шаг по маршруту (мимо круга, столов и музыкантов) — один отрезок
@@ -1573,14 +1697,20 @@
           // дуэт — в 1,7 м по дуге от напарника (от того места, где он пляшет; ближе — отталкиваются и топчутся)
           return ringSpot(o ? Math.atan2(o.px - RC[0], o.pz - RC[1]) + 1.7 / (R0 + 1.2) : Math.atan2(a.px - RC[0], a.pz - RC[1]), R0 + 1.2, a);
         },
-        dur: () => (8 + Math.floor(RP() * 3) * 4) * BEAT, face: () => RC,
+        dur: () => (8 + Math.floor(RP() * 3) * 4) * BEAT, face: a => (a.spin || Math.floor(st.t / BEAT) % 8 === 6 ? null : RC),
+        end(a) { a.spin = false; a.spinB = undefined; },
         pose(a, q, t, beat) {
           const bi = Math.floor(beat), f = beat - bi, sdL = bi % 2 ? 1 : -1, hop = Math.sin(f * PI);
-          leg(q, sdL, -0.65 * hop, 1.2 * hop); leg(q, -sdL, 0.05, 0.1);
+          // на ударе обе ноги одинаково чуть согнуты — смена ноги без скачка ступней
+          leg(q, sdL, 0.05 - 0.7 * hop, 0.1 + 1.1 * hop); leg(q, -sdL, 0.05, 0.1);
           q.y = 0.06 * hop; q.lean = -0.08; q.hx = -0.15;
-          const sw = Math.floor(beat / 4) % 2 ? 1 : -1, blend = sst(0, 0.12 / BEAT, beat % 4);
+          const sw = Math.floor(beat / 4) % 2 ? 1 : -1, blend = sst(0, 0.34 / BEAT, beat % 4);
           armMix(q, sw, AP.over, AP.side, Math.floor(beat / 4) > 0 ? 1 - blend : 1); armMix(q, -sw, AP.side, AP.over, Math.floor(beat / 4) > 0 ? 1 - blend : 1);
-          if (bi % 8 === 6) a.pry += TAU / (2 * BEAT) * (a.dtLast || 0);
+          // каждые 8 ударов — полный оборот за два удара (лицом к кругу его не тянет, пока крутится: раньше поворот спорил с
+          // разворотом к кругу и выходило только «туда-обратно» на четверть оборота)
+          if (bi % 8 === 6 && a.spinB !== bi) { a.spinB = bi; a.spinA = 0; }
+          a.spin = a.spinB !== undefined && bi - a.spinB < 2 && a.spinA < TAU;
+          if (a.spin) { const dd = Math.min(TAU - a.spinA, TAU / (2 * BEAT) * (a.dtLast || 0)); a.pry += dd; a.spinA += dd; }
           q.twist = Math.sin(beat * PI) * 0.1;
         },
       },
@@ -1595,6 +1725,8 @@
             const k = sst(0.35, 0.5, t), wg = t > 0.55 ? Math.sin(t * 9 * TAU) * 0.06 : 0;
             armMix(q, 1, AP.chest, AP.boo, k); armMix(q, -1, AP.chest, AP.boo, k); q.L.fo[0] += wg; q.R.fo[0] -= wg;
             q.y = 0.05 * k * (1 - sst(0.9, 1.25, t)); q.hz = 0.22 * k; q.lean = -0.1 * k;
+            // присед и кивок из подготовки уходят плавно (обрывались за кадр — корпус подскакивал на 7 см)
+            crouch(q, 0.07 * (1 - k)); q.hx = 0.18 * (1 - k);
             if (t > 0.45 && !a.saidBoo) { a.saidBoo = true; say(a, 'boo'); }
           } else {
             const u = t - 1.25, hop = Math.abs(Math.sin(u / 0.3 * PI));
@@ -1602,6 +1734,8 @@
             arm(q, 1, [0.35, -0.75, 0.45], [-0.55, -0.2, 0.75], [-1, 0, 0], 0.6); arm(q, -1, [0.35, -0.75, 0.45], [-0.55, -0.2, 0.75], [-1, 0, 0], 0.6);
           }
         },
+        // смех после «Бу-у!» — своя поза (перетекает из растопыренных рук)
+        sub: (a, t) => (t < 1.25 ? 0 : 1),
         tick(a, dt, t) { if (t > 1.3 && t < 1.9 && a.tgt) { const d = dist2(a, a.tgt[0], a.tgt[1]); if (d < 1.35) { const dx = a.px - a.tgt[0], dz = a.pz - a.tgt[1]; a.px += dx / d * 0.25 * dt; a.pz += dz / d * 0.25 * dt; } } },
         end(a) { a.saidBoo = false; },
       },
@@ -1614,9 +1748,13 @@
       jump: {
         dur: () => 1.25, start(a) { a.jh = clamp(headroom(a.px, a.pz) - 2.47, 0, 0.3); },
         pose(a, q, t) {
-          if (t < 0.25) { crouch(q, 0.12 * sst(0, 0.2, t)); setArm(q, 1, AP.hang); setArm(q, -1, AP.hang); q.L.up[2] = q.R.up[2] = -0.4; }
-          else if (t < 0.75) { const u = (t - 0.25) / 0.5; q.y = (a.jh || 0) * 4 * u * (1 - u) + 0.02; leg(q, 1, -0.55, 1.0); leg(q, -1, -0.55, 1.0); setArm(q, 1, AP.up); setArm(q, -1, AP.up); }
-          else { const u = t - 0.75; q.sq = 1 - 0.08 * Math.max(0, 1 - u / 0.12); crouch(q, 0.08 * Math.max(0, 1 - u / 0.3)); armMix(q, 1, AP.up, AP.out, sst(0, 0.3, u)); armMix(q, -1, AP.up, AP.out, sst(0, 0.3, u)); if (!a.landed) { a.landed = true; emit('jingle', { who: a.id }); } }
+          if (t < 0.75) {
+            // присел, руки назад → толчок: ноги поджаты, руки вверх — всё за 0,1–0,15 с, без скачка позы за кадр
+            const cr = sst(0, 0.2, t) * (1 - sst(0.2, 0.32, t)), u = clamp((t - 0.25) / 0.5, 0, 1), tk = sst(0.25, 0.36, t) * (1 - sst(0.64, 0.75, t)), up = sst(0.06, 0.42, t);
+            crouch(q, 0.12 * cr); q.y = (a.jh || 0) * 4 * u * (1 - u) + 0.02 * sst(0.25, 0.3, t) * (1 - sst(0.7, 0.75, t));
+            q.lx -= 0.55 * tk; q.rx -= 0.55 * tk; q.lk += tk; q.rk += tk;
+            armMix(q, 1, AP.hang, AP.up, up); armMix(q, -1, AP.hang, AP.up, up); q.L.up[2] -= 0.4 * (1 - up); q.R.up[2] -= 0.4 * (1 - up);
+          } else { const u = t - 0.75; q.sq = 1 - 0.08 * sst(0, 0.04, u) * Math.max(0, 1 - u / 0.12); crouch(q, 0.08 * sst(0, 0.05, u) * Math.max(0, 1 - u / 0.3)); armMix(q, 1, AP.up, AP.out, sst(0, 0.3, u)); armMix(q, -1, AP.up, AP.out, sst(0, 0.3, u)); if (!a.landed) { a.landed = true; emit('jingle', { who: a.id }); } }
         },
         tick(a, dt, t) { if (t > 0.25 && t < 0.75) a.pry += TAU / 0.5 * dt; },
         end(a) { a.landed = false; },
@@ -1624,6 +1762,8 @@
       // стоит на страже: руки скрещены, поглядывает; в конце — прыжок-поворот с распахнутыми руками и смех
       guard: {
         dur: () => 4.5 + RP() * 2, face: () => RC,
+        // в конце — прыжок-поворот: голова, только что глядевшая по сторонам, поворачивается вперёд плавно
+        sub: (a, t) => (t < a.actDur - 1.3 ? 0 : 1),
         pose(a, q, t) {
           const T2 = a.actDur - 1.3;
           if (t < T2) { setArm(q, 1, AP.cross); setArm(q, -1, AP.cross); q.L.up[2] += 0.05; leg(q, 1, 0, 0, 0.1); leg(q, -1, 0, 0, 0.1); q.hy = Math.sin(t * 0.9) * 0.55; q.lean = -0.06; q.side = Math.sin(t * 1.6) * 0.06; q.y = Math.abs(Math.sin(t * 1.8)) * 0.015; }
@@ -1634,11 +1774,14 @@
       chase: {
         // встаёт по другую сторону от кружка догонялок: ребёнок убегает от ряженого к своему кружку, а не на него
         go(a) { const k = a.kid; if (!k) return null; const lx = k.px - k.loopC[0], lz = k.pz - k.loopC[1], d = Math.hypot(lx, lz) || 1; return freeSpot(k.px + lx / d * 1.6, k.pz + lz / d * 1.6); },
-        dur: () => 10.5, face: a => (a.kid ? [a.kid.px, a.kid.pz] : null),
+        dur: () => 10.7, face: a => (a.kid ? [a.kid.px, a.kid.pz] : null),
         start(a) { st.chaseT = st.t + 40; },
+        // этапы (на цыпочках, бег, «спотыкается» и садится) перетекают один в другой; садится — после перетекания, за 0,5 с (не
+        // падает на 0,8 м за треть секунды); сидит и встаёт — одна поза без смены этапа (без двойного разгона таза)
+        sub: (a, t) => (t < 1.5 ? 0 : t < 7.8 ? 1 : 2),
         tick(a, dt, t) {
           const k = a.kid; if (!k) return true;
-          if (t > 1.5 && t < 8 && !k.ks.mode) { k.ks.mode = 'flee'; k.ks.t = 0; k.ks.c = k.loopC; k.ks.ang = Math.atan2(k.px - k.loopC[0], k.pz - k.loopC[1]); emit('say', { who: k.id, text: pick(EV.palSay.squeal, named).text }); }
+          if (t > 1.5 && t < 8 && !k.ks.mode) { k.ks.mode = 'flee'; k.ks.t = 0; k.ks.c = k.loopC; k.ks.ang = Math.atan2(k.px - k.loopC[0], k.pz - k.loopC[1]); if (!heroTalking()) emit('say', { who: k.id, text: pick(EV.palSay.squeal, named).text }); }
           // ребёнок не убегает (его перехватили для фото или он уже набегался) — догонялки кончаются, а не стоят в беге на месте
           if (t > 1.5 && t < 7.8 && k.ks.mode !== 'flee') return true;
           if (t > 1.5 && t < 7.8 && k.ks.mode === 'flee') {
@@ -1647,18 +1790,23 @@
             walkTo(a, sp[0], sp[1], dt, 1.25);
             // срезая круг (или у края двора), всё равно не ближе 0,8 м к ребёнку
             const ex = a.px - k.px, ez = a.pz - k.pz, e = Math.hypot(ex, ez); if (e < 0.8 && e > 1e-3) { const mv = Math.min(0.8 - e, 1.5 * dt); a.px += ex / e * mv; a.pz += ez / e * mv; }
+            // и не ближе 1,15 м к героине: руки «крадётся» тянутся вперёд на 0,75 м — не касаются её
+            if (HEROC.ok) { const hx = a.px - HEROC.x, hz = a.pz - HEROC.z, h = Math.hypot(hx, hz); if (h < 1.15 && h > 1e-3) { const mv = Math.min(1.15 - h, 1.5 * dt); a.px += hx / h * mv; a.pz += hz / h * mv; a.gph = (a.gph || 0) + mv / 1.15 * TAU; } }
           }
           if (t >= 7.8 && k.ks.mode === 'flee') { k.ks.mode = 'cheer'; k.ks.t = 0; }
-          // сидит, а героиня подошла вплотную — встаёт и отходит (не сидит у неё под ногами)
-          if (t > 7.8 && HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 0.8) return true;
-          if (t > 8.0 && !a.sat) { a.sat = true; emit('jingle', { who: a.id }); sparks(a.px, 2.2, a.pz, 6, '#F2C94C', 0.5); }
+          // героиня рядом, когда пора «спотыкаться», — не садится (она прошла бы сквозь сидящего): сразу поклон стоя
+          const hd = HEROC.ok ? dist2(a, HEROC.x, HEROC.z) : 9;
+          if (t >= 7.8 && t < 7.9 && hd < 1.8) { a.at = 9.85; a.sat = true; return false; }
+          // сидит, а героиня идёт к нему — встаёт (подъём и поклон из номера, а не прыжком за кадр) и, поднимаясь, отходит от неё
+          if (t > 8.35 && t < 9.3 && hd < 1.4) a.at = 9.3;
+          if (t > 8.25 && !a.sat) { a.sat = true; emit('jingle', { who: a.id }); sparks(a.px, 2.2, a.pz, 6, '#F2C94C', 0.5); }
           return false;
         },
         pose(a, q, t) {
           if (t < 1.5) { const ph = t * PI; leg(q, 1, -0.7 * Math.max(0, Math.sin(ph)), 1.3 * Math.max(0, Math.sin(ph))); leg(q, -1, -0.7 * Math.max(0, -Math.sin(ph)), 1.3 * Math.max(0, -Math.sin(ph))); arm(q, 1, [0.5, 0.45, 0.65], [0.1, 1, 0.3], [0, 0, 1], 0, 0.5 + 0.5 * Math.sin(t * 20)); arm(q, -1, [0.5, 0.45, 0.65], [0.1, 1, 0.3], [0, 0, 1], 0, 0.5 + 0.5 * Math.cos(t * 20)); q.lean = 0.2; crouch(q, 0.06); }
-          else if (t < 7.8) { gait(a, q, 1, 0.5); arm(q, 1, [0.55, 0.4, 0.6], [0.1, 1, 0.35], [0, 0, 1], 0, 1); arm(q, -1, [0.55, 0.4, 0.6], [0.1, 1, 0.35], [0, 0, 1], 0, 1); q.lean = 0.12; }
-          else if (t < 9.3) sitPose(q, sst(7.8, 8.05, t));
-          else { const u = t - 9.3; sitPose(q, 1 - sst(0, 0.4, u)); if (u > 0.4) bowPose(q, Math.sin(clamp((u - 0.4) / 0.8, 0, 1) * PI)); }
+          else if (t < 7.8) { gait(a, q, 1, 0.5); setArm(q, 1, CREEP); setArm(q, -1, CREEP); q.lean = 0.12; }
+          else if (t < 9.3) { const k = sst(7.85, 8.35, t); sitPose(q, k); armMix(q, 1, CREEP, AP.back, k); armMix(q, -1, CREEP, AP.back, k); }
+          else { const u = t - 9.3; sitPose(q, 1 - sst(0, 0.55, u)); if (u > 0.55) bowPose(q, bell((u - 0.55) / 0.8)); }
         },
         end(a) { a.sat = false; if (a.kid && a.kid.ks.mode === 'flee') a.kid.ks.mode = null; a.kid = null; },
       },
@@ -1669,17 +1817,21 @@
           const w = whipPlace(a) || (() => { const sp = WHIPSPOTS.slice().sort((p, q) => dist2(a, p[0], p[1]) - dist2(a, q[0], q[1]))[0]; return { p: sp, wdir: Math.atan2(sp[0] - RC[0], sp[1] - RC[1]) }; })();
           a.wdir = w.wdir; return w.here ? null : w.p;
         },
-        dur: () => 3.0, start(a) { a.cool.whip = st.t + 15; const d = whipDir(a, a.wdir); if (d === null) { a.actDur = 1.3; a.noCrack = true; } else { a.wdir = d; a.noCrack = !whipClear(a); if (a.noCrack) a.actDur = 1.3; } },
+        dur: () => 3.0 + 2 * WD, start(a) { a.cool.whip = st.t + 15; const d = whipDir(a, a.wdir); if (d === null) { a.actDur = 1.3; a.noCrack = true; } else { a.wdir = d; a.noCrack = !whipClear(a); if (a.noCrack) a.actDur = 1.3; } },
         face: a => [a.px + Math.sin(a.wdir) * 3, a.pz + Math.cos(a.wdir) * 3],
-        tick(a, dt, t) { if (!a.noCrack && t < 2.3 && !whipClear(a)) { a.noCrack = true; a.at = 0; a.actDur = 1.3; } return false; },
-        pose(a, q, t) {
+        // кто-то подошёл посреди номера — без щелчка, поклон (перетекает из замаха)
+        sub: a => (a.noCrack ? 1 : 0),
+        tick(a, dt, t) { if (!a.noCrack && t < 2.3 + WD && !whipClear(a)) { a.noCrack = true; a.at = 0; a.actDur = 1.3; } return false; },
+        pose(a, q, t0) {
           // рука после щелчка опускается (между щелчками и перед поклоном — плётка висит из опущенной руки)
           const LOW = [[0.3, -0.2, 0.6], [0.1, -0.5, 0.8]];
           const crack = (u, T, A0) => {
             // u: 0..1 (фаза длиной T с) — замах за голову → бросок вперёд-вверх → волна по косичке → рука вниз
-            const wind = sst(0, 0.35, u) * (1 - sst(0.38, 0.5, u)), snap = sst(0.36, 0.5, u), lw = sst(0.62, 0.9, u);
-            arm(q, -1, mixV(mixV(mixV(A0[0], [0.35, 0.85, -0.45], wind), [0.25, 0.55, 0.8], snap), LOW[0], lw), mixV(mixV(mixV(A0[1], [0.1, 0.5, -0.85], wind), [0.05, 0.2, 1], snap), LOW[1], lw), [-1, 0, 0], 1);
-            q.twist = 0.3 * wind - 0.25 * snap; q.lean = -0.12 * wind + 0.12 * snap;
+            // (направления — по дуге: прямая между замахом и броском шла через «ноль» — кисть прыгала на метр за кадр)
+            const wind = sst(0, 0.35, u) * (1 - sst(0.36, 0.52, u)), snap = sst(0.34, 0.52, u), lw = sst(0.62, 0.9, u);
+            arm(q, -1, smix(smix(smix(A0[0], [0.35, 0.85, -0.45], wind), [0.25, 0.55, 0.8], snap), LOW[0], lw), smix(smix(smix(A0[1], [0.1, 0.5, -0.85], wind), [0.05, 0.2, 1], snap), LOW[1], lw), [-1, 0, 0], 1);
+            // к концу щелчка корпус возвращается прямо: следующий щелчок и поклон начинаются из той же позы (без рывка корпуса)
+            const ez = 1 - sst(0.75, 1, u); q.twist = (0.3 * wind - 0.25 * snap) * ez; q.lean = (-0.12 * wind + 0.12 * snap) * ez;
             // волна: каждое звено догоняет предыдущее через 0,035 с — петля бежит к кончику и там «щёлкает»; косичка всегда изогнута
             // (не палка), после щелчка провисает
             const L = [], LZ = [], ts = 0.5 * T;
@@ -1694,11 +1846,17 @@
             q.hang = Math.max(sst(ts + 0.12, ts + 0.45, u * T), 1 - sst(0, 0.22, u));
           };
           setArm(q, 1, AP.hip);
-          if (a.noCrack) { bowPose(q, Math.sin(clamp(t / 1.2, 0, 1) * PI)); q.whip = 'tuck'; return; }
-          if (t < 1.25) crack(t / 1.25, 1.25, [[0.3, -0.6, 0.4], [0.1, -0.7, 0.7]]);
+          if (a.noCrack) { bowPose(q, Math.sin(clamp(t0 / 1.2, 0, 1) * PI)); q.whip = 'tuck'; return; }
+          // достаёт плётку с пояса (рука к бедру — там свёрнутая плётка) и в конце убирает её обратно
+          const t = t0 - WD;
+          if (t < 0) { armMix(q, -1, AP.hang, WDRAW, sst(0, WD * 0.85, t0)); q.whip = 'tuck'; return; }
+          if (t > 3.0) { armMix(q, -1, AP.hang, WDRAW, bell((t - 3.0) / WD)); q.whip = t - 3.0 > WD * 0.5 ? 'tuck' : 'hand'; q.lash = null; return; }
+          if (t < 1.25) crack(t / 1.25, 1.25, WDRAW);
           else if (t < 2.4) crack((t - 1.25) / 1.15, 1.15, LOW);
           else {
-            const u = t - 2.4, k = Math.sin(clamp(u / 0.6, 0, 1) * PI); bowPose(q, k);
+            const u = t - 2.4, k = bell(u / 0.6); bowPose(q, k);
+            // свободная левая рука — из «руки в бок» в поклон и обратно в бок (прыгала с бедра вниз на 0,4 м за кадр)
+            armMix(q, 1, AP.hip, AP.out, k);
             // рука с плёткой — из опущенного положения в поклон (без рывка); косичка висит
             const R1 = q.R, cur = [[-R1.up[0], R1.up[1], R1.up[2]], [-R1.fo[0], R1.fo[1], R1.fo[2]], R1.palm ? [-R1.palm[0], R1.palm[1], R1.palm[2]] : null, R1.curl, R1.spread];
             armMix(q, -1, [LOW[0], LOW[1], [-1, 0, 0], 1, 0], cur, sst(0, 0.3, u)); q.lash = null;
@@ -1712,6 +1870,8 @@
       fight: {
         go(a) { const F = a.fight; if (!F) return null; return [F.M[0] + Math.sin(F.ang + a.fside * PI) * 0.75, F.M[1] + Math.cos(F.ang + a.fside * PI) * 0.75]; },
         dur: () => 8.8, face: a => (a.fight ? a.fight.M : null),
+        // этапы борьбы (стойка, «грудью», махи, падение, подъём, поклон) — позы перетекают одна в другую
+        sub: a => { const ft = a.fight ? a.fight.t || 0 : 0; return ft < 2.6 ? 0 : ft < 3.0 ? 1 : ft < 5.0 ? 2 : ft < 6.4 ? 3 : ft < 7.6 ? 4 : 5; },
         tick(a, dt, t) {
           const F = a.fight, o = F && (F.a0 === a ? F.a1 : F.a0); if (!F || !o || o.mode !== 'fight' || o.fight !== F) return true;
           // героиня подошла в самый круг борьбы — заканчивают
@@ -1720,32 +1880,36 @@
           const ft = F.t, ang = F.ang + (ft < 2 ? ft * 0.8 : 1.6), r = ft < 2 ? 0.7 : ft < 2.6 ? lerp(0.7, 0.24, sst(2, 2.6, ft)) : ft < 3.0 ? lerp(0.24, 0.42, sst(2.6, 3, ft)) : ft < 6.4 ? 0.42 : 0.42;
           // в круг борьбы входит шагом в обход (не прыжком через полдвора и не сквозь героиню); за 3 с не вошёл — борьбы нет
           const tx = F.M[0] + Math.sin(ang + a.fside * PI) * r, tz = F.M[1] + Math.cos(ang + a.fside * PI) * r;
+          let walked = false;
           if (a.fightIn) { a.px = tx; a.pz = tz; } else {
             // последние 0,3 м — прямо к точке (место в круге само движется), без рывка в конце
             const ex = tx - a.px, ez = tz - a.pz, e = Math.hypot(ex, ez), mv = 1.8 * dt;
             if (e <= mv) { a.px = tx; a.pz = tz; a.fightIn = true; }
             else if (e < 0.3) { a.px += ex / e * mv; a.pz += ez / e * mv; a.gph = (a.gph || 0) + mv / 1.15 * TAU; }
-            else { walkTo(a, tx, tz, dt, 1.5, [o]); if (t > 3) return true; }
+            else { walkTo(a, tx, tz, dt, 1.5, [o]); walked = true; if (t > 3) return true; }
           }
-          a.pry = Math.atan2(F.M[0] - a.px, F.M[1] - a.pz);
+          // лицом к середине круга — когда уже не идёт в обход (шаг сам поворачивает его по пути; оба поворота в один кадр — 12 рад/с)
+          if (!walked) steer(a, Math.atan2(F.M[0] - a.px, F.M[1] - a.pz), dt, 12, 7);
           if (ft > 2.6 && !F.bump) { F.bump = true; emit('jingle', { who: a.id }); sparks(F.M[0], 1.5, F.M[1], 8, '#E8DCCB', 0.6); }
-          if (ft > 5.0 && !F.fall && a === F.loser) { F.fall = true; sparks(a.px, 1.0, a.pz, 6, '#F2C94C', 0.5); emit('say', { who: F.winner.id, text: pick(EV.palSay.win, named).text }); }
+          if (ft > 5.0 && !F.fall && a === F.loser) { F.fall = true; sparks(a.px, 1.0, a.pz, 6, '#F2C94C', 0.5); if (!heroTalking()) emit('say', { who: F.winner.id, text: pick(EV.palSay.win, named).text }); }
           return false;
         },
         pose(a, q, t) {
           const F = a.fight; if (!F) return; const ft = F.t || 0, me = a === F.loser;
-          // напарник ещё идёт (время борьбы стоит) — пружинит в стойке по своему времени, а не застывает
-          const bt = ft > 0 ? ft : t;
+          // пружинит в стойке по общим часам (со сдвигом у второго): напарник ещё идёт — не застывает, пришёл — без скачка фазы
+          const bt = st.t + a.fside * 0.3;
           if (ft < 2.6) { setArm(q, 1, AP.guard); setArm(q, -1, AP.guard); q.y = Math.abs(Math.sin(bt * 5)) * 0.05; leg(q, 1, Math.sin(bt * 5) * 0.2, 0.3); leg(q, -1, -Math.sin(bt * 5) * 0.2, 0.3); q.lean = ft > 2 ? -0.15 : 0.08; }
           else if (ft < 3.0) { setArm(q, 1, AP.out); setArm(q, -1, AP.out); q.lean = -0.25 + 0.2 * sst(2.6, 3, ft); }
           else if (ft < 5.0) {
             const u = (ft - 3.0 + (a.fside ? 0.5 : 0)) % 1.0, s = Math.floor((ft - 3 + (a.fside ? 0.5 : 0)) / 1.0) % 2 ? 1 : -1;
             setArm(q, -s, AP.guard);
-            const w = sst(0, 0.5, u) * (1 - sst(0.5, 0.65, u)), hit = sst(0.5, 0.65, u) * (1 - sst(0.75, 1, u));
-            arm(q, s, mixV(mixV(AP.guard[0], [0.6, 0.3, -0.3], w), [0.6, 0.1, 0.8], hit), mixV(mixV(AP.guard[1], [0.2, 0.8, -0.5], w), [0.9, 0.1, 0.4], hit), null, 1);
+            // мах — за четверть секунды (за 0,15 с кулак пролетал полметра за кадр)
+            const w = sst(0, 0.45, u) * (1 - sst(0.45, 0.7, u)), hit = sst(0.45, 0.7, u) * (1 - sst(0.76, 1, u));
+            arm(q, s, smix(smix(AP.guard[0], [0.6, 0.3, -0.3], w), [0.6, 0.1, 0.8], hit), smix(smix(AP.guard[1], [0.2, 0.8, -0.5], w), [0.9, 0.1, 0.4], hit), null, 1);
             q.twist = s * (0.3 * w - 0.4 * hit); crouch(q, 0.05);
           } else if (ft < 6.4) {
-            if (me) sitPose(q, sst(5.0, 5.4, ft)); else { setArm(q, 1, AP.up); setArm(q, -1, AP.up); q.y = Math.abs(Math.sin(ft * 7)) * 0.08; }
+            // проигравший садится после перетекания из махов, за полсекунды (не падает на 0,8 м за треть секунды)
+            if (me) sitPose(q, sst(5.1, 5.6, ft)); else { setArm(q, 1, AP.up); setArm(q, -1, AP.up); q.y = Math.abs(Math.sin(ft * 7)) * 0.08; }
           } else if (ft < 7.6) {
             if (me) { sitPose(q, 1 - sst(6.9, 7.5, ft)); arm(q, 1, [0.1, 0.1, 1], [0.1, 0.2, 1], [0, 0, -1], 0.8); }
             else { arm(q, 1, [0.1, -0.45, 0.9], [0.1, -0.55, 0.8], [0, 0, 1], 0.8); q.lean = 0.35 * (1 - sst(7.0, 7.5, ft)); }
@@ -1784,9 +1948,9 @@
         go(a) { const k = a.kid; if (!k) return null; const d = dist2(a, k.px, k.pz) || 1; return outRing(freeSpotNear(k.px + (a.px - k.px) / d * 1.05, k.pz + (a.pz - k.pz) / d * 1.05)); },
         dur: () => 1.8, face: a => (a.kid ? [a.kid.px, a.kid.pz] : null),
         pose(a, q, t) {
-          const cover = sst(0, 0.4, t) * (1 - sst(1.0, 1.15, t)), open = sst(1.0, 1.15, t) * (1 - sst(1.5, 1.8, t));
-          armMix(q, 1, AP.hang, AP.face, cover); armMix(q, -1, AP.hang, AP.face, cover);
-          if (open > 0) { armMix(q, 1, AP.face, AP.boo, open); armMix(q, -1, AP.face, AP.boo, open); }
+          // ладони на глаза → «бу!» (руки в стороны) → руки вниз (а не обратно на лицо, откуда следующий номер их выдёргивал)
+          const cover = sst(0, 0.4, t) * (1 - sst(1.0, 1.15, t)), open = sst(1.0, 1.15, t), back = sst(1.5, 1.8, t);
+          [1, -1].forEach(s => { if (back > 0) armMix(q, s, AP.boo, AP.hang, back); else if (open > 0) armMix(q, s, AP.face, AP.boo, open); else armMix(q, s, AP.hang, AP.face, cover); });
           q.lean = 0.35 * sst(0.3, 0.9, t) * (1 - sst(1.2, 1.7, t)); q.hx = 0.25 * cover;
         },
         tick(a, dt, t) { if (t > 1.05 && a.kid && !a.kid.ks.mode) { a.kid.ks.mode = 'cheer'; a.kid.ks.t = 0; } return false; },
@@ -1916,54 +2080,86 @@
       ring.forEach(b => mov(b, b.B.root.position.x, b.B.root.position.z, 0.32));
       kids.forEach(k => mov(k, k.px, k.pz, 0.34));
       // кто щёлкает плёткой — большой круг: остальные ряженые обходят его на 2 м с лишним
-      pal.forEach(b => o.push([b.px, b.pz, b.mode === 'whip' && b.phase === 'do' && !b.noCrack ? 1.5 : 0.38, b]));
+      // кто пляшет, хлопает, звенит (руки в стороны до 1 м) — круг побольше: мимо идущие не задевают его руки
+      pal.forEach(b => o.push([b.px, b.pz, b.mode === 'whip' && b.phase === 'do' && !b.noCrack ? 1.5 : bigDo(b) ? 0.75 : 0.38, b]));
       if (HEROC.ok) o.push([HEROC.x, HEROC.z, 0.5, 'hero']);
     }
     // шаг ряженого к точке (оси двора) в обход соседей: мягко отталкивается и обходит сбоку; круг танцоров (если цель снаружи)
     // обходит по дуге снаружи; ign — кого не обходить (ребёнок для фото, героиня для розыгрыша). true — пришёл
     function walkTo(a, x, z, dt, spd, ign) {
-      let dx = x - a.px, dz = z - a.pz;
-      const d = Math.hypot(dx, dz);
-      if (d < 0.08) return true;
-      dx /= d; dz /= d;
-      const cx = a.px - RC[0], cz = a.pz - RC[1], cr = Math.hypot(cx, cz) || 1e-3, RB = R0 + 0.95;
-      if (Math.hypot(x - RC[0], z - RC[1]) > R0 + 0.5 && cr > R0 + 0.3 && cr < RB + 0.9) {
-        const tt = clamp(-(cx * dx + cz * dz), 0, d), cl = Math.hypot(cx + dx * tt, cz + dz * tt);
-        if (cl < RB) { let tx = -cz / cr, tz = cx / cr; if (tx * dx + tz * dz < 0) { tx = -tx; tz = -tz; } const out = clamp((RB - cr) / 0.4, -0.6, 1.2); dx = tx + cx / cr * out; dz = tz + cz / cr * out; const l = Math.hypot(dx, dz); dx /= l; dz /= l; }
-      }
-      let ax = 0, az = 0, slow = 1;
-      (st.obs || []).forEach(o => {
-        if (o[3] === a || (ign && (o[3] === ign || (Array.isArray(ign) && ign.includes(o[3]))))) return;
-        const vx = o[4] || 0, vz = o[5] || 0, moving = vx * vx + vz * vz > 0.04;
-        const ex = a.px - o[0] - vx * 0.45, ez = a.pz - o[1] - vz * 0.45, e = Math.hypot(ex, ez), R = o[2] + 0.6;
-        if (e > R || e < 1e-4) return;
-        const w = (R - e) / R, nx = ex / e, nz = ez / e;
-        ax += nx * w * 3; az += nz * w * 3;
-        // впереди — обходим сбоку: стоящего — в ту сторону, где ближе к цели; идущего — сзади (пропускаем его, притормозив)
-        if (nx * dx + nz * dz < 0) {
-          let tx = -nz, tz = nx;
-          if (moving ? tx * vx + tz * vz > 0 : tx * dx + tz * dz < 0) { tx = -tx; tz = -tz; }
-          ax += tx * w * 1.6; az += tz * w * 1.6;
-          if (moving) slow = Math.min(slow, 1 - 0.7 * w);
+      let dx = x - a.px, dz = z - a.pz, ax = 0, az = 0, mx = 0, mz = 0;
+      const d = Math.hypot(dx, dz), here = d < 0.08;
+      // уже на месте — не идёт, но отступы ниже действуют (героиня подошла вплотную к тому, кто ждёт)
+      if (!here) {
+        dx /= d; dz /= d;
+        const cx = a.px - RC[0], cz = a.pz - RC[1], cr = Math.hypot(cx, cz) || 1e-3, tr = Math.hypot(x - RC[0], z - RC[1]);
+        let arc = false;
+        if (tr > R0 + 0.5 && cr > R0 + 0.3 && cr < R0 + 1.85) {
+          // дуга обхода — на R0 + 0,95, а для цели у самого круга (место сбоку от героини, стоящей в кругу) — по радиусу цели:
+          // иначе ряженый кружит снаружи, до цели не доходит и топчется рядом
+          const RB = Math.min(R0 + 0.95, tr - 0.05), tt = clamp(-(cx * dx + cz * dz), 0, d), cl = Math.hypot(cx + dx * tt, cz + dz * tt);
+          // обход — только если путь и правда заходит в круг впереди; в короткую сторону по кругу, и сторона держится, пока он идёт
+          // (у цели почти напротив знак менялся каждый кадр — стоял, переступая на месте)
+          if (cl < RB && tt > 1e-3) {
+            arc = true;
+            const da = angW(Math.atan2(x - RC[0], z - RC[1]) - Math.atan2(cx, cz)), want = da > 0 ? -1 : 1;
+            if (!a.arcSd || (a.arcSd !== want && Math.abs(da) < PI - 0.3)) a.arcSd = want;
+            let tx = -cz / cr * a.arcSd, tz = cx / cr * a.arcSd;
+            const out = clamp((RB - cr) / 0.4, -0.6, 1.2); dx = tx + cx / cr * out; dz = tz + cz / cr * out; const l = Math.hypot(dx, dz); dx /= l; dz /= l;
+          } else if (cr < RB) {
+            // стоит в полосе у круга, а цель — наружу или вбок: к цели и заодно наружу (а не боком по дуге на месте)
+            const out = clamp((RB - cr) / 0.4, 0.5, 1.2); dx += cx / cr * out; dz += cz / cr * out; const l = Math.hypot(dx, dz); dx /= l; dz /= l;
+          }
         }
-      });
-      let mx = dx + ax, mz = dz + az;
-      const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
-      const v = Math.min(d, (spd || a.spd) * dt) * clamp(mx * dx + mz * dz + 0.4, 0.25, 1) * slow;
-      a.px = clamp(a.px + mx * v, -HW + 0.6, HW - 0.6); a.pz = clamp(a.pz + mz * v, -HD + 0.6, HD - 0.6); a.gph = (a.gph || 0) + v / 1.15 * TAU;
+        if (!arc) a.arcSd = 0;
+        let slow = 1;
+        (st.obs || []).forEach(o => {
+          if (o[3] === a || (ign && (o[3] === ign || (Array.isArray(ign) && ign.includes(o[3]))))) return;
+          const vx = o[4] || 0, vz = o[5] || 0, moving = vx * vx + vz * vz > 0.04;
+          const ex = a.px - o[0] - vx * 0.45, ez = a.pz - o[1] - vz * 0.45, e = Math.hypot(ex, ez), R = o[2] + 0.6;
+          if (e > R || e < 1e-4) return;
+          const w = (R - e) / R, nx = ex / e, nz = ez / e;
+          ax += nx * w * 3; az += nz * w * 3;
+          // впереди — обходим сбоку: стоящего — в ту сторону, где ближе к цели; идущего — сзади (пропускаем его, притормозив)
+          // встречный идущий ряженый — оба берут вправо (а не зеркалят друг друга, топчась лицом к лицу)
+          if (nx * dx + nz * dz < 0) {
+            let tx = -nz, tz = nx;
+            const pw = o[3] && o[3].role === 'paltar' && o[3].phase === 'go';
+            // стоящего — с той стороны, что выбрана в начале обхода (цель прямо за ним — знак менялся каждый кадр, топтался)
+            if (!pw && !moving) {
+              const av = a.avs || (a.avs = new Map()), k0 = o[3] || o, m0 = av.get(k0), td = tx * dx + tz * dz, pref = td < 0 ? -1 : 1;
+              const sd = m0 && st.t - m0[1] < 0.4 && (m0[0] === pref || Math.abs(td) < 0.3) ? m0[0] : pref; av.set(k0, [sd, st.t]);
+              if (sd < 0) { tx = -tx; tz = -tz; }
+            } else if (pw ? tz * dx - tx * dz < 0 : tx * vx + tz * vz > 0) { tx = -tx; tz = -tz; }
+            ax += tx * w * 1.6; az += tz * w * 1.6;
+            if (moving) slow = Math.min(slow, 1 - 0.7 * w);
+          }
+        });
+        mx = dx + ax; mz = dz + az;
+        const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
+        // разворачивается (курс далеко от того, куда смотрит) — притормаживает: не едет боком, пока поворачивается
+        const v = Math.min(d, (spd || a.spd) * dt) * clamp(mx * dx + mz * dz + 0.4, 0.25, 1) * slow * (0.45 + 0.55 * Math.max(0, Math.cos(angW(Math.atan2(mx, mz) - a.pry))));
+        a.px = clamp(a.px + mx * v, -HW + 0.6, HW - 0.6); a.pz = clamp(a.pz + mz * v, -HD + 0.6, HD - 0.6); a.gph = (a.gph || 0) + v / 1.15 * TAU;
+      }
       // мимо героини — не ближе 0,85 м (руки на ходу не проходят сквозь неё); кто идёт к ней нарочно (ign), — не ближе 0,55 м;
-      // внутрь круга — мягко, не быстрее 2,4 м/с (без рывка, когда номер сменился прогулкой), но не глубже 0,15 м
-      if (HEROC.ok) { const ignH = ign === 'hero' || (Array.isArray(ign) && ign.includes('hero')), R1 = ignH ? 0.55 : st.talkNow ? 1.3 : 0.85, ex = a.px - HEROC.x, ez = a.pz - HEROC.z, e = Math.hypot(ex, ez); if (e < R1 && e > 1e-3) { const e2 = Math.max(e + Math.min(R1 - e, 2.4 * dt), R1 - 0.15); a.px = HEROC.x + ex / e * e2; a.pz = HEROC.z + ez / e * e2; } }
-      // танцоров и детей — не ближе 0,62 м, других ряженых — 0,55 м (мягко; обход выше иногда срезает вплотную); напарник
-      // по борьбе и тот, к кому идут нарочно (ign), — не в счёт
+      // внутрь круга — мягко, не быстрее 2,4 м/с (без рывка, когда номер сменился прогулкой), а глубже 0,15 м — быстрее, но не
+      // скачком (≤ 8 см за кадр); сдвиг идёт и в шаг ног: не скользит
+      // (сразу после розыгрыша он стоит у неё вплотную — отступ растёт от 0,6 м за 0,6 с, а не толчком по 8 см за кадр)
+      // (бежит прямо на него — сначала шаг в сторону с её пути, заранее)
+      if (HEROC.ok) { const ignH = ign === 'hero' || (Array.isArray(ign) && ign.includes('hero')), R1n = ignH ? 0.55 : st.talkNow ? 1.3 : 0.85, R1 = a.r1T > st.t ? Math.min(R1n, lerp(0.6, R1n, 1 - (a.r1T - st.t) / 0.6)) : R1n;
+        if (!ignH) { const ex = a.px - HEROC.x, ez = a.pz - HEROC.z, e = Math.hypot(ex, ez); if (e > 1e-3) { const [nx, nz, la] = heroAway(a, ex, ez, e); if (la > 0 && e < R1 + la) { const mv = Math.min(R1 + la - e, 2.4 * dt); a.px += nx * mv; a.pz += nz * mv; a.gph = (a.gph || 0) + mv / 1.15 * TAU; } } }
+        const ex = a.px - HEROC.x, ez = a.pz - HEROC.z, e = Math.hypot(ex, ez); if (e < R1 && e > 1e-3) { const e2 = Math.max(e + Math.min(R1 - e, 2.4 * dt), Math.min(R1 - 0.15, e + 0.08)); a.px = HEROC.x + ex / e * e2; a.pz = HEROC.z + ez / e * e2; a.gph += (e2 - e) / 1.15 * TAU; } }
+      // танцоров — не ближе 0,72 м (рука на ходу не задевает танцора в круге), детей — 0,65 м (мягко; и уж точно не ближе 0,62 м),
+      // других ряженых — 0,55 м, а того, кто пляшет, хлопает, кланяется (руки в стороны), — 0,8 м, мягко (обход выше иногда срезает
+      // вплотную); напарник по борьбе и тот, к кому идут нарочно (ign), — не в счёт
       (st.obs || []).forEach(o => {
-        const b = o[3], lim = b && b.role === 'paltar' ? (a.fight && b.fight === a.fight ? 0 : 0.55) : b && (b.role === 'dance' || b.role === 'kid') ? 0.62 : 0;
+        const b = o[3], lim = b && b.role === 'paltar' ? (a.fight && b.fight === a.fight ? 0 : bigDo(b) ? 0.8 : 0.55) : b && b.role === 'dance' ? 0.72 : b && b.role === 'kid' ? 0.65 : 0;
         if (!lim || b === a || (ign && (b === ign || (Array.isArray(ign) && ign.includes(b))))) return;
-        const ex = a.px - o[0], ez = a.pz - o[1], e = Math.hypot(ex, ez); if (e < lim && e > 1e-3) { const mv = Math.min(lim - e, 2.4 * dt); a.px += ex / e * mv; a.pz += ez / e * mv; }
+        const ex = a.px - o[0], ez = a.pz - o[1], e = Math.hypot(ex, ez); if (e < lim && e > 1e-3) { const mv = Math.max(Math.min(lim - e, 2.4 * dt), b.role !== 'paltar' && lim > 0.6 ? Math.min(0.62 - e, 0.08) : 0); a.px += ex / e * mv; a.pz += ez / e * mv; a.gph += mv / 1.15 * TAU; }
       });
-      a.pry += angW(Math.atan2(mx, mz) - a.pry) * Math.min(1, dt * 6);
+      if (!here) steer(a, Math.atan2(mx, mz), dt, 6);
       // цель занята кем-то (стоит прямо у точки) — считаем, что пришёл
-      return d < 0.4 && ax * ax + az * az > 0.3;
+      return here || (d < 0.4 && ax * ax + az * az > 0.3);
     }
     // точка внутри препятствия двора (столы, столбы навесов, казан, мангал, помост) с запасом r
     function inCollider(x, z, r) {
@@ -2010,6 +2206,11 @@
       _inv.copy(stage.matrixWorld).invert(); return _hv.clone().applyMatrix4(_inv);
     }
     function heroLocal() { if (!st.heroPos) return null; _inv.copy(stage.matrixWorld).invert(); return new T.Vector3(st.heroPos.x, st.heroPos.y || A.y, st.heroPos.z).applyMatrix4(_inv); }
+    // номера с размашистыми руками: героиня, подошедшая ближе 1,2 м, отодвигает ряженого (рука «орла» в сторону — до 0,85 м)
+    const BIGARMS = ['dance', 'clap', 'jingle', 'jump', 'guard', 'boo'];
+    // руки в стороны на 0,8–1 м (номера с размахом, поклон, приветствие): мимо идущие и соседи держатся дальше
+    const WIDE = BIGARMS.concat(['bow', 'wave']);
+    const bigDo = b => b.role === 'paltar' && b.phase === 'do' && WIDE.includes(b.mode) && !b.hold && !b.listen;
     function updatePaltars(t, dt) {
       heroUpdate(dt);
       // героиня в разговоре — остальные ряженые держатся от неё подальше (не толпятся у окна диалога)
@@ -2033,8 +2234,11 @@
         // заговорили — приветствие (n.hop на разговор) отменяется: иначе оно ждёт под позой «слушает» и звучит после окна
         if (a.listen && !wasL) { if (a.mode === 'wave') palStart(a, 'walk'); a.hiT = Math.max(a.hiT || 0, st.t + 8); }
         // после разговора — без «Бу-у!», «Привет» и розыгрыша от того же собеседника (реакции не громоздятся)
-        if (wasL && !a.listen) { a.cool.boo = Math.max(a.cool.boo || 0, st.t + 10); a.hiT = Math.max(a.hiT || 0, st.t + 8); a.talkT = st.t + 10; st.heroReactT = Math.max(st.heroReactT || 0, st.t + 6); }
-        if (isPrank) { a.vel = Math.hypot(a.px - x0, a.pz - z0) / Math.max(dt, 1e-3); return; }
+        // «Бу-у!» или фото с героиней, прерванные разговором, не доигрываются после него (без возгласа) — короткий поклон ей
+        if (wasL && !a.listen) { a.cool.boo = Math.max(a.cool.boo || 0, st.t + 10); a.hiT = Math.max(a.hiT || 0, st.t + 8); a.talkT = st.t + 10; st.heroReactT = Math.max(st.heroReactT || 0, st.t + 6); if (a.mode === 'boo' || (a.mode === 'selfie' && a.withHero)) palStart(a, 'bow', { tgt: HEROC.ok ? [HEROC.x, HEROC.z] : a.tgt }); }
+        // разыгрывает: двигает его розыгрыш (после обхода всех) — скорость по сдвигу с прошлого кадра (для шага ног)
+        if (isPrank) { a.vel = a.ppx === undefined ? 0 : Math.hypot(a.px - a.ppx, a.pz - a.ppz) / Math.max(dt, 1e-3); a.ppx = a.px; a.ppz = a.pz; a.velS = (a.velS || 0) + (a.vel - (a.velS || 0)) * Math.min(1, dt * 8); return; }
+        a.ppx = undefined;
         if (a.mode === 'approach' || a.mode === 'prank') palStart(a, 'walk');
         if (a.listen) { turnTo(a, HEROC.x, HEROC.z, dt, 4); a.vel = 0; return; }
         const Ac = ACTS[a.mode] || ACTS.walk;
@@ -2046,16 +2250,18 @@
           // застрял у самой цели (соседи отталкивают, а до точки — меньше метра) — начинает номер там, где стоит
           const gd = Math.hypot(a.goal ? a.goal[0] - a.px : 0, a.goal ? a.goal[1] - a.pz : 0);
           if (gd < (a.goBest === undefined ? 1e9 : a.goBest) - 0.05) { a.goBest = gd; a.goStall = 0; } else a.goStall = (a.goStall || 0) + dt;
-          const stuck = gd < (a.mode === 'walk' ? 1.2 : 1.0) && a.goStall > 0.8 && !(a.mode === 'selfie' && a.withHero && !a.wpDone);
+          // (но не вплотную к героине: в номере её отступ сразу толкнул бы его — стоит, упёршись в неё, — другой номер)
+          const heroNear = HEROC.ok && a.mode !== 'walk' && !(a.mode === 'selfie' && a.withHero) && dist2(a, HEROC.x, HEROC.z) < (st.talkNow ? 1.5 : BIGARMS.includes(a.mode) ? 1.2 : 0.75) + 0.2;
+          const stuck = gd < (a.mode === 'walk' ? 1.2 : 1.0) && a.goStall > 0.7 && !(a.mode === 'selfie' && a.withHero && !a.wpDone) && !heroNear;
           // начинать номер вплотную к другому ряженому нельзя (дошёл «впритык» — ещё ищет место, по тайм-ауту — другой номер)
-          const crowd = a.mode !== 'walk' && a.mode !== 'fight' && pal.some(b => b !== a && dist2(a, b.px, b.pz) < 0.85);
+          const crowd = a.mode !== 'walk' && a.mode !== 'fight' && pal.some(b => b !== a && dist2(a, b.px, b.pz) < (WIDE.includes(a.mode) || bigDo(b) ? 1.05 : 0.85));
           const arrived = !a.goal || (walkTo(a, gx, gz, dt, a.mode === 'walk' ? 0.9 : 1.1, ign) && gx === a.goal[0] && gz === a.goal[1] || stuck) && !crowd;
           if (arrived) {
             if (a.mode === 'walk') { if (Ac.done) Ac.done(a); palNext(a); }
             else { a.phase = 'do'; a.at = 0; if (Ac.start) Ac.start(a); }
-          } else if (a.goT > a.goLim || (a.goStall > 1.2 && (a.vel || 0) < 0.15 && gd >= 1.0)) {
-            // так и не дошёл (или стоит, упёршись, — путь загорожен) — этот номер пока не предлагаем, сразу другой (без поклона
-            // и лишней прогулки)
+          } else if (a.goT > a.goLim || (a.goStall > 1.0 && (a.netV || 0) < 0.15 && (gd >= 1.0 || crowd || heroNear))) {
+            // так и не дошёл (или стоит, упёршись, — путь загорожен, или у самой цели стоит другой ряженый) — этот номер пока не
+            // предлагаем, сразу другой (без поклона и лишней прогулки)
             if (a.mode === 'walk') { if (Ac.done) Ac.done(a); palNext(a); }
             else if (a.mode === 'fight') {
               // почти дошёл — начинает; путь загорожен (героиня, гости) — борьбы нет у обоих (не идёт напролом)
@@ -2066,29 +2272,43 @@
           }
         } else {
           a.at += dt;
-          const f = Ac.face ? Ac.face(a) : null; if (f && a.mode !== 'fight') turnTo(a, f[0], f[1], dt, 5);
-          const stop = Ac.tick ? Ac.tick(a, dt, a.at) : false;
+          // (в догонялках, пока бежит, поворачивает шаг — не ещё и «лицом к ребёнку» в тот же кадр)
+          const f = Ac.face ? Ac.face(a) : null; if (f && a.mode !== 'fight' && !(a.mode === 'chase' && a.at > 1.5 && a.at < 7.8)) turnTo(a, f[0], f[1], dt, 5);
+          const sx0 = a.px, sz0 = a.pz, stop = Ac.tick ? Ac.tick(a, dt, a.at) : false;
           // героиня идёт прямо на стоящего ряженого — он отступает (коллайдера у ряженых нет, иначе она проходит сквозь)
-          // в номерах с размашистыми руками (пляска, хлопки, звон, прыжок, страж) — отступает на 1,1 м
-          // (и в догонялках, пока крадётся на цыпочках)
-          const R1 = st.talkNow ? 1.5 : ['dance', 'clap', 'jingle', 'jump', 'guard'].includes(a.mode) ? 1.1 : 0.75;
-          const pushed = HEROC.ok && !['fight', 'selfie', 'peek'].includes(a.mode) && !(a.mode === 'chase' && a.at > 1.5);
-          if (pushed) { const ex = a.px - HEROC.x, ez = a.pz - HEROC.z, e = Math.hypot(ex, ez); if (e < R1 && e > 1e-3) { const mv = Math.min(R1 - e, 2.2 * dt); a.px += ex / e * mv; a.pz += ez / e * mv; a.pushV = mv / Math.max(dt, 1e-3); a.gph = (a.gph || 0) + mv / 1.15 * TAU; } }
-          // в круг танцоров не заступает (и отступая от героини): не ближе R0 + 0,95 к центру круга; героиня прижала к кругу —
-          // отступает вдоль него (в сторону от неё), а не стоит у неё вплотную
+          // в номерах с размашистыми руками (пляска, хлопки, звон, прыжок, страж, «Бу-у!» — растопыренные руки не достают до неё)
+          // — отступает на 1,2 м (и в догонялках, пока крадётся на цыпочках и когда уже поднимается на поклон; и в фото с ребёнком)
+          const R1 = st.talkNow ? 1.5 : BIGARMS.includes(a.mode) ? 1.2 : 0.75;
+          const pushed = HEROC.ok && !['fight', 'peek'].includes(a.mode) && !(a.mode === 'selfie' && a.withHero) && !(a.mode === 'chase' && a.at > 1.5 && a.at < 9.45);
+          if (pushed) { const ex = a.px - HEROC.x, ez = a.pz - HEROC.z, e = Math.hypot(ex, ez); if (e > 1e-3) { const [nx, nz, la] = heroAway(a, ex, ez, e); if (e < R1 + la) { const mv = Math.min(R1 + la - e, 2.2 * dt); a.px += nx * mv; a.pz += nz * mv; a.pushV = mv / Math.max(dt, 1e-3); a.gph = (a.gph || 0) + mv / 1.15 * TAU; } } }
+          // в круг танцоров не заступает (и отступая от героини): не ближе R0 + 0,95 к центру круга — выходит шагом, не быстрее
+          // 2,2 м/с (номер начался у самого круга — без скачка за кадр); героиня прижала к кругу — отступает вдоль него (в сторону
+          // от неё), а не стоит у неё вплотную
           if (a.mode !== 'fight') {
             const rx = a.px - RC[0], rz = a.pz - RC[1], rr = Math.hypot(rx, rz);
             if (rr < R0 + 0.95 && rr > 1e-3) {
-              a.px = RC[0] + rx / rr * (R0 + 0.95); a.pz = RC[1] + rz / rr * (R0 + 0.95);
+              const mo = Math.min(R0 + 0.95 - rr, 2.2 * dt); a.px += rx / rr * mo; a.pz += rz / rr * mo; a.pushV = Math.max(a.pushV || 0, mo / Math.max(dt, 1e-3)); a.gph = (a.gph || 0) + mo / 1.15 * TAU;
               const e = pushed ? Math.hypot(a.px - HEROC.x, a.pz - HEROC.z) : 9;
               if (e < R1 - 0.02) { let tx = -rz / rr, tz = rx / rr; if (tx * (a.px - HEROC.x) + tz * (a.pz - HEROC.z) < 0) { tx = -tx; tz = -tz; } const mv = Math.min(R1 - e, 2.2 * dt); a.px += tx * mv; a.pz += tz * mv; a.pushV = mv / Math.max(dt, 1e-3); a.gph = (a.gph || 0) + mv / 1.15 * TAU; }
             }
           }
+          // в номере на месте — не вплотную к другому ряженому и к ребёнку (номер начался рядом, из круга вытолкнуло к соседу,
+          // малыш бежит мимо): отходит шагом; свой ребёнок в фото, прятках и догонялках — не в счёт (там свои расстояния)
+          // (у кого руки в стороны — пляшет, хлопает, звенит — или рядом такой, — не ближе 1,05 м: руки не проходят сквозь соседа)
+          if (a.mode !== 'fight') pal.concat(kids).forEach(b => { if (b === a || b.hold || b === a.kid) return; const lim = b.role === 'kid' ? 0.62 : WIDE.includes(a.mode) || bigDo(b) ? 1.05 : 0.6, ex = a.px - b.px, ez = a.pz - b.pz, e = Math.hypot(ex, ez); if (e < lim && e > 1e-3) { const mv = Math.min(lim - e, 1.2 * dt); a.px += ex / e * mv; a.pz += ez / e * mv; a.pushV = Math.max(a.pushV || 0, mv / Math.max(dt, 1e-3)); a.gph = (a.gph || 0) + mv / 1.15 * TAU; } });
+          // весь сдвиг за кадр (ход в номере и отступы от героини, круга, соседей вместе) — не быстрее 2,2 м/с (как один отступ): без
+          // толчка, когда толкают сразу с нескольких сторон
+          { const mx = a.px - sx0, mz = a.pz - sz0, ml = Math.hypot(mx, mz), lim = 2.2 * dt; if (ml > lim) { a.px = sx0 + mx / ml * lim; a.pz = sz0 + mz / ml * lim; } }
           if (stop || a.at >= a.actDur) palNext(a);
         }
         // отступает от героини быстрее 0,4 м/с — ноги переступают (не скользит в позе номера); плавно, без рывка
         a.pushK = (a.pushK || 0) + (((a.pushV || 0) > 0.4 ? 1 : 0) - (a.pushK || 0)) * Math.min(1, dt * 10); a.pushV = 0;
         a.vel = Math.hypot(a.px - x0, a.pz - z0) / Math.max(dt, 1e-3);
+        // размах шага — по сглаженной скорости (толчок за кадр не раскачивает руки рывком)
+        a.velS = (a.velS || 0) + (a.vel - (a.velS || 0)) * Math.min(1, dt * 8);
+        // настоящий ход — по сглаженной точке (≈ 0,5 с): дрожит туда-сюда на месте — почти 0, хотя скорость за кадр большая
+        if (a.sx === undefined) { a.sx = a.px; a.sz = a.pz; }
+        a.sx += (a.px - a.sx) * Math.min(1, dt / 0.5); a.sz += (a.pz - a.sz) * Math.min(1, dt / 0.5); a.netV = Math.hypot(a.px - a.sx, a.pz - a.sz) / 0.5;
       });
       // розыгрыш
       const P = st.prank;
@@ -2103,12 +2323,18 @@
         if ((P.phase === 'take' || P.phase === 'show') && (talk || dh > 1.6)) { P.quiet = P.quiet || talk; setPhase('return'); P.fast = true; }
         const fx = hl.x + Math.sin(P.side) * 0.72, fz = hl.z + Math.cos(P.side) * 0.72;
         // начинает, только когда рука достаёт до берета: пришёл на место сбоку (или почти, а путь загорожен)
-        if (P.phase === 'approach') { a.mode = 'approach'; const at = walkTo(a, fx, fz, dt, 1.1, 'hero'); if (dh < (P.kind === 'beret' ? 1.0 : 1.3) && (at || P.t > 3.5 || Math.hypot(fx - a.px, fz - a.pz) < 0.25)) { setPhase(P.kind === 'beret' ? 'reach' : 'jingle'); a.mode = 'prank'; if (P.kind === 'jingle') prankEmit({ type: 'jingle', phase: 'jingle', who: a.id, text: pick(EV.prankJingle, named).text }); } }
-        else {
+        // (или стоит больше секунды, не приближаясь к месту, и рука почти достаёт — место сбоку загородили)
+        if (P.phase === 'approach') {
+          a.mode = 'approach'; const at = walkTo(a, fx, fz, dt, 1.1, 'hero'), fd = Math.hypot(fx - a.px, fz - a.pz);
+          if (fd < (P.fBest === undefined ? 1e9 : P.fBest) - 0.03) { P.fBest = fd; P.stall = 0; } else P.stall = (P.stall || 0) + dt;
+          if ((dh < (P.kind === 'beret' ? 1.0 : 1.3) && (at || P.t > 3.5 || fd < 0.25)) || (P.stall > 1.0 && dh < (P.kind === 'beret' ? 1.12 : 1.3))) { setPhase(P.kind === 'beret' ? 'reach' : 'jingle'); a.mode = 'prank'; if (P.kind === 'jingle') prankEmit({ type: 'jingle', phase: 'jingle', who: a.id, text: pick(EV.prankJingle, named).text }); }
+        } else {
           // с беретом в руке держится сбоку от героини (отходит она — догоняет, копия не летит через полдвора)
           if ((P.phase === 'reach' || P.phase === 'take' || P.phase === 'show') && Math.hypot(fx - a.px, fz - a.pz) > 0.15) walkTo(a, fx, fz, dt, 1.4, 'hero');
-          a.pry += angW(Math.atan2(hl.x - a.px, hl.z - a.pz) - a.pry) * Math.min(1, dt * 6);
+          steer(a, Math.atan2(hl.x - a.px, hl.z - a.pz), dt, 6);
         }
+        // героиня идёт прямо на него (показ, возврат берета, поклон) — отступает шагом, не ближе 0,6 м: сквозь него не проходит
+        if (P.phase !== 'approach') { const ex = a.px - hl.x, ez = a.pz - hl.z, e = Math.hypot(ex, ez); if (e < 0.6 && e > 1e-3) { const mv = Math.min(0.6 - e, 2.2 * dt); a.px += ex / e * mv; a.pz += ez / e * mv; a.gph = (a.gph || 0) + mv / 1.15 * TAU; } }
         P.head = hh;
         if (P.phase === 'reach' && P.t > 0.55) { setPhase('take'); if (st.hero && V.kaz && V.kaz.hideBeret) P.hid = V.kaz.hideBeret(st.hero, true); prankEmit({ type: 'beret', phase: 'take', who: a.id, text: pick(EV.prankBeret, named).text }); }
         if (P.phase === 'take' && P.t > 0.45) setPhase('show');
@@ -2132,7 +2358,12 @@
       else if (m === 'prank') prankPose(a, q, t);
       else {
         const Ac = ACTS[m];
-        if (a.phase === 'go' || !Ac || !Ac.pose) { if (a.vel > 0.05) gait(a, q, clamp(a.vel / 0.9, 0.3, 1.2)); else { q.hx = -0.05; } }
+        // в пути — шаг по скорости (затихает плавно); ждёт, пока освободится дорога, — не столбом: руки в боки, поглядывает и
+        // поворачивается по сторонам
+        if (a.phase === 'go' || !Ac || !Ac.pose) {
+          const vs = a.velS || 0; if (vs > 0.05) gait(a, q, clamp(vs / 0.9, 0.3, 1.2) * sst(0.05, 0.25, vs));
+          if (vs < 0.25) { const k = 1 - sst(0.05, 0.25, vs); q.hx = lerp(q.hx, -0.05, k); q.hy += Math.sin(t * 0.8 + a.idx * 2) * 0.35 * k; q.twist += Math.sin(t * 0.9 + a.idx * 2) * 0.18 * k; q.y += Math.abs(Math.sin(t * 1.7 + a.idx)) * 0.015 * k; armTo(q, 1, AP.hip, 0.85 * k); armTo(q, -1, AP.hip, 0.85 * k); }
+        }
         else {
           Ac.pose(a, q, a.at, beat);
           // отступает (героиня идёт на него) — ноги шагом поверх позы номера; ниже всех — та же ступня, что в позе (не в землю)
@@ -2142,42 +2373,121 @@
             q.drop -= Math.max(Lv(q.lx, q.lk), Lv(q.rx, q.rk)) - m0;
           }
         }
-        // плётка в руке — только на прогулке и на страже, и то если рядом нет детей и героини; щёлкают ею только в номере «whip»;
-        // во всех остальных номерах (хлопки, пляска, «бу», борьба, фото, прятки, поклон, приветствие) — за поясом
-        // и на прогулке — за поясом, если кто-то (гость, танцор, другой ряженый) ближе 1,8 м; в номере «whip» — только у места щелчка
-        const nearKid = kids.some(k => dist2(a, k.px, k.pz) < 3) || (HEROC.ok && dist2(a, HEROC.x, HEROC.z) < 3);
-        const nearAny = (st.obs || []).some(o => o[3] !== a && o[3] !== 'dais' && dist2(a, o[0], o[1]) < 1.8) || animals.some(b => b.role === 'sit' && b.B && dist2(a, b.B.root.position.x, b.B.root.position.z) < 1.8);
-        if (m === 'whip' ? a.phase === 'go' : (nearKid || nearAny || !['walk', 'guard'].includes(m) || (m === 'guard' && a.at > a.actDur - 1.4))) q.whip = 'tuck';
+        // плётка свёрнута на поясе всегда, кроме номера «whip» у места щелчка (там её достают, щёлкают и убирают обратно)
+        if (m !== 'whip' || a.phase === 'go') q.whip = 'tuck';
       }
       if (!a.pv.whip) q.whip = null;
+      palBlend(a, q, dt);
       palApply(a, dt);
+      if (m === 'prank') prankBeret(a, t);
+    }
+    // смена номера, фазы (и этапа номера — sub), «слушает», возни или шага розыгрыша — новая поза не сразу: 0,3 с перетекает из
+    // последней показанной (руки, ноги, наклоны; без рывка кисти на метр за кадр и без прыжка из сидячих). Стенд (застывшая
+    // поза) — без перетекания
+    const QK = ['y', 'drop', 'lean', 'twist', 'side', 'bx', 'by', 'bz', 'sq', 'hx', 'hy', 'hz', 'lx', 'rx', 'lk', 'rk', 'lz', 'rz'];
+    const QA = ['up', 'fo'], QS = ['curl', 'spread', 'flex'], BLT = 0.3;
+    // направление плеча/предплечья — по дуге (ровная угловая скорость; прямая между почти противоположными векторами давала
+    // рывок в середине); результат — в b
+    function slerpU(ax, ay, az, bx, by, bz, k, o) {
+      const d = clamp(ax * bx + ay * by + az * bz, -1, 1), th = Math.acos(d);
+      if (th < 0.02) { o[0] = lerp(ax, bx, k); o[1] = lerp(ay, by, k); o[2] = lerp(az, bz, k); return; }
+      const sn = Math.sin(th), wa = Math.sin((1 - k) * th) / sn, wb = Math.sin(k * th) / sn;
+      o[0] = ax * wa + bx * wb; o[1] = ay * wa + by * wb; o[2] = az * wa + bz * wb;
+    }
+    // почти противоположные (рука вниз → вверх, локоть сложен → выпрямлен) — дуга через середину, сдвинутую вперёд: иначе
+    // плоскость дуги зависит от малых боковых долей, и цель, чуть качнувшись (машет рукой), перебрасывает руку с бока на бок
+    function slerpV(a0, b, k) {
+      const la = Math.hypot(a0[0], a0[1], a0[2]) || 1, lb = Math.hypot(b[0], b[1], b[2]) || 1, ax = a0[0] / la, ay = a0[1] / la, az = a0[2] / la, bx = b[0] / lb, by = b[1] / lb, bz = b[2] / lb;
+      const c = 0.6 * sst(-0.55, -0.95, ax * bx + ay * by + az * bz);
+      if (c <= 0) { slerpU(ax, ay, az, bx, by, bz, k, b); return; }
+      let mx = ax + bx, my = ay + by, mz = az + bz + c;
+      const ml = Math.hypot(mx, my, mz); if (ml < 1e-4) { mx = 0; my = 0; mz = 1; } else { mx /= ml; my /= ml; mz /= ml; }
+      if (k < 0.5) slerpU(ax, ay, az, mx, my, mz, k * 2, b); else slerpU(mx, my, mz, bx, by, bz, k * 2 - 1, b);
+    }
+    const legV = (x, kn) => 0.47 * Math.cos(x) + 0.53 * Math.cos(x + kn);
+    function qCopy(d, q) {
+      QK.forEach(n => { d[n] = q[n]; });
+      ['L', 'R'].forEach(s2 => { const A2 = q[s2], D2 = d[s2] || (d[s2] = { up: [0, 0, 0], fo: [0, 0, 0], palm: null }); QA.forEach(n => { D2[n][0] = A2[n][0]; D2[n][1] = A2[n][1]; D2[n][2] = A2[n][2]; }); D2.palm = A2.palm ? A2.palm.slice() : null; QS.forEach(n => { D2[n] = A2[n] || 0; }); });
+      return d;
+    }
+    // скорость позы в миг смены (по двум последним кадрам) — перетекание стартует с ней и гасит её за ≈ 0,07 с: кисть, летевшая
+    // со скоростью 2–3 м/с, не замирает на кадр (из «застывшего» снимка рука останавливалась, потом трогалась заново); предел —
+    // VMAX рад/с, иначе скачок прошлого кадра унёс бы позу
+    const VT = 0.07, VMAX = 4, QV = ['lean', 'twist', 'side', 'bx', 'by', 'bz', 'hx', 'hy', 'hz'];
+    function palBlend(a, q, dt) {
+      const P = st.prank, Ac = ACTS[a.mode], key = a.hold ? 'hold' : a.listen ? 'listen' : a.mode + ':' + (a.mode === 'prank' && P ? P.phase : a.phase) + (Ac && Ac.sub && a.phase === 'do' ? ':' + Ac.sub(a, a.at) : '');
+      if (a.freeze) { a.qb = null; a.qp = null; }
+      else if (key !== a.bk && a.qs) {
+        a.qb = qCopy(a.qb || {}, a.qs); a.blT = 0; a.blOn = true;
+        const V0 = a.qv || (a.qv = { L: { up: [0, 0, 0], fo: [0, 0, 0] }, R: { up: [0, 0, 0], fo: [0, 0, 0] } }), ok = !!a.qp && a.qdt > 1e-3;
+        // (только корпус, голова и руки: таз и ноги — без разгона, ступни не отрываются от земли)
+        QK.forEach(n => { V0[n] = ok && QV.includes(n) ? clamp((a.qs[n] - a.qp[n]) / a.qdt, -VMAX, VMAX) : 0; });
+        // (размах рук: руки через полкруга — сверху вниз, из стороны к груди — перетекают дольше, до +0,25 с; встаёт с земли —
+        // номер прервали, пока сидел, — до +0,5 с: таз не взлетает на 0,2 м за кадр)
+        let mA = 0;
+        ['L', 'R'].forEach(s2 => QA.forEach(n => {
+          const c0 = a.qs[s2][n], c1 = q[s2][n], l0 = Math.hypot(c0[0], c0[1], c0[2]) || 1, l1 = Math.hypot(c1[0], c1[1], c1[2]) || 1;
+          mA = Math.max(mA, Math.acos(clamp((c0[0] * c1[0] + c0[1] * c1[1] + c0[2] * c1[2]) / (l0 * l1), -1, 1)));
+          for (let i = 0; i < 3; i++) V0[s2][n][i] = ok ? clamp((c0[i] - a.qp[s2][n][i]) / a.qdt, -VMAX, VMAX) : 0;
+        }));
+        a.blD = BLT + 0.25 * mA / PI + 0.5 * Math.min(1, Math.abs(a.qs.drop - q.drop) / 0.6);
+      }
+      a.bk = key;
+      if (a.blOn && !a.freeze) {
+        a.blT += dt; const k = sst(0, a.blD || BLT, a.blT), B0 = a.qb, V0 = a.qv, ex = VT * (1 - Math.exp(-a.blT / VT));
+        if (k >= 1) a.blOn = false;
+        else {
+          QK.forEach(n => { q[n] = lerp(B0[n] + V0[n] * ex, q[n], k); });
+          ['L', 'R'].forEach(s2 => {
+            const A2 = q[s2], C2 = B0[s2], W2 = V0[s2];
+            QA.forEach(n => { const c = C2[n], w = W2[n]; slerpV([c[0] + w[0] * ex, c[1] + w[1] * ex, c[2] + w[2] * ex], A2[n], k); });
+            if (A2.palm && C2.palm) for (let i = 0; i < 3; i++) A2.palm[i] = lerp(C2.palm[i], A2.palm[i], k); else if (k < 0.5) A2.palm = C2.palm ? C2.palm.slice() : null;
+            QS.forEach(n => { A2[n] = lerp(C2[n], A2[n] || 0, k); });
+          });
+          // смешанные углы ног длиннее прямой линии между позами — таз не ниже, чем позволяют ноги (сапоги не в землю)
+          q.drop = Math.min(q.drop, Math.max(0, q.y + 1 - Math.max(legV(q.lx, q.lk), legV(q.rx, q.rk))));
+        }
+      }
+      // два последних показанных кадра (для скорости позы в миг следующей смены)
+      const qo = a.qp; a.qp = a.qs || null; a.qs = qCopy(qo || {}, q); a.qdt = dt;
     }
     const _bw = new T.Vector3(), _bh = new T.Vector3();
     function prankPose(a, q, t) {
       const P = st.prank, ph = P ? P.phase : ''; q.whip = 'tuck';
       // левая рука тянется к берету героини (точка в осях груди)
       const reachTo = (k) => {
-        if (!P || !P.head || k <= 0) return;
+        // (от того, где рука в позе сейчас: при возврате берета — от поклона; k = 0 — рука поклона, без рывка в конце)
+        if (!P || !P.head) return;
         _bw.copy(P.head).applyMatrix4(stage.matrixWorld); a.B.chest.updateWorldMatrix(true, false); a.B.chest.worldToLocal(_bw);
         _bw.x -= PH.shX; _bw.y -= PH.shY - PH.waist; _bw.normalize();
-        armMix(q, 1, AP.hang, [[_bw.x + 0.15, _bw.y + 0.35, _bw.z], [_bw.x, _bw.y - 0.25, _bw.z], [0, -1, 0], 0, 0.6], k);
+        armTo(q, 1, [[_bw.x + 0.15, _bw.y + 0.35, _bw.z], [_bw.x, _bw.y - 0.25, _bw.z], [0, -1, 0], 0, 0.6], k);
         q.lean = 0.32 * k;
       };
-      if (ph === 'reach' || ph === 'take') { reachTo(sst(0, 0.5, P.t)); if (ph === 'take') { q.L.curl = 0.6 * sst(0, 0.3, P.t); } }
+      // (взял — рука остаётся у берета: время этапа начинается заново, и прежний reachTo(sst(0, 0.5, P.t)) опускал кисть к груди)
+      if (ph === 'reach') reachTo(sst(0, 0.5, P.t));
+      else if (ph === 'take') { reachTo(1); q.L.curl = 0.6 * sst(0, 0.3, P.t); }
       else if (ph === 'show') { arm(q, 1, [0.25, 1, 0.05], [0.1, 1, 0.05], [0, 0, 1], 0.7); arm(q, -1, [0.8, -0.3, 0.3], [0.6, 0.5, 0.4], [0, 0, 1], 0, 1); q.y = Math.abs(Math.sin(t * 8)) * 0.07; q.twist = Math.sin(t * 4) * 0.35; leg(q, 1, Math.sin(t * 8) * 0.25, 0.4 * Math.max(0, Math.sin(t * 8))); }
-      else if (ph === 'return') { reachTo(1 - sst(0.5, 1.0, P.t)); q.L.curl = 0.6; if (P.t > 0.5) bowPose(q, sst(0.5, 1.0, P.t)); }
+      else if (ph === 'return') { const kb = sst(0.5, 1.0, P.t); bowPose(q, kb * 0.6); reachTo(1 - kb); q.lean = Math.max(q.lean, 0.51 * kb); q.L.curl = 0.6; }
       else if (ph === 'bow') bowPose(q, Math.sin(clamp(P.t / 1.2, 0, 1) * PI));
       else if (ph === 'jingle') { setArm(q, 1, AP.out); setArm(q, -1, AP.out); q.side = Math.sin(t * 16) * 0.12; q.y = Math.abs(Math.sin(t * 8)) * 0.05; }
-      // берет-копия: с головы героини в левую руку ряженого и обратно
-      if (beretMesh && P) {
-        palApply(a, 0);
-        a.B.fingL.updateWorldMatrix(true, false); a.B.fingL.getWorldPosition(_bh); _bh.y += 0.02;
-        const head = P.head ? _bw.copy(P.head).applyMatrix4(stage.matrixWorld) : _bh;
-        let k = -1;
-        if (ph === 'take') k = sst(0, 0.45, P.t); else if (ph === 'show') k = 1; else if (ph === 'return') k = 1 - sst(0, 0.9, P.t);
-        beretMesh.visible = k >= 0 && !!P.hid;
-        if (beretMesh.visible) { beretMesh.position.lerpVectors(head, _bh, k); beretMesh.position.y += Math.sin(k * PI) * 0.25; beretMesh.rotation.set(0.25 * Math.sin(t * 6), A.ry + a.pry, 0.1); }
-      }
+      // идёт за героиней с беретом в руке — ногами, а не скользит в позе; шаг включается плавно по сглаженной скорости (порог по
+      // скорости за кадр переключал ноги рывком — ступни прыгали на 0,2–0,3 м)
+      const g = ph === 'jingle' ? 0 : sst(0.1, 0.45, a.velS || 0);
+      if (g > 0.01) { const l0 = [q.lx, q.lk, q.rx, q.rk]; gaitLegs(a, q, Math.min(1, (a.velS || 0) / 0.9)); q.lx = lerp(l0[0], q.lx, g); q.lk = lerp(l0[1], q.lk, g); q.rx = lerp(l0[2], q.rx, g); q.rk = lerp(l0[3], q.rk, g); }
+    }
+    // берет-копия: с головы героини в левую руку ряженого и обратно — по кисти, какой её видно в кадре (после перетекания поз;
+    // по позе до перетекания копия прыгала на метр в начале показа и возврата)
+    function prankBeret(a, t) {
+      const P = st.prank; if (!beretMesh || !P || P.a !== a) return;
+      const ph = P.phase;
+      a.B.fingL.updateWorldMatrix(true, false); a.B.fingL.getWorldPosition(_bh); _bh.y += 0.02;
+      const head = P.head ? _bw.copy(P.head).applyMatrix4(stage.matrixWorld) : _bh;
+      // взял — с головы в кисть (рука уже у берета); вернул — в кисти, пока рука не дойдёт до её головы, потом на голову (раньше
+      // берет летел дугой на 0,25 м над кистью, стоявшей у головы)
+      let k = -1;
+      if (ph === 'take') k = sst(0, 0.45, P.t); else if (ph === 'show') k = 1; else if (ph === 'return') k = 1 - sst(0.25, 0.55, P.t);
+      beretMesh.visible = k >= 0 && !!P.hid;
+      if (beretMesh.visible) { beretMesh.position.lerpVectors(head, _bh, k); beretMesh.position.y += Math.sin(k * PI) * 0.04; beretMesh.rotation.set(0.25 * Math.sin(t * 6) * k, A.ry + a.pry, 0.1 * k); }
     }
     function setPhase(ph) { const P = st.prank; P.phase = ph; P.t = 0; }
     function startPrank() {
@@ -2191,7 +2501,8 @@
       if (a.mode === 'fight' && a.fight) { const F = a.fight, o = F.a0 === a ? F.a1 : F.a0; a.fight = null; if (o.mode === 'fight') palStart(o, 'walk'); }
       if (ACTS[a.mode] && ACTS[a.mode].end) ACTS[a.mode].end(a);
       // сторона, с которой подойти к героине: ближняя к ряженому, но где никто не стоит (иначе он топчется вокруг занятого места)
-      const sideFree = an => { const x = hl.x + Math.sin(an) * 0.72, z = hl.z + Math.cos(an) * 0.72; return !(st.obs || []).some(o => o[3] !== a && o[3] !== 'hero' && Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.45) && !inCollider(x, z, 0.3); };
+      // и не на самой дорожке хоровода (героиня встала в круг — танцоры идут через это место и отталкивают ряженого)
+      const sideFree = an => { const x = hl.x + Math.sin(an) * 0.72, z = hl.z + Math.cos(an) * 0.72; return !(st.obs || []).some(o => o[3] !== a && o[3] !== 'hero' && Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.45) && !inCollider(x, z, 0.3) && (dance.active || Math.abs(Math.hypot(x - RC[0], z - RC[1]) - R0) > 0.6); };
       let side = Math.atan2(a.px - hl.x, a.pz - hl.z);
       for (const d of [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, PI]) if (sideFree(side + d)) { side += d; break; }
       st.prank = { a, kind, phase: 'approach', t: 0, T: 0, side, hid: false };
@@ -2204,7 +2515,7 @@
       const P = st.prank; if (!P) return;
       if (P.hid && V.kaz) V.kaz.hideBeret(st.hero, false);
       if (beretMesh) beretMesh.visible = false;
-      st.prank = null; st.heroReactT = st.t + 6; palStart(P.a, 'walk');
+      st.prank = null; st.heroReactT = st.t + 6; P.a.r1T = st.t + 0.6; palStart(P.a, 'walk');
       if (silent) { st.prankDone = false; st.prankRetryT = st.t + 8; } else st.prankDone = true;
       const q = !!(silent || P.quiet);
       // в конце — без облачка ряженого («Шучу-шучу, держи!» уже было, когда взял берет): отвечает героиня
