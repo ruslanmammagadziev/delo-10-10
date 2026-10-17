@@ -11,9 +11,11 @@
    VILLAGE.kaz.build(THREE, opts) -> kz
      opts.hero    — героиня из buildHeroRig (js/world/actors.js / js/city3d.js): { root, body, rig:{ mesh, anim } };
                     тогда каз ПОДГОНЯЕТСЯ к модели автора: по текстуре и весам кожи находятся волосы, лицо, берет
-                    и бант, капюшон обтягивает волосы (+1,2 см), лицо открыто, длинный конец — по спине почти до щиколоток.
+                    и бант. W6 (opts.snug, по умолчанию): волосы под тканью прячутся, купол ровный по голове, край близко
+                    обрамляет лицо, под подбородком края сходятся, полотно — на плечах и руках до локтей, концы на груди
+                    до пояса, длинный конец на спине до бёдер (как на фото; opts.snug === false — прежняя подгонка по волосам).
                     Сетка — SkinnedMesh на тех же костях героини (+3 своих кости «цепочки» под костью hair):
-                    капюшон идёт за головой, плечи — за волосами, низ качается (ход, повороты, ветер), сидя — подбирается.
+                    купол идёт за головой, полотно — за телом и руками, низ качается (ход, повороты, ветер), сидя — подбирается.
                     Статуэтка (без скелета) — та же форма, неподвижная. Без героини — простой каз (капюшон + полотнище).
      opts.quality — 'low' | 'high' (сетка 36×12+16 / 48×16+24 кольца), по умолчанию 'high'
      opts.outline — контур как у героини (по умолчанию true); opts.gradientMap — рампа toon (по умолчанию мягкая)
@@ -55,6 +57,16 @@
     tile: 0.30,            // плитка узора (4×4 мотива — шаг 7,5 см: «мелкий узор», в масштабе большеголовой героини)
     fringe: 0.055,         // бахрома (короткая — «девичья»)
     fold: 0.05,            // глубина складок у подола
+    // W6 (по фото): каз сидит по голове — ровный купол, волосы под ним спрятаны (как берет), край близко обрамляет
+    // лицо; полотно ложится на плечи и руки до локтей, концы — на грудь до пояса, длинный конец — по спине
+    skinOff: 0.012,        // купол над кожей (лоб, уши, затылок)
+    cap: [1.0, 1.0, 0.93, 1.16],   // «шапка»-эллипсоид купола, в радиусах головы: бок, верх, затылок, лоб
+    drop: 0.011,           // с головы на плечи ткань сужается не круче 11 мм на 2 см высоты (лёгкая ткань ложится)
+    bodyOff: 0.018,        // полотно над пальто и руками (+ DIM.mantleOff)
+    frontLow: 4 * D,       // под подбородком края сходятся (как на фото: открыт только овал лица, шея под тканью)
+    hemWaist: 0,           // концы на груди — до пояса (сустав spine + это)
+    hemElbow: -0.03,       // по бокам — до локтей (сустав forearm + это)
+    tailS: 58 * D, tailBlendS: 0.55,   // длинный конец на спине шире и плавнее (качается вся спина, без «клина» и зубца)
   };
 
   /* ---------------------------------------------------------------------
@@ -142,7 +154,8 @@
     const n = P.count, cls = new Uint8Array(n), hairish = new Uint8Array(n);
     let px = null, W = 0, H = 0;
     try {
-      const img = map && map.image;
+      // авторские цвета: образ героини (js/hero_look3d.js) перекрашивает текстуру — берет и пряди ищем по исходной
+      const img = map && (window.HeroLook3D && HeroLook3D.source ? HeroLook3D.source(map) : map.image);
       if (img && img.width && U) {
         W = img.width; H = img.height;
         const [cv, c] = cnv(W, H); c.drawImage(img, 0, 0); px = c.getImageData(0, 0, W, H).data;
@@ -151,6 +164,7 @@
     const headB = new Set(['head', 'hair', 'neck'].map(b => boneNames.indexOf(b)).filter(i => i >= 0));
     const flip = map && map.flipY;
     let nBeret = 0;
+    const dark = [];
     for (let i = 0; i < n; i++) {
       const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
       let hw = 0;
@@ -171,9 +185,21 @@
       const face = z > C[2] + 0.12 && Math.abs(x) < 0.17 && y > C[1] - 0.17 && y < C[1] + 0.15;
       if (px && (h > 325 || h < 3) && s > 0.55 && v > 0.28 && v < 0.84 && y > C[1] + 0.1) { cls[i] = K_BERET; nBeret++; }
       else if (px && (h > 300 || h < 14) && s > 0.18 && v > 0.42 && y > C[1] + 0.13 && x > 0.1 && !face) cls[i] = K_BOW;   // бант (и в тенях складок); ниже — уже висок, не трогаем   // бант: розовый, и в складках-тенях тоже
-      else if (face) cls[i] = K_SKIN;
+      else if (face) { cls[i] = K_SKIN; if (px && !(v > 0.62 && s < 0.5)) dark.push(i); }
       else if (px && h < 40 && s < 0.5 && v > 0.7) cls[i] = K_SKIN;
       else cls[i] = K_HAIR;
+    }
+    // W6: не «кожа» по цвету в «рамке лица» у висков — это пряди, а не лицо. Лицо — то, что внутри замкнутого контура
+    // светлой кожи (вид спереди, клетки 1 см; глаза и брови внутри — остаются лицом), остальное — волосы
+    if (px && dark.length) {
+      const X0 = C[0] - 0.3, Y0 = C[1] - 0.3, CS = 0.01, MW = 60, MH = 60;
+      let M = new Uint8Array(MW * MH);
+      const cell = i => { const mx = Math.floor((P.getX(i) - X0) / CS), my = Math.floor((P.getY(i) - Y0) / CS); return mx >= 0 && mx < MW && my >= 0 && my < MH ? my * MW + mx : -1; };
+      for (let i = 0; i < n; i++) if (cls[i] === K_SKIN && P.getZ(i) - C[2] >= 0.04) { const c = cell(i); if (c >= 0) M[c] = 1; }
+      dark.forEach(i => { const c = cell(i); if (c >= 0) M[c] = 0; });
+      const morph = grow => { const O = new Uint8Array(M.length); for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let v = grow ? 0 : 1; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy, m = xx >= 0 && xx < MW && yy >= 0 && yy < MH ? M[yy * MW + xx] : 0; if (grow) v |= m; else v &= m; } O[y * MW + x] = v; } M = O; };
+      morph(true); morph(true); morph(false); morph(false);
+      dark.forEach(i => { const c = cell(i); if (c < 0 || !M[c]) cls[i] = K_HAIR; });
     }
     return { cls, hairish, nBeret, sampled: !!px };
   }
@@ -184,7 +210,7 @@
      --------------------------------------------------------------------- */
   const fitCache = new WeakMap();
   function fitModel(T, geo, map, rigBones, opts) {
-    const key = (opts.quality || 'high') + ':w5:' + (opts.hem || DIM.hem || 'hips');
+    const key = (opts.quality || 'high') + ':w6:' + (opts.hem || DIM.hem || 'hips') + (opts.snug === false ? ':loose' : '');
     let fc = fitCache.get(geo);
     if (fc && fc[key]) return fc[key];
     const t0 = performance.now();
@@ -192,15 +218,18 @@
     // W5: низ конца на спине — у бёдер (по суставам модели), если не задан явно
     const hipY = J.thigh_L && J.thigh_R ? (J.thigh_L[1] + J.thigh_R[1]) / 2 : J.hips ? J.hips[1] - 0.06 : 0.9;
     const HEM = opts.hem || DIM.hem || Math.max(0.3, hipY - DIM.hemHips);
+    const waistY = (J.spine ? J.spine[1] : HEM + 0.13) + DIM.hemWaist, elbowY = (J.forearm_L ? J.forearm_L[1] : waistY) + DIM.hemElbow;
     const A = (window.HERO3D && window.HERO3D.anchors) || {};
-    const C = (A.head || [0, 1.5, -0.093]).slice();
+    const C = (A.head || [0, 1.5, -0.093]).slice(), HRAD = A.headR || 0.284;
     const { cls, hairish, nBeret, sampled } = classify(geo, map, names, C);
     const P = geo.attributes.position, n = P.count;
     const cover = nBeret < 300;   // берет не найден — каз ложится поверх всей головы (без прятанья)
+    // W6: каз по голове, а не по объёму волос — все волосы под тканью прячутся (ниже, по готовой форме каза)
+    const snug = !cover && opts.snug !== false;
     // W5: длинные волосы за спиной ниже затылка — под казом их не видно; прячем их (вырожденные треугольники, как берет),
     // чтобы полотно шло по шее и спине. Пряди спереди у лица и на груди остаются (вид спереди — как был)
     const backHair = new Uint8Array(n);
-    if (!cover && opts.backHair !== false) for (let i = 0; i < n; i++) if ((cls[i] === K_HAIR || hairish[i]) && P.getY(i) < C[1] - DIM.hideY && P.getZ(i) < C[2] - DIM.hideZ) backHair[i] = 1;
+    if (!cover && !snug && opts.backHair !== false) for (let i = 0; i < n; i++) if ((cls[i] === K_HAIR || hairish[i]) && P.getY(i) < C[1] - DIM.hideY && P.getZ(i) < C[2] - DIM.hideZ) backHair[i] = 1;
     const isHair = k => k === K_HAIR || (cover && (k === K_BERET || k === K_BOW));
 
     /* --- сферические корзины (капюшон) --- */
@@ -211,6 +240,10 @@
     const cH = new Float32Array(NBT * NBY), cB = new Float32Array(NBT * NBY), hairLow = new Float32Array(NBT).fill(9);
     let faceTh = 40 * D, lockTh = 90 * D, lockLow = 9, chinY = C[1] - 0.12;
     const fside = new Float32Array(NBY);   // боковой край лица (угол от оси) по высоте
+    // W6: лицо «анфас» (кожа спереди: dz > 14 см, |dx| < 17 см — без ушей и боков щёк) в сферических корзинах и его
+    // боковой угол по высоте: сбоку купол кончается у края лица, край полотна обходит щёку, а не ложится на висок и глаз
+    // (проекция «спереди» этого не видит: с поворота головы край каза закрывал уголок глаза)
+    const FS = new Uint8Array(NBT * NBP), fsF = new Float32Array(NBY);
     const phBer = new Float32Array(NBT);   // самый низкий край берета/банта в столбце — капюшон должен закрыть «дыру»
     for (let i = 0; i < n; i++) {
       if (backHair[i]) continue;   // спрятанные пряди не держат ткань
@@ -226,6 +259,10 @@
           if (isHair(k)) hR[b] = Math.max(hR[b], r); else if (k === K_SKIN) sR[b] = Math.max(sR[b], r);
         }
         if (k === K_SKIN && y > C[1] - 0.2 && y < C[1] + 0.12 && dz > 0) faceTh = Math.max(faceTh, Math.abs(Math.atan2(dx, dz)));
+        if (k === K_SKIN && dz > 0.14 && Math.abs(dx) < 0.17 && dy > -0.25) {
+          if (ph < PMAX) FS[it * NBP + Math.min(NBP - 1, (ph / PMAX * NBP) | 0)] = 1;
+          if (y < yTop && y >= 0) { const iy = Math.min(NBY - 1, ((yTop - y) / DY) | 0); fsF[iy] = Math.max(fsF[iy], Math.abs(Math.atan2(dx, dz))); }
+        }
         if (k === K_SKIN && dz > 0.08 && y < yTop) { const iy = Math.min(NBY - 1, ((yTop - y) / DY) | 0); fside[iy] = Math.max(fside[iy], Math.abs(Math.atan2(dx, dz))); if (Math.abs(dx) < 0.08 && dz > 0.12) chinY = Math.min(chinY, y); }
       }
       if (y < yTop && y >= 0) {
@@ -234,6 +271,12 @@
         else if (hairish[i]) { cH[b] = Math.max(cH[b], rh); if (dz > -0.05 && Math.abs(dx) > 0.08) lockLow = Math.min(lockLow, y); }
         else if (k !== K_BERET && k !== K_BOW) cB[b] = Math.max(cB[b], rh);
       }
+    }
+    // W6: лицо в столбце сплошное ото лба до подбородка (глаза у модели — «волосы» по цвету, но купол их не закрывает)
+    for (let it = 0; it < NBT; it++) {
+      let a = -1, b = -1;
+      for (let ip = 0; ip < NBP; ip++) if (FS[it * NBP + ip]) { if (a < 0) a = ip; b = ip; }
+      for (let ip = a; a >= 0 && ip <= b; ip++) FS[it * NBP + ip] = 1;
     }
     // заполнить пустые корзины (дыра от берета, полюс) средним соседей; затем «раздуть и сгладить» — ткань, а не пряди
     function fillSph(F) {
@@ -285,7 +328,19 @@
     const hR0 = hR.slice();
     fillSph(hR);
     let HR = blurSph(blurSph(blurSph(hR)));
-    for (let b = 0; b < HR.length; b++) HR[b] = Math.max(HR[b], hR0[b], sR[b]) + DIM.hoodOff;
+    if (snug) {
+      // W6: ровный купол: сглаженный объём волос, но не больше «шапки»-эллипсоида вокруг головы (пышные пряди над лбом
+      // и на макушке под тканью прячутся) и не меньше кожи (лоб, уши, затылок) + 1,2 см; ещё раз сгладить — без складок
+      const [kx, ky, kb, kf] = DIM.cap;
+      for (let it = 0; it < NBT; it++) for (let ip = 0; ip < NBP; ip++) {
+        const th = (it + 0.5) / NBT * TAU, ph = (ip + 0.5) / NBP * PMAX, sp = Math.sin(ph), dx = sp * Math.sin(th), dy = Math.cos(ph), dz = sp * Math.cos(th);
+        const az = HRAD * (dz > 0 ? kf : kb), cap = 1 / Math.sqrt((dx / (HRAD * kx)) ** 2 + (dy / (HRAD * ky)) ** 2 + (dz / az) ** 2);
+        const b = it * NBP + ip;
+        HR[b] = Math.max(Math.min(HR[b], cap), sR[b] + DIM.skinOff);
+      }
+      HR = blurSph(blurSph(HR));
+      for (let b = 0; b < HR.length; b++) HR[b] = Math.max(HR[b], sR[b] + DIM.skinOff) + DIM.hoodOff;
+    } else for (let b = 0; b < HR.length; b++) HR[b] = Math.max(HR[b], hR0[b], sR[b]) + DIM.hoodOff;
     const sampleSph = (F, th, ph) => {
       const ft = ((th / TAU) * NBT - 0.5 + NBT) % NBT, fp = clamp((ph / PMAX) * NBP - 0.5, 0, NBP - 1.001);
       const t0 = Math.floor(ft), p0 = Math.floor(fp), at = ft - t0, ap = fp - p0, t1 = (t0 + 1) % NBT, p1 = Math.min(NBP - 1, p0 + 1);
@@ -309,15 +364,17 @@
     const inFace = (x, y) => { const mx = Math.floor((x - MX0) / MC), my = Math.floor((y - MY0) / MC); return mx >= 0 && mx < MW && my >= 0 && my < MH && FM[my * MW + mx] === 1; };
     // боковые столбцы у щёк не обрываются: их точку отодвигаем наружу (до 11 см), пока она не выйдет из-за края лица —
     // ткань обрамляет лицо чуть свободнее, а пряди у щёк закрыты; лобные столбцы (|θ| < 38°) кончаются у линии волос
-    const PNECK = 112 * D, NPD = 113, phEnd = new Float32Array(NBT), push = new Float32Array(NBT * NPD);
+    const PNECK = 112 * D, NPD = 113, phEnd = new Float32Array(NBT), push = new Float32Array(NBT * NPD), faceStop = new Uint8Array(NBT);
     for (let it = 0; it < NBT; it++) {
-      const th = (it + 0.5) / NBT * TAU, st = Math.sin(th), ct = Math.cos(th), frontal = Math.abs(angW(th)) < 38 * D;
+      const th = (it + 0.5) / NBT * TAU, st = Math.sin(th), ct = Math.cos(th), frontal = Math.abs(angW(th)) < (snug ? 35 : 38) * D;
       // сзади капюшон кончается выше (у затылка) — дальше ровно падает полотно, без «талии» на шее
       const pEnd = lerp(PNECK, 94 * D, sst(85 * D, 140 * D, Math.abs(angW(th))));
       let pe = pEnd;
       for (let pd = 20; pd <= 112; pd++) {
         const ph = pd * D, r0 = sampleSph(HR, th, ph), sp = Math.sin(ph);
         if (ph > pEnd) break;
+        // W6 (тугой каз): сбоку — до первой корзины с лицом (без отодвигания наружу), спереди — по проекции, как было
+        if (snug && !frontal) { if (FS[it * NBP + Math.min(NBP - 1, (ph / PMAX * NBP) | 0)]) { pe = ph; faceStop[it] = 1; break; } continue; }
         let r = r0, hit = false;
         for (let k = 0; k <= 22; k++) {
           r = r0 + k * 0.005;
@@ -325,7 +382,7 @@
           hit = z > C[2] + 0.02 && inFace(x, y);
           if (!hit || frontal) break;
         }
-        if (hit) { pe = ph; break; }
+        if (hit) { pe = ph; faceStop[it] = 1; break; }
         push[it * NPD + pd] = r - r0;
       }
       // дыра от берета закрыта капюшоном (берет сидит выше лба — лицо не задевает)
@@ -348,15 +405,29 @@
       let s = 0, w = 0;
       for (let d = -4; d <= 4; d++) { const ww = Math.exp(-d * d / 6); s += phEnd[(it + d + NBT) % NBT] * ww; w += ww; }
       phE[it] = Math.max(Math.min(s / w, phEnd[it] + 0.03), phBer[it] > 0 ? Math.min(PNECK, phBer[it] + 0.05) : 0);
+      // W6 (тугой каз): сбоку, где лица нет, сглаживание не поднимает край — висок, ухо и пряди у щёк под тканью
+      if (snug && !faceStop[it]) phE[it] = Math.max(phE[it], phEnd[it] - 0.02);
     }
     // цилиндр: волосы «занавесом» — ниже выпуклости ткань падает отвесно; тело + 4 см; сгладить
     const CR = new Float32Array(NBT * NBY);
+    // W6 (тугой каз): полотно продолжает купол — ниже края капюшона ткань сходит с него (на затылке — по спине, а не к шее)
+    const seed = new Float32Array(snug ? NBT * NBY : 0);
+    if (snug) for (let it = 0; it < NBT; it++) {
+      const th = (it + 0.5) / NBT * TAU, pe = sample1(phE, th);
+      for (let ph = 0; ph <= pe; ph += 2 * D) {
+        const R = sampleSph(HR, th, ph) + pushAt(th, ph), y = C[1] + R * Math.cos(ph);
+        if (y >= yTop || y < 0) continue;
+        const b = it * NBY + Math.min(NBY - 1, ((yTop - y) / DY) | 0);
+        seed[b] = Math.max(seed[b], R * Math.sin(ph));
+      }
+    }
     for (let it = 0; it < NBT; it++) for (let iy = 0; iy < NBY; iy++) {
       // ниже выпуклости волос ткань падает почти отвесно (сужается на 7,5 см на метр); W5: ниже кончиков волос — ложится
       // на спину (сужается на 30 см на метр, до пальто + 3 см): конец каза «по спине», а не колоколом
       const yy = yTop - (iy + 0.5) * DY, below = hairLow[it] < 8 && yy < hairLow[it] - 0.02;
-      const up = iy > 0 ? CR[it * NBY + iy - 1] - (below ? 0.008 : 0.0015) : 0;
-      CR[it * NBY + iy] = Math.max(cH[it * NBY + iy], up, cB[it * NBY + iy] > 0 ? cB[it * NBY + iy] + (below ? 0.03 : 0.045) : 0);
+      // W6 (тугой каз): волосы спрятаны — ткань сходит с головы на плечи и руки (не круче DIM.drop) и лежит над пальто
+      const up = iy > 0 ? CR[it * NBY + iy - 1] - (snug ? DIM.drop * lerp(1, 0.6, sst(100 * D, 160 * D, Math.abs(angW((it + 0.5) / NBT * TAU)))) : below ? 0.008 : 0.0015) : 0;
+      CR[it * NBY + iy] = Math.max(snug ? seed[it * NBY + iy] : cH[it * NBY + iy], up, cB[it * NBY + iy] > 0 ? cB[it * NBY + iy] + (snug ? DIM.bodyOff : below ? 0.03 : 0.045) : 0);
     }
     const blurCyl = (F, dil) => {
       const G = new Float32Array(F.length);
@@ -387,7 +458,9 @@
     const rimY = th => C[1] + (sampleSph(HR, th, sample1(phE, th)) + pushAt(th, sample1(phE, th))) * Math.cos(sample1(phE, th));
     const NTq = opts.quality !== 'low' ? 48 : 36;
     let thA = 75 * D;
-    for (let j = Math.ceil(NTq * 35 / 360); j <= Math.floor(NTq * 75 / 360); j++) { const th = j / NTq * TAU; if (sample1(phE, th) >= 104 * D && sample1(phE, TAU - th) >= 104 * D) { thA = th; break; } }
+    // W6 (тугой каз): полотно — с первого столбца (от 25°), где купол доходит до шеи; край вдоль щёк к подбородку ведёт
+    // профиль EL/ER (ниже), без «ступеньки» на щеке
+    for (let j = Math.ceil(NTq * (snug ? 25 : 35) / 360); j <= Math.floor(NTq * 75 / 360); j++) { const th = j / NTq * TAU; const pq = (snug ? 100 : 104) * D; if (sample1(phE, th) >= pq && sample1(phE, TAU - th) >= pq) { thA = th; break; } }
 
     /* --- сетка --- */
     const HI = opts.quality !== 'low';
@@ -424,36 +497,71 @@
     // плечи и спина: столбцы от края капюшона вниз до подола (длинный конец — сзади). Передний край ниже
     // подбородка уходит вперёд: ткань ложится на плечи и закрывает пряди у груди (выше — край капюшона, лицо открыто)
     const jA = Math.ceil(thA / TAU * NT - 1e-6), jB = Math.floor((TAU - thA) / TAU * NT + 1e-6), nC = jB - jA;
-    const thTop = jA / NT * TAU, thLow = Math.min(thTop, opts.front || 30 * D);
+    const thTop = jA / NT * TAU, thLow = Math.min(thTop, opts.front || (snug ? DIM.frontLow : 30 * D));
     const yJaw = pos[hood[jA][NRH] * 3 + 1];
     // передний край: от края капюшона — вдоль лица (снаружи на 5°), под подбородком — вперёд на плечи
     // для каждой высоты — самый передний угол, при котором полотно ещё не заходит на лицо (та же маска лица)
-    const edgeAng = y => {
-      for (let th = thLow; th < thTop + 4 * D; th += D) {
-        const R = sampleCyl(th, y), x = C[0] + R * Math.sin(th), z = C[2] + R * Math.cos(th);
-        if (!(z > C[2] + 0.02 && inFace(x, y))) return th;
+    // W6 (тугой каз): край полотна начинается у виска и обходит щёку (до +40° за край капюшона), под подбородком сходится
+    const edgeMax = thTop + (snug ? 40 : 4) * D;
+    const edgeAng = (y, sg = 1) => {
+      for (let th = thLow; th < edgeMax; th += D) {
+        const R = sampleCyl(sg > 0 ? th : TAU - th, y), x = C[0] + sg * R * Math.sin(th), z = C[2] + R * Math.cos(th);
+        // W6: шея под тканью — ниже подбородка края сходятся
+        if (!(z > C[2] + 0.02 && (!snug || y > chinY - 0.005) && inFace(x, y))) return th;
       }
-      return thTop + 4 * D;
+      return edgeMax;
     };
-    const thAt = y => lerp(thTop, edgeAng(y), sst(yJaw, yJaw - 0.04, y));
+    // W6 (тугой каз): край не заходит и на «анфас» лица по бокам (щёки) — угол лица по высоте + 2°
+    const fsAt = y => { if (y < chinY - 0.005) return 0; const i = clamp(Math.round((yTop - y) / DY - 0.5), 1, NBY - 2); return Math.max(fsF[i - 1], fsF[i], fsF[i + 1]); };
+    // профиль края по высоте (шаг 1 см, слева и справа): гладкий, «горкой» — шире всего у скул, к подбородку уже;
+    // чуть выше низа подбородка край уходит под него и сходится (каз подвязан под подбородком, шея закрыта)
+    const EY0 = Math.max(0, HEM - 0.1), EYN = Math.ceil((yTop - EY0) / 0.01) + 1;
+    const mkE = sg => {
+      const E = new Float32Array(EYN);
+      if (!snug) return E;
+      let im = 0;
+      for (let i = 0; i < EYN; i++) {
+        const y = EY0 + i * 0.01;
+        E[i] = y < chinY + 0.015 ? thLow : clamp(Math.max(edgeAng(y, sg), fsAt(y) + 2 * D), thLow, edgeMax);
+        if (y >= chinY + 0.015 && y < yJaw && E[i] > E[im]) im = i;
+      }
+      for (let i = im - 1; i >= 0; i--) E[i] = Math.min(E[i], E[i + 1]);
+      for (let i = im + 1; i < EYN; i++) E[i] = Math.min(E[i], E[i - 1]);
+      const G = E.slice();
+      for (let i = 0; i < EYN; i++) { let a = 0, w = 0; for (let d = -2; d <= 2; d++) { const k = i + d; if (k >= 0 && k < EYN) { a += G[k]; w++; } } E[i] = Math.max(thLow, a / w); }
+      return E;
+    };
+    const EL = mkE(1), ER = mkE(-1);
+    const edgeS = (y, sg) => { const f = clamp((y - EY0) / 0.01, 0, EYN - 1.001), i = Math.floor(f), E = sg > 0 ? EL : ER; return lerp(E[i], E[i + 1], f - i); };
+    const thAt = snug ? ((y, top = yJaw, sg = 1) => lerp(thTop, edgeS(y, sg), sst(top, top - 0.06, y))) : (y => lerp(thTop, edgeAng(y), sst(yJaw, yJaw - 0.04, y)));
     const mantle = [], isM = new Uint8Array(200000), wbV = new Float32Array(200000);
     const flatZ = y => C[2] - sampleCyl(PI, y);
+    const colHem = (j, u, topY) => {
+      const th0 = j / NT * TAU, tl = snug ? DIM.tailS : DIM.tail, wb = sst(tl + (snug ? DIM.tailBlendS : DIM.tailBlend), tl, Math.abs(angW(th0 - PI - DIM.asym)));
+      const front = sst(0.2, 0.0, Math.min(u, 1 - u));
+      // W6 (тугой каз): по бокам — до локтей, спереди концы — до пояса, длинный конец на спине — до бёдер
+      const side = snug ? elbowY : Math.min(sample1(hairLowS, th0), topY - 0.06) - 0.05;
+      // W5: конец на спине кончается у бёдер, но не выше низа волос (волосы закрыты всегда)
+      const hemB = snug ? HEM : Math.min(HEM, backLow - 0.1);
+      return { wb, hem: lerp(lerp(side, snug ? waistY : Math.min(yJaw - 0.3, (lockLow < 8 ? lockLow : yJaw - 0.3) - 0.035), front), hemB, wb) };
+    };
+    // W6: угол края в ряду — общий для всех столбцов (по краевым столбцам слева и справа): столбцы начинаются на разной
+    // высоте, и свой угол у каждого «перехлёстывал» ряды (складки наизнанку у щеки)
+    const topA = pos[hood[jA][NRH] * 3 + 1], topB = pos[hood[jB][NRH] * 3 + 1], hemA = colHem(jA, 0, topA).hem, hemZ = colHem(jB, 1, topB).hem;
     for (let j = jA; j <= jB; j++) {
       const u = (j - jA) / nC, th0 = j / NT * TAU, top = hood[j][NRH], tp = [pos[top * 3], pos[top * 3 + 1], pos[top * 3 + 2]];
-      const wb = sst(DIM.tail + DIM.tailBlend, DIM.tail, Math.abs(angW(th0 - PI - DIM.asym)));
-      const front = sst(0.2, 0.0, Math.min(u, 1 - u));
-      const side = Math.min(sample1(hairLowS, th0), tp[1] - 0.06) - 0.05;
-      // W5: конец на спине кончается у бёдер, но не выше низа волос (волосы закрыты всегда)
-      const hemB = Math.min(HEM, backLow - 0.1);
-      const hem = lerp(lerp(side, Math.min(yJaw - 0.3, (lockLow < 8 ? lockLow : yJaw - 0.3) - 0.035), front), hemB, wb);
+      const { wb, hem } = colHem(j, u, tp[1]);
       const rTop = Math.hypot(tp[0] - C[0], tp[2] - C[2]);
       const col = [top];
       let arc = hoodArc[j][NRH], prev = tp;
       for (let k = 1; k <= NRM; k++) {
-        const t = k / NRM, y = lerp(tp[1], hem, Math.pow(t, 1.1)), ta = thAt(y), th = ta + u * (TAU - 2 * ta);
+        const t = k / NRM, tq = Math.pow(t, 1.1), y = lerp(tp[1], hem, tq);
+        let ta, th;
+        if (snug) { const taL = thAt(lerp(topA, hemA, tq), topA, 1), taR = thAt(lerp(topB, hemZ, tq), topB, -1); ta = lerp(taL, taR, u); th = taL + u * (TAU - taL - taR); }
+        else { ta = thAt(y); th = ta + u * (TAU - 2 * ta); }
         let R = sampleCyl(th, y);
         R = Math.max(R, lerp(rTop, R, sst(tp[1], tp[1] - 0.14, y)));
-        const f = sst(backLow + 0.02, backLow - 0.45, y) * wb;
+        const f = snug ? 0 : sst(backLow + 0.02, backLow - 0.45, y) * wb;
         let x = C[0] + R * Math.sin(th) * (1 - 0.12 * f), z = lerp(C[2] + R * Math.cos(th), flatZ(y), f * 0.8);   // W5: сжатие конца 0,3 → 0,12 — низ шире, не «клин»
         // мягкие складки: волна поперёк полотна, к подолу глубже (только наружу — внутрь волос не уходит)
         const fold = (0.5 + 0.5 * Math.sin(th * 7 + 0.7)) * DIM.fold * sst(tp[1] - 0.05, hem, y) * (0.35 + 0.65 * wb);
@@ -474,7 +582,7 @@
         const accS = acc / (1 + 1.3 * wb);
         if (accS < edgeA[a]) { edgeA[a] = accS; bordA[a] = th0 * 0.32; }
       }
-      mantle.push({ j, th: th0, col, wb });
+      mantle.push({ j, th: th0, col, wb, hem, top: tp[1] });
     }
     // верхний ряд плеч совпадает с краем капюшона (тот же индекс) — у боковых столбцов край капюшона не кайма
     // треугольники
@@ -491,7 +599,7 @@
     const nBody = idx.length;
 
     /* --- кости цепочки: по средней линии длинного конца --- */
-    const hemC = Math.min(HEM, backLow - 0.1), yC0 = Math.max(backLow + 0.1, hemC + 0.18), L = yC0 - hemC;
+    const hemC = snug ? HEM : Math.min(HEM, backLow - 0.1), yC0 = snug ? Math.max(hemC + 0.18, J.chest ? J.chest[1] : hemC + 0.26) : Math.max(backLow + 0.1, hemC + 0.18), L = yC0 - hemC;
     // цепочка — по середине длинного конца (он смещён на DIM.asym от спины)
     const chainJ = [0, 1, 2].map(k => { const y = yC0 - L * k / 3; return [C[0] + Math.sin(PI + DIM.asym) * sampleCyl(PI + DIM.asym, y) * 0.7, y, flatZ(y)]; });
     // бахрома на подоле длинного конца
@@ -512,13 +620,50 @@
       for (let q = 0; q < frV.length - 1; q++) idx.push(frV[q][0], frV[q][1], frV[q + 1][1], frV[q][0], frV[q + 1][1], frV[q + 1][0]);
     }
 
+    /* --- W6: что спрятать у героини (тугой каз): берет, бант и все волосы под тканью — под куполом (выше края) и под
+       полотном (между передними краями, выше подола). Лицо не трогаем (глаза у модели — «волосы» по цвету): внутри
+       овала лица ничего не прячется; пряди перед краем у лба (пробор) остаются, как на фото --- */
+    const hideV = new Uint8Array(n);
+    let nHair = 0;
+    if (snug) {
+      const FG = morph(FM, true);
+      const inFaceG = (x, y) => { const mx = Math.floor((x - MX0) / MC), my = Math.floor((y - MY0) / MC); return mx >= 0 && mx < MW && my >= 0 && my < MH && FG[my * MW + mx] === 1; };
+      const nm = mantle.length;
+      for (let i = 0; i < n; i++) {
+        const k = cls[i];
+        if (k >= K_BERET) { hideV[i] = 1; continue; }
+        if (k !== K_HAIR && !hairish[i]) continue;
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        if (z - C[2] > 0.04 && (k !== K_HAIR || Math.abs(x - C[0]) < 0.12 ? inFaceG(x, y) : inFace(x, y))) continue;
+        const dx = x - C[0], dy = y - C[1], dz = z - C[2], r = Math.hypot(dx, dy, dz);
+        const th = (Math.atan2(dx, dz) + TAU) % TAU, ph = Math.acos(clamp(dy / (r || 1), -1, 1)), pe = sample1(phE, th);
+        // под куполом: выше края (с запасом 3°) — всё; у самого края — только то, что торчит наружу
+        if (ph < pe - 3 * D || (ph < pe && r > sampleSph(HR, th, ph) + pushAt(th, ph) - DIM.hoodOff - 0.004)) { hideV[i] = 1; nHair++; continue; }
+        // пряди сбоку у лица (ниже лба, дальше 35° от середины) под настоящим казом не видны — тоже прячем
+        if (k === K_HAIR && dy < 0.12 && Math.abs(angW(th)) > 35 * D) { hideV[i] = 1; nHair++; continue; }
+        if (ph < pe || nm < 2) continue;
+        // под полотном: не в вырезе спереди и выше подола (пятна-«пряди» на пальто — только с запасом от подола)
+        const sg = angW(th) >= 0 ? 1 : -1, ta = thAt(y, sg > 0 ? topA : topB, sg);
+        if (Math.abs(angW(th)) < ta + 3 * D) continue;
+        const u = clamp((th - ta) / (TAU - 2 * ta), 0, 1) * (nm - 1), m0 = Math.floor(u), m1 = Math.min(nm - 1, m0 + 1);
+        const hm = lerp(mantle[m0].hem, mantle[m1].hem, u - m0);
+        if (y > hm + (k === K_HAIR ? 0.01 : 0.05)) { hideV[i] = 1; nHair++; }
+      }
+    }
+
     /* --- веса кожи: капюшон и плечи — с ближайших вершин волос героини; низ — цепочка --- */
-    const nv = pos.length / 3;
+    const nv = pos.length / 3, nHood = (NT + 1) * (NRH + 1);
     // кандидаты: капюшон — волосы/голова; плечи — ещё пряди и пальто выше пояса (без костей рук)
     const SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight;
     const armB = new Set(['upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R', 'hand_L', 'hand_R'].map(b => names.indexOf(b)));
+    // W6: тугой каз — полотно на руках идёт за плечом (кости предплечья и кисти → плечо той же руки)
+    const armMap = new Int16Array(names.length).map((_, b) => b);
+    if (snug) [['forearm_L', 'upperarm_L'], ['hand_L', 'upperarm_L'], ['forearm_R', 'upperarm_R'], ['hand_R', 'upperarm_R']].forEach(([a, b]) => { const ia = names.indexOf(a), ib = names.indexOf(b); if (ia >= 0 && ib >= 0) armMap[ia] = ib; });
+    const iHead = Math.max(0, names.indexOf('head')), iNeck = names.indexOf('neck');
     const cand = [], candM = [];
     for (let i = 0; i < n; i++) {
+      // W6: тугой каз — полотно по телу (пальто, шея, руки, кожа лица у края), без волос
+      if (snug) { if (!hideV[i] && cls[i] !== K_HAIR && !hairish[i] && cls[i] < K_BERET && SI && P.getY(i) > 0.75) candM.push(i); continue; }
       if (cls[i] !== K_OTHER && (cls[i] !== K_SKIN || P.getY(i) > C[1] - 0.12)) { cand.push(i); candM.push(i); }
       else if (cls[i] === K_OTHER && SI && P.getY(i) > 0.95 && !armB.has(SI.getX(i))) candM.push(i);
     }
@@ -536,7 +681,12 @@
       const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
       acc.fill(0);
       const wc = sst(yC0 + 0.06, yC0 - 0.12, y) * sst(0.3, 0.7, wbV[v] || 0);
-      if (wc < 1 && SI) {
+      if (snug && v < nHood) {
+        // W6: купол — жёстко на голове (лицо не «проходит» сквозь ткань при поворотах), низ сзади — чуть на шее
+        const dx = x - C[0], dy = y - C[1], dz = z - C[2], ph = Math.acos(clamp(dy / (Math.hypot(dx, dy, dz) || 1), -1, 1));
+        const nk = iNeck >= 0 ? 0.3 * sst(100 * D, 116 * D, ph) * sst(60 * D, 130 * D, Math.abs(Math.atan2(dx, dz))) : 0;
+        acc[iHead] += (1 - nk) * (1 - wc); if (nk) acc[iNeck] += nk * (1 - wc);
+      } else if (wc < 1 && SI) {
         const S = isM[v] ? CM : CH, L = S.L;
         bd.fill(1e9); bi.fill(-1);
         for (let q = 0; q < L.length; q++) {
@@ -544,7 +694,7 @@
           if (d < bd[KN - 1]) { let s = KN - 1; while (s > 0 && bd[s - 1] > d) { bd[s] = bd[s - 1]; bi[s] = bi[s - 1]; s--; } bd[s] = d; bi[s] = q; }
         }
         let tw = 0;
-        for (let s = 0; s < KN; s++) { if (bi[s] < 0) continue; const w = 1 / (Math.sqrt(bd[s]) + 0.008) ** 2, hv = L[bi[s]]; for (let j = 0; j < 4; j++) { const bb = skinOf(SI, hv, j); if (armB.has(bb)) continue; const ww = w * skinOf(SW, hv, j); acc[bb] += ww; tw += ww; } }
+        for (let s = 0; s < KN; s++) { if (bi[s] < 0) continue; const w = 1 / (Math.sqrt(bd[s]) + 0.008) ** 2, hv = L[bi[s]]; for (let j = 0; j < 4; j++) { let bb = skinOf(SI, hv, j); if (snug) bb = armMap[bb]; else if (armB.has(bb)) continue; const ww = w * skinOf(SW, hv, j); acc[bb] += ww; tw += ww; } }
         if (tw > 0) for (let b = 0; b < NB; b++) acc[b] *= (1 - wc) / tw;
       } else if (wc < 1) { acc[Math.max(0, names.indexOf('head'))] += 1 - wc; }
       if (wc > 0) { const cw = chainW(y); for (let k = 0; k < 3; k++) acc[iCh[k]] += wc * cw[k]; }
@@ -559,16 +709,17 @@
     // бахрома — точно как подол над ней
     frV.forEach(([a, b, h]) => { for (let j = 0; j < 4; j++) { skI[a * 4 + j] = skI[b * 4 + j] = skI[h * 4 + j]; skW[a * 4 + j] = skW[b * 4 + j] = skW[h * 4 + j]; } });
 
-    /* --- что спрятать у героини: треугольники с вершинами берета и банта --- */
+    /* --- что спрятать у героини: треугольники с вершинами берета и банта (W6: и волос под тканью) --- */
     const hide = [];
     if (!cover && geo.index) {
       const I = geo.index.array;
-      for (let t = 0; t < I.length; t += 3) { const a = cls[I[t]], b = cls[I[t + 1]], c2 = cls[I[t + 2]]; if (a >= K_BERET || b >= K_BERET || c2 >= K_BERET || backHair[I[t]] || backHair[I[t + 1]] || backHair[I[t + 2]]) hide.push(t); }
+      if (snug) { for (let t = 0; t < I.length; t += 3) if (hideV[I[t]] || hideV[I[t + 1]] || hideV[I[t + 2]]) hide.push(t); }
+      else for (let t = 0; t < I.length; t += 3) { const a = cls[I[t]], b = cls[I[t + 1]], c2 = cls[I[t + 2]]; if (a >= K_BERET || b >= K_BERET || c2 >= K_BERET || backHair[I[t]] || backHair[I[t + 1]] || backHair[I[t + 2]]) hide.push(t); }
     }
     const res = {
       pos: new Float32Array(pos), uv: new Float32Array(uvA), edge: new Float32Array(edgeA), bord: new Float32Array(bordA),
       index: idx, nBody, fringeStart, skI, skW, names, chainJ, hide, C, cover, sampled,
-      info: { verts: nv, tris: idx.length / 3, faceDeg: +(faceTh / D).toFixed(1), lockDeg: +(lockTh / D).toFixed(1), lockLow: +lockLow.toFixed(3), chinY: +chinY.toFixed(3), frontDeg: +(thA / D).toFixed(1), backLow: +backLow.toFixed(3), nBeret, hidden: hide.length, ms: 0 },
+      info: { verts: nv, tris: idx.length / 3, faceDeg: +(faceTh / D).toFixed(1), lockDeg: +(lockTh / D).toFixed(1), lockLow: +lockLow.toFixed(3), chinY: +chinY.toFixed(3), frontDeg: +(thA / D).toFixed(1), backLow: +backLow.toFixed(3), nBeret, hidden: hide.length, snug, hairHidden: nHair, ms: 0 },
       seams: { hood, mantle, NT, NRH, NRM },
     };
     res.info.ms = Math.round(performance.now() - t0);
@@ -860,7 +1011,7 @@
       const T = window.THREE, B = hero.rig && hero.rig.anim && hero.rig.anim.bones;
       if (T && B && B.head) {
         const A = window.HERO3D.anchors || {}, C = A.head || [0, 1.5, -0.093], J = (window.HERO3D.rig.bones.find(b => b[0] === 'head') || [0, 0, [0, 1.335, -0.012]])[2];
-        capM = new T.Mesh(new T.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new T.MeshToonMaterial({ color: window.HERO3D.hair || '#3B1E0A' }));
+        capM = new T.Mesh(new T.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), new T.MeshToonMaterial({ color: (window.HeroLook3D && HeroLook3D.hair && HeroLook3D.hair()) || window.HERO3D.hair || '#3B1E0A' }));
         capM.position.set(C[0] - J[0], C[1] - J[1] + 0.01, C[2] - J[2] - 0.03); capM.scale.set(0.262, 0.27, 0.282); capM.rotation.x = -0.38; capM.name = 'kaz:hairCap';
         B.head.add(capM);
       }

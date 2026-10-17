@@ -225,6 +225,8 @@
       mode: 'drive', hero: null, tween: null, kind: 'gravel', wet: 0, edges: 0, splashT: 0, dustT: 0, lastPuddle: false,
     };
     const pos = new T.Vector3();
+    // звук мотора (js/engine_sound.js): голос седана или кабриолета; один объект на машину — без новых объектов за кадр
+    const ES = { kind: car && car.kind === 'sedan' ? 'sedan' : 'cabrio', speed: 0, vmax: cfg.vmax, throttle: 0, braking: false, onGround: true, driving: false };
     const collider = { type: 'box', x: 0, z: 0, w: 1.9, d: 4.1, ry: 0, y0: -1e4, y1: 1e4, id: 'car', kind: 'car', noCar: true, off: true };
     // W6: лёгкое касание (камушек со скалы): кузов чуть вздрагивает на подвеске; скорость и курс не меняются
     function tap(k) { k = clamp(k == null ? 0.3 : k, 0, 1); S.svy -= 0.9 * k; S.svr += (Math.random() - 0.5) * 2.4 * k; S.svp += (Math.random() - 0.5) * 1.2 * k; S.taps = (S.taps || 0) + 1; return true; }
@@ -591,6 +593,8 @@
       S.kind = kind; S.wet = wet;
       apply();
       emitFx(dt, edgeAt);
+      // звук мотора: за рулём (и пока дотормаживает перед выходом) — обороты от скорости и газа; вышла — мотор глохнет
+      if (window.EngineSound) { ES.speed = S.v; ES.throttle = driving ? Math.abs(target) / cfg.vmax : 0; ES.braking = !!S.braking; ES.driving = driving || S.mode === 'stopping'; EngineSound.update(ES, dt); }
       if (S.mode === 'stopping' && Math.abs(S.v) < 0.05 && S.onStop) S.onStop();
       return { bumped, edge, s: S.s, e: S.e, onRoad, surface: kind, rid: S.rid };
     }

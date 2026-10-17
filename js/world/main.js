@@ -156,6 +156,9 @@
     if (!hero && H3) { try { hero = A.buildHeroGLB(null, H3); } catch (e) { console.warn('world hero glb', e); hero = null; } }
     if (!hero) hero = fallbackHero(H);
     w.hero = hero; w.heroKind = hero.rig ? 'rig' : hero.statue ? 'statue' : 'doll';
+    // образ из кастинга/ателье (бант и берет, тренч, волосы): перекрашенная текстура модели, общая с комнатами и горами
+    w.H3 = (hero.rig || hero.statue) && window.HeroLook3D ? H3 : null;
+    { const st = window.G && G.state ? G.state() : {}; heroLookSet(w, { bow: st.bow, coat: st.coat, hair: st.hair }); }
     { const rimmed = new Set(); hero.root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !rimmed.has(m.material)) { rimmed.add(m.material); H.addRim(m.material, 1); } }); }
     scene.add(hero.root);
     // тень героини — от простой «куклы», а не от модели в 28 тыс. треугольников (на земле разницы не видно)
@@ -197,6 +200,10 @@
     // В мире стоит только выбранная машина, вторая — «в гараже» (скрыта; строится, когда её впервые выберут).
     w.cars = {}; w.carColor = 0;
     useCar(w, carWanted(), { home: true });
+    // вторая машина — тоже у старта (видна, когда её можно взять: решает прогулка, spareSetup); строится сейчас — до прогрева шейдеров
+    if (sedanOk() && sedanOpen()) {
+      try { const k2 = w.carKind === 'sedan' ? 'coupe' : 'sedan'; placeCar(makeCarKind(w, k2).car, carHome(w, k2)); useCar(w, w.carKind); } catch (e) { console.warn('world spare car', e); }
+    }
     // велосипед (BIKE): у кинотеатра (L.spawnPoints.bike), дуги стоянки; у проката на набережной — ряд велосипедов (декор)
     if (WORLD.Bike) {
       await step('велосипед');
@@ -439,11 +446,24 @@
     H.put(body, H.GEO.sph, beret, [0, 1.78, 0], [0.27, 0.08, 0.26]); H.put(body, H.GEO.sph, bow, [0.15, 1.72, 0.12], [0.08, 0.05, 0.03]);
     const head = new T.Group(); head.position.set(0, 1.5, 0); body.add(head);
     const hand = p => { const pv = new T.Group(); pv.position.fromArray(p); body.add(pv); const inner = new T.Group(); pv.add(inner); return { pv, inner }; };
-    return { root, body, legs, head, arms: [hand([0.24, 0.72, 0.05]), hand([-0.24, 0.72, 0.05])], mats: [coat, skin, hair, beret, bow, shoe], statue: null, rig: null };
+    return { root, body, legs, head, arms: [hand([0.24, 0.72, 0.05]), hand([-0.24, 0.72, 0.05])], mats: [coat, skin, hair, beret, bow, shoe], statue: null, rig: null, doll: { coat, hair, beret, bow } };
+  }
+  // образ героини (бант и берет, тренч, волосы): у модели автора — перекраска текстуры (js/hero_look3d.js), у «куклы» — цвета материалов
+  function heroLookSet(w, lk) {
+    if (!lk) return;
+    try {
+      if (w.H3) { HeroLook3D.apply(w.H3, lk); return; }
+      const d = w.hero && w.hero.doll;
+      if (!d) return;
+      w.dollLook = Object.assign(w.dollLook || {}, lk);
+      if (lk.coat) d.coat.color.set(lk.coat);
+      if (lk.hair) d.hair.color.set(lk.hair);
+      if (lk.bow) { let br = null; try { br = window.HERO && HERO.beretOf ? HERO.beretOf(lk.bow) : null; } catch (e) { br = null; } d.bow.color.set(lk.bow); d.beret.color.set(br || '#C2405B'); }
+    } catch (e) { console.warn('hero look', e); }
   }
 
   /* ---------- машины города (волна 4): «Ретро-купе» (WORLD.makeCar + WORLD.Car) и «Красный седан» (VEHICLES.sedan) ---------- */
-  const CAR_TITLE = { coupe: 'Ретро-купе', sedan: 'Красный седан' };
+  const CAR_TITLE = { coupe: 'Жёлтый кабриолет', sedan: 'Красный седан' };
   const sedanOk = () => !!(window.VEHICLES && VEHICLES.sedan && VEHICLES.sedan.makeCar && VEHICLES.sedan.create);
   // выбор в сохранении (st.world.car); стенд: ?car=sedan|coupe
   function savedCar() {
@@ -455,11 +475,26 @@
   const sedanOpen = () => standOpen() || (unlock('car').ok && unlock('sedan').ok);
   // какая машина стоит в городе: седан — если он есть в сборке, открыт (вместе с машиной) и выбран
   function carWanted() { return savedCar() === 'sedan' && sedanOk() && sedanOpen() ? 'sedan' : 'coupe'; }
-  // где машина живёт: открыта — у гаража «Круглые фары» (седан — на соседнем месте), под чехлом и на стенде — у кинотеатра
+  // где машина живёт: открыта — у старта прогулки, на Октябрьской у кинотеатра (купе и седан рядом — искать по карте не нужно);
+  // под чехлом — у кинотеатра, как в серии 1. Места у гаража «Круглые фары» — для выбора машины у гаража (garageSpot)
   function carHome(w, kind) {
     const sp = w.L.spawnPoints || {};
+    if ((standOpen() || unlock('car').ok) && sp.carStart) return (kind === 'sedan' && sp.sedanStart) || sp.carStart;
     if (!standOpen() && unlock('car').ok && sp.car) return (kind === 'sedan' && sp.sedan) || sp.car;
     return sp.carStory || w.MAP.carSpawn;
+  }
+  function garageSpot(w, kind) { const sp = w.L.spawnPoints || {}; return (kind === 'sedan' && sp.sedan) || sp.car || null; }
+  // машина не проезжает сквозь вторую, что стоит рядом (обе у старта): корпус соседки + полкорпуса своей вбок, запас по длине
+  const CAR_HALF = { coupe: [0.95, 2.15], sedan: [1.0, 2.55] };
+  function carFree(w, kind, x, z) {
+    if (!S || S.inTrip) return true;
+    for (const k in w.cars) {
+      if (k === kind) continue;
+      const c = w.cars[k].car; if (!c.root.visible) continue;
+      const dx = x - c.S.x, dz = z - c.S.z, co = Math.cos(c.S.ry), si = Math.sin(c.S.ry), d = c.dims, h = d && d.halfW ? [d.halfW, d.halfL] : CAR_HALF[k] || CAR_HALF.coupe;
+      if (Math.abs(dx * co - dz * si) < h[0] + 1.1 && Math.abs(dx * si + dz * co) < h[1] + 1.15) return false;
+    }
+    return true;
   }
   function makeCarKind(w, kind) {
     if (kind !== 'sedan' || !sedanOk()) kind = 'coupe';
@@ -468,12 +503,12 @@
     let car = null, ctl = null, cover = null;
     if (kind === 'sedan') {
       // седан: свой городской контроллер «через двери» (тот же API, что WORLD.Car.create; кот и собачка — через задние двери)
-      car = VEHICLES.sedan.makeCar(H, { x: csp.x, z: csp.z, ry: csp.ry, layout: L, lite: w.qKey !== 'high', can: (x, z) => L.drivable(x, z, 0.98) });
+      car = VEHICLES.sedan.makeCar(H, { x: csp.x, z: csp.z, ry: csp.ry, layout: L, lite: w.qKey !== 'high', can: (x, z) => L.drivable(x, z, 0.98) && carFree(w, 'sedan', x, z) });
       scene.add(car.root);
       ctl = VEHICLES.sedan.create({ THREE: T, scene, kit: H, layout: L, car, colliders: MAP.colliders, heightAt: (x, z) => gy(L, x, z) });
       cover = ctl.cover || null;
     } else {
-      car = WORLD.makeCar(H, { x: csp.x, z: csp.z, ry: csp.ry, color: WORLD.CAR_COLORS[0][1], vmax: 8, layout: L, can: (x, z) => L.drivable(x, z, 0.78) });
+      car = WORLD.makeCar(H, { x: csp.x, z: csp.z, ry: csp.ry, color: WORLD.CAR_COLORS[0][1], vmax: 8, layout: L, can: (x, z) => L.drivable(x, z, 0.78) && carFree(w, 'coupe', x, z) });
       scene.add(car.root);
       if (WORLD.Car && WORLD.makeCarCover) {
         cover = WORLD.makeCarCover(H, car);     // тот же чехол с бантом
@@ -563,6 +598,7 @@
   }
 
   function makeSession(w, o, env, resolve) {
+    if (o.hero) heroLookSet(w, o.hero);
     const ui = w.ui, cam = w.camera, scene = w.scene, hero = w.hero, cat = w.cat, MAP = w.MAP, L = w.L, doors = w.doors;
     let car = w.car;   // волна 4: машину можно сменить («Ретро-купе» / «Красный седан») — ссылка обновляется в swapCar
     const FREE = !!o.free, FO = FREE ? (typeof o.free === 'object' ? o.free : {}) : null;
@@ -911,6 +947,7 @@
       w.npcs.forEach(n => { if (n.root.visible) consider('npc', n, n.x, 0.6, n.z, 0.75); });
       if (s.catOn || s.catSit) consider('cat', null, s.catX, 0.3, s.catZ, 0.55);
       if (car.root.visible) consider('car', null, car.S.x, 0.6, car.S.z, 1.6);
+      { const e2 = spare(); if (e2) consider('spare', e2, e2.car.S.x, 0.6, e2.car.S.z, 1.6); }
       if (w.bike && bikeMode !== 'none' && !w.bike.mounted) consider('bike', null, w.bike.pos.x, 0.6, w.bike.pos.z, 0.9);
       spots.forEach(sp => { const a = anchorOf(sp); consider('spot', sp, a.x, a.y, a.z, a.r); });
       pickups.forEach(pk => { if (!pk.taken) consider('pick', pk, pk.p.x, 0.6, pk.p.z, 0.6); });
@@ -937,6 +974,7 @@
         purr(); return;
       }
       if (c.kind === 'car') { s.moveTo = { x: car.S.x, z: car.S.z, stop: 2.3, car: true }; return; }
+      if (c.kind === 'spare') { s.moveTo = { x: c.ref.car.S.x, z: c.ref.car.S.z, stop: 2.3, spare: true }; return; }
       if (c.kind === 'spot') { const sp = c.ref; standUp(); if (Math.hypot(s.px - sp.x, s.pz - sp.z) < 1.4) useSpot(sp); else s.moveTo = { x: sp.x, z: sp.z, stop: 0.25, spot: sp }; return; }
       if (c.kind === 'pick') { const pk = c.ref; if (Math.hypot(s.px - pk.p.x, s.pz - pk.p.z) < 1.2) collect(pk); else s.moveTo = { x: pk.p.x, z: pk.p.z, stop: 0.3 }; return; }
       if (c.kind === 'secret') { w.toys.setSecret(false); spark(x, y, 10); if (o.onSecret) runBusy(() => o.onSecret()); return; }
@@ -1138,6 +1176,56 @@
       if (w.dn && window.DayNight && DayNight.menuItem) {
         HUD.menu.add(Object.assign(DayNight.menuItem({ onSet: (to, line) => { haptic('light'); toast(line, 2400, { replace: true }); s.dnDirty = true; } }), { id: 'dn', order: 40, when: () => mine() && !!w.dn }));
       }
+      // подсказка «что тут делать» — первой строкой листа «Как играть» (меню ☰ без лишней строки: на 360 × 740 оно без прокрутки)
+      if (window.Town && Town.sheet) HUD.helpTop = () => (mine() && s.active && s.mode === 'walk' ? { icon: '💡', title: 'Что тут делать?', sub: 'дело дня — или машина и отдых в горах', onTap: () => { if (mine()) showGuide(false); } } : null);
+    }
+
+    /* ---------- подсказка «что тут делать» (желание автора): при первом появлении города и первой строкой листа «Как играть» (меню ☰) ----------
+       Два пути: дело (луч над домом) или — если не хочется — машина у тротуара и поездка в горы. Один раз за игру
+       (st.world.guide); в проверках с ?debug=1 — только с ?guide=1, чтобы лист не закрывал город тестам. */
+    let guideOn = false;
+    function villageWord() {
+      try {
+        const named = (window.CONFIG || {}).VILLAGE_NAMED !== false && !(WORLD.Regions && WORLD.Regions.settings && WORLD.Regions.settings().named === false);
+        const k = window.VILLAGE && VILLAGE.regions && VILLAGE.regions.kubachi;
+        if (named && k && typeof k.title === 'function') return 'в ' + k.title(true);
+      } catch (e) { /* без модуля села */ }
+      return 'наверх';
+    }
+    async function showGuide(auto) {
+      if (guideOn || s.finished || s.inTrip || !window.Town || !Town.sheet) return false;
+      if (!s.active || s.busy || s.anim || s.mode !== 'walk' || blocked()) return false;
+      guideOn = true;
+      if (auto) saveWorld({ guide: 1 });
+      const cd = s.card && s.card.door && !s.card.lock ? doors.get(s.card.door) : tgtDoor;
+      const cars = Object.keys(w.cars).filter(k => w.cars[k].car.root.visible).length, trip = tripOpen();
+      const item = (ic, t, sub) => `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:0 0 10px;border-radius:18px;background:#FFF4EE"><b style="font-size:26px;line-height:1.1;flex:none">${ic}</b><div><b style="display:block;font-size:17px;color:#9E2F47">${t}</b><span style="display:block;font-size:15.5px;font-weight:600;color:#6E6272;line-height:1.35;margin-top:2px">${sub}</span></div></div>`;
+      const body = '<p style="margin:0 0 12px">Город — твой. Можно так:</p>'
+        + item('🔍', 'Распутать дело', cd ? 'Иди к дому, над которым светится луч. Что искать — в пилюле вверху экрана.' : 'Новое дело появится само — его покажет пилюля вверху. А пока — гуляй и заглядывай в лавки.')
+        + item('🚗', 'Или отдохнуть в горах', (cars > 1 ? 'Не хочется расследовать — не беда. Машины ждут у тротуара, в двух шагах. ' : 'Не хочется расследовать — не беда. Машина ждёт у тротуара, в двух шагах. ') + 'Садись за руль — и ' + villageWord() + ': серпантин, облака и башня.')
+        + '<p style="margin:2px 0 0;font-size:15px;color:#8A7E8E">Эта подсказка — в меню ☰, «Как играть». Карта мест — там же.</p>';
+      const acts = [];
+      if (cd) acts.push({ label: '🔍 К делу', value: 'case' });
+      if (car.root.visible && vehicles === 'drive') acts.push({ label: cars > 1 ? '🚗 Покажи машины' : '🚗 Покажи машину', value: 'cars', cls: acts.length ? 'soft' : '' });
+      if (trip) acts.push({ label: '⛰️ Сразу ' + villageWord(), value: 'trip', cls: 'soft' });
+      let r = null;
+      try { r = await Town.sheet({ title: 'Что тут делать?', body, actions: acts }); } catch (e) { r = null; }
+      guideOn = false;
+      if (s.finished || S !== s) return true;
+      if (r === 'case' && cd) { haptic('light'); focusDoor(cd.id, 1500); }
+      else if (r === 'cars') {
+        // камера — на машины у старта (с проезжей части, как у дверей); метка «📍» — к выезду из города
+        let x = 0, z = 0, n = 0; Object.keys(w.cars).forEach(k => { const c = w.cars[k].car; if (c.root.visible) { x += c.S.x; z += c.S.z; n++; } });
+        if (n) { x /= n; z /= n; s.camFocus = { pos: new T.Vector3(x + 1.5, 5.4, z + 10.5), look: new T.Vector3(x, 0.7, z), until: performance.now() + 3200 }; }
+        const e = L.edge;
+        if (trip && e && isFinite(e.x) && WORLD.Minimap && WORLD.Minimap.setWaypoint) { try { WORLD.Minimap.setWaypoint({ rid: 'city', id: 'edge', x: e.x, z: e.z, label: e.label || 'За город ↑', kind: 'edge' }); } catch (x2) { /* без метки */ } }
+        toast(trip && e && e.label ? `Садись за руль — и под арку с табличкой «${e.label}». Метка 📍 покажет путь.` : 'Подойди к машине и нажми «Сесть за руль».', 3600);
+      } else if (r === 'trip' && tripOpen()) regionTrip(null);
+      return true;
+    }
+    function guideLater(n) {
+      if (n > 12 || s.finished || S !== s || wState().guide) return;
+      setTimeout(() => { if (s.finished || S !== s || wState().guide) return; showGuide(true).then(ok => { if (!ok) guideLater(n + 1); }); }, n ? 2500 : 1400);
     }
     function focusDoor(id, ms = 1200) {
       const d = doors.get(id); if (!d) return Promise.resolve();
@@ -1153,6 +1241,12 @@
       else w.cover.setOn(vehicles === 'covered');
       if (w.bike) w.bike.setHidden(bikeMode === 'none');
       if (w.bikeStand) w.bikeStand.visible = bikeMode !== 'none';
+      spareSetup();
+    }
+    // вторая машина стоит рядом с выбранной (обе — у старта) и видна, когда её можно взять (седан открыт вместе с машиной)
+    function spareSetup() {
+      const on = vehicles === 'drive' && canPickCar();
+      Object.keys(w.cars).forEach(k => { const e = w.cars[k]; if (e.car === car) return; e.car.root.visible = on; if (on && e.ctl) e.ctl.setLocked(false); });
     }
     const onGround = () => !w.mv || (!s.air && s.py - gy(L, s.px, s.pz) < 0.25);   // волна 5: не со скамейки и не с крыши машины
     const nearCar = () => s.mode === 'walk' && onGround() && car.root.visible && (!w.carCtl || w.carCtl.mode === 'parked') && Math.hypot(car.S.x - s.px, car.S.z - s.pz) < (car.kind === 'sedan' ? 3.4 : 2.9) && Math.abs(car.S.v) < 0.3;
@@ -1164,33 +1258,50 @@
     const nearGarageLocked = () => { const g = L.spots && L.spots.garageHome; return !!(g && s.mode === 'walk' && !s.sitting && sedanOk() && !canPickCar() && Math.hypot(s.px - g.x, s.pz - g.z) < 1.3); };
     const garageLockedLine = () => { const u = unlock('sedan'); return !u.ok && u.text ? u.text : 'Гараж «Круглые фары». Машины пока отдыхают.'; };
     const carAtHome = () => { const h = carHome(w, w.carKind); return !!h && Math.hypot(car.S.x - h.x, car.S.z - h.z) < 12; };
-    function swapCar(kind) {
-      if (s.finished || !kind || kind === w.carKind) return false;
+    // вторая машина (не выбранная), если стоит в городе: к ней можно подойти и сесть — тогда выбранной станет она
+    const spare = () => { if (s.mode !== 'walk') return null; for (const k in w.cars) { const e = w.cars[k]; if (e.car !== car && e.car.root.visible && (!e.ctl || e.ctl.mode === 'parked')) return e; } return null; };
+    const spareD = e => Math.hypot(e.car.S.x - s.px, e.car.S.z - s.pz);
+    // рядом со второй машиной (и она ближе выбранной) — «Сесть за руль» садит в неё
+    const nearSpare = () => {
+      const e = onGround() ? spare() : null;
+      if (!e || spareD(e) >= (e.kind === 'sedan' ? 3.4 : 2.9) || Math.abs(e.car.S.v) > 0.3) return null;
+      return nearCar() && Math.hypot(car.S.x - s.px, car.S.z - s.pz) <= spareD(e) ? null : e;
+    };
+    function takeSpare(e) {
+      if (!e || s.finished || s.mode !== 'walk' || (w.carCtl && w.carCtl.mode !== 'parked')) return false;
+      try { useCar(w, e.kind); } catch (x) { console.warn('world spare car', x); return false; }
+      car = w.car; saveWorld({ car: w.carKind }); vehiclesSetup(); emit('world:car', { kind: w.carKind });
+      return true;
+    }
+    // выбрать машину: у гаража — выбранная встаёт у гаража; иначе (кнопка «Другая машина», отладка) — на своё место у старта
+    function swapCar(kind, at) {
+      const toGarage = at === 'garage';
+      if (s.finished || !kind || (kind === w.carKind && !toGarage)) return false;
       if (kind === 'sedan' && !canPickCar()) return false;
       if (s.mode !== 'walk' || (w.carCtl && w.carCtl.mode !== 'parked')) { toast('Сначала останови машину и выйди.', 2000); return false; }
-      const prev = w.carKind;
-      try { useCar(w, kind, { home: true }); } catch (e) { console.warn('world car swap', e); try { useCar(w, prev, { home: true }); } catch (x) { /* ignore */ } car = w.car; return false; }
+      const prev = w.carKind, gsp = toGarage ? garageSpot(w, kind) : null;
+      try { useCar(w, kind, { home: !gsp }); if (gsp) placeCar(w.car, gsp); } catch (e) { console.warn('world car swap', e); try { useCar(w, prev, { home: true }); } catch (x) { /* ignore */ } car = w.car; return false; }
       car = w.car;
       saveWorld({ car: w.carKind });
       vehiclesSetup();
       sfx('pop'); haptic('success');
-      toast((w.carKind === 'sedan' ? 'Красный седан' : 'Ретро-купе') + ' ждёт у гаража!', 2400);
+      toast((CAR_TITLE[w.carKind] || CAR_TITLE.coupe) + (gsp ? ' ждёт у гаража!' : ' ждёт рядом, у кинотеатра!'), 2400);
       emit('world:car', { kind: w.carKind });
       return true;
     }
-    // лист «Какую машину взять?» с карточками VEHICLES.picker (без брендов): выбор — сразу у гаража
-    async function pickCar() {
+    // лист «Какую машину взять?» с карточками VEHICLES.picker (без брендов): at = 'garage' — выбранная встаёт у гаража
+    async function pickCar(at) {
       if (!canPickCar() || s.pickBusy || !window.Town || !Town.sheet) return null;
       s.pickBusy = true; s.moveTo = null;
       let picked = null;
       try {
         const body = document.createElement('div');
-        const p0 = document.createElement('p'); p0.textContent = 'Обе живут в гараже «Круглые фары». Вторая подождёт там.'; p0.style.margin = '0 0 10px'; body.appendChild(p0);
+        const p0 = document.createElement('p'); p0.textContent = at === 'garage' ? 'Выбранная машина встанет здесь, у гаража «Круглые фары».' : 'Обе стоят здесь, у кинотеатра. Какую взять?'; p0.style.margin = '0 0 10px'; body.appendChild(p0);
         picked = await Town.sheet({ title: 'Какую машину взять?', body, onMount: (b, close) => { const pk = VEHICLES.picker({ current: w.carKind, onPick: id => setTimeout(() => close(id), 180) }); b.appendChild(pk); } });
       } catch (e) { picked = null; }
       s.pickBusy = false;
-      if (picked && picked !== w.carKind && !s.finished) swapCar(picked);
-      else if (picked && picked === w.carKind) toast((w.carKind === 'sedan' ? 'Красный седан' : 'Ретро-купе') + ' уже ждёт у гаража.', 2000);
+      if (picked && (picked !== w.carKind || at === 'garage') && !s.finished) swapCar(picked, at);
+      else if (picked && picked === w.carKind) toast((CAR_TITLE[w.carKind] || CAR_TITLE.coupe) + ' уже ждёт рядом.', 2000);
       return picked;
     }
     const nearBike = () => s.mode === 'walk' && onGround() && bikeMode !== 'none' && w.bike && !w.bike.mounted && !w.bike.busy && w.bike.near(s.px, s.pz, 1.7);
@@ -1359,8 +1470,9 @@
       if (sp && (!d || Math.hypot(s.px - sp.x, s.pz - sp.z) < Math.hypot(s.px - d.ax, s.pz - d.az))) { useSpot(sp); return; }
       if (d) { tryDoor(d); return; }
       if (nearBike()) { rideOn(); return; }
-      if (nearGarage()) { pickCar(); return; }
+      if (nearGarage()) { pickCar('garage'); return; }
       if (nearGarageLocked()) { s.hopT = 0; toast(garageLockedLine(), 2800); return; }
+      { const e2 = nearSpare(); if (e2) { if (takeSpare(e2)) enterCar(); return; } }
       if (nearCar()) { enterCar(); return; }
       { const la = w.life && w.life.actionFor(s.px, s.pz); if (la) { runBusy(() => la.run()).then(() => { if (!compLock.ok && la.n && la.n.dogpark && !s.compSaid) { s.compSaid = true; toast(compLock.text, 3000); } }); return; } }
       { const wv = waveTarget(); if (wv) { doWave(); return; } }
@@ -1433,8 +1545,9 @@
       sit: seat => sit(seat),
       stand: () => standUp(),
       get isSitting() { return !!(s.sitting && !s.sitting.car); },
-      get canRecolor() { return false; },
-      setLook: () => {}, look: () => Object.assign({}, o.hero || {}),
+      get canRecolor() { return !!(w.H3 || w.hero.doll); },
+      setLook: lk => heroLookSet(w, lk || {}),
+      look: () => Object.assign({}, o.hero || {}, w.H3 ? HeroLook3D.look() : w.dollLook || {}),
       walkTo: (x, z) => new Promise(r => { standUp(); s.moveTo = { x, z, stop: 0.15, script: true, then: () => r() }; }),
       heroPos: () => ({ x: s.px, z: s.pz }),
       heroHead: () => heroHeadG(),
@@ -1561,7 +1674,7 @@
       return [clamp(x, B0.x0, B0.x1), clamp(z, B0.z0, B0.z1)];
     }
     /* ---------- волна 5: Move (бег, прыжок, верхи, твёрдые машины) и «Бум!» — данные этой прогулки ---------- */
-    const mvPool = [], mvArr = [], mvLife = [], mvCar = { type: 'car', src: null, kind: 'coupe' }, mvBike = { type: 'bike', src: null };
+    const mvPool = [], mvArr = [], mvLife = [], mvCar = { type: 'car', src: null, kind: 'coupe' }, mvCar2 = { type: 'car', src: null, kind: 'sedan' }, mvBike = { type: 'bike', src: null };
     s.mvDyn = () => {
       mvArr.length = 0; let k = 0;
       mvLife.length = 0;
@@ -1569,6 +1682,7 @@
       for (let i = 0; i < mvLife.length; i++) { const c = mvLife[i], r = mvPool[k] || (mvPool[k] = { type: 'circle', x: 0, z: 0, r: 0.3, id: 'npc' }); k++; r.x = c.x; r.z = c.z; r.r = c.r; mvArr.push(r); }
       // машина — коробками по своей модели (капот, крыша седана, палуба купе): не пройти насквозь, можно запрыгнуть
       if (s.mode === 'walk' && car.root.visible && (!w.carCtl || w.carCtl.mode === 'parked')) { mvCar.src = car; mvCar.kind = car.kind === 'sedan' ? 'sedan' : 'coupe'; mvArr.push(mvCar); }
+      { const e2 = spare(); if (e2) { mvCar2.src = e2.car; mvCar2.kind = e2.kind === 'sedan' ? 'sedan' : 'coupe'; mvArr.push(mvCar2); } }
       if (w.bike && bikeMode !== 'none' && !w.bike.mounted && !w.bike.busy) { mvBike.src = w.bike; mvArr.push(mvBike); }
       return mvArr;
     };
@@ -1618,6 +1732,7 @@
       else if (m.life) runBusy(() => w.life.tap(m.life));
       else if (m.bike) { if (nearBike()) rideOn(); }
       else if (m.car) { if (nearCar()) enterCar(); }
+      else if (m.spare) { const e2 = nearSpare(); if (e2 && takeSpare(e2)) enterCar(); }
       else if (m.door) tryDoor(m.door);
       else if (m.spot) useSpot(m.spot);
     }
@@ -1972,6 +2087,7 @@
           else if (nearBike()) { lbl = bikeMode === 'ride' ? 'Сесть на велик' : 'Посмотреть'; soft = bikeMode !== 'ride'; }
           else if (nearGarage()) { lbl = 'Выбрать машину'; }
           else if (nearGarageLocked()) { lbl = 'Посмотреть'; soft = true; }
+          else if (nearSpare()) { lbl = 'Сесть за руль'; }
           else if (nearCar()) { lbl = vehicles === 'drive' && !(w.carCtl && w.carCtl.locked) ? 'Сесть за руль' : 'Посмотреть'; soft = lbl !== 'Сесть за руль'; }
           else {
             const la = w.life && w.life.actionFor(s.px, s.pz), n = nearestNpc(2.3), nr = nearestNpc(2.3, true);
@@ -2125,6 +2241,8 @@
       }
       if (s.finished) return;
       s.active = true; w.root.classList.remove('busy');
+      // первое появление города — подсказка «что тут делать» (один раз)
+      if (!wState().guide && (!DEBUG || QS.get('guide') === '1')) guideLater(0);
       if (o.showHint) ui.hintShow(matchMedia('(pointer: coarse)').matches ? 'Кружок внизу — идти · тап по двери — войти' : 'WASD — идти · Enter — действие · Q/E — камера', 4000);
     };
     s.api = api;

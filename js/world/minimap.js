@@ -46,7 +46,7 @@
        (ui.js: центр 86 px от левого края, низ 32 px, 112 px) кончается на 700 px из 844 — радар (574…684) его не задевает,
        а тап по радару джойстик не перехватывает (радар — <button>, у города isUI). Свернуть — «–» справа сверху круга.
        Карта крутится вместе с камерой; веер — куда смотрит камера; стрелка — героиня; дело и метка «📍» — капля, далеко —
-       на ободке со стрелкой; машина (купе — мятная, седан — красная), велосипед, собачка; значки мест, лавок, видов,
+       на ободке со стрелкой; машина (кабриолет — жёлтая, седан — красная), велосипед, собачка; значки мест, лавок, видов,
        велопроката, гаража, собачьей площадки, выезда.
      • Радар в горах: WORLD.Minimap.region(o) → { update(dt), dispose(), open(), setWaypoint(), debug(), stats(), el } —
        серпантин / село / отель (контракт — js/world/regions.js «Радар»): земля, дороги и дома из ручки региона
@@ -165,25 +165,27 @@
 :where(.w-reg.zip) .wmm-wrap,:where(.w-reg.look) .wmm-wrap{display:none}
 :where([data-hud-mode="zip"]) .wmm-wrap,:where([data-hud-mode="look"]) .wmm-wrap,:where([data-hud-mode="sport"]) .wmm-wrap,:where([data-hud-mode="dance"]) .wmm-wrap{display:none}
 .wmm-wrap.wmm-off{display:none!important}
-.wm-tabs{display:flex;gap:4px;margin:0 10px 8px;padding:4px;border-radius:16px;background:#F8EEF1;flex:none}
-.wm-tab{flex:1;min-width:0;height:36px;border:0;border-radius:12px;background:transparent;color:#8A6E7E;font:inherit;font-weight:900;font-size:14px;cursor:pointer;touch-action:manipulation;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wm-tabs{display:flex;gap:4px;margin:0 10px 8px;padding:4px;border-radius:18px;background:#F8EEF1;flex:none}
+.wm-tab{flex:1;min-width:0;height:44px;border:0;border-radius:14px;background:transparent;color:#8A6E7E;font:inherit;font-weight:900;font-size:15.5px;cursor:pointer;touch-action:manipulation;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wm-tab.on{background:#fff;color:#9E2F47;box-shadow:0 2px 0 rgba(58,46,63,.08)}
 .wm-pane{display:flex;flex-direction:column;flex:1;min-height:0}
 .wm-pane.hidden{display:none}
-.wm-seg{position:absolute;left:8px;top:8px;display:flex;gap:4px;z-index:2}
-.wm-seg button{height:30px;padding:0 11px;border:0;border-radius:15px;background:rgba(255,253,249,.94);color:#8A6E7E;font:inherit;font-weight:900;font-size:12.5px;box-shadow:0 2px 0 rgba(58,46,63,.12);cursor:pointer;touch-action:manipulation}
+.wm-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.wm-seg{position:absolute;left:8px;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px;z-index:2;pointer-events:none}
+.wm-seg button{min-height:44px;padding:0 14px;border:0;border-radius:22px;background:rgba(255,253,249,.95);color:#8A6E7E;font:inherit;font-weight:900;font-size:15px;box-shadow:0 2px 0 rgba(58,46,63,.12);cursor:pointer;touch-action:manipulation;pointer-events:auto}
 .wm-seg button.on{background:#C2405B;color:#fff}
-.wm-route{flex:1;min-height:0;overflow:auto;padding:4px 12px 14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.wm-route.pad{padding-bottom:178px}
-.wm-route h4{margin:10px 2px 4px;font-family:var(--font-title,'Comfortaa',sans-serif);font-size:15px;font-weight:700;color:#9E2F47}
-.wm-step{display:flex;gap:10px;align-items:flex-start;padding:7px 10px;margin-top:6px;border-radius:14px;background:#fff;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;font-size:13.5px;font-weight:700;color:#3A2E3F;line-height:1.3}
-.wm-step b{flex:none;width:22px;height:22px;border-radius:50%;background:#C2405B;color:#fff;font-size:12px;line-height:22px;text-align:center}
+/* .pad — ещё и общий класс css/style.css (отступы экрана): у списка и пути отступы заданы целиком */
+.wm-route{padding:6px 12px 16px}
+.wm-route.pad{padding:6px 12px 230px}
+.wm-route h4{margin:12px 2px 6px;font-family:var(--font-title,'Comfortaa',sans-serif);font-size:17.5px;font-weight:700;color:#9E2F47}
+.wm-step{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;margin-top:8px;border-radius:16px;background:#fff;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;font-size:16px;font-weight:700;color:#3A2E3F;line-height:1.3}
+.wm-step b{flex:none;width:28px;height:28px;border-radius:50%;background:#C2405B;color:#fff;font-size:15px;line-height:28px;text-align:center}
 .wm-step.lock{color:#8E89A6}
 .wm-step.lock b{background:#B7B0C4}
-.wm-step small{display:block;font-size:11.5px;color:#8A7E8E;margin-top:1px}
-.wm-ovgo{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.wm-ovgo button{flex:1 1 40%;min-height:42px;border:0;border-radius:14px;background:#F8EEF1;color:#9E2F47;font:inherit;font-weight:900;font-size:13.5px;cursor:pointer;touch-action:manipulation}
-.wm-pin2{margin-top:8px;width:100%;height:40px;border:0;border-radius:20px;background:#FFF4D9;color:#8A6412;font:inherit;font-weight:900;font-size:14px;cursor:pointer;touch-action:manipulation}
+.wm-step small{display:block;font-size:15px;color:#8A7E8E;margin-top:2px}
+.wm-ovgo{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.wm-ovgo button{flex:1 1 40%;min-height:52px;padding:6px 10px;border:0;border-radius:16px;background:#F8EEF1;color:#9E2F47;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
+.wm-pin2{margin-top:10px;width:100%;min-height:50px;border:0;border-radius:25px;background:#FFF4D9;color:#8A6412;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
 .wm-pin2.on{background:#F8EEF1;color:#6E6272}
 .wm-ovbox .wm-tools{left:auto;right:8px;top:8px;bottom:auto}
 .wm-ovbox .wm-north{right:auto;left:9px;top:12px;bottom:auto}
@@ -194,44 +196,49 @@
 .wm-card{position:relative;width:100%;max-width:440px;max-height:100%;min-height:0;display:flex;flex-direction:column;background:#FFFDF9;border-radius:24px;overflow:hidden;box-shadow:0 10px 0 rgba(58,46,63,.12),0 24px 50px rgba(58,46,63,.28);animation:wmPop .34s cubic-bezier(.2,1.25,.4,1) both}
 @keyframes wmPop{from{opacity:0;transform:translateY(22px) scale(.97)}}
 .wm-head{display:flex;align-items:center;gap:8px;padding:12px 12px 8px 16px;flex:none}
-.wm-title{flex:1;min-width:0;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:19px;color:#9E2F47}
-.wm-x{width:42px;height:42px;border:0;border-radius:14px;background:#F8EEF1;color:#6E6272;font-size:17px;font-weight:900;cursor:pointer;flex:none;touch-action:manipulation}
-.wm-x:active,.wm-tools button:active,.wm-row:active{transform:translateY(2px)}
+.wm-title{flex:1;min-width:0;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:20px;color:#9E2F47}
+.wm-x{width:46px;height:46px;border:0;border-radius:15px;background:#F8EEF1;color:#6E6272;font-size:19px;font-weight:900;cursor:pointer;flex:none;touch-action:manipulation}
+.wm-x:active,.wm-tools button:active,.wm-row:active,.wm-chip:active{transform:translateY(2px)}
 .wm-mapbox{position:relative;margin:0 10px;border-radius:18px;overflow:hidden;background:#F2E6E3;box-shadow:inset 0 0 0 2px #F1E2E6;flex:none}
 .wm-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
-.wm-tools{position:absolute;left:8px;bottom:8px;display:flex;gap:6px}
-.wm-tools button{width:36px;height:36px;border:0;border-radius:12px;background:rgba(255,253,249,.95);color:#9E2F47;font:900 20px/1 system-ui,sans-serif;box-shadow:0 3px 0 rgba(58,46,63,.14);cursor:pointer;touch-action:manipulation;display:grid;place-items:center}
-.wm-tools button.me{font-size:12px;font-family:inherit}
-.wm-north{position:absolute;right:9px;bottom:9px;width:26px;height:26px;border-radius:50%;background:rgba(255,253,249,.92);display:grid;place-items:center;font:900 12px/1 var(--font-title,'Comfortaa',sans-serif);color:#C2405B;box-shadow:0 2px 0 rgba(58,46,63,.12);pointer-events:none}
+.wm-tools{position:absolute;left:8px;bottom:8px;display:flex;gap:8px}
+.wm-tools button{width:46px;height:46px;border:0;border-radius:15px;background:rgba(255,253,249,.95);color:#9E2F47;font:900 24px/1 system-ui,sans-serif;box-shadow:0 3px 0 rgba(58,46,63,.14);cursor:pointer;touch-action:manipulation;display:grid;place-items:center}
+.wm-tools button.me{font-size:16px;font-family:inherit}
+.wm-north{position:absolute;right:9px;bottom:9px;width:30px;height:30px;border-radius:50%;background:rgba(255,253,249,.92);display:grid;place-items:center;font:900 14px/1 var(--font-title,'Comfortaa',sans-serif);color:#C2405B;box-shadow:0 2px 0 rgba(58,46,63,.12);pointer-events:none}
 .wm-north::before{content:'';position:absolute;top:-5px;left:50%;margin-left:-4px;border:4px solid transparent;border-top:0;border-bottom:6px solid #C2405B}
-.wm-legend{display:flex;flex-wrap:wrap;gap:5px 5px;padding:8px 12px 2px;flex:none}
-.wm-chip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:800;color:#6E6272;background:#FBF1EE;border-radius:99px;padding:2px 9px 2px 2px;line-height:20px}
-.wm-chip img{width:20px;height:20px;display:block}
-.wm-list{flex:1;min-height:0;overflow:auto;padding:2px 10px 14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.wm-list.pad{padding-bottom:178px}
-.wm-group{font-size:10.5px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#C2405B;margin:12px 6px 2px}
-.wm-row{display:flex;align-items:center;gap:10px;width:100%;border:0;background:#fff;border-radius:14px;padding:7px 10px;margin-top:6px;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
-.wm-row img{width:28px;height:28px;flex:none}
-.wm-row .n{flex:1;min-width:0;font-weight:800;font-size:14px;color:#3A2E3F;line-height:1.2}
-.wm-row .n small{display:block;font-size:11.5px;font-weight:700;color:#8A7E8E;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wm-row .d{font-size:12px;font-weight:900;color:#B07A12;white-space:nowrap}
+.wm-legend{position:sticky;top:0;z-index:2;display:flex;flex-wrap:nowrap;gap:8px;padding:10px 12px 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:#FFFDF9;box-shadow:0 6px 8px -8px rgba(58,46,63,.25);touch-action:pan-x pan-y}
+.wm-legend::-webkit-scrollbar{display:none}
+.wm-chip{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 16px 0 6px;border:0;border-radius:22px;background:#FBF1EE;color:#6E6272;font:inherit;font-size:15px;font-weight:800;white-space:nowrap;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wm-chip.all{padding:0 18px}
+.wm-chip img{width:32px;height:32px;display:block;pointer-events:none}
+.wm-chip.on{background:#C2405B;color:#fff;box-shadow:0 3px 0 #9E2F47}
+.wm-list{padding:2px 10px 16px}
+.wm-list.pad{padding:2px 10px 230px}
+.wm-empty{padding:18px 10px;text-align:center;font-size:15px;font-weight:800;color:#8A7E8E}
+.wm-group{font-size:13.5px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#C2405B;margin:16px 6px 2px}
+.wm-group.hidden,.wm-row.hidden{display:none}
+.wm-row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;border:0;background:#fff;border-radius:16px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wm-row img{width:40px;height:40px;flex:none;pointer-events:none}
+.wm-row .n{flex:1;min-width:0;font-weight:800;font-size:17px;color:#3A2E3F;line-height:1.25}
+.wm-row .n small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;font-weight:700;color:#8A7E8E;margin-top:2px;line-height:1.3;overflow:hidden}
+.wm-row .d{font-size:15px;font-weight:900;color:#B07A12;white-space:nowrap}
 .wm-row.lock .n{color:#8E89A6}
-.wm-row.on{box-shadow:0 0 0 2px #C2405B inset}
-.wm-poi{position:absolute;left:8px;right:8px;bottom:8px;background:#fff;border-radius:20px;padding:12px;box-shadow:0 -2px 0 rgba(58,46,63,.04),0 12px 30px rgba(58,46,63,.24);animation:wmUp .3s cubic-bezier(.2,1.3,.4,1) both;z-index:3}
+.wm-row.on{box-shadow:0 0 0 2.5px #C2405B inset}
+.wm-poi{position:absolute;left:8px;right:8px;bottom:8px;background:#fff;border-radius:22px;padding:14px;box-shadow:0 -2px 0 rgba(58,46,63,.04),0 12px 30px rgba(58,46,63,.24);animation:wmUp .3s cubic-bezier(.2,1.3,.4,1) both;z-index:3}
 @keyframes wmUp{from{opacity:0;transform:translateY(24px)}}
-.wm-poi-h{display:flex;gap:10px;align-items:center;padding-right:34px}
-.wm-poi-h img{width:40px;height:40px;flex:none}
-.wm-poi-n{font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:16.5px;color:#3A2E3F;line-height:1.2}
-.wm-poi-l{font-size:13px;font-weight:700;color:#6E6272;margin-top:2px;line-height:1.3}
-.wm-poi-d{font-size:12px;font-weight:900;color:#B07A12;margin-top:3px}
-.wm-poi-x{position:absolute;right:8px;top:8px;width:34px;height:34px;border:0;border-radius:12px;background:#F8EEF1;color:#6E6272;font-weight:900;font-size:14px;cursor:pointer}
-.wm-go{margin-top:10px;width:100%;height:50px;border:0;border-radius:25px;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-weight:900;font-size:16px;box-shadow:0 4px 0 var(--cherry-d,#9E2F47),0 8px 16px rgba(158,47,71,.22);cursor:pointer;touch-action:manipulation}
+.wm-poi-h{display:flex;gap:12px;align-items:center;padding-right:46px}
+.wm-poi-h img{width:46px;height:46px;flex:none}
+.wm-poi-n{font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:18.5px;color:#3A2E3F;line-height:1.2}
+.wm-poi-l{font-size:15px;font-weight:700;color:#6E6272;margin-top:3px;line-height:1.3}
+.wm-poi-d{font-size:15px;font-weight:900;color:#B07A12;margin-top:4px}
+.wm-poi-x{position:absolute;right:8px;top:8px;width:44px;height:44px;border:0;border-radius:14px;background:#F8EEF1;color:#6E6272;font-weight:900;font-size:17px;cursor:pointer;touch-action:manipulation}
+.wm-go{margin-top:12px;width:100%;height:56px;border:0;border-radius:28px;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-weight:900;font-size:18px;box-shadow:0 4px 0 var(--cherry-d,#9E2F47),0 8px 16px rgba(158,47,71,.22);cursor:pointer;touch-action:manipulation}
 .wm-go:active{transform:translateY(3px);box-shadow:0 1px 0 var(--cherry-d,#9E2F47)}
-.wm-note{margin-top:10px;padding:10px 12px;border-radius:14px;background:#F4F0F8;color:#6E6272;font-weight:800;font-size:13.5px;line-height:1.3}
+.wm-note{margin-top:12px;padding:12px 14px;border-radius:16px;background:#F4F0F8;color:#6E6272;font-weight:800;font-size:15.5px;line-height:1.3}
 .wm-note.lock::before{content:'🔒 '}
 .wm-note.here{background:#FFF4D9;color:#8A6412}
-.wm-pref{display:flex;gap:6px;align-items:center;justify-content:center;padding:4px 12px 10px;font-size:11.5px;font-weight:800;color:#8A7E8E;flex:none}
-.wm-pref button{border:0;border-radius:99px;padding:5px 10px;background:#F8EEF1;color:#6E6272;font:inherit;font-weight:800;cursor:pointer}
+.wm-pref{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:6px 12px 14px;font-size:15px;font-weight:800;color:#8A7E8E}
+.wm-pref button{min-height:44px;border:0;border-radius:22px;padding:0 16px;background:#F8EEF1;color:#6E6272;font:inherit;font-weight:800;cursor:pointer;touch-action:manipulation}
 .wm-pref button.on{background:#C2405B;color:#fff}
 :where(.wm-cloud){position:absolute;inset:0;z-index:96;overflow:hidden;pointer-events:all}
 .wm-cloud .wm-fog{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,#FFF9F4 0%,#FCE6EC 66%,#F4D5E1 100%);opacity:0;transition:opacity .42s ease}
@@ -622,7 +629,9 @@
       vehicles() {
         if (o.getVehicles) return safe(o.getVehicles) || [];
         const w = W(), out = []; if (!w) return out;
-        if (w.car && w.car.root && w.car.root.visible && w.car.S) out.push({ kind: 'car', x: w.car.S.x, z: w.car.S.z, ry: w.car.S.ry, covered: !!(w.cover && w.cover.visible) });
+        if (w.car && w.car.root && w.car.root.visible && w.car.S) out.push({ kind: 'car', x: w.car.S.x, z: w.car.S.z, ry: w.car.S.ry, covered: !!(w.cover && w.cover.visible), model: w.carKind || w.car.kind });
+        // вторая машина, что стоит рядом (обе — у старта): своим цветом, без ободка
+        if (w.cars) Object.keys(w.cars).forEach(k => { const c = w.cars[k] && w.cars[k].car; if (c && c !== w.car && c.root && c.root.visible && c.S) out.push({ kind: 'car', x: c.S.x, z: c.S.z, ry: c.S.ry, model: k, spare: true }); });
         const b = w.bike; if (b && b.pos && typeof b.pos.x === 'number') out.push({ kind: 'bike', x: b.pos.x, z: b.pos.z, ry: b.ry || 0 });
         return out;
       },
@@ -730,8 +739,14 @@
     const edgeOn = env.edgeOpen() && A.edge && typeof A.edge.x === 'number';
     if (edgeOn && !pois.some(p => p.kind === 'edge')) pois.push({ id: 'edge', kind: 'edge', x: A.edge.x, z: A.edge.z, label: A.edge.label || A.edge.labelNeutral || KINDS.edge.name, line: LINES.edge, door: null, src: A.edge });
     const showPoi = p => p.kind !== 'edge' || edgeOn;
-    // машина и велосипед — тоже точки (поехать к ним)
-    vehicles.forEach(v => { if (typeof v.x === 'number') pois.push({ id: '@' + v.kind, kind: v.kind === 'bike' ? 'bike' : 'car', x: v.x, z: v.z, label: KINDS[v.kind === 'bike' ? 'bike' : 'car'].name, line: v.covered ? 'Под чехлом с бантом. Ждёт своей серии.' : LINES[v.kind === 'bike' ? 'bike' : 'car'], door: null, src: { ry: v.ry }, vehicle: v }); });
+    // машина и велосипед — тоже точки (поехать к ним); две машины у старта — каждая под своим именем (@car, @car2)
+    let nCar = 0;
+    vehicles.forEach(v => {
+      if (typeof v.x !== 'number') return;
+      const bike = v.kind === 'bike', k = bike ? 'bike' : 'car', id = bike ? '@bike' : (nCar++ ? '@car' + nCar : '@car');
+      const title = !bike && v.model && WORLD.carTitle ? safe(WORLD.carTitle, v.model) : null;
+      pois.push({ id, kind: k, x: v.x, z: v.z, label: title || KINDS[k].name, line: v.covered ? 'Под чехлом с бантом. Ждёт своей серии.' : LINES[k], door: null, src: { ry: v.ry }, vehicle: v });
+    });
     const check = p => {
       let r = o.checkTravel ? safe(o.checkTravel, p) : defaultCheck(env, A, p);
       if (r === true || r == null) r = { ok: true }; else if (r === false) r = { ok: false, text: 'Пока закрыто.' }; else if (typeof r === 'string') r = { ok: false, text: r };
@@ -742,6 +757,8 @@
     const stateOf = p => (isTarget(p) ? 'target' : !info.get(p.id).ok ? 'lock' : marks.some(m => m.door && p.door && m.door === p.door.id && m.style === 'soon') ? 'soon' : 'ok');
     // дом из дела, куда просто можно зайти (дело раскрыто, прогулка) — на карте как место прогулки
     const kindOf = p => (p.kind === 'mission' && stateOf(p) === 'ok' ? 'place' : p.kind);
+    // вид точки для чипов легенды: дело под лучом — «Дело», остальное — как на карте
+    const kOf = p => (stateOf(p) === 'target' ? 'mission' : kindOf(p));
     const dist = p => (hero ? Math.hypot(p.x - hero.x, p.z - hero.z) : null);
     const HERE = 3.5;
     const fmtD = m => (m == null ? '' : m < HERE ? 'ты здесь' : (m < 60 ? Math.round(m) : Math.round(m / 5) * 5) + ' м');
@@ -760,17 +777,17 @@
     m.innerHTML = `<div class="wm-card" role="dialog" aria-label="Карта города">
       <div class="wm-head"><div class="wm-title">${esc(TT[tabNow])}</div><button class="wm-x" type="button" aria-label="Закрыть">✕</button></div>
       ${tabsOn ? `<div class="wm-tabs" role="tablist"><button type="button" class="wm-tab" data-tab="city">Город</button><button type="button" class="wm-tab" data-tab="mtn">${esc(mtnTab(named))}</button><button type="button" class="wm-tab" data-tab="ov">Обзор</button></div>` : ''}
-      <div class="wm-pane" data-tab="city">
+      <div class="wm-pane" data-tab="city"><div class="wm-scroll">
       <div class="wm-mapbox"><canvas class="wm-canvas"></canvas><div class="wm-north">С</div>
         <div class="wm-tools"><button type="button" data-z="in" aria-label="Ближе">+</button><button type="button" data-z="out" aria-label="Дальше">−</button>${hero ? '<button type="button" class="me" data-z="me" aria-label="Где я">я</button>' : ''}</div></div>
-      <div class="wm-legend">${hero ? `<span class="wm-chip"><img alt="" src="${heroURL()}">ты</span>` : ''}${kindsHere.map(k => `<span class="wm-chip"><img alt="" src="${iconURL(k)}">${esc(KINDS[k].name)}</span>`).join('')}</div>
+      <div class="wm-legend" role="toolbar" aria-label="Показать на карте">${kindsHere.length > 1 ? '<button type="button" class="wm-chip all on" data-k="">Все</button>' : ''}${kindsHere.map(k => `<button type="button" class="wm-chip" data-k="${esc(k)}"><img alt="" src="${iconURL(k)}">${esc(KINDS[k].name)}</button>`).join('')}</div>
       <div class="wm-list"></div>
       ${o.miniPref ? `<div class="wm-pref">Мини-карта: <button type="button" data-rot="camera" class="${pref.rot !== 'north' ? 'on' : ''}">по камере</button><button type="button" data-rot="north" class="${pref.rot === 'north' ? 'on' : ''}">север сверху</button></div>` : ''}
-      </div>${tabsOn ? '<div class="wm-pane hidden" data-tab="mtn"></div><div class="wm-pane hidden" data-tab="ov"></div>' : ''}
+      </div></div>${tabsOn ? '<div class="wm-pane hidden" data-tab="mtn"></div><div class="wm-pane hidden" data-tab="ov"></div>' : ''}
       <div class="wm-poi hidden"></div></div>`;
     layer.appendChild(m);
     const $ = s => m.querySelector(s);
-    const cv = $('.wm-canvas'), box = $('.wm-mapbox'), list = $('.wm-list'), card = $('.wm-poi');
+    const cv = $('.wm-canvas'), box = $('.wm-mapbox'), list = $('.wm-list'), card = $('.wm-poi'), scroller = $('.wm-scroll'), legend = $('.wm-legend');
     const panes = {};
     if (!A.blocks.length && !A.districts.length && !A.L.drivable) box.style.display = 'none';
 
@@ -781,16 +798,16 @@
     list.innerHTML = gOrder.filter(g => groups[g]).map(g => `<div class="wm-group">${esc(g)}</div>` + groups[g].sort((a, b) => (stateOf(b) === 'target') - (stateOf(a) === 'target') || (dist(a) || 0) - (dist(b) || 0)).map(p => {
       const st = stateOf(p), ic = st === 'target' ? iconURL('mission', { drop: true }) : iconURL(kindOf(p), { dim: st === 'lock', g: st === 'lock' ? 'lock' : undefined });
       const sub = st === 'target' ? 'Сегодняшнее дело' : st === 'lock' ? info.get(p.id).text : p.line;
-      return `<button type="button" class="wm-row${st === 'lock' ? ' lock' : ''}" data-id="${esc(p.id)}"><img alt="" src="${ic}"><span class="n">${esc(p.label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="d">${esc(fmtD(dist(p)))}</span></button>`;
+      return `<button type="button" class="wm-row${st === 'lock' ? ' lock' : ''}" data-id="${esc(p.id)}" data-k="${esc(kOf(p))}"><img alt="" src="${ic}"><span class="n">${esc(p.label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="d">${esc(fmtD(dist(p)))}</span></button>`;
     }).join('')).join('');
 
     // вид карты: центр (vx, vz) и масштаб vs (css px на метр)
     const F = A.F, fw = F.x1 - F.x0, fh = F.z1 - F.z0;
-    let bw = 0, bh = 0, fit = 1, vs = 0, pulseT = 0, vx = (F.x0 + F.x1) / 2, vz = (F.z0 + F.z1) / 2, D = DPR(), base = null, sel = null, hits = [], raf = 0, closed = false;
+    let bw = 0, bh = 0, fit = 1, vs = 0, pulseT = 0, vx = (F.x0 + F.x1) / 2, vz = (F.z0 + F.z1) / 2, D = DPR(), base = null, sel = null, hits = [], raf = 0, closed = false, filt = null;
     function layout() {
       const cardW = m.querySelector('.wm-card').clientWidth || 360;
       bw = Math.max(200, cardW - 20);
-      const maxH = Math.max(200, Math.min((m.clientHeight || 700) * 0.46, 420));
+      const maxH = Math.max(200, Math.min((m.clientHeight || 700) * 0.4, 400));
       bh = Math.round(clamp(bw * fh / fw + 4, 200, maxH));
       box.style.height = bh + 'px';
       D = DPR(); cv.width = Math.round(bw * D); cv.height = Math.round(bh * D);
@@ -848,26 +865,29 @@
         lines.forEach((q, i) => { const y = (i - (lines.length - 1) / 2) * lh; c.strokeText(q, 0, y); c.fillText(q, 0, y); });
         c.restore();
       });
-      // точки
-      const r = clamp(6.8 + (vs - fit) * 0.9, 6.8, 12);
+      // точки (крупнее, чтобы попасть пальцем); чип легенды — остальные бледные и не нажимаются
+      const r = clamp(8.5 + (vs - fit) * 0.9, 8.5, 13);
       const drawn = pois.filter(showPoi).map(p => ({ p, st: stateOf(p), s: toS(p.x, p.z) }));
       drawn.sort((a, b) => (a.st === 'target') - (b.st === 'target') || (a.p.id === sel) - (b.p.id === sel) || a.s[1] - b.s[1]);
       marks.forEach(mk => { if (mk.style !== 'soon' || pois.some(p => p.door && p.door.id === mk.door)) return; const [sx, sy] = toS(mk.x, mk.z); pin(c, 'place', sx, sy, r * 0.8, { dim: true, g: 'lock' }); });
       drawn.forEach(({ p, st, s: [sx, sy] }) => {
         if (sx < -20 || sy < -20 || sx > bw + 20 || sy > bh + 20) return;
         if (st === 'target') return;
+        const off = !!filt && kOf(p) !== filt;
+        if (off) c.globalAlpha = 0.28;
         if (p.vehicle) { pin(c, p.kind, sx, sy, r * 0.95, { col: p.vehicle.covered ? '#C9B8C2' : undefined }); }
         else pin(c, kindOf(p), sx, sy, r, { dim: st === 'lock', g: st === 'lock' ? 'lock' : st === 'soon' ? 'lock' : undefined });
-        hits.push({ id: p.id, x: sx, y: sy, r: r + 8 });
+        if (off) { c.globalAlpha = 1; return; }
+        hits.push({ id: p.id, x: sx, y: sy, r: r + 12 });
       });
       // текущее дело: капля с лупой и пульс
       const tp = drawn.find(d => d.st === 'target');
       const tx = tp ? tp.s : target ? toS(target.x, target.z) : null;
-      if (tx) {
+      if (tx && (!filt || filt === 'mission')) {
         const k = (now() % 1400) / 1400;
         c.strokeStyle = rgba('#F2557A', 0.6 * (1 - k)); c.lineWidth = 2.5; c.beginPath(); c.arc(tx[0], tx[1], 6 + k * 14, 0, TAU); c.stroke();
         dropPin(c, tx[0], tx[1], r * 1.05, KINDS.mission.col, 'case');
-        hits.push({ id: tp ? tp.p.id : '@target', x: tx[0], y: tx[1] - r * 1.4, r: r + 12 });
+        hits.push({ id: tp ? tp.p.id : '@target', x: tx[0], y: tx[1] - r * 1.4, r: r + 14 });
       }
       // героиня: обзор камеры, стрелка, «ты здесь»
       if (hero) {
@@ -880,11 +900,11 @@
       const sp = sel && pois.find(p => p.id === sel);
       if (sp) {
         const [sx, sy] = toS(sp.x, sp.z), lift = isTarget(sp) ? r * 2.7 : r + 4;
-        c.font = `800 12.5px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(220, c.measureText(t).width + 16);
-        const lx = clamp(sx, tw / 2 + 4, bw - tw / 2 - 4), ly = Math.max(14, sy - lift - 12);
-        c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 11 + 2, tw, 22, 11); c.fill();
-        c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 11, tw, 22, 11); c.fill();
-        c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.fillText(t, lx, ly + 0.5, 210);
+        c.font = `800 15px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(bw - 12, c.measureText(t).width + 20);
+        const lx = clamp(sx, tw / 2 + 4, bw - tw / 2 - 4), ly = Math.max(16, sy - lift - 14);
+        c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
+        c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 13, tw, 26, 13); c.fill();
+        c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.fillText(t, lx, ly + 0.5, tw - 12);
         c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
       }
       if (tx && !pulseT && !closed) pulseT = setTimeout(() => { pulseT = 0; req(); }, 66);   // пульс метки дела, ~15 кадров в секунду
@@ -953,7 +973,7 @@
     function zoomAt(x, y, k) { const w0 = toW(x, y); vs = clamp(vs * k, fit, fit * 6); vx = w0[0] - (x - bw / 2) / vs; vz = w0[1] - (y - bh / 2) / vs; clampView(); req(); }
     function tapAt(x, y) {
       let best = null, bd = 1e9;
-      hits.forEach(h => { const d = Math.hypot(h.x - x, h.y - y); if (d < Math.max(18, h.r) && d < bd) { bd = d; best = h; } });
+      hits.forEach(h => { const d = Math.hypot(h.x - x, h.y - y); if (d < Math.max(22, h.r) && d < bd) { bd = d; best = h; } });
       if (best) select(best.id); else if (sel) showCard(null);
     }
     m.querySelector('.wm-tools').addEventListener('click', e => {
@@ -961,7 +981,40 @@
       if (b.dataset.z === 'in') zoomAt(bw / 2, bh / 2, 1.6); else if (b.dataset.z === 'out') zoomAt(bw / 2, bh / 2, 1 / 1.6);
       else if (hero) { vs = Math.max(vs, fit * 2.2); vx = hero.x; vz = hero.z; clampView(); req(); }
     });
-    list.addEventListener('click', e => { const b = e.target.closest('.wm-row'); if (!b) return; haptic('light'); select(b.dataset.id, true); });
+    list.addEventListener('click', e => { const b = e.target.closest('.wm-row'); if (!b) return; haptic('light'); select(b.dataset.id, true); rowAbove(b); });
+    // строка, по которой тапнули, не прячется под карточкой точки: лист чуть прокручивается
+    function rowAbove(b) {
+      requestAnimationFrame(() => {
+        if (closed || card.classList.contains('hidden') || !scroller) return;
+        const rb = b.getBoundingClientRect(), cb = card.getBoundingClientRect(), over = rb.bottom - (cb.top - 10);
+        if (over > 0) scroller.scrollTop += over;
+      });
+    }
+    // чипы легенды — фильтр: «Все» или один вид (список и значки на карте); второй тап по тому же чипу — снова все
+    function setFilt(k) {
+      filt = k && k !== filt ? k : null;
+      legend.querySelectorAll('.wm-chip').forEach(b => b.classList.toggle('on', filt ? b.dataset.k === filt : b.dataset.k === ''));
+      let head = null, vis = 0;
+      const close = () => { if (head) head.classList.toggle('hidden', !vis); };
+      [...list.children].forEach(el => {
+        if (el.classList.contains('wm-group')) { close(); head = el; vis = 0; return; }
+        const on = !filt || el.dataset.k === filt; el.classList.toggle('hidden', !on); if (on) vis++;
+      });
+      close();
+      const sp = sel && pois.find(q => q.id === sel);
+      if (sp && filt && kOf(sp) !== filt) showCard(null);
+      // карта — к точкам этого вида (без приближения, только отдалить, если не влезают)
+      const ps = filt ? pois.filter(q => showPoi(q) && kOf(q) === filt) : [];
+      if (ps.length) {
+        let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+        ps.forEach(q => { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); });
+        const need = Math.min((bw - 60) / Math.max(1, x1 - x0), (bh - 60) / Math.max(1, z1 - z0));
+        if (need < vs) vs = need;
+        vx = (x0 + x1) / 2; vz = (z0 + z1) / 2; clampView();
+      }
+      req();
+    }
+    legend.addEventListener('click', e => { const b = e.target.closest('.wm-chip'); if (!b) return; e.stopPropagation(); haptic('select'); sfx('tap'); setFilt(b.dataset.k || null); });
     m.querySelectorAll('[data-rot]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); lsSet({ rot: b.dataset.rot }); m.querySelectorAll('[data-rot]').forEach(x => x.classList.toggle('on', x === b)); if (hooks.onPref) hooks.onPref(b.dataset.rot); }));
     $('.wm-x').addEventListener('click', e => { e.stopPropagation(); api.close(); });
     m.addEventListener('click', e => { if (e.target === m) api.close(); });
@@ -1191,9 +1244,9 @@
   function mtnPane(ctx, el) {
     const o = ctx.o, named = ctx.named, here = o.here || null;
     let sub = o.sub || (here && here.rid) || 'kubachi', sel = null;
-    el.innerHTML = `<div class="wm-mapbox"><canvas class="wm-canvas wm-mcv"></canvas><div class="wm-seg">${['kubachi', 'hotel', 'serpentine'].map(r => `<button type="button" data-r="${r}">${esc(rTitle(r, named))}</button>`).join('')}</div><div class="wm-north">С</div>
+    el.innerHTML = `<div class="wm-scroll"><div class="wm-mapbox"><canvas class="wm-canvas wm-mcv"></canvas><div class="wm-seg">${['kubachi', 'hotel', 'serpentine'].map(r => `<button type="button" data-r="${r}">${esc(rTitle(r, named))}</button>`).join('')}</div><div class="wm-north">С</div>
       <div class="wm-tools"><button type="button" data-z="in" aria-label="Ближе">+</button><button type="button" data-z="out" aria-label="Дальше">−</button>${here ? '<button type="button" class="me" data-z="me" aria-label="Где я">я</button>' : ''}</div></div>
-      <div class="wm-list wm-mlist"></div>`;
+      <div class="wm-list wm-mlist"></div></div>`;
     const box = el.querySelector('.wm-mapbox'), cv = el.querySelector('canvas'), list = el.querySelector('.wm-mlist');
     const models = {};
     const model = r => models[r] || (models[r] = (o.regionModel && o.regionModel[r]) || mtnModel(r, null, named));
@@ -1207,15 +1260,15 @@
     const V = mapViewer(box, cv, {
       bounds: () => model(sub).bounds,
       paintBase: (c, s, ox, oz, W, H) => model(sub).paint(c, s, ox, oz, W, H, {}),
-      height: (bw, fw, fh) => clamp(bw * fh / fw, 230, Math.min(((ctx.m.clientHeight || 700) * 0.42), 380)),
+      height: (bw, fw, fh) => clamp(bw * fh / fw, 230, Math.min(((ctx.m.clientHeight || 700) * 0.4), 380)),
       zoom0: sub === 'serpentine' ? 1 : 1.15, maxZoom: 7, baseK: 2.4,
       focus: () => { const h = heroOf(sub); return h ? { x: h.x, z: h.z } : null; },
       live(c, toS, vs, hits, vw) {
-        const r = clamp(6.8 + (vs - vw.fit) * 0.5, 6.8, 11.5);
+        const r = clamp(8.5 + (vs - vw.fit) * 0.5, 8.5, 12.5);
         // шпильки (без строки в списке)
         if (sub === 'serpentine') model(sub).hairpins.forEach(p => { const [sx, sy] = toS(p.x, p.z); pin(c, 'hairpin', sx, sy, r * 0.75, { shadow: false }); });
         const ps = poisOf(sub).map(p => ({ p, s: toS(p.x, p.z) })).sort((a, b) => (a.p.id === sel) - (b.p.id === sel) || a.s[1] - b.s[1]);
-        ps.forEach(({ p, s: [sx, sy] }) => { if (sx < -20 || sy < -20 || sx > vw.bw + 20 || sy > vw.bh + 20) return; pin(c, p.kind, sx, sy, r); hits.push({ id: p.id, x: sx, y: sy, r: r + 8 }); });
+        ps.forEach(({ p, s: [sx, sy] }) => { if (sx < -20 || sy < -20 || sx > vw.bw + 20 || sy > vw.bh + 20) return; pin(c, p.kind, sx, sy, r); hits.push({ id: p.id, x: sx, y: sy, r: r + 12 }); });
         // метка
         const w = WAYPOINT; if (w && w.rid === sub) { const [sx, sy] = toS(w.x, w.z); dropPin(c, sx, sy, r * 1.05, KINDS.waypoint.col, 'pin'); }
         // героиня
@@ -1230,11 +1283,11 @@
         const sp = sel && findP(sub, sel);
         if (sp) {
           const [sx, sy] = toS(sp.x, sp.z);
-          c.font = `800 12.5px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(230, c.measureText(t).width + 16);
-          const lx = clamp(sx, tw / 2 + 4, vw.bw - tw / 2 - 4), ly = Math.max(14, sy - r - 16);
-          c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 11 + 2, tw, 22, 11); c.fill();
-          c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 11, tw, 22, 11); c.fill();
-          c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, lx, ly + 0.5, 220);
+          c.font = `800 15px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(vw.bw - 12, c.measureText(t).width + 20);
+          const lx = clamp(sx, tw / 2 + 4, vw.bw - tw / 2 - 4), ly = Math.max(16, sy - r - 18);
+          c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
+          c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 13, tw, 26, 13); c.fill();
+          c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, lx, ly + 0.5, tw - 12);
           c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
         }
       },
@@ -1269,7 +1322,11 @@
       }).join('');
     }
     el.querySelector('.wm-seg').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (!b || b.dataset.r === sub) return; e.stopPropagation(); haptic('select'); select(null); setSub(b.dataset.r); });
-    list.addEventListener('click', e => { const b = e.target.closest('.wm-row'); if (!b) return; haptic('light'); const [r, ...rest] = b.dataset.id.split(':'); select(r, rest.join(':')); });
+    list.addEventListener('click', e => {
+      const b = e.target.closest('.wm-row'); if (!b) return; haptic('light'); const [r, ...rest] = b.dataset.id.split(':'); select(r, rest.join(':'));
+      // строка не прячется под карточкой точки
+      requestAnimationFrame(() => { const sc = el.querySelector('.wm-scroll'), cd = ctx.card; if (!sc || !cd || cd.classList.contains('hidden')) return; const over = b.getBoundingClientRect().bottom - (cd.getBoundingClientRect().top - 10); if (over > 0) sc.scrollTop += over; });
+    });
     fillList();
     let built = false;
     return {
@@ -1368,9 +1425,9 @@
   }
   function ovPane(ctx, el) {
     const o = ctx.o, named = ctx.named, L = ctx.env.layout(), V = V_();
-    el.innerHTML = `<div class="wm-mapbox wm-ovbox"><canvas class="wm-canvas wm-ocv"></canvas><div class="wm-north">С</div>
+    el.innerHTML = `<div class="wm-scroll"><div class="wm-mapbox wm-ovbox"><canvas class="wm-canvas wm-ocv"></canvas><div class="wm-north">С</div>
       <div class="wm-tools"><button type="button" data-z="in" aria-label="Ближе">+</button><button type="button" data-z="out" aria-label="Дальше">−</button><button type="button" class="me" data-z="me" aria-label="Где я">я</button></div></div>
-      <div class="wm-route"></div>`;
+      <div class="wm-route"></div></div>`;
     const box = el.querySelector('.wm-mapbox'), cv = el.querySelector('canvas'), route = el.querySelector('.wm-route');
     const locks = mtnLocks(ctx), RD = ovRoads(L), P = path0();
     const hr = hotelRoad0(), zr = (() => { try { return V.zipline.route('macro'); } catch (e) { return null; } })();
@@ -1403,7 +1460,7 @@
     const Vw = mapViewer(box, cv, {
       bounds: () => OV_B,
       paintBase: (c, s, ox, oz, W, H) => paintOverview(c, s, ox, oz, W, H, { L, named }),
-      height: bw => clamp(bw * 1.0, 260, Math.min((ctx.m.clientHeight || 700) * 0.46, 400)),
+      height: bw => clamp(bw * 1.0, 260, Math.min((ctx.m.clientHeight || 700) * 0.42, 400)),
       zoom0: 1, maxZoom: 4, baseK: 2.6,
       focus: () => { const h = here(); return h ? { x: h.x, z: h.z } : null; },
       live(c, toS, vs, hits, vw) {
@@ -1476,6 +1533,11 @@
       if (n.id === 'fork' || n.id === 'zip') { p.kind = n.kind; p.label = n.label; }
       mtnCard(ctx, p, o.here || null, () => { sel = null; route.classList.remove('pad'); Vw.req(); });
     }
+    // где машины: у старта, на Октябрьской у кинотеатра (обе, если вторая открыта)
+    function carsLine(car) {
+      const w = live().w, two = !!(w && w.cars && Object.keys(w.cars).filter(k => w.cars[k].car.root.visible).length > 1);
+      return two ? 'Обе машины ждут у кинотеатра, прямо у старта.' : car + ' ждёт у кинотеатра, прямо у старта.';
+    }
     // шаги «как попасть»
     function steps() {
       const h = here(), title = villageTitle(named), lk = locks.trip;
@@ -1484,7 +1546,7 @@
       let html = `<h4>${h && h.rid === 'kubachi' ? 'Ты в ' + esc(named ? villageTitle(true) : 'горном селе') + '!' : esc(named ? 'Как попасть в ' + villageTitle(true) : 'Как попасть наверх')}</h4>`;
       if (lk) html += `<div class="wm-note lock">${esc(lk.text)}</div>`;
       if (!h || h.rid === 'city') {
-        html += st(1, 'Сесть в машину', car + ' ждёт у гаража «Круглые фары».', false)
+        html += st(1, 'Сесть в машину', carsLine(car), false)
           + st(2, 'Выезд из города — под аркой на севере', (L && L.edge && L.edge.label ? 'Табличка «' + L.edge.label.replace(/\s*↑\s*$/, '') + ' ↑».' : 'Табличка со стрелкой вверх.'), !!lk)
           + st(3, 'Серпантин наверх', 'Газ и тормоз — справа, руль — пальцем слева. Можно выйти и посидеть на лавочке.', !!lk)
           + st(4, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', !!lk)
@@ -1866,7 +1928,7 @@
   function setWaypoint(w) { WAYPOINT = w && isFinite(w.x) && isFinite(w.z) ? Object.assign({ rid: 'city' }, w) : null; return WAYPOINT; }
   // куда вести стрелку, если метка в другом регионе: выход текущего региона
   const EXIT_TO = { serpentine: { kubachi: 'toVillage', hotel: 'toHotel', city: 'toCity' }, kubachi: { serpentine: 'toRoad', hotel: 'toHotel', city: 'toRoad' }, hotel: { kubachi: 'zipline', serpentine: 'toRoad', city: 'toRoad' } };
-  const CAR_COL = { sedan: '#D23A4A', coupe: '#79C2AA' };
+  const CAR_COL = { sedan: '#D23A4A', coupe: '#E8B91E' };
   const carColOf = v => (v && v.covered ? '#C9B8C2' : CAR_COL[(v && v.model) || (window.WORLD && WORLD.carChoice ? safe(WORLD.carChoice) : 'coupe')] || CAR_COL.coupe);
   // машина сверху: a — угол «вперёд» на экране
   function carIcon(c, x, y, a, col, D) {
@@ -2088,10 +2150,10 @@
       env.vehicles().forEach(v => {
         if (typeof v.x !== 'number') return;
         let s = X.toS(v.x, v.z), ring = false;
-        if (!X.inR(s, 7 * D)) { if (v.kind !== 'car') return; s = X.onRing(s, 7 * D); ring = true; }
-        if (v.kind === 'car') { if (drive && !ring) return; if (ring) pin(c, 'car', s[0], s[1], 5.2 * D, { shadow: false, col: carColOf(v) }); else carIcon(c, s[0], s[1], X.scr(v.ry || 0), carColOf(v), D); }
+        if (!X.inR(s, 7 * D)) { if (v.kind !== 'car' || v.spare) return; s = X.onRing(s, 7 * D); ring = true; }
+        if (v.kind === 'car') { if (drive && !ring && !v.spare) return; if (ring) pin(c, 'car', s[0], s[1], 5.2 * D, { shadow: false, col: carColOf(v) }); else carIcon(c, s[0], s[1], X.scr(v.ry || 0), carColOf(v), D); }
         else pin(c, 'bike', s[0], s[1], 5.4 * D, { shadow: false });
-        X.add('@' + v.kind, v.kind, s, ring);
+        X.add(v.spare ? '@car2' : '@' + v.kind, v.kind, s, ring);
       });
       // метка «📍»: в городе — точкой; в горах — стрелкой к выезду
       const w = WAYPOINT;

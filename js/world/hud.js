@@ -21,6 +21,7 @@
    HUD.radarSlot(el)                      — радар в угол (класс + data-hud-slot=radar)
    HUD.menu.add({ id, icon, label, sub?, value?, badge?, toggle?, when?|visible?, onTap|onClick, onLong?, order?, keepOpen? })
              .remove(id) .update(id, patch) .open() .close() .isOpen() .news(id, on) .info(fn|text) .note(text|null)
+   HUD.help()                             — лист «Как играть»; HUD.helpTop = () => { icon, title, sub, onTap } | null — строка сверху от сцены
    HUD.objective.set(o | null)            — o: { icon, text, title?, full?, progress?:[a,b], dist?, onTap?, lock? } — пилюля + карточка
                 .dist(m) .expand(ms) .get()
    HUD.status(o | null)                   — правый слот: null → звук; { kind:'exit', icon, label, onTap } | { kind:'chip', text } |
@@ -612,14 +613,19 @@
   function helpSheet() {
     const L = layerEl(); if (!L) return;
     const touch = coarse();
+    // HUD.helpTop() → { icon, title, sub, onTap } | null — строка сверху от сцены (город: «Что тут делать?»)
+    let top = null; try { top = typeof HUD.helpTop === 'function' ? HUD.helpTop() : null; } catch (e) { top = null; }
     const m = document.createElement('div'); m.className = 'modal sheet hud-help';
     const rows = touch
       ? [['🕹', 'Кружок внизу — идти', 'палец в нижней половине слева — кружок встанет под него'], ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'], ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'], ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'], ['✌️', 'Камера', 'проведи пальцем вверху; двумя — ближе или дальше']]
       : [['⌨️', 'WASD или стрелки — идти', 'Shift — бег, пробел — прыжок'], ['⏎', 'Enter — действие', 'войти, поговорить, сесть'], ['🖱', 'Мышь — камера', 'Q/E — повернуть, колёсико — ближе'], ['🗺', 'Карта — слева внизу', 'клик по кружку карты — большая карта']];
     m.innerHTML = '<div class="sheet-card" role="dialog"><div class="sheet-head"><div class="sheet-title">Как играть</div><button class="sheet-x" type="button" aria-label="Закрыть">✕</button></div><div class="sheet-body hud-mlist">' +
+      (top ? `<button type="button" class="hud-mrow t-sun hud-help-top"><span class="hud-mi" aria-hidden="true">${esc(top.icon || '💡')}</span><span class="hud-mt"><b>${esc(top.title)}</b><span>${esc(top.sub || '')}</span></span></button>` : '') +
       rows.map(r => `<div class="hud-mrow static"><span class="hud-mi" aria-hidden="true">${r[0]}</span><span class="hud-mt"><b>${esc(r[1])}</b><span>${esc(r[2])}</span></span></div>`).join('') + '</div></div>';
     const close = () => { m.classList.add('out'); setTimeout(() => { m.remove(); if (!document.querySelector('#layer .modal.sheet')) document.body.classList.remove('sheet-on'); }, 230); };
     m.addEventListener('click', e => { if (e.target === m || (e.target.closest && e.target.closest('.sheet-x'))) close(); });
+    const tb = top && m.querySelector('.hud-help-top');
+    if (tb) tb.addEventListener('click', e => { e.stopPropagation(); haptic('light'); tapSfx(); close(); setTimeout(() => { try { top.onTap(); } catch (x) { /* сцена ушла */ } }, 260); });
     L.appendChild(m); document.body.classList.add('sheet-on');
   }
   HUD.help = helpSheet;

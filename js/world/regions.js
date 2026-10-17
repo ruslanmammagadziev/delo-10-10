@@ -842,7 +842,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const V = V_();
       try {
         if (wantSedan() && window.VEHICLES && VEHICLES.sedan) car = V.drive.makeCar(T, { kit: refs.kit, factory: () => VEHICLES.sedan.makeCar(refs.kit || T, { kit: refs.kit, quality: regionQ, lite: regionQ !== 'high' }) });
-        else car = V.drive.makeCar(T, { kit: refs.kit, color: '#A8D8C4' });
+        else car = V.drive.makeCar(T, { kit: refs.kit });
         ownCar = true;
       } catch (e) { console.warn('region car', e); car = null; }
       return car;

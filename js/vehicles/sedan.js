@@ -45,6 +45,7 @@
          seatDog (собачка, сзади слева), doorL / doorR (точки у дверей снаружи), on/off('edge'|'bump'|'horn'), horn(),
          paintMesh, trimMesh, glass, outline, plate (null), wheels ({fl,fr,rl,rr} вместо InstancedMesh)
        Своё: kind 'sedan', model, dims, driveCfg, doors, seats, steeringWheel, lights, lamps, stats, lod,
+         cockpit (W7) { eye, wheel: { c, r, tilt, axis }, gripL, gripR } — оси body, для вида «из-за руля» (как у кабриолета),
          openDoor(id, open = true, dur) → Promise, setDoor(id, k), doorK(id), doorsBusy, tick(dt), setWheelLift(k, lift),
          setBrake(k|null), setHeadlights(k), setNight(k 0..1), autoLights, doorStand(id) → Vector3 (оси body),
          makeCover() → чехол с бантом на крыше (setOn), dispose()
@@ -55,9 +56,9 @@
        ctl.setLocked(b) / locked · setCovered(b|null) · canEnter(x,z) · enter(hero, { cat, dog, instant }) → Promise<bool>
        ctl.exit({ instant }) → Promise<{ x, z, ry, pets }> · update(dt, input) → { bumped, edge } · horn() · animState()
        ctl.driveInput() · on('edge'|'locked'|'enter'|'exit'|'horn'|'bump', fn) · mode · seats · pos · speed · ry · dispose()
-     VEHICLES.CHOICES — [{ id:'coupe', title:'Ретро-купе' }, { id:'sedan', title:'Красный седан' }] (+ make, ctl, note)
+     VEHICLES.CHOICES — [{ id:'coupe', title:'Жёлтый кабриолет' }, { id:'sedan', title:'Красный седан' }] (+ make, ctl, note)
      VEHICLES.makeCar(id, H, o) / VEHICLES.createCtl(id, o) — фабрики по выбору игрока
-     VEHICLES.picker({ current, onPick }) → HTMLElement — две карточки «Ретро-купе / Красный седан» (мягкие, без брендов)
+     VEHICLES.picker({ current, onPick }) → HTMLElement — две карточки «Жёлтый кабриолет / Красный седан» (мягкие, без брендов)
 
    Подключение: после three.min.js (и world/kit.js, world/car.js — если есть). Файл самостоятельный.
    ===================================================================== */
@@ -1077,6 +1078,8 @@
     const ok = (x, z, ry) => { const fx = Math.sin(ry), fz = Math.cos(ry); return can(x + fx * 1.75, z + fz * 1.75) && can(x - fx * 1.7, z - fz * 1.7) && can(x, z); };
     /* ctl: { dir: [dx, dz, mag] (джойстик в мире) | null, thr: -1..1, str: -1..1 (клавиши, + — вправо), brake } → { bumped, edge } */
     const SLIDE = [0.06, -0.06, 0.14, -0.14, 0.26, -0.26], RES = { bumped: false, edge: null };   // без выделений памяти за кадр
+    // звук мотора (js/engine_sound.js): голос седана; один объект на машину
+    const ES = { kind: 'sedan', speed: 0, vmax: VMAX, throttle: 0, braking: false, onGround: true, driving: true };
     function update(dt, ctl) {
       dt = Math.min(Math.max(dt || 0, 0), 0.05);
       let target = 0, delta = 0, braking = false, hasInput = false;
@@ -1140,6 +1143,8 @@
         if (!S.edgeIn && d < R && Math.abs(S.v) > 0.3) { S.edgeIn = true; edge = Object.assign({ x: E.x, z: E.z }, E, { car: { x: S.x, z: S.z, ry: S.ry } }); emit('edge', edge); }
         else if (S.edgeIn && d > R + 4) S.edgeIn = false;
       }
+      // звук мотора: скорость, сколько газа просит игрок (цель / VMAX), тормоз
+      if (window.EngineSound) { ES.speed = S.v; ES.throttle = Math.abs(target) / VMAX; ES.braking = braking; EngineSound.update(ES, dt); }
       RES.bumped = bumped; RES.edge = edge;
       return RES;
     }
@@ -1197,6 +1202,12 @@
       paintMesh: md.paint, trimMesh: md.trim, glass: md.glass, outline: md.outline, plate: null,
       wheels: md.wheels, doors: md.doors, seats: md.seats, steeringWheel: md.steeringWheel, lights: md.lights, lamps: md.lamps,
       dims: md.dims, driveCfg: md.driveCfg, stats: md.stats,
+      // W7: вид «из-за руля» (оси body): глаза героини в низком кресле (замер по скину: +1,517 над корнем, +0,109 вперёд),
+      // руль { c, r, tilt, axis }, руки на ободе «на 10 и 2» (±60° от верха, как HeroAnim) при прямом руле; gripL — левая (+x)
+      cockpit: (() => {
+        const c = md.wheelCenter, a = PI / 3, g = sd => [c.x + sd * Math.sin(a) * WHEEL_RAD, c.y + Math.cos(TILT) * Math.cos(a) * WHEEL_RAD, c.z + Math.sin(TILT) * Math.cos(a) * WHEEL_RAD];
+        return { eye: [heroSeat.x, heroSeat.y + 1.517, heroSeat.z + 0.109], wheel: { c: [c.x, c.y, c.z], r: WHEEL_RAD, tilt: TILT, axis: [0, -Math.sin(TILT), Math.cos(TILT)] }, gripL: g(1), gripR: g(-1) };
+      })(),
       heroSeat,
       seatDriver: new T.Vector3(heroSeat.x, heroSeat.y + 0.52, heroSeat.z),   // старый путь main.js: корень = seatDriver.y − 0.52
       seatPass: md.petSeats.cat.clone(),   // кот — сзади справа, на розовой подушке
@@ -1387,10 +1398,10 @@
   }
 
   /* =====================================================================
-     ВЫБОР МАШИНЫ: «Ретро-купе / Красный седан»
+     ВЫБОР МАШИНЫ: «Жёлтый кабриолет / Красный седан» (W7: id 'coupe' — прежний ключ сохранений, кузов — js/vehicles/cabrio.js)
      ===================================================================== */
   const CHOICES = [
-    { id: 'coupe', title: 'Ретро-купе', note: 'Кругленькая, с открытым верхом', color: '#A8D8C4',
+    { id: 'coupe', title: 'Жёлтый кабриолет', note: 'Открытый верх, мотор сзади', color: '#FCD93A',
       make: (H, o) => (window.WORLD && WORLD.makeCar ? WORLD.makeCar(H, o) : null), ctl: o => (window.WORLD && WORLD.Car ? WORLD.Car.create(o) : null) },
     { id: 'sedan', title: 'Красный седан', note: 'Четыре двери, место для всех', color: '#C8102E',
       make: (H, o) => makeCar(H, o), ctl: o => create(o) },

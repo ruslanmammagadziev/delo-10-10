@@ -2428,6 +2428,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (!hero) { try { hero = buildHeroGLB(o.hero, H3); } catch (e) { console.warn('hero3d', e); hero = null; } }   // статуэтка
     }
     if (!hero) hero = buildHero(o.hero, await heroFaceImgs());
+    // образ на модели автора (бант и берет, тренч, волосы): перекрашенная текстура, общая с открытым городом и горами
+    const H3L = H3 && (hero.rig || hero.statue) && window.HeroLook3D ? H3 : null;
+    if (H3L) { try { HeroLook3D.apply(H3L, o.hero || {}); } catch (e) { console.warn('hero look', e); } }
     scene.add(hero.root);
     const heroBlob = put(scene, GEO.plane, blobMat, [0, 0.012, 0], [0.8, 0.5, 1], [-PI / 2, 0, 0]); heroBlob.castShadow = false; heroBlob.receiveShadow = false;
     const cat = buildCat(); cat.root.visible = false; scene.add(cat.root);
@@ -2733,7 +2736,10 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       };
       requestAnimationFrame(step);
     });
-    const recolor = lk => { Object.assign(lookNow, lk); hero.setCols(heroCols(lookNow), lk); };
+    const recolor = lk => {
+      Object.assign(lookNow, lk);
+      if (H3L) { try { HeroLook3D.apply(H3L, lookNow); } catch (e) { console.warn('hero look', e); } } else hero.setCols(heroCols(lookNow), lk);
+    };
     let dimK = 1, fitTarget = null;
     const refit = () => {
       if (!fitTarget) return;
@@ -2762,7 +2768,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       }),
       stand: () => standUp(),
       get isSitting() { return !!sitting; },
-      get canRecolor() { return !hero.statue && !hero.rig; },   // у статуэтки одна запечённая текстура: смена образа видна только в 2D и у рисованной героини
+      // у модели автора образ перекрашивает её текстуру (js/hero_look3d.js), у рисованной героини — материалы
+      get canRecolor() { return !!H3L || (!hero.statue && !hero.rig); },
       setLook: lk => recolor(lk || {}),
       look: () => Object.assign({}, lookNow),
       heroHead: () => { if (!headG) { headG = new T.Group(); hero.head.add(headG); } return headG; },
