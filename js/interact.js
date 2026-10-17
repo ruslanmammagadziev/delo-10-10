@@ -456,7 +456,8 @@
         const sk = model.skeleton, iR = sk.bones.indexOf(B.hand_R);
         if (iR < 0) return null;
         const g = model.geometry, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, UV = g.attributes.uv;
-        const map = model.material && model.material.map, img = map && map.image;
+        // цвета — авторские: образ (js/hero_look3d.js) мог перекрасить текстуру, тёмный рукав не должен стать «ручкой лупы»
+        const map = model.material && model.material.map, img = map && (window.HeroLook3D && HeroLook3D.source ? HeroLook3D.source(map) : map.image);
         if (!SI || !SW || !UV || !img || !img.width) return null;
         const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
         const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);

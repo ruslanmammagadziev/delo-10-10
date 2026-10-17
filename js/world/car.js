@@ -1,9 +1,11 @@
 /* =====================================================================
    ОТКРЫТЫЙ ГОРОД: машинка.
-   Мультяшное кругленькое ретро-купе с открытым верхом и мотором сзади: круглые фары-«глазки» на крыльях, покатая
-   спина, широкие задние «бёдра», жалюзи моторного отсека, две трубы. Без значков и надписей марки; номер «10·10» на
-   настоящие номера не похож. Сзади маленький диванчик: там сидят кот и собачка. На пассажирском месте спереди лежит
-   папка «дела» (пустого второго места рядом с ней нет). Строится кодом, 6 вызовов отрисовки (+3 на тень).
+   W7 (желание автора: машина «как на фото»): кузов — жёлтый кабриолет из js/vehicles/cabrio.js (силуэт классической
+   заднемоторной спортивной машины: овальные фары на гребнях крыльев, капот ниже крыльев, «утиный хвост», широкие задние
+   «бёдра», две трубы, крупные колёса, сложенный мягкий верх под крышкой цвета кузова, низкие кресла, чёрный салон; без значков и надписей,
+   номер пустой), 5 вызовов отрисовки.
+   Без cabrio.js — прежнее мультяшное ретро-купе (retroBody ниже: круглые фары-«глазки», покатая спина, номер «10·10»).
+   Кот и собачка едут сзади (у кабриолета — на крышке за креслами, у купе — на диванчике). На пассажирском месте — папка «дела».
    Руль крутится вместе с колёсами (сетка отделки со скелетом из двух костей — без лишнего вызова).
    Управление «покажи, куда ехать»: джойстик задаёт направление и газ; отпустила — сама тормозит; задний ход
    включается сам; перед стеной и бордюром сама сбавляет ход; о бордюр мягко пружинит и скользит вдоль.
@@ -13,6 +15,9 @@
        W6: итоговая скорость = vmax × speedK (по умолчанию 8 × 1,5 = 12 м/с), разгон 5,5 × speedK; car.VMAX — итоговая
        car.update(dt, ctl) → { bumped, edge } — ctl = { dir: [dx,dz,mag] | null, thr, str, brake }
        car.root, body, wheels, paintMesh, trimMesh, glass, plate, outline, S, place(), reset(path), setColor(hex), VMAX
+       W7: car.cockpit = { eye: [x,y,z], wheel: { c: [x,y,z], r, tilt, axis }, gripL, gripR } (оси car.body) — вид «из-за руля»;
+         car.lamps { head, tail } (точки фар/фонарей), car.dims, car.driveCfg (размеры для VILLAGE.drive), car.setNight(k) — у кабриолета;
+         car.setFar(0 | 1 | 2) — дешёвый дальний вид стоящей машины (кабриолет; js/world/main.js carLod)
        car.seatDriver / seatPass (кот, сзади справа) / seatDog (собачка, сзади слева) / heroSeat (куда ставить корень
          героини в car.body) / doorL / doorR — точки в осях кузова (car.body)
        car.on('edge' | 'bump' | 'horn', fn) / off — 'edge' — машина въехала в зону выезда из города (layout.edge)
@@ -36,7 +41,7 @@
   const PI = Math.PI;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const angDiffG = (a, b) => { let d = (a - b) % (PI * 2); if (d > PI) d -= PI * 2; if (d < -PI) d += PI * 2; return d; };
-  WORLD.CAR_COLORS = [['мятный', '#A8D8C4'], ['пудровый', '#F2B8C6'], ['сливочный', '#F6E3B8'], ['вишнёвый', '#D9566E'], ['небесный', '#A9C9EE'], ['графитовый', '#6F6A78']];
+  WORLD.CAR_COLORS = [['жёлтый', '#FCD93A'], ['мятный', '#A8D8C4'], ['пудровый', '#F2B8C6'], ['сливочный', '#F6E3B8'], ['вишнёвый', '#D9566E'], ['небесный', '#A9C9EE'], ['графитовый', '#6F6A78']];
 
   /* ---------- звук гудка: «би-бип» — две мягкие ноты (G.audioBus уважает «звук выкл»), иначе G.sfx('blip') ---------- */
   let ownAC = null;
@@ -55,6 +60,8 @@
         o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t0 + dur + 0.1);
       });
       note(t, 440, 0.12, 0.05); note(t + 0.17, 554, 0.17, 0.05);
+      // мотор на миг тише (≈ −8 дБ), чтобы «би-бип» было слышно и на полном ходу
+      if (window.EngineSound && EngineSound.duck) EngineSound.duck(0.4, 0.5);
       return true;
     } catch (e) { return false; }
   }
@@ -79,9 +86,9 @@
     return mg;
   }
 
-  WORLD.makeCar = function (H, o = {}) {
-    const T = H.T, { keep, GEO, put, box, sph, cyl, rbox, toon, cnv, rrect, text, angDiff } = H;
-    const root = new T.Group(), body = new T.Group(); root.add(body); root.name = 'car';
+  // ретро-купе прежних волн — запасной кузов, если js/vehicles/cabrio.js не подключён (стенды, старые тесты); сетки — в body / root
+  function retroBody(H, o, root, body) {
+    const T = H.T, { keep, GEO, put, box, sph, cyl, rbox, toon, cnv, rrect, text } = H;
     const WB = { f: 1.05, r: -1.12 }, WR = 0.31, TRACK = 0.72;
 
     /* --- кузов: боковой профиль, выдавленный по ширине, потом скруглён и сужен в плане --- */
@@ -200,12 +207,32 @@
     const wheels = new T.InstancedMesh(wheelG, H.VC.front, 4);
     wheels.castShadow = true; wheels.frustumCulled = false; root.add(wheels);
     const WP = [[TRACK, WB.f], [-TRACK, WB.f], [TRACK, WB.r], [-TRACK, WB.r]];
+    const seats = { heroSeat: new T.Vector3(0.31, 0.2, 0.06), seatDriver: new T.Vector3(0.31, 0.84, -0.12), seatPass: new T.Vector3(-0.24, 1.03, -0.68), seatDog: new T.Vector3(0.24, 1.03, -0.68), doorL: new T.Vector3(1.45, 0, 0.0), doorR: new T.Vector3(-1.45, 0, 0.0) };
+    return { kind: 'coupe', paintMesh, outline, trimMesh, boneWheel, glass, plate, wheels, WP, WR, WB, TRACK, WHEEL_C, COL_AX, seats, cockpit: null, lamps: null, setColor: hex => paintMesh.material.color.set(hex) };
+  }
+  // вид «из-за руля» для запасного купе: глаза героини (замер по скину: +1,53 над корнем, +0,17 вперёд), руки «на 10 и 2» (±60°, как HeroAnim)
+  function cockpitOf(hs, c, ax) {
+    const tl = 0.95, r = 0.17, a = PI / 3, g = sd => [c.x + sd * Math.sin(a) * r, c.y + Math.cos(tl) * Math.cos(a) * r, c.z + Math.sin(tl) * Math.cos(a) * r];
+    return { eye: [hs.x, hs.y + 1.53, hs.z + 0.17], wheel: { c: [c.x, c.y, c.z], r, tilt: tl, axis: [ax.x, ax.y, ax.z] }, gripL: g(1), gripR: g(-1) };
+  }
+
+  WORLD.makeCar = function (H, o = {}) {
+    const T = H.T, { angDiff } = H;
+    const root = new T.Group(), body = new T.Group(); root.add(body); root.name = 'car';
+    // W7: кузов — жёлтый кабриолет (js/vehicles/cabrio.js); нет файла или он упал — прежнее ретро-купе
+    let M = null;
+    const CB = window.VEHICLES && window.VEHICLES.cabrio;
+    if (CB && typeof CB.build === 'function') { try { M = CB.build(H, { color: o.color, root, body }); } catch (e) { console.warn('car: cabrio body failed, retro coupe', e); M = null; } }
+    if (!M) M = retroBody(H, o, root, body);
+    const { paintMesh, outline, trimMesh, boneWheel, glass, plate, wheels, WP, WR, WHEEL_C, COL_AX } = M;
 
     /* --- состояние и управление --- */
     const S = { x: o.x || 0, z: o.z || 0, ry: o.ry || 0, v: 0, steer: 0, spin: 0, squash: 0, sq: 0, pitch: 0, roll: 0, bumpT: 0, stuckT: 0, lastBump: -1, edgeIn: false, slideT: 0 };
     // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): множитель скорости и разгона внутри машины —
     // main.js передаёт vmax: 8 явно, итоговая 12 м/с; разгон 5,5 → 8,25 м/с². o.speedK — свой множитель (1 — как раньше)
     const SPEED_K = o.speedK != null ? o.speedK : 1.5, VMAX = (o.vmax || 8) * SPEED_K, ACC = 5.5 * SPEED_K;
+    // звук мотора (js/engine_sound.js): один объект на машину — без новых объектов за кадр
+    const ES = { kind: 'cabrio', speed: 0, vmax: VMAX, throttle: 0, braking: false, onGround: true, driving: true };
     const _m = new T.Matrix4(), _q = new T.Quaternion(), _q2 = new T.Quaternion(), _p = new T.Vector3(), _s = new T.Vector3(1, 1, 1), _X = new T.Vector3(1, 0, 0), _Y = new T.Vector3(0, 1, 0);
     const STEER_MAX = 0.6, WHEEL_TURN = 1.0;   // руль: до ±0,6 рад — как руки в HeroAnim (opt.drive.steer × 0,6)
     function place() {
@@ -301,6 +328,8 @@
         if (!S.edgeIn && d < R && Math.abs(S.v) > 0.3) { S.edgeIn = true; edge = Object.assign({ x: E.x, z: E.z }, E, { car: { x: S.x, z: S.z, ry: S.ry } }); emit('edge', edge); }
         else if (S.edgeIn && d > R + 4) S.edgeIn = false;
       }
+      // звук мотора: скорость, сколько газа просит игрок (цель / VMAX), тормоз
+      if (window.EngineSound) { ES.driving = true; ES.speed = S.v; ES.throttle = Math.abs(target) / VMAX; ES.braking = !!(ctl && ctl.brake); EngineSound.update(ES, dt); }
       return { bumped, edge };
     }
     // поставить на ближайшую осевую дороги
@@ -310,9 +339,9 @@
       const [x, z] = path[best], [x2, z2] = path[(best + 1) % path.length];
       S.x = x; S.z = z; S.ry = Math.atan2(x2 - x, z2 - z); S.v = 0; S.stuckT = 0; place();
     }
-    function setColor(hex) { paintMesh.material.color.set(hex); }
-    // корень героини за рулём: центр руля − HeroAnim.DRIVE.wheel (руки «на 10 и 2» с чуть согнутыми локтями)
-    const seatDriver = new T.Vector3(0.31, 0.84, -0.12), heroSeat = new T.Vector3(0.31, 0.2, 0.06);
+    function setColor(hex) { M.setColor(hex); }
+    // корень героини за рулём: центр руля − HeroAnim.DRIVE.wheel (руки «на 10 и 2» с чуть согнутыми локтями); у кабриолета — те же точки
+    const { seatDriver, heroSeat } = M.seats;
     // opt.drive для HeroAnim: центр руля (оси корня героини), радиус, наклон плоскости руля, поворот −1..1 (+ налево)
     function driveInput() {
       const c = WHEEL_C;
@@ -325,13 +354,21 @@
     const car = {
       root, body, wheels, paintMesh, trimMesh, glass, plate, outline, S, update, place, reset, setColor, VMAX, edgeOf, driveInput,
       seatDriver, heroSeat,
-      seatPass: new T.Vector3(-0.24, 1.03, -0.68),          // кот: диванчик сзади, справа
-      seatDog: new T.Vector3(0.24, 1.03, -0.68),            // собачка: диванчик сзади, слева
-      doorL: new T.Vector3(1.45, 0, 0.0), doorR: new T.Vector3(-1.45, 0, 0.0),
+      seatPass: M.seats.seatPass,          // кот: сзади, справа
+      seatDog: M.seats.seatDog,            // собачка: сзади, слева
+      doorL: M.seats.doorL, doorR: M.seats.doorR,
+      // W7: вид «из-за руля» (оси body); фонари для DayNight, размеры и CFG для гор (у кабриолета)
+      cockpit: M.cockpit || cockpitOf(heroSeat, WHEEL_C, COL_AX), lamps: M.lamps || undefined, dims: M.dims, driveCfg: M.driveCfg, stats: M.stats,
+      // фары ночью (у кабриолета: setNight(0..1), как у седана; main.js и regions.js зовут его сами)
+      setNight: M.setNight || undefined,
+      // дальний вид стоящей машины (у кабриолета: setFar(0 | 1 | 2); main.js carLod зовёт его сам)
+      setFar: M.setFar || undefined,
       on(n, f) { (ev[n] = ev[n] || []).push(f); return () => car.off(n, f); },
       off(n, f) { ev[n] = (ev[n] || []).filter(x => x !== f); },
       horn() { hornSound(); emit('horn', { x: S.x, z: S.z }); return true; },
     };
+    // звук мотора: тот же объект — контроллеру посадки (вышла — EngineSound.park: мотор затихает с падением оборотов)
+    car.sound = ES;
     return car;
   };
 
@@ -543,6 +580,8 @@
     function update(dt, inp) {
       dt = Math.min(Math.max(dt || 0, 0), 0.05);
       if (st.tween) { st.tween.t += dt; const k = Math.min(1, st.tween.t / st.tween.dur); st.tween.tick(k); if (k >= 1 && st.tween) st.tween.done(); }
+      // не за рулём: только что ехала — мотор затихает (обороты падают), потом ничего не делает
+      if (st.mode !== 'drive' && window.EngineSound && car.sound) EngineSound.park(car.sound, dt);
       if (st.mode !== 'drive') return { bumped: false, edge: null };
       let ctl = inp || null;
       if (st.braking) ctl = { brake: true };
