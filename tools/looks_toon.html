@@ -12,7 +12,7 @@
 <script src="../js/hero_look3d.js"></script>
 <script src="../js/hero_zones.js"></script>
 <script src="../js/hero_outfits.js"></script>
-<script src="../js/hero_anim.js"></script>
+<!-- js/hero_anim.js — не тегом: страница читает его текстом и правит две строки переминания (heroAnimToon ниже) -->
 <script src="../js/world/kit.js"></script>
 <script>
 /* =====================================================================
@@ -21,7 +21,16 @@
      · камера: облёт вокруг героини (рыскание ±A°) и лёгкий наезд — функции кадра i с периодом N;
      · HeroAnim: шаг dt = PERIOD / N (PERIOD = 2 вдоха по 3,8 с = 7,6 с анимации на 6 с ролика), переминание
        с ноги на ногу и «взгляд» в HeroAnim выбираются через Math.random — на время шага он подменён сценарием:
-       смена опорной ноги ровно каждые N/2 шагов (−1, +1), взгляд — прямо (голова следит за камерой здесь, накладкой);
+       взгляд — прямо (голова следит за камерой здесь, накладкой);
+     · переминание: в игре вес догоняет цель экспонентой (damp) — скорость скачком, «толчок» каждые ~3 с. Здесь
+       js/hero_anim.js читается текстом и в нём правятся две строки (heroAnimToon): вес wsS — функция кадра (wsAt:
+       −1 → +1 → −1, переходы smootherstep по ~1,1 с, без скачков скорости и ускорения), сгиб колена свободной ноги —
+       тоже функция кадра (fkAt) вместо |wsS| (без остановки колена рывком в середине перехода). Не нашлась строка — прежний
+       сценарий (смена опоры каждые N/2 шагов) и предупреждение в <id>.json;
+     · ветер (SCENES.<id>.wind, только «Медный закат» и «Звезда вечера»): смещение вершин одежды в её же шейдере
+       (windSetup) до скиннинга — функция исходной точки и фазы петли, без состояния: подол юбки / полотнище накидки
+       уходит по ветру, подветренная сторона раздувается, по подолу бежит волна; вес — по высоте ниже пояса/плеч (верх
+       стоит). Оболочка контура одежды — в той же сетке с теми же исходными точками: смещается так же;
      · прогрев WARM периодов без кадров: пружины волос и пол, сглаживания HeroAnim успевают выйти на период;
      · TOON.seam() после последнего кадра — шаг N (≡ кадр 0): расхождение костей с кадром 0 (должно быть ≈ 0).
    Фоны — простые низкополигональные сцены в палитре игры (toon и рампа набора WORLD.createKit), без надписей,
@@ -84,6 +93,19 @@
     RB.forEach((b, i) => { if (b[1] < 0) mesh.add(bones[i]); });
     body.add(mesh); root.updateMatrixWorld(true);
     const skeleton = new T.Skeleton(bones); mesh.bind(skeleton);
+    // переминание (см. шапку): вес −1 → +1 → −1 за петлю, переходы smootherstep S длиной WS.d (доля петли) с началом
+    // в WS.a и WS.a + ½ — кадр 0 и постер стоят на опоре; функция кадра — петля бесшовна по построению.
+    // Колено: в игре сгиб свободной ноги = |wsS| — вес проходит центр на полной скорости, и колено, что выпрямляется,
+    // встаёт за 2–3 кадра. Здесь сгиб — функция времени перехода u: S(|1 − 2u|) — прежняя свободная нога плавно
+    // выпрямляется к середине перехода, новая плавно сгибается после (ноль скорости и ускорения в середине)
+    info.ws = await heroAnimToon();
+    const WS = Object.assign({ a: 0.08, d: 0.185 }, SC.ws || {});
+    const sm5 = u => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * u * (u * (u * 6 - 15) + 10));
+    const wsU = i => { const x = (((i % N) + N) % N) / N; return [(x - WS.a) / WS.d, (x - WS.a - 0.5) / WS.d]; };
+    const wsAt = i => { const u = wsU(i); return -1 + 2 * sm5(u[0]) - 2 * sm5(u[1]); };
+    const fkAt = i => { const u = wsU(i).map(v => Math.min(1, Math.max(0, v))); return sm5(Math.abs(1 - 2 * u[0])) * sm5(Math.abs(1 - 2 * u[1])); };
+    let wsCur = -1, fkCur = 1;
+    if (info.ws.ok) { window.TOON_WS = () => wsCur; window.TOON_FK = () => fkCur; }
     // HeroAnim: Math.random на время create/update — сценарий (см. шапку): очередь значений, иначе 0.1 («взгляд прямо»)
     const rq = [], R0 = Math.random, RND = () => (rq.length ? rq.shift() : 0.1);
     const TIMER = (N / 2 - 0.5) * DT;   // таймер переминания: срабатывает ровно на N/2-м шаге (полшага запаса на округление)
@@ -118,6 +140,76 @@
     if (!res || !res.ok) throw new Error('HeroOutfits.set ' + LOOK + ': ' + JSON.stringify(res));
     // контровой свет — на все toon-материалы героини после образа (как js/world/main.js)
     { const seen = new Set(); root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !seen.has(m.material)) { seen.add(m.material); K.addRim(m.material, 1); tone(m.material); } }); }
+    const WIND = SC.wind ? windSetup(SC.wind) : null;
+    info.wind = WIND ? WIND.info : null;
+
+    /* ---------- ветер (см. шапку) ----------
+       Сетка одежды образа — ищем в героине (SkinnedMesh 'hero:outfit' / geometry.userData.outfit), куски ткани — по
+       связности треугольников тела одежды (без оболочки контура: olk = 1) и рамке/костям куска: cfg.pick(c) решает,
+       что развевается (маска aWind = 1). Вес по высоте — в шейдере (uWY: yTop, yBot, степень cfg.p). Вершины оболочки —
+       копии вершин тела в тех же точках: маска по той же точке, смещение и нормаль те же — контур не отходит от ткани. */
+    function windSetup(cfg) {
+      let om = null;
+      root.traverse(m => { if (!om && m.isMesh && m.visible && m.geometry && (m.name === 'hero:outfit' || m.geometry.userData.outfit)) om = m; });
+      if (!om || !om.geometry.index) { console.warn('ветер ' + LOOK + ': нет сетки одежды образа'); return null; }
+      const g = om.geometry, P = g.attributes.position, nV = P.count, I = g.index.array;
+      const OL = g.attributes.olk ? g.attributes.olk.array : new Float32Array(nV);
+      const SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight.array;
+      const bn = (om.skeleton ? om.skeleton.bones : bones).map(b => b.name);
+      const grp = nm => (/^(upperarm|forearm|hand|shoulder)/.test(nm) ? 'arm' : /^(neck|head|hair)/.test(nm) ? 'head' : /^foot/.test(nm) ? 'foot' : /^(thigh|shin|coat)/.test(nm) ? 'leg' : 'torso');
+      // куски: объединение по треугольникам тела одежды
+      const par = new Int32Array(nV); for (let i = 0; i < nV; i++) par[i] = i;
+      const fd = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+      for (let t = 0; t < I.length; t += 3) { const a = I[t]; if (OL[a] > 0.5) continue; const ra = fd(a); par[fd(I[t + 1])] = ra; par[fd(I[t + 2])] = ra; }
+      const C = new Map();
+      for (let i = 0; i < nV; i++) {
+        if (OL[i] > 0.5) continue;
+        const k = fd(i); let c = C.get(k);
+        if (!c) { c = { n: 0, x0: 9, x1: -9, y0: 9, y1: -9, z0: 9, z1: -9, w: { arm: 0, head: 0, foot: 0, leg: 0, torso: 0 } }; C.set(k, c); }
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        c.n++; c.x0 = Math.min(c.x0, x); c.x1 = Math.max(c.x1, x); c.y0 = Math.min(c.y0, y); c.y1 = Math.max(c.y1, y); c.z0 = Math.min(c.z0, z); c.z1 = Math.max(c.z1, z);
+        for (let q = 0; q < 4; q++) c.w[grp(bn[SI[i * 4 + q]] || '')] += SW[i * 4 + q];
+      }
+      C.forEach(c => { for (const k in c.w) c.w[k] /= c.n; });
+      const pick = new Set(); C.forEach((c, k) => { if (cfg.pick(c)) pick.add(k); });
+      if (!pick.size) { console.warn('ветер ' + LOOK + ': не нашлось ткани (cfg.pick)'); return null; }
+      let yTop = -9, yBot = 9;
+      pick.forEach(k => { const c = C.get(k); yTop = Math.max(yTop, c.y1); yBot = Math.min(yBot, c.y0); });
+      yTop = typeof cfg.yTop === 'function' ? cfg.yTop(yTop) : cfg.yTop;
+      const key = i => Math.round(P.getX(i) * 2e3) + ',' + Math.round(P.getY(i) * 2e3) + ',' + Math.round(P.getZ(i) * 2e3);
+      const W = new Float32Array(nV), byKey = new Set();
+      let nW = 0;
+      for (let i = 0; i < nV; i++) {
+        if (OL[i] > 0.5 || !pick.has(fd(i))) continue;
+        W[i] = 1; byKey.add(key(i)); if (P.getY(i) < yTop) nW++;
+      }
+      let nS = 0;
+      for (let i = 0; i < nV; i++) if (OL[i] > 0.5 && byKey.has(key(i))) { W[i] = 1; nS++; }
+      g.setAttribute('aWind', new T.BufferAttribute(W, 1));
+      const dw = new T.Vector2(cfg.dir[0], cfg.dir[1]).normalize();
+      const U = {
+        uWT: { value: 0 },
+        uWD: { value: new T.Vector4(dw.x, dw.y, 0, 0) },
+        uWG: { value: new T.Vector4().fromArray(cfg.gust) },
+        uWA: { value: new T.Vector4().fromArray(cfg.amp) },
+        uWP: { value: new T.Vector4().fromArray(cfg.wave) },
+        uWY: { value: new T.Vector4(yTop, yBot, cfg.p, 0) },
+      };
+      const mat = om.material, own = n => (Object.prototype.hasOwnProperty.call(mat, n) ? mat[n] : null);
+      const prev = own('onBeforeCompile'), prevKey = own('customProgramCacheKey');
+      mat.onBeforeCompile = (sh, rr) => {
+        if (prev) prev.call(mat, sh, rr);
+        Object.assign(sh.uniforms, U);
+        if (sh.vertexShader.indexOf('#include <skinning_vertex>') < 0 || sh.vertexShader.indexOf('#include <skinbase_vertex>') < 0) { console.warn('ветер: нет skinning_vertex / skinbase_vertex в шейдере одежды'); return; }
+        sh.vertexShader = WIND_GLSL + sh.vertexShader
+          .replace('#include <skinbase_vertex>', 'objectNormal = toonWindN(position, objectNormal, aWind);\n#include <skinbase_vertex>')
+          .replace('#include <skinning_vertex>', 'transformed += toonWind(position, aWind);\n#include <skinning_vertex>');
+      };
+      mat.customProgramCacheKey = () => 'wind2' + (prevKey ? prevKey.call(mat) : '');
+      mat.needsUpdate = true;
+      const pk = []; pick.forEach(k => { const c = C.get(k); pk.push({ n: c.n, y: [+c.y0.toFixed(3), +c.y1.toFixed(3)] }); });
+      return { U, cfg, W, mesh: om, info: { pieces: pk, verts: nW, shell: nS, yTop: +yTop.toFixed(3), yBot: +yBot.toFixed(3) } };
+    }
     // тень — от простой «куклы» (как в городе), плюс мягкое пятно под ногами
     {
       const inv = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
@@ -145,6 +237,8 @@
       // переминание: зеркалим таймер HeroAnim (те же операции с плавающей точкой) и кладём в очередь выбор и новый таймер
       wsM -= DT;
       if (wsM <= 0) { wsK++; const rc = wsK % 2 ? 0.1 : 0.9, rt = (TIMER - 3.5) / 3.5; rq.push(rc, rt); wsM = 3.5 + rt * 3.5; }
+      wsCur = wsAt(i); fkCur = fkAt(i);   // правленый HeroAnim берёт вес и сгиб колена отсюда (сценарий выше — запасной путь)
+      if (WIND) WIND.U.uWT.value = ph(i);
       Math.random = RND;
       try { anim.update(DT, S); } finally { Math.random = R0; }
       rq.length = 0;
@@ -184,6 +278,73 @@
         return m;
       },
       stats: () => ({ calls: r.info.render.calls, tris: r.info.render.triangles }),
+      // проверки (tools/looks_toon.js их не зовёт): мировые точки костей после шага и вес переминания
+      pose() {
+        const o = { ws: wsCur }, v = new T.Vector3();
+        ['hips', 'chest', 'head', 'hand_L', 'hand_R', 'shin_L', 'shin_R', 'foot_L', 'foot_R'].forEach(n => { B_[n].getWorldPosition(v); o[n] = [v.x, v.y, v.z]; });
+        return o;
+      },
+      // ткань под ветром против тела: вершины одежды с маской (смещение toonWindJS, скиннинг на CPU) — к ближайшей видимой
+      // вершине героини или неподвижной одежды (в радиусе 4 см) по её нормали: s < 0 — внутри. В зачёт — вершины, которым
+      // ветер сделал хуже, чем без ветра: { pen — насколько глубже вошла (м), at — где, worse — сколько вершин глубже 3 мм }
+      windCheck() {
+        if (!WIND) return null;
+        const om = WIND.mesh, sk = om.skeleton;
+        const mats = sk.bones.map((b, k) => new T.Matrix4().multiplyMatrices(b.matrixWorld, sk.boneInverses[k]));
+        const v = new T.Vector3(), acc = new T.Vector3(), tmp = new T.Vector3(), nAcc = new T.Vector3();
+        function skin(m, g, i, p, out, nIn, nOut) {
+          const SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight.array;
+          v.set(p[0], p[1], p[2]).applyMatrix4(m.bindMatrix); acc.set(0, 0, 0); nAcc.set(0, 0, 0);
+          for (let q = 0; q < 4; q++) { const wt = SW[i * 4 + q]; if (wt > 0) { acc.addScaledVector(tmp.copy(v).applyMatrix4(mats[SI[i * 4 + q]]), wt); if (nIn) nAcc.addScaledVector(tmp.copy(nIn).transformDirection(mats[SI[i * 4 + q]]), wt); } }
+          out.copy(acc).applyMatrix4(m.bindMatrixInverse).applyMatrix4(m.matrixWorld);
+          if (nOut) nOut.copy(nAcc).normalize();
+        }
+        // препятствия: вершины видимых (невырожденных) треугольников тела и неподвижной одежды
+        if (!WIND.obs) {
+          const list = [];
+          [[mesh, null], [om, WIND.W]].forEach(([m, mask]) => {
+            const g = m.geometry, I = g.index.array, OL = g.attributes.olk ? g.attributes.olk.array : null, use = new Uint8Array(g.attributes.position.count);
+            for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2]; if (a !== b && b !== c && a !== c) use[a] = use[b] = use[c] = 1; }
+            for (let i = 0; i < use.length; i++) if (use[i] && !(OL && OL[i] > 0.5) && !(mask && mask[i] > 0)) list.push([m, i]);
+          });
+          WIND.obs = list;
+        }
+        const H = new Map(), cs = 0.04, cell = (x, y, z) => Math.floor(x / cs) + ',' + Math.floor(y / cs) + ',' + Math.floor(z / cs);
+        const pw = [], pn = [];
+        WIND.obs.forEach(([m, i], j) => {
+          const g = m.geometry, P = g.attributes.position, N = g.attributes.normal, o = new T.Vector3(), n = new T.Vector3();
+          skin(m, g, i, [P.getX(i), P.getY(i), P.getZ(i)], o, new T.Vector3(N.getX(i), N.getY(i), N.getZ(i)), n);
+          pw.push(o); pn.push(n);
+          const k = cell(o.x, o.y, o.z); if (!H.has(k)) H.set(k, []); H.get(k).push(j);
+        });
+        function side(c) {
+          let best = 9, bj = -1;
+          const cx = Math.floor(c.x / cs), cy = Math.floor(c.y / cs), cz = Math.floor(c.z / cs);
+          for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let e = -1; e <= 1; e++) {
+            const L = H.get((cx + a) + ',' + (cy + b) + ',' + (cz + e)); if (!L) continue;
+            L.forEach(j => { const d = pw[j].distanceToSquared(c); if (d < best) { best = d; bj = j; } });
+          }
+          return bj < 0 || best > cs * cs ? null : { s: tmp.subVectors(c, pw[bj]).dot(pn[bj]), j: bj };
+        }
+        const g = om.geometry, P = g.attributes.position, OL = g.attributes.olk ? g.attributes.olk.array : null;
+        const p = [0, 0, 0], d = [0, 0, 0], c0 = new T.Vector3(), c1 = new T.Vector3();
+        let pen = 0, at = null, worse = 0, maxD = 0;
+        for (let i = 0; i < P.count; i++) {
+          if (!(WIND.W[i] > 0) || (OL && OL[i] > 0.5)) continue;
+          p[0] = P.getX(i); p[1] = P.getY(i); p[2] = P.getZ(i);
+          toonWindJS(WIND.U, p, WIND.W[i], d); const dl = Math.hypot(d[0], d[1], d[2]); maxD = Math.max(maxD, dl);
+          if (dl < 1e-4) continue;
+          skin(om, g, i, p, c0); skin(om, g, i, [p[0] + d[0], p[1] + d[1], p[2] + d[2]], c1);
+          // та же вершина-препятствие для обоих положений (ближайшая к смещённому): глубина не больше самого смещения
+          const s1 = side(c1); if (!s1 || s1.s > -0.003) continue;
+          const r0 = Math.min(0, tmp.subVectors(c0, pw[s1.j]).dot(pn[s1.j]));
+          if (s1.s < r0 - 0.001) {
+            worse++;
+            if (r0 - s1.s > pen) { const ob = WIND.obs[s1.j]; pen = r0 - s1.s; at = { y: +p[1].toFixed(3), obj: ob[0] === mesh ? 'тело' : 'одежда', oy: +pw[s1.j].y.toFixed(3), ox: +pw[s1.j].x.toFixed(3), oz: +pw[s1.j].z.toFixed(3), rest: +r0.toFixed(4), d: +dl.toFixed(3) }; }
+          }
+        }
+        return { pen: +pen.toFixed(4), at, worse, maxD: +maxD.toFixed(4) };
+      },
     };
     document.title = 'OK';
   } catch (e) { fail(e); }
@@ -201,6 +362,24 @@
     mat.customProgramCacheKey = () => 'tone1' + (prevKey ? prevKey.call(mat) : '');
     mat.needsUpdate = true;
     return mat;
+  }
+
+  // js/hero_anim.js текстом с правкой переминания только для ролика (см. шапку): вес wsS берёт window.TOON_WS, сгиб
+  // колена свободной ноги — window.TOON_FK (если заданы). Строка не нашлась ровно один раз — без правки, с предупреждением
+  async function heroAnimToon() {
+    const src = await (await fetch('../js/hero_anim.js', { cache: 'no-store' })).text();
+    const REP = [
+      ['wsS = damp(wsS, idleOk ? ws : 0, 1.6, dt);', 'wsS = window.TOON_WS ? window.TOON_WS() : damp(wsS, idleOk ? ws : 0, 1.6, dt);'],
+      ['fk = Math.abs(wsS) * still;', 'fk = (window.TOON_FK ? window.TOON_FK() : Math.abs(wsS)) * still;'],
+    ];
+    let s = src;
+    const hits = REP.map(([a, b]) => { if (s.split(a).length !== 2) return false; s = s.replace(a, () => b); return true; });
+    const ok = hits[0];
+    if (!ok) { s = src; console.warn('looks_toon: в js/hero_anim.js не нашлась строка переминания — вес по прежнему сценарию (рывок на смене опоры)'); }
+    else if (!hits[1]) console.warn('looks_toon: в js/hero_anim.js не нашлась строка колена свободной ноги — излом колена на переходе веса');
+    const el = document.createElement('script'); el.textContent = s + '\n//# sourceURL=hero_anim.toon.js'; document.head.appendChild(el);
+    if (!window.HeroAnim) throw new Error('hero_anim.js (правленый) не выполнился');
+    return { ok, knee: ok && hits[1] };
   }
 
   /* =====================================================================
@@ -306,6 +485,50 @@
    cam: A — облёт ±A°, A0 — сдвиг, d — расстояние, dolly — наезд (доля), head — доля поворота головы за камерой.
    ===================================================================== */
 const PI = Math.PI;
+/* ветер в шейдере одежды (windSetup): p — исходная точка вершины (оси модели, до скиннинга), m — маска куска (aWind).
+   Вес по высоте w = ((yTop − y) / (yTop − yBot))^k (uWY = yTop, yBot, k): у пояса (плеч) 0, у подола 1.
+   rd — направление от оси тела (z оси — uWP.x), lee — 0 на наветренной стороне, 1 на подветренной (гладко по точке).
+   uWD.xy — куда дует (xz); uWA — снос по ветру, раздув подветренной стороны, бегущая волна, подъём подола (м при w = 1);
+   uWP.y — волн вдоль подола от наветренной стороны к подветренной, uWP.z — циклов волны за петлю (целое), uWP.w —
+   запаздывание низа (рад при w = 1); порыв: 1 + uWG.x·sin(τ + uWG.y) + uWG.z·sin(2τ + uWG.w) — 1 и 2 цикла за петлю.
+   Всё — функция точки и фазы петли τ = uWT: кадр N = кадр 0. Нормаль — через якобиан смещения (разности по 1 см):
+   n' ∥ cof(F)·n, F = I + ∂d/∂p — свет, контровой и оболочка контура (она раздвигается по нормали) идут за тканью. */
+const WIND_GLSL = [
+  'attribute float aWind;', 'uniform float uWT;', 'uniform vec4 uWD;', 'uniform vec4 uWG;', 'uniform vec4 uWA;', 'uniform vec4 uWP;', 'uniform vec4 uWY;',
+  'vec3 toonWindD(vec3 p) {',
+  ' float w = pow(max(1e-6, clamp((uWY.x - p.y) / (uWY.x - uWY.y), 0.0, 1.0)), uWY.z);',
+  ' vec2 rd = vec2(p.x, p.z - uWP.x); float rl = length(rd); rd = rl > 1e-4 ? rd / rl : uWD.xy;',
+  ' float lee = 0.5 + 0.5 * dot(rd, uWD.xy);',
+  ' float ph = 6.2831853 * uWP.y * lee - uWP.z * uWT - uWP.w * w;',
+  ' float gust = 1.0 + uWG.x * sin(uWT + uWG.y) + uWG.z * sin(2.0 * uWT + uWG.w);',
+  ' vec3 d;',
+  ' d.xz = uWD.xy * (uWA.x * w * gust) + rd * (w * (uWA.y * lee * lee * gust + uWA.z * (0.35 + 0.65 * lee) * sin(ph)));',
+  ' d.y = uWA.w * w * w * lee * lee * (0.75 + 0.25 * sin(ph + 1.3)) * gust;',
+  ' return d;',
+  '}',
+  'vec3 toonWind(vec3 p, float m) { return m > 0.0 ? m * toonWindD(p) : vec3(0.0); }',
+  'vec3 toonWindN(vec3 p, vec3 n, float m) {',
+  ' if (m <= 0.0) return n;',
+  ' vec3 d0 = toonWindD(p);',
+  ' vec3 a = vec3(1.0, 0.0, 0.0) + m * (toonWindD(p + vec3(0.01, 0.0, 0.0)) - d0) * 100.0;',
+  ' vec3 b = vec3(0.0, 1.0, 0.0) + m * (toonWindD(p + vec3(0.0, 0.01, 0.0)) - d0) * 100.0;',
+  ' vec3 c = vec3(0.0, 0.0, 1.0) + m * (toonWindD(p + vec3(0.0, 0.0, 0.01)) - d0) * 100.0;',
+  ' return normalize(mat3(cross(b, c), cross(c, a), cross(a, b)) * n);',
+  '}', ''].join('\n');
+// то же на JS — для проверки зазора до ног и рук (TOON.windCheck); m — маска куска
+function toonWindJS(U, p, m, out) {
+  out[0] = out[1] = out[2] = 0;
+  const Y = U.uWY.value, w = m > 0 ? Math.pow(Math.max(1e-6, Math.min(1, Math.max(0, (Y.x - p[1]) / (Y.x - Y.y)))), Y.z) : 0;
+  if (w <= 1e-5) return out;
+  const D = U.uWD.value, G = U.uWG.value, A = U.uWA.value, P = U.uWP.value, t = U.uWT.value;
+  let rx = p[0], rz = p[2] - P.x; const rl = Math.hypot(rx, rz); if (rl > 1e-4) { rx /= rl; rz /= rl; } else { rx = D.x; rz = D.y; }
+  const lee = 0.5 + 0.5 * (rx * D.x + rz * D.y), ph = 2 * PI * P.y * lee - P.z * t - P.w * w;
+  const gust = 1 + G.x * Math.sin(t + G.y) + G.z * Math.sin(2 * t + G.w);
+  const rad = w * (A.y * lee * lee * gust + A.z * (0.35 + 0.65 * lee) * Math.sin(ph));
+  out[0] = m * (D.x * A.x * w * gust + rx * rad); out[2] = m * (D.y * A.x * w * gust + rz * rad);
+  out[1] = m * A.w * w * w * lee * lee * (0.75 + 0.25 * Math.sin(ph + 1.3)) * gust;
+  return out;
+}
 var SCENES = {
   /* 1. «Северное сияние»: светлый каменный фасад, широкие ступени, кованая решётка ворот, низкое тёплое солнце */
   aurora: {
@@ -371,7 +594,9 @@ var SCENES = {
   /* 2. «Конная прогулка»: конюшня — жердевая изгородь, низкое здание с навесом, зелёное пастбище, лошадь за изгородью */
   suede: {
     light: { hemi: ['#E4E8F0', '#D9C8AA', 0.62], sun: ['#FFE7CA', 0.52, [-5, 6.5, 4.5]], rim: ['#FFF0E4', 0.2], fog: ['#E8EBE4', 7, 90] },
-    cam: { A: 8 },
+    // облёт ±5.5° (не ±8): лошадь в 3 м за героиней ходит в кадре от параллакса меньше; остаток гасит поворот её головы
+    // (tick) — голова всё время целиком между волосами героини и правым краем (при ±8° — заходила за волосы и под край)
+    cam: { A: 5.5 },
     build(B) {
       const { M, box, rbox, sph, cyl, put, T, K } = B;
       B.ground('#DCC8A6', (c, s) => { const rn = B.rng(5); for (let i = 0; i < 900; i++) { c.fillStyle = rn() < 0.5 ? 'rgba(170,140,100,.18)' : 'rgba(255,245,225,.22)'; c.beginPath(); c.arc(rn() * s, rn() * s, 1 + rn() * 3, 0, 7); c.fill(); } }, 120);
@@ -403,12 +628,15 @@ var SCENES = {
       rbox(rail, 7, 0.8, -21.95, 18.4, 0.08, 0.06, 0.02);
       B.sky([[-20, '#E9EDE6'], [0, '#EEF0EA'], [4, '#DDE9EE'], [14, '#BCD7EA'], [30, '#A9CBE6']], { clouds: [[-14, 9, 160, 50, 0.55], [12, 13, 220, 60, 0.5], [30, 7, 140, 40, 0.45]], seed: 11 });
       // лошадь — простая мультяшная (в игре своей лошади нет; пропорции и цвет — как у пони из js/village/kubachi.js)
-      B.horse = horse(B, { x: 1.81, z: -3.0, ry: 0.72, s: 0.95, turn: 0.25 });
+      B.horse = horse(B, { x: 1.80, z: -3.0, ry: 0.72, s: 0.95, turn: 0.25 });
     },
-    // лошадь дышит, кивает и машет хвостом — с периодом ролика
+    // лошадь дышит, кивает и машет хвостом — с периодом ролика; голову поворачивает навстречу облёту (шея — вокруг
+    // вертикали, ±9°): когда камера уходит влево и лошадь от параллакса едет к волосам героини, морда отворачивается
+    // вправо, и наоборот — голова почти стоит в кадре, между волосами и правым краем
     tick(p, B) {
       const h = B.horse; if (!h) return;
       h.neck.rotation.z = h.neck0 + 0.05 * Math.sin(p) + 0.025 * Math.sin(2 * p + 0.6);
+      h.neck.rotation.y = -0.16 * Math.sin(p);
       h.headG.rotation.z = -0.04 * Math.sin(p + 0.8);
       h.tail.rotation.x = 0.18 * Math.sin(2 * p); h.tail.rotation.z = 0.08 * Math.sin(p);
       h.ears.forEach((e, j) => { e.rotation.x = 0.15 * Math.max(0, Math.sin(3 * p + j * 1.3)); });
@@ -451,6 +679,14 @@ var SCENES = {
     light: { hemi: ['#ECE6EE', '#DCCAB4', 0.56], sun: ['#FFDDB6', 0.58, [6.5, 2.9, 3.2]], rim: ['#FFE2CC', 0.3], fog: ['#EEE0D0', 7, 170] },
     hero: { key: ['#FFF6EC', 0.5] },
     cam: { A: 12 },
+    // ветер: атласная юбка в пол уходит влево в кадре (−x) и чуть назад, левый в кадре бок раздувается и приподнимается,
+    // по подолу бегут складки (3 за петлю); куски ниже пояса без рук и головы — юбка и концы кушака (или юбка, сшитая
+    // с лифом в один кусок: всё до пола; выше yTop вес 0 — лиф стоит)
+    wind: {
+      pick: c => (c.y1 < 1.06 && c.y0 < 0.95 || c.y0 < 0.1) && c.w.arm + c.w.head + c.w.foot < 0.1,
+      yTop: 0.92, p: 2.2,
+      dir: [-1, -0.35], gust: [0.25, 0.4, 0.1, 1.9], amp: [0.07, 0.1, 0.025, 0.06], wave: [0.0, 1.5, 3, 1.2],
+    },
     build(B) {
       const { M, box, rbox, sph, put, T, K } = B;
       B.ground('#E2D3BE', (c, s) => {
@@ -521,6 +757,14 @@ var SCENES = {
       extra: [T => { const p = new T.PointLight('#FFD9A8', 0.35, 9, 2); p.position.set(0, 2.6, -1.5); return p; }] },
     hero: { key: ['#FFF7EE', 0.48] },
     cam: { A: 10 },
+    // ветер: полотнище накидки (от плеч до пола, кости корпуса) — назад и чуть влево в кадре, края раздуваются, по подолу —
+    // мягкая волна (2 за петлю); платье-«русалка» (кости ног) и пелерина на плечах стоят (полотнище, сшитое с пелериной
+    // и стойкой в один кусок, тоже подходит: вес от плеч, yTop ≤ 1.17)
+    wind: {
+      pick: c => c.y0 < 0.15 && c.y1 > 1.05 && c.w.arm + c.w.head + c.w.foot < 0.3 && c.w.leg < 0.3,
+      yTop: y1 => Math.min(y1, 1.2) - 0.03, p: 1.8,
+      dir: [-0.45, -0.9], gust: [0.3, 2.2, 0.12, 0.7], amp: [0.05, 0.05, 0.02, 0.02], wave: [-0.02, 1.2, 2, 1.0],
+    },
     build(B) {
       const { M, box, rbox, sph, cyl, put, T, K, cnv, tex, halo } = B;
       const Z0 = 7, Z1 = -30, XW = 1.85, HH = 3.1, len = Z0 - Z1, zc = (Z0 + Z1) / 2;

@@ -9,7 +9,8 @@
 Потом: python3 -I tools/looks_build.py --src ~/looks_toon  (mp4 / webm / постеры в looks/ и js/looks_data.js).
 
 Пишет в --out (вне репозитория): <id>.mkv — FFV1 600×900, 24 к/с, N кадров, петля (кадр N = кадр 0), и <id>.json
-(кадры, время рендера, sha1 js/hero_outfits.js, шов петли: расхождение костей шага N с кадром 0). Страницу отдаёт свой http-сервер
+(кадры, время рендера, sha1 js/hero_outfits.js, шов петли: расхождение костей шага N с кадром 0, ws — правка переминания
+в js/hero_anim.js нашлась, wind — что развевается: куски одежды и число вершин). Страницу отдаёт свой http-сервер
 (корень репозитория, 127.0.0.1, свободный порт) — внешний сервер не нужен. */
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), { spawn } = require('child_process'), { once } = require('events');
@@ -108,12 +109,15 @@ async function look(browser, base, id, o) {
   fs.renameSync(tmp, out);
   const seam = await page.evaluate(() => TOON.seam());
   const stats = await page.evaluate(() => TOON.stats());
+  const inf = await page.evaluate(() => TOON.info);
   await page.close();
   const ms = Date.now() - t0;
   if (outfitsSha() !== sha) { fs.unlinkSync(out); throw new Error(id + ': js/hero_outfits.js изменился во время рендера — перезапусти'); }
-  const meta = { id, frames: N, fps: FPS, w: OW, h: OH, ss: o.ss, heroOutfitsSha1: sha, seam, loadMs: tLoad, renderMs: ms, perFrameMs: Math.round((ms - tLoad) / N), calls: stats.calls, tris: stats.tris, warnings: logs.slice(0, 20) };
+  const meta = { id, frames: N, fps: FPS, w: OW, h: OH, ss: o.ss, heroOutfitsSha1: sha, seam, loadMs: tLoad, renderMs: ms, perFrameMs: Math.round((ms - tLoad) / N), calls: stats.calls, tris: stats.tris, ws: inf.ws, wind: inf.wind, warnings: logs.slice(0, 20) };
   fs.writeFileSync(path.join(o.out, id + '.json'), JSON.stringify(meta, null, 1));
   if (seam > 1e-4) console.log(`  ВНИМАНИЕ: ${id} — шов петли ${seam.toExponential(2)} (кадр N ≠ кадр 0)`);
+  if (!inf.ws || !inf.ws.ok) console.log(`  ВНИМАНИЕ: ${id} — переминание без правки js/hero_anim.js (рывок на смене опоры), см. warnings в ${id}.json`);
+  if (inf.wind) console.log(`  ветер: ${inf.wind.pieces.length} куск., ${inf.wind.verts} вершин ниже ${inf.wind.yTop} м (+${inf.wind.shell} оболочки)`);
   console.log(`${id.padEnd(7)} ${N} кадров за ${(ms / 1000).toFixed(0)} с (${meta.perFrameMs} мс/кадр), шов ${seam.toExponential(1)}, ${stats.calls} вызовов, ${stats.tris} треугольников -> ${out}`);
   return meta;
 }
