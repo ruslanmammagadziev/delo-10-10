@@ -15,9 +15,10 @@
    Волна 4: настоящие руки (js/interact.js — один слой на героиню: взять, съесть, отпить, погладить), день и ночь по часам
    телефона (js/daynight.js; кнопка «Вернуться в утро» / «Как на часах» и чип ☀️/🌙 справа сверху), выбор машины
    «Ретро-купе» / «Красный седан» (js/vehicles/sedan.js; у гаража «Круглые фары», st.world.car, WORLD.carChoice()).
-   Волна 5: бег и прыжок (js/move.js — один контроллер на сессию игры: «Бег»/«Прыжок», запрыгнуть на скамейки, бортик фонтана,
-   ящики рынка, капот и крышу машины; машины и велосипед — твёрдые коробки), «Бум!» понарошку (js/playfight.js: серия
-   «Толк!-Бамс!-Хлоп!», «Бупнуть» зверят, «Листья», пищащий молоточек из «Юлы»). Кнопки справа — одним столбиком (CSS).
+   Волна 5: бег и прыжок (js/move.js — один контроллер на сессию игры: бег — джойстик за край кружка или Shift, кнопка «Прыжок»;
+   запрыгнуть на скамейки, бортик фонтана, ящики рынка, капот и крышу машины; машины и велосипед — твёрдые коробки), «Бум!»
+   понарошку (js/playfight.js: серия «Толк!-Бамс!-Хлоп!», «Бупнуть» зверят, «Листья», пищащий молоточек из «Юлы»). Кнопки
+   справа — одним столбиком (CSS).
    ===================================================================== */
 (function () {
   'use strict';
@@ -39,9 +40,9 @@
   // волна 3: высота пола (холм, лестница, мостик, пирс — L.heightAt из map.js; лестницу на холм открывает HEIGHT_OK)
   WORLD.HEIGHT_OK = true;
   const gy = (L, x, z) => { const h = L && L.heightAt ? L.heightAt(x, z) : 0; return h > 0 ? h : 0; };
-  // скорости героини (js/hero_anim.js): шаг 2,0, трусца 3,0 м/с; джойстик — шаг до 85% наклона, дальше трусца
+  // скорости героини (js/hero_anim.js): шаг 2,0, трусца 3,0 м/с; джойстик (без Move) — шаг до 85% силы (не тише 0,35), дальше трусца
   const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 6.8 };
-  const joySpeed = m => (m <= 0.85 ? Math.max(0.6, HS.walk * m / 0.85) : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
+  const joySpeed = m => (m <= 0.85 ? Math.max(0.35, HS.walk * m / 0.85) : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
   // что открыто (CONFIG.UNLOCK → Missions.unlock): { ok, text } — text — милая строка-замок
   const unlock = k => { try { if (window.Missions && Missions.unlock) return Missions.unlock(k); } catch (e) { /* открыто */ } return { ok: true, text: '' }; };
 
@@ -859,9 +860,10 @@
     /* ---------- ввод ---------- */
     const keys = {};
     const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', KeyQ: 'q', KeyE: 'e' };
-    // HUD v2: джойстик снизу по центру (HUD.joystick, ui.joyCtl) — зона касания: нижняя половина левее дуги кнопок; круг встаёт
-    // под палец (зажат: радар, дуга, низ), отпустила — уезжает на место. Выше середины и справа — камера; короткий тап — «идти туда».
-    const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0, used: false };
+    // HUD v2: джойстик (HUD.joystick, ui.joyCtl) — зона касания: нижняя половина левее дуги кнопок; центр — сам палец (на касании
+    // стоит), кружок встаёт под него, отпустила — уезжает на место. Выше середины и справа — камера; короткий тап — «идти туда»
+    // (кроме тапа по самому кружку покоя — HUD.joyGuard)
+    const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0, used: false, late: false };
     const looks = new Map(); let pinch0 = null;
     const isUI = el => !!(el && el.closest && el.closest('button, .w-case, .stats, .modal, .wmm-wrap, [data-hud-slot]:not(.hud-joy)'));
     const joyZone = (x, y, r) => (window.HUD ? HUD.joyZone(x, y, r.width, r.height) : x < r.width * 0.5);
@@ -878,10 +880,13 @@
     const onKeyUp = e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && w.mv) w.mv.holdRun(false); };
     const joyEnd = () => { joy.id = null; joy.x = joy.y = 0; if (ui.joyCtl) ui.joyCtl.end(); };
     const onBlur = () => { Object.keys(keys).forEach(k => { keys[k] = false; }); joyEnd(); if (w.mv) w.mv.holdRun(false); };
-    // желание 7: палец дальше края кружка, до стрелок (HUD.joystick.running: порог и 0,15 с) — бег, пока держит; назад внутрь или
-    // отпустила — шаг. Бег тот же, что у кнопки «Бег» (Move.holdRun: кнопка горит), на старте — лёгкий отклик. Раз в кадр (s.update)
+    // раз в кадр (s.update): сила и курс джойстика (HUD.joystick.frame — кривая, сглаживание, удержание курса) → joy.x/y;
+    // бег — палец за краем кружка держит одно направление 0,3 с (HUD.JOY), пока держит; назад внутрь хода или отпустила — шаг.
+    // Бег — Move.holdRun (как Shift), на старте — лёгкий отклик
     const joyRun = ok => {
-      const on = !!(ui.joyCtl && ui.joyCtl.running && ui.joyCtl.running(ok && joy.id !== null && !!w.mv));
+      const J = ui.joyCtl;
+      const on = !!(J && J.frame && J.frame(ok && joy.id !== null && !!w.mv));
+      if (J && joy.id !== null && J.active) { joy.x = J.x; joy.y = J.y; }
       if (on !== !!s.joyRun) { s.joyRun = on; if (w.mv) w.mv.holdRun(on); if (on) haptic('light'); }
       else if (on && !w.mv.run) w.mv.holdRun(true);
     };
@@ -889,9 +894,9 @@
       if (isUI(e.target) || s.finished || s.benching) return;
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
       if (joyZone(x, y, r) && joy.id === null && e.pointerType !== 'mouse') {
-        joy.id = e.pointerId; joy.x = joy.y = 0;
+        joy.id = e.pointerId; joy.x = joy.y = 0; joy.late = false;
         joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
-        if (canInput() && ui.joyCtl) { const c = ui.joyCtl.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; joy.x = ui.joyCtl.x; joy.y = ui.joyCtl.y; ui.joyCtl.show(true); }
+        if (canInput() && ui.joyCtl) { const c = ui.joyCtl.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; ui.joyCtl.show(true); }
         else { joy.cx = x; joy.cy = y; }
       } else {
         looks.set(e.pointerId, { x, y, x0: x, y0: y, t0: performance.now(), moved: 0 });
@@ -903,7 +908,10 @@
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        if (ui.joyCtl && ui.joyCtl.active) { const v = ui.joyCtl.drag(x, y); joy.x = v.x; joy.y = v.y; if (v.m > 0 && s.moveTo && !s.moveTo.script) s.moveTo = null; }
+        const J = ui.joyCtl;
+        // палец лёг, пока ввод был закрыт (диалог, шторка, руки заняты), — джойстик начинается отсюда: без рывка и без тапа
+        if (J && !J.active && canInput()) { const c = J.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; joy.late = true; J.show(true); }
+        else if (J && J.active) { const v = J.drag(x, y); if (v.m > 0 && s.moveTo && !s.moveTo.script) s.moveTo = null; }
         return;
       }
       const p = looks.get(e.pointerId); if (!p) return;
@@ -915,8 +923,13 @@
     };
     const onUp = e => {
       if (e.pointerId === joy.id) {
+        const late = joy.late;
         joyEnd();
-        if (e.type === 'pointerup' && joy.moved < 10 && performance.now() - joy.t0 < 320) onTap(joy.x0, joy.y0);
+        if (e.type === 'pointerup' && !late && joy.moved < 10 && performance.now() - joy.t0 < 320) {
+          // тап по кружку покоя — промах по джойстику, а не «идти туда»
+          const r = w.root.getBoundingClientRect();
+          if (!(window.HUD && HUD.joyGuard && HUD.joyGuard(joy.x0, joy.y0, r.width, r.height))) onTap(joy.x0, joy.y0);
+        }
         return;
       }
       const p = looks.get(e.pointerId); if (!p) return;
@@ -1907,6 +1920,15 @@
       const dx = fx * -jy + rx * jx, dz = fz * -jy + rz * jx, l = Math.hypot(dx, dz) || 1;
       return [dx / l, dz / l, mag];
     }
+    // машина и велосипед от пальца: поворот пальца до 3,4° — прямо, дальше мягко (степень 1,4), с 57° — как есть; дрожь пальца
+    // больше не виляет машиной. Только для джойстика (клавиши и автопилот — как раньше)
+    function softDir(dir, ry) {
+      if (!dir) return dir;
+      const e = angDiff(Math.atan2(dir[0], dir[1]), ry), ae = Math.abs(e);
+      if (ae >= 1) return dir;
+      const g = ae <= 0.06 ? 0 : Math.pow((ae - 0.06) / 0.94, 1.4), a = ry + Math.sign(e) * g;
+      return [Math.sin(a), Math.cos(a), dir[2]];
+    }
     function arrive(ok) {
       const m = s.moveTo; s.moveTo = null; if (!m) return;
       if (m.then) { m.then(ok); return; }
@@ -1930,7 +1952,8 @@
       const lock = !!(w.pf && w.pf.locked());
       const mag = dir && !lock ? (inDir ? dir[2] : 1) : 0;
       let sp = dir && !inDir ? speed : undefined;
-      if (sp !== undefined && mv.run) sp = Math.max(sp, HS.run || 6.8);   // «Бег» горит — к двери/жителю тоже бегом
+      // бег (джойстик или Shift) — к двери/жителю тоже бегом
+      if (sp !== undefined && mv.run) sp = Math.max(sp, HS.run || 6.8);
       const st = mv.update(dt, { x: mag ? dir[0] * mag : 0, z: mag ? dir[1] * mag : 0, speed: mag ? sp : undefined });
       s.px = st.pos.x; s.pz = st.pos.z; s.py = st.pos.y; s.floor = st.floor; s.vx = st.vx; s.vz = st.vz; s.air = !st.grounded;
       s.mvX = s.px; s.mvZ = s.pz;
@@ -1985,7 +2008,7 @@
       const dir = moveInput(); let inp = null;
       if (keys.u || keys.d || keys.l || keys.r) inp = { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0) };
       else if (s.autopilot) { const a = s.autopilot(); inp = a ? { dir: a } : null; }
-      else if (dir) inp = { dir };
+      else if (dir) inp = { dir: joy.id !== null ? softDir(dir, w.bike.ry) : dir };
       w.bike.update(dt, inp);
       if (s.mode === 'ride') { s.px = w.bike.pos.x; s.pz = w.bike.pos.z; s.ang = w.bike.ry; }
     }
@@ -1994,7 +2017,7 @@
       let ctl = null;
       if (s.autopilot) ctl = { dir: s.autopilot() };
       else if (keys.u || keys.d || keys.l || keys.r) ctl = { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0) };
-      else if (dir) ctl = { dir };
+      else if (dir) ctl = { dir: joy.id !== null ? softDir(dir, car.S.ry) : dir };
       if (!w.carCtl && s.braking) { ctl = { brake: true }; if (Math.abs(car.S.v) < 0.4) { s.braking = false; exitCar(); return; } }
       const r = w.carCtl ? w.carCtl.update(dt, ctl) : car.update(dt, ctl);
       if (!w.carCtl && r && r.edge && s.onEdge) s.onEdge(r.edge);
@@ -2159,7 +2182,12 @@
       else if (s.manualT <= 0 && !s.anim) {
         const onOct = s.pz < 3.4 && s.px > -60 && s.px < 82;   // тротуар Октябрьской: «диорама» — смотрим на фасады
         if (onOct) s.yaw += clamp(angDiff(PI, s.yaw), -1.0 * dt, 1.0 * dt);
-        else if (s.walking && s.moveT > 0.7) { const e = angDiff(s.ang, s.yaw); if (Math.abs(e) < 2.3) s.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
+        else if (s.walking && s.moveT > 0.7) {
+          // камера за героиней — только когда курс ушёл больше чем на 20°, мягко и не быстрее 34°/с: идёт чуть вбок — камера
+          // стоит (раньше догоняла с 13° — и героиня ходила кругами)
+          const CAM_BAND = 0.35, CAM_T = 1.4, CAM_MAX = 0.6, e = angDiff(s.ang, s.yaw), ae = Math.abs(e);
+          if (ae > CAM_BAND && ae < 2.3) s.yaw += clamp((e - Math.sign(e) * CAM_BAND) * (1 - Math.exp(-dt / CAM_T)), -CAM_MAX * dt, CAM_MAX * dt);
+        }
       }
       const sp = drv ? Math.abs(car.S.v) / car.VMAX : rd ? w.bike.speed / 5.5 * 0.6 : 0, hd = drv ? car.S.ry : rd ? w.bike.ry : 0;
       let dist = drv ? 11 + sp * 1.5 : rd ? 8.5 + sp : s.dist, hgt = drv ? 5 : rd ? 4.6 : 5.4;
@@ -2316,7 +2344,7 @@
       if (s.actWave) { lbl = 'Помахать'; soft = true; }
       ui.setAct(lbl, soft);
       if (ui.joyCtl) ui.joyCtl.show(!busy && !blk && !s.anim && !s.benching && !(s.sitting && !s.sitting.car) && (s.mode === 'walk' || s.mode === 'ride' || (s.mode === 'drive' && (!w.carCtl || w.carCtl.mode === 'drive'))));
-      // волна 5: «Бег»/«Прыжок» и «Бум!» — только пешком, вне диалогов, мест, лавок и посадки (в машине и на велосипеде — нет)
+      // волна 5: «Прыжок» и «Бум!» — только пешком, вне диалогов, мест, лавок и посадки (в машине и на велосипеде — нет)
       { const walkFree = !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting && !s.pickBusy;
         if (w.mvUi) w.mvUi.setVisible(walkFree);
         if (w.pf) w.pf.enable(walkFree && !s.spotBusy && !s.pkBusy && !s.inTrip); }
@@ -2401,7 +2429,7 @@
 
     s.update = (dt, t) => {
       if (s.paused) return;
-      // желание 7: палец дальше края джойстика — бег (только пешком: в машине и на велосипеде — нет)
+      // джойстик раз в кадр (сила и курс → joy.x/y) и бег — палец за краем кружка (только пешком: в машине и на велосипеде — нет)
       joyRun(s.mode === 'walk' && !s.anim && !s.sitting && !s.busy && !s.finished);
       if (s.mode === 'drive' && !s.anim) stepDrive(dt); else if (s.mode === 'ride' && w.bike) stepRide(dt); else stepWalk(dt);
       if (w.carCtl && s.mode !== 'drive') w.carCtl.update(dt, null);       // посадка/выход идут и в этом кадре

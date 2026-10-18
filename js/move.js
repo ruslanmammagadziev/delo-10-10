@@ -2,7 +2,8 @@
    ХОДЬБА ПЛЮС (волна 5, MOVE): бег, прыжок, запрыгнуть на всё, до чего достаёт, мягкие падения, твёрдые машины.
    Общий модуль для героини-пешехода: город (js/world/main.js) и любой регион (js/world/regions.js — места поездки, отель,
    серпантин). Своё на экране — только облачко пыли/листьев при приземлении (1 вызов отрисовки, InstancedMesh),
-   облачко «Ой!» над героиней и мягкая шторка возврата (DOM). Кнопки «Бег» и «Прыжок» — Move.mountButtons.
+   облачко «Ой!» над героиней и мягкая шторка возврата (DOM). Кнопка «Прыжок» — Move.mountButtons; бег — джойстик HUD
+   (палец за край кружка, js/world/hud.js) или Shift: игра зовёт holdRun.
    Ванильный JS, Three.js r149, без сети. В кадре нет выделений памяти (массивы и объекты — заранее).
 
    Move.create(o) → mv | null (нет o.ground)
@@ -60,21 +61,24 @@
      pose(dt)                   — ПОСЛЕ anim.update и после того, как игра поставила hero.body (до IA.update), один раз на
                                   anim.update: колени к груди в полёте, руки чуть вверх, ноги навстречу земле, приседание при
                                   приземлении (стопы на земле), кувырок, «отряхнулась»
-     jump() / setRun(b) / toggleRun() / run (bool) / busy() (кувырок или возврат — ввод не слушает)
+     jump() / setRun(b) / toggleRun() / holdRun(b) (бег, пока держит: джойстик за краем, Shift) / run (bool) / busy() (кувырок
+                                  или возврат — ввод не слушает)
      teleport(p {x,y?,z}, ry?)  — поставить (сбрасывает скорость, падение, точки возврата); sync(x, y?, z) — игра сама
                                   подвинула героиню (место, лавка, руки): принять без сброса (no-op, если x, z те же;
                                   без y — на землю под точкой). Удобно звать каждый кадр перед update
      lastSafe {x,y,z}           — куда вернёт; supportAt(x, z, y) — пол под точкой (до высоты y + boxStep)
      reindex(), stats() → { colliders, dyn, cand, steps, ms }, dispose()
-   Move.mountButtons(host, o) → ui — две большие кнопки справа внизу над кнопкой действия (не мешают джойстику слева):
-     «Прыжок» (80 px) и «Бег» (64 px; тап — включить/выключить, держать дольше 0,3 с — бег, пока держит).
+   Move.mountButtons(host, o) → ui — кнопка «Прыжок» справа внизу над кнопкой действия (HUD: слот s1; не мешает джойстику
+     слева). Кнопки «Бег» нет: бег — джойстик за край кружка (HUD) или Shift.
      o = { move (mv), onJump(), onRun(on), keys (true — Shift держать бег, Space — прыжок), bottom ('150px'), right ('14px') }
-     ui = { el, jump, run, setVisible(b), setRun(b), bind(mv) — новый mv (регион) к тем же кнопкам, dispose() }
+     ui = { el, jump, run: null, setVisible(b), setRun(b) — бег вкл/выкл (как раньше тап по «Бег»), bind(mv) — новый mv (регион)
+            к той же кнопке (бег, если был включён, переносится), dispose() }
    Move.CFG, Move.PROFILES (коробки машин в осях машины: [cx, cz, w, d, верх, тип, id]: coupe, sedan, sedan2 — сам по
    car.dims.length > 4,95, bike), Move.version. Своя машина — { type:'car', src, profile: [[…], …] }.
 
    Цифры (Move.CFG): прыжок 1,1 м за 0,6 с (g ≈ 24,4 м/с², v0 ≈ 7,3 м/с) — достаёт до 1,0 м (скамейка 0,45, ящик 0,9, капот
-   0,93–0,97, с капота — на крышу седана 1,78), 1,3 м — нет; шаг без бега до 2,2 м/с (HeroAnim — шаг), «Бег» — 6,8 (W6+: вдвое быстрее прежней трусцы 3,4);
+   0,93–0,97, с капота — на крышу седана 1,78), 1,3 м — нет; шаг без бега 0,35–2,2 м/с (HeroAnim — шаг), бег — 6,8 (W6+: вдвое быстрее прежней трусцы 3,4;
+   разгон до бега мягче шага — runAccel, с бега на шаг — runDecel, стоп — как с шага, accel);
    рельеф: подъём шагом ≤ 0,7 м (как раньше в регионах), коробки — бордюр ≤ 0,3 м сама; вниз ≤ 0,45 м за подшаг — идёт,
    больше — падает; падение < 1,5 м — мягкое приземление, 1,5–2,5 — приседание и пыль, 2,5–7,5 м — кувырок «Ух!» и встаёт
    (прыжок с крыши-двора села на улицу ряда ниже: 4,8 + 1,1 м), ≥ 7,5 м или на «нельзя» — «Ой!», шторка 0,4 с и мягко на последнюю безопасную точку (≈ 1 с назад). Подшаги ≤ 0,1 м — сквозь
@@ -94,7 +98,13 @@
   const CFG = {
     radius: 0.3, height: 1.75,
     apex: 1.1, air: 0.6,            // прыжок на ровном: высота ног, м, и время в воздухе, с
-    walkMax: 2.2,                   // без «Бега»: потолок шага (у HeroAnim до 2,3 — шаг)
+    walkMax: 2.2,                   // без бега: потолок шага (у HeroAnim до 2,3 — шаг)
+    // самый медленный шаг от джойстика, м/с (походка начинается с 0,25 — «на цыпочках» видно)
+    walkMin: 0.35,
+    // разгон до бега и сброс с бега на шаг, 1/с: мягче шага (accel 10) — бег набирается ~0,45 с, а не рывком;
+    // отпустила джойстик (стоп) — как с шага, accel: с бега останавливается за ~0,5 м
+    runAccel: 6,
+    runDecel: 6,
     stepUp: 0.7,                    // рельеф: подъём шагом (как прежняя ходьба регионов)
     boxStep: 0.3,                   // коробки: бордюр/ступенька, на которую заходит сама
     stepDown: 0.45,                 // спуск за подшаг без падения
@@ -168,12 +178,8 @@
 :where(.mv-btns){position:absolute;right:var(--mv-right,14px);bottom:calc(var(--mv-bottom,150px) + var(--safe-bottom,0px));display:flex;flex-direction:row-reverse;align-items:flex-end;gap:12px;z-index:21;pointer-events:none;-webkit-user-select:none;user-select:none;touch-action:none}
 :where(.mv-btns) > button{pointer-events:auto;border:0;padding:0;border-radius:50%;font:inherit;font-weight:900;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:transform .08s,box-shadow .08s,background .15s,color .15s}
 :where(.mv-jump){width:80px;height:80px;background:var(--cherry,#C2405B);color:#fff;font-size:15px;box-shadow:0 5px 0 var(--cherry-d,#9E2F47),0 10px 20px rgba(158,47,71,.25)}
-:where(.mv-jump) i,:where(.mv-run) i{font-style:normal;font-size:22px;line-height:1}
+:where(.mv-jump) i{font-style:normal;font-size:22px;line-height:1}
 :where(.mv-jump.down){transform:translateY(4px);box-shadow:0 1px 0 var(--cherry-d,#9E2F47)}
-:where(.mv-run){width:64px;height:64px;background:rgba(255,253,249,.95);color:var(--cherry,#C2405B);font-size:14px;box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 18px rgba(58,46,63,.12)}
-:where(.mv-run) i{font-size:18px}
-:where(.mv-run.on){background:#F7C948;color:#6B3A12;box-shadow:0 4px 0 #C9962A,0 0 0 4px rgba(247,201,72,.35),0 8px 18px rgba(201,150,42,.3)}
-:where(.mv-run.down){transform:translateY(3px)}
 :where(.mv-btns.hide){display:none}
 :where(.mv-say){position:absolute;left:0;top:0;padding:6px 13px;border-radius:15px;background:#FFF0F3;color:#9E2F47;font-weight:900;font-size:17px;line-height:1.2;box-shadow:0 3px 0 rgba(58,46,63,.12);pointer-events:none;z-index:12;opacity:0;white-space:nowrap}
 :where(.mv-say)::after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:#FFF0F3}
@@ -486,7 +492,11 @@
       if (!locked && mag > 0.05) tv = num(sp) ? Math.max(0, sp) : o.speedOf ? +o.speedOf(mag, runNow) || 0 : speedOf(mag, runNow);
       const ux = mag > 1e-6 ? ix / mag : 0, uz = mag > 1e-6 ? iz / mag : 0;
       if (locked) { const k = Math.exp(-(mode === 'respawn' && !rsLanded ? 2.5 : 3.2) * dt); vx *= k; vz *= k; }
-      else if (grounded) { const k = 1 - Math.exp(-cfg.accel * dt); vx += (ux * tv - vx) * k; vz += (uz * tv - vz) * k; }
+      else if (grounded) {
+        // разгон в бег — runAccel; с бега на шаг (джойстик ещё ведёт) — runDecel; стоп (ввода нет) и остальное — accel
+        const hv0 = Math.hypot(vx, vz), a = runNow && tv > cfg.walkMax ? cfg.runAccel : hv0 > cfg.walkMax + 0.3 && tv > 0.1 ? cfg.runDecel : cfg.accel;
+        const k = 1 - Math.exp(-a * dt); vx += (ux * tv - vx) * k; vz += (uz * tv - vz) * k;
+      }
       else { tv = Math.min(tv, airMax); const k = 1 - Math.exp(-cfg.airAccel * dt); if (mag > 0.05) { vx += (ux * tv - vx) * k; vz += (uz * tv - vz) * k; } }
       // прыжок: кнопка чуть раньше приземления или чуть позже края — засчитывается
       if (jumpBuf > 0) jumpBuf -= dt;
@@ -559,7 +569,8 @@
     function speedOf(mag, run) {
       const S = SPEEDS();
       if (run) return S.run * clamp(mag / 0.5, 0, 1);
-      return mag <= 0.85 ? Math.max(0.6, cfg.walkMax * mag / 0.85) : cfg.walkMax;
+      // шаг: сила джойстика уже с кривой (HUD.joyShape) — линейно до walkMax, не тише walkMin
+      return Math.max(cfg.walkMin, cfg.walkMax * Math.min(1, mag));
     }
     // стоит на машине, которая едет — едет вместе с ней (поза машины с прошлого кадра — carryP)
     const carryP = { desc: null, part: 0, x: 0, z: 0, ry: 0, yb: 0 };
@@ -784,7 +795,8 @@
     function sqShape(u) { if (u < 0.18) return sst(0, 0.18, u); const v = (u - 0.18) / 0.82; return (1 - sst(0, 1, v)) - 0.12 * Math.sin(PI * v) * v; }
 
     /* ---------- снаружи ---------- */
-    let uiRef = null;   // кнопки Move.mountButtons — горят, когда бег включили не ими (игра, клавиша)
+    // кнопка Move.mountButtons: помнит, что бег включён (setRun), чтобы перенести его в mv нового региона
+    let uiRef = null;
     const mv = {
       update(dt, inp) { const r = update(dt, inp); rememberCarry(); return r; },
       animState, pose,
@@ -826,7 +838,7 @@
     return mv;
   }
 
-  /* ---------- кнопки «Бег» и «Прыжок» ---------- */
+  /* ---------- кнопка «Прыжок» (бег — джойстик HUD за край кружка или Shift: mv.holdRun) ---------- */
   function mountButtons(host, o) {
     o = o || {};
     if (!host || typeof document === 'undefined') return null;
@@ -834,51 +846,36 @@
     const el = document.createElement('div'); el.className = 'mv-btns';
     if (o.bottom) el.style.setProperty('--mv-bottom', o.bottom);
     if (o.right) el.style.setProperty('--mv-right', o.right);
-    // HUD v2: две маленькие круглые кнопки дуги справа внизу — «Прыжок» в слоте s1 (над P), «Бег» в s3 (слева от P);
+    // HUD v2: маленькая круглая кнопка дуги справа внизу — «Прыжок» в слоте s1 (над P); отдельной «Бег» нет;
     // контейнер .mv-btns — display: contents (style.css), подпись — aria-label и скрытое <b>
-    el.innerHTML = '<button type="button" class="mv-jump" data-hud-slot="s1" aria-label="Прыжок" title="Прыжок"><i>🦘</i><b>Прыжок</b></button><button type="button" class="mv-run" data-hud-slot="s3" aria-label="Бег" title="Бег" aria-pressed="false"><i>👟</i><b>Бег</b></button>';
-    const jump = el.querySelector('.mv-jump'), run = el.querySelector('.mv-run');
+    el.innerHTML = '<button type="button" class="mv-jump" data-hud-slot="s1" aria-label="Прыжок" title="Прыжок"><i>🦘</i><b>Прыжок</b></button>';
+    const jump = el.querySelector('.mv-jump');
     host.appendChild(el);
     let bound = o.move || null;
     const mvRef = () => bound;
-    let runState = false, holdT = 0, holding = false, runPid = null;
-    const setRunUi = b => { runState = !!b; run.classList.toggle('on', runState); run.setAttribute('aria-pressed', runState ? 'true' : 'false'); };
-    let fromUi = false;
-    const fireRun = b => { setRunUi(b); const m = mvRef(); fromUi = true; if (m) m.setRun(b); fromUi = false; if (o.onRun) o.onRun(b); };
+    // бег, включённый не удержанием (ui.setRun / mv.setRun), помним: новый регион (bind) получит его же
+    let runState = false, fromUi = false;
+    const fireRun = b => { runState = !!b; const m = mvRef(); fromUi = true; if (m) m.setRun(runState); fromUi = false; if (o.onRun) o.onRun(runState); };
     const stop = e => { e.stopPropagation(); if (e.cancelable && e.type !== 'pointerdown') e.preventDefault(); };
     const onJumpDown = e => { e.stopPropagation(); e.preventDefault(); jump.classList.add('down'); const m = mvRef(); if (m) m.jump(); if (o.onJump) o.onJump(); try { if (navigator.vibrate) navigator.vibrate(8); } catch (er) { /* нет */ } };
     const onJumpUp = e => { e.stopPropagation(); jump.classList.remove('down'); };
-    const onRunDown = e => {
-      e.stopPropagation(); e.preventDefault(); run.classList.add('down'); runPid = e.pointerId;
-      holdT = performance.now(); holding = true;
-      clearTimeout(run._t); run._t = setTimeout(() => { if (holding && !runState) { run._held = true; fireRun(true); } }, 300);
-    };
-    const onRunUp = e => {
-      e.stopPropagation(); if (runPid !== null && e.pointerId !== runPid) return; runPid = null;
-      run.classList.remove('down'); clearTimeout(run._t);
-      if (!holding) return; holding = false;
-      if (run._held) { run._held = false; fireRun(false); return; }   // держала — отпустила: бег выключен
-      if (performance.now() - holdT < 300) fireRun(!runState);        // тап — включить/выключить
-    };
     jump.addEventListener('pointerdown', onJumpDown); jump.addEventListener('pointerup', onJumpUp); jump.addEventListener('pointercancel', onJumpUp); jump.addEventListener('pointerleave', onJumpUp);
-    run.addEventListener('pointerdown', onRunDown); run.addEventListener('pointerup', onRunUp); run.addEventListener('pointercancel', onRunUp);
-    ['touchstart', 'touchend', 'mousedown', 'click', 'contextmenu'].forEach(t => { jump.addEventListener(t, stop, { passive: false }); run.addEventListener(t, stop, { passive: false }); });
+    ['touchstart', 'touchend', 'mousedown', 'click', 'contextmenu'].forEach(t => jump.addEventListener(t, stop, { passive: false }));
     let onKey = null, onKeyUp = null;
     if (o.keys) {
-      onKey = e => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); const m = mvRef(); if (m) m.jump(); if (o.onJump) o.onJump(); } if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) { const m = mvRef(); if (m) m.holdRun(true); else run.classList.add('on'); } };
-      onKeyUp = e => { if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { const m = mvRef(); if (m) m.holdRun(false); else run.classList.toggle('on', runState); } };
+      onKey = e => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); const m = mvRef(); if (m) m.jump(); if (o.onJump) o.onJump(); } if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) { const m = mvRef(); if (m) m.holdRun(true); } };
+      onKeyUp = e => { if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { const m = mvRef(); if (m) m.holdRun(false); } };
       addEventListener('keydown', onKey); addEventListener('keyup', onKeyUp);
     }
     const ui = {
-      el, jump, run,
+      el, jump, run: null,
       setVisible(b) { el.classList.toggle('hide', !b); if (!b && runState) fireRun(false); },
       setRun(b) { fireRun(b); },
-      // новый регион — новый mv: кнопки те же (бег, если горел, переносится)
+      // новый регион — новый mv: кнопка та же (бег, если был включён, переносится)
       bind(m) { const old = bound; if (old && old !== m && old.attachUi) old.attachUi(null); bound = m || null; if (bound) { if (runState) bound.setRun(true); if (bound.attachUi) bound.attachUi(ui); } },
-      // mv сообщает: бег включили/выключили не кнопкой (игра, Shift) — кнопка горит/гаснет сама
-      _reflect(on, lit) { if (fromUi) return; runState = !!on; run.classList.toggle('on', !!lit); run.setAttribute('aria-pressed', on ? 'true' : 'false'); },
+      // mv сообщает: бег включили/выключили не через ui (игра) — запомнить для bind
+      _reflect(on) { if (!fromUi) runState = !!on; },
       dispose() {
-        clearTimeout(run._t);
         const m = mvRef(); if (m && m.attachUi) m.attachUi(null);
         if (onKey) { removeEventListener('keydown', onKey); removeEventListener('keyup', onKeyUp); }
         if (el.parentNode) el.parentNode.removeChild(el);

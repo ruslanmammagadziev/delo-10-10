@@ -666,7 +666,9 @@
   function touchInput(o = {}) {
     const dz = 0.08, jx = o.jx || 0, ax = Math.max(0, Math.abs(jx) - dz) / (1 - dz);
     const str = Math.sign(jx) * Math.pow(Math.min(1, ax), 1.35);
-    let thr = o.gas ? 1 : (o.jy || 0) < -0.35 ? Math.min(1, (-(o.jy || 0) - 0.35) / 0.45) : 0;
+    // газ от джойстика — по силе отклонения в конусе «вверх» (±70°): палец вверх и вбок — и рулит, и едет (раньше руль срезал газ)
+    const jy = o.jy || 0, n = Math.min(1, Math.hypot(jx, jy)), up = n > 1e-6 ? -jy / n : 0;
+    let thr = o.gas ? 1 : up > 0.34 && n > 0.35 ? Math.min(1, (n - 0.35) / 0.45) : 0;
     let brake = false;
     if (o.brake) { if ((o.v || 0) > 0.6) brake = true; else thr = -1; }
     return { thr, str, brake };
