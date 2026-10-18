@@ -1,5 +1,6 @@
 /* =====================================================================
    ВЫБОР ОБРАЗА — экран из шести роликов вместо кастинга «бант / тренч / волосы».
+   Ролики — мультяшный рендер 3D-героини игры в каждом образе (tools/looks_toon.js -> tools/looks_build.py).
    LookPicker.mount(host, { start, mode, cta, onPick, onChange, onClose, haptic, noAutoplay })
      -> { go, index, id, pause, resume, pick, destroy };  LookPicker.last — живой экземпляр (для тестов).
    mode: 'casting' (значок «Кастинг») | 'migrate' (значок «Гардероб» и строка «Гардероб обновился») |

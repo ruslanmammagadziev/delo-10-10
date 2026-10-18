@@ -27,8 +27,9 @@ js/hero3d.js, js/hero_anim.js — героиня со скелетом и её �
 js/voice.js     — голоса героев (mp3 из папки voice/, без неё — мягкий «лепет»)
 voice/          — озвучка (собирает tools/voice_build.py; выкладывать рядом с index.html)
 js/hero_looks.js, js/looks_picker.js — шесть образов героини и экран выбора (карусель роликов вместо кастинга)
-looks/          — ролики образов (mp4 + webm + постеры; собирает tools/looks_build.py из исходников вне репозитория;
-                  сборка кладёт папку рядом с index.html, выкладывать вместе с ним)
+looks/          — ролики образов (mp4 + webm + постеры): мультяшный рендер 3D-героини игры в каждом образе на простом фоне;
+                  рендер — tools/looks_toon.js (+ tools/looks_toon.html) в папку вне репозитория, кодирование —
+                  tools/looks_build.py; сборка кладёт папку рядом с index.html, выкладывать вместе с ним
 world.html      — стенд города (проверки и «Замер» на телефоне)
 tools/cover.html — исходник обложки
 tools/build_single.py — сборка всей игры в один файл (dist/delo-10-10.html; с --prod — dist/delo-10-10.prod.html)
@@ -52,7 +53,7 @@ tools/rig_heroine.py  — скелет героини из GLB (Blender как �
 
 **Вариант А — GitHub Pages**
 1. Создай новый репозиторий с нейтральным названием, например `delo-10-10`. Её имя в названии не используй.
-2. Собери файл: `python3 tools/build_single.py --prod`. Загрузи **только** `dist/delo-10-10.prod.html`, переименованный в `index.html`, `cover.png` и папку `dist/voice/` как `voice/` рядом с `index.html` (голоса; без неё игра работает с «лепетом»), и папку `dist/looks/` как `looks/` рядом с `index.html` (ролики шести образов; без неё экран выбора работает на миниатюрах, без видео). Папки `tools/`, `js/`, исходники и `dist/` целиком не выкладывай.
+2. Собери файл: `python3 tools/build_single.py --prod`. Загрузи **только** `dist/delo-10-10.prod.html`, переименованный в `index.html`, `cover.png` и папку `dist/voice/` как `voice/` рядом с `index.html` (голоса; без неё игра работает с «лепетом»), и папку `dist/looks/` как `looks/` рядом с `index.html` (мультяшные ролики шести образов — рендер 3D-героини игры, `tools/looks_toon.js` + `tools/looks_build.py`; без папки экран выбора работает на миниатюрах, без видео). Папки `tools/`, `js/`, исходники и `dist/` целиком не выкладывай.
 3. Settings → Pages → Branch: `main`, папка `/ (root)` → Save.
 4. Через минуту появится адрес `https://<твой-ник>.github.io/delo-10-10/`. Впиши его в `GAME_URL`.
 

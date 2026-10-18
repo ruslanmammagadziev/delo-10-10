@@ -1,8 +1,12 @@
-"""Образы героини: ролики экрана выбора образа (вместо кастинга «бант / тренч / волосы»).
+"""Образы героини: ролики экрана выбора образа (вместо кастинга «бант / тренч / волосы») — мультяшные, из самой игры.
 
-Запуск (один раз после замены роликов; нужны ffmpeg/ffprobe, Pillow, numpy и OpenCV):
-  python3 -I tools/looks_build.py --src ~/looks_src            исходники 784×1176 лежат ВНЕ репозитория (≈33 МБ)
-  python3 -I tools/looks_build.py --src ~/looks_src --no-webm  без запасного VP9
+Ролик = 3D-героиня игры (js/hero3d.js + образ js/hero_outfits.js, поза js/hero_anim.js) на простом мультяшном фоне
+(tools/looks_toon.html). Цепочка целиком (после любой правки 3D-образов или фонов):
+  NODE_PATH=/opt/node22/lib/node_modules node tools/looks_toon.js --out ~/looks_toon    рендер (swiftshader: ~2,5 мин на образ)
+  python3 -I tools/looks_build.py --src ~/looks_toon                                     кодирование -> looks/
+  python3 -I tools/looks_build.py --src ~/looks_toon --no-webm                           без запасного VP9
+Исходники (~25 МБ на образ) лежат ВНЕ репозитория: <id>.mkv — FFV1 600×900, 24 к/с, 144 кадра (6 с), петля без шва
+(кадр 144 = кадр 0), и <id>.json от looks_toon.js (кадры, шов петли, sha1 js/hero_outfits.js). Нужны ffmpeg/ffprobe и Pillow.
 
 Пишет:
   looks/<id>.<sha8>.mp4    H.264 main@3.1, yuv420p, 600×900, 24 к/с, без звука, +faststart, CRF 23, потолок 2,5 Мбит/с
@@ -12,37 +16,17 @@
                            миниатюры 240×360 и заглушки 24×36
 Имена файлов — с хэшем содержимого (как у voice/): новый ролик = новое имя, кэш на год без риска устареть.
 Старые файлы в looks/ удаляются. Сборка tools/build_single.py копирует looks/ рядом с итоговым файлом (site/looks/).
-
-Без надписей и значков в кадре:
-  pink  — красные бирки (подол платья, язычок сапога) в нижних 60 % кадра закрашиваются по соседним белым пикселям;
-  cream — тиснёная надпись на сумке стирается по ключевым кадрам (координаты сняты с исходника; другой исходник —
-          предупреждение, проверь кадры глазами). Остальные ролики проверены глазами: надписей нет.
-Ролик длиннее 1,5 МБ — ошибка (подними --crf)."""
+Проверки: все шесть исходников 600×900 и нужной длины; все шесть сняты с одного js/hero_outfits.js (иначе ошибка);
+не тот, что сейчас в репозитории, — предупреждение (перерендерь). Ролик длиннее 1,5 МБ — ошибка (подними --crf)."""
 import argparse, base64, hashlib, io, json, os, subprocess, sys
 
-import numpy as np
-import cv2
 from PIL import Image, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# id и исходник; порядок карусели = сетка образов автора (js/hero_looks.js)
-LOOKS = [
-    ('aurora', 'aurora_blazer_v3.mp4'),
-    ('suede', 'suede_coat_v5.mp4'),
-    ('pink', 'pink_cardigan_v2.mp4'),
-    ('rust', 'rust_dress_v4.mp4'),
-    ('cream', 'cream_suit_v1.mp4'),
-    ('floral', 'floral_gown_v6.mp4'),
-]
+# порядок карусели = сетка образов автора (js/hero_looks.js)
+LOOKS = ['aurora', 'suede', 'pink', 'rust', 'cream', 'floral']
 W, H = 600, 900
 LIMIT = 1_500_000
-# sha1 исходника (12 знаков), под который сняты ключевые кадры чистки
-SRC_SHA = {'pink': 'f725b7d9db49', 'cream': 'a4714379e1ce'}
-# надпись на сумке (cream): кадр, центр x, y, ширина и высота надписи — в кадре 600×900
-CREAM_KF = [(0, 186, 578, 14, 10), (24, 183, 578, 14, 10), (48, 190, 587, 14, 10), (72, 193, 625, 15, 11), (84, 187, 648, 16, 12),
-            (96, 196, 664, 22, 16), (101, 204, 673, 24, 17), (104, 212.5, 686.5, 24, 17), (107, 222.5, 695.5, 24, 17), (110, 232, 701.5, 25, 18),
-            (113, 244.5, 718.5, 25, 18), (116, 255, 727.5, 25, 18), (119, 263, 735, 26, 18), (122, 265.5, 741.5, 25, 18), (125, 262.5, 749, 26, 19),
-            (128, 261, 765.5, 26, 19), (136, 255, 795, 30, 21), (144, 236, 817, 30, 21)]
 
 
 def run(cmd):
@@ -62,117 +46,58 @@ def jpeg(img, q, progressive=True):
     return b.getvalue()
 
 
-# ---------- чистка кадров ----------
-def clean_pink(f, st):
-    """Красные бирки в нижних 60 %: насыщенный красный в окружении белого -> закрасить по соседям (и маска прошлого кадра)."""
-    hsv = cv2.cvtColor(f, cv2.COLOR_BGR2HSV)
-    hh, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    m = (((hh <= 5) | (hh >= 173)) & (s > 95) & (v > 70)).astype(np.uint8)
-    m[:int(H * 0.4)] = 0
-    white = ((v > 200) & (s < 40)).astype(np.uint8)
-    n, lab, stats, _ = cv2.connectedComponentsWithStats(m, 8)
-    keep = np.zeros_like(m)
-    for i in range(1, n):
-        if stats[i, cv2.CC_STAT_AREA] < 3 or stats[i, cv2.CC_STAT_AREA] >= 600:
-            continue
-        c = (lab == i).astype(np.uint8)
-        ring = cv2.dilate(c, np.ones((9, 9), np.uint8)) - c
-        # губы и кожа не трогаем: бирка всегда на белом (платье, сапог)
-        if white[ring > 0].mean() > 0.4:
-            keep |= c
-    keep = cv2.dilate(keep, np.ones((7, 7), np.uint8))
-    mask = keep | st['prev'] if st.get('prev') is not None else keep
-    st['prev'] = keep
-    st['px'] = st.get('px', 0) + int(mask.sum())
-    return cv2.inpaint(f, mask, 4, cv2.INPAINT_TELEA) if mask.any() else f
+def probe(fn):
+    """ширина, высота и число кадров исходника"""
+    out = run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries', 'stream=width,height,nb_read_frames',
+               '-of', 'json', fn])
+    s = json.loads(out)['streams'][0]
+    return int(s['width']), int(s['height']), int(s.get('nb_read_frames') or 0)
 
 
-def cream_box(k):
-    for a, b in zip(CREAM_KF, CREAM_KF[1:]):
-        if a[0] <= k <= b[0]:
-            t = (k - a[0]) / max(1, b[0] - a[0])
-            return [a[i] + (b[i] - a[i]) * t for i in range(1, 5)]
-    return list(CREAM_KF[-1][1:])
-
-
-def clean_cream(f, st):
-    """Надпись на сумке: в окне ключевого кадра закрасить штрихи букв (не касающиеся края окна) + мягкое размытие овалом."""
-    k = st['k'] = st.get('k', -1) + 1
-    cx, cy, w, h = cream_box(k)
-    w, h = w * 1.7 + 8, h * 1.9 + 8
-    x0, y0 = max(0, int(cx - w / 2)), max(0, int(cy - h / 2))
-    x1, y1 = min(W, int(cx + w / 2) + 1), min(H, int(cy + h / 2) + 1)
-    gr = cv2.cvtColor(f[y0:y1, x0:x1], cv2.COLOR_BGR2GRAY)
-    g, med = gr.astype(np.int16), cv2.medianBlur(gr, 9).astype(np.int16)
-    sm = (((med - g) > 5) | ((g - med) > 7)).astype(np.uint8)
-    n, lab, stats, _ = cv2.connectedComponentsWithStats(sm, 8)
-    keep = np.zeros_like(sm)
-    for i in range(1, n):
-        x, y, ww, hh, _a = stats[i]
-        # касается края окна — это ручка или кант сумки, не буква
-        if x == 0 or y == 0 or x + ww >= sm.shape[1] or y + hh >= sm.shape[0]:
-            continue
-        keep[lab == i] = 1
-    keep = cv2.dilate(keep, np.ones((3, 3), np.uint8))
-    full = np.zeros((H, W), np.uint8)
-    full[y0:y1, x0:x1] = keep
-    g2 = cv2.inpaint(f, full, 3, cv2.INPAINT_TELEA)
-    m = np.zeros((H, W), np.float32)
-    cv2.ellipse(m, (int(cx), int(cy)), (int(w * 0.36), int(h * 0.36)), 0, 0, 360, 1, -1)
-    m = cv2.GaussianBlur(m, (0, 0), 2.5)[..., None]
-    bl = cv2.GaussianBlur(g2, (0, 0), 1.6)
-    st['px'] = st.get('px', 0) + int(keep.sum())
-    return (g2 * (1 - m) + bl * m).astype(np.uint8)
-
-
-CLEAN = {'pink': clean_pink, 'cream': clean_cream}
-
-
-def cleaned(lid, sp, tmp, threads):
-    """Кадры 600×900 через OpenCV -> промежуточный файл без потерь (FFV1); из него кодируются mp4 и webm."""
-    out = os.path.join(tmp, lid + '.ffv1.mkv')
-    dec = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', sp, '-map', '0:v:0', '-vf', f'scale={W}:{H}:flags=lanczos,setsar=1', '-r', '24',
-                            '-pix_fmt', 'bgr24', '-f', 'rawvideo', '-'], stdout=subprocess.PIPE)
-    enc = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{W}x{H}', '-r', '24', '-i', '-',
-                            '-c:v', 'ffv1', '-pix_fmt', 'bgr0', '-threads', threads, out], stdin=subprocess.PIPE)
-    st, n = {}, 0
-    while True:
-        b = dec.stdout.read(W * H * 3)
-        if len(b) < W * H * 3:
-            break
-        f = np.frombuffer(b, np.uint8).reshape(H, W, 3).copy()
-        enc.stdin.write(CLEAN[lid](f, st).tobytes())
-        n += 1
-    enc.stdin.close()
-    if dec.wait() != 0 or enc.wait() != 0:
-        sys.exit(f'ОШИБКА: чистка кадров {lid}')
-    print(f'  {lid}: чистка {n} кадров, закрашено {st.get("px", 0)} пикселей', flush=True)
-    return out
+def sources(src):
+    """исходники шести образов и их паспорта (<id>.json от tools/looks_toon.js); проверки — до кодирования"""
+    res, shas = {}, {}
+    for lid in LOOKS:
+        mkv, meta = os.path.join(src, lid + '.mkv'), os.path.join(src, lid + '.json')
+        if not os.path.isfile(mkv):
+            sys.exit(f'ОШИБКА: нет исходника {mkv} — сначала tools/looks_toon.js --out {src}')
+        m = json.load(open(meta, encoding='utf-8')) if os.path.isfile(meta) else {}
+        w, h, n = probe(mkv)
+        if (w, h) != (W, H):
+            sys.exit(f'ОШИБКА: {mkv} {w}×{h}, нужно {W}×{H}')
+        if m.get('frames') and n != m['frames']:
+            sys.exit(f'ОШИБКА: {mkv} {n} кадров, по паспорту {m["frames"]} (рендер оборван?)')
+        if m.get('seam') is not None and m['seam'] > 1e-4:
+            print(f'  ВНИМАНИЕ: {lid} — шов петли {m["seam"]:.1e} (кадр N ≠ кадр 0)', flush=True)
+        if m.get('heroOutfitsSha1'):
+            shas.setdefault(m['heroOutfitsSha1'], []).append(lid)
+        res[lid] = (mkv, n)
+    if len(shas) > 1:
+        sys.exit('ОШИБКА: ролики сняты с разных js/hero_outfits.js: ' + '; '.join(f'{k[:12]} — {", ".join(v)}' for k, v in shas.items())
+                 + ' — перерендерь все шесть')
+    cur = hashlib.sha1(open(os.path.join(ROOT, 'js', 'hero_outfits.js'), 'rb').read()).hexdigest()
+    if shas and cur not in shas:
+        print(f'  ВНИМАНИЕ: ролики сняты с js/hero_outfits.js {next(iter(shas))[:12]}, а в репозитории {cur[:12]} — перерендерь', flush=True)
+    return res, (next(iter(shas)) if shas else None)
 
 
 def main():
-    ap = argparse.ArgumentParser(description='ролики образов -> looks/ + js/looks_data.js')
-    ap.add_argument('--src', required=True, help='папка с исходными роликами (вне репозитория)')
+    ap = argparse.ArgumentParser(description='мультяшные ролики образов (tools/looks_toon.js) -> looks/ + js/looks_data.js')
+    ap.add_argument('--src', required=True, help='папка с <id>.mkv и <id>.json от tools/looks_toon.js (вне репозитория)')
     ap.add_argument('--crf', type=int, default=23)
     ap.add_argument('--no-webm', action='store_true')
     ap.add_argument('--threads', default='2')
     a = ap.parse_args()
+    src = os.path.abspath(os.path.expanduser(a.src))
+    srcs, osha = sources(src)
     out = os.path.join(ROOT, 'looks')
     tmp = os.path.join(out, '.tmp')
     os.makedirs(tmp, exist_ok=True)
-    vf = f'scale={W}:{H}:flags=lanczos,setsar=1,format=yuv420p'
     items, keep = [], set()
-    for lid, src in LOOKS:
-        sp = os.path.join(a.src, src)
-        if not os.path.isfile(sp):
-            sys.exit(f'ОШИБКА: нет исходника {sp}')
-        inp, filt = sp, vf
-        if lid in CLEAN:
-            sha = hashlib.sha1(open(sp, 'rb').read()).hexdigest()[:12]
-            if sha != SRC_SHA[lid]:
-                print(f'  ВНИМАНИЕ: {src} не тот исходник ({sha}), чистка надписей настроена на {SRC_SHA[lid]} — проверь кадры глазами', flush=True)
-            inp, filt = cleaned(lid, sp, tmp, a.threads), 'format=yuv420p'
-        common = ['-map', '0:v:0', '-an', '-sn', '-dn', '-map_metadata', '-1', '-vf', filt, '-r', '24', '-threads', a.threads]
+    for lid in LOOKS:
+        inp, n = srcs[lid]
+        common = ['-map', '0:v:0', '-an', '-sn', '-dn', '-map_metadata', '-1', '-vf', f'scale={W}:{H}:flags=lanczos,setsar=1,format=yuv420p',
+                  '-r', '24', '-threads', a.threads]
         mp4 = os.path.join(tmp, lid + '.mp4')
         run(['ffmpeg', '-v', 'error', '-y', '-i', inp, *common, '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'main', '-level', '3.1',
              '-crf', str(a.crf), '-maxrate', '2500k', '-bufsize', '5000k', '-g', '48', '-keyint_min', '24', '-tag:v', 'avc1',
@@ -206,7 +131,7 @@ def main():
         it['bg'] = '#%02X%02X%02X' % avg
         it['w'], it['h'], it['dur'] = W, H, round(dur, 2)
         items.append(it)
-        print(f"{lid:7s} mp4 {len(files['mp4']) / 1024:6.0f} КБ" + (f" · webm {len(files['webm']) / 1024:5.0f} КБ" if 'webm' in files else '')
+        print(f"{lid:7s} {n} кадров · mp4 {len(files['mp4']) / 1024:6.0f} КБ" + (f" · webm {len(files['webm']) / 1024:5.0f} КБ" if 'webm' in files else '')
               + f" · постер {len(files['jpg']) / 1024:3.0f} КБ · миниатюра {len(thumb) / 1024:4.1f} КБ", flush=True)
     for fn in os.listdir(tmp):
         os.remove(os.path.join(tmp, fn))
@@ -216,6 +141,7 @@ def main():
             os.remove(os.path.join(out, fn))
     head = ('/* =====================================================================\n'
             '   ОБРАЗЫ ГЕРОИНИ: медиа шести роликов экрана выбора. Файл пишет tools/looks_build.py — руками не править.\n'
+            '   Ролики — мультяшный рендер 3D-героини игры в каждом образе (tools/looks_toon.js).\n'
             '   Имена и подписи образов — в js/hero_looks.js.\n'
             '   base: в исходной папке — looks/ рядом с js/ (по адресу этого скрипта, годится и для стендов в tests/);\n'
             '   в однофайловой сборке скрипт встроен (адреса нет) — looks/ рядом с index.html (site/looks/).\n'
@@ -227,7 +153,8 @@ def main():
     js = head + f'window.LOOKS_DATA = {{\n  base: {base},\n  items: [\n{body},\n  ],\n}};\n'
     open(os.path.join(ROOT, 'js', 'looks_data.js'), 'w', encoding='utf-8').write(js)
     tot = sum(os.path.getsize(os.path.join(out, f)) for f in keep)
-    print(f'looks/: {len(keep)} файлов, {tot / 1048576:.1f} МБ; js/looks_data.js {len(js) / 1024:.0f} КБ')
+    print(f'looks/: {len(keep)} файлов, {tot / 1048576:.1f} МБ; js/looks_data.js {len(js) / 1024:.0f} КБ'
+          + (f'; js/hero_outfits.js {osha[:12]}' if osha else ''))
 
 
 if __name__ == '__main__':
