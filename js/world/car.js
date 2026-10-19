@@ -13,7 +13,8 @@
    API (совместимо с волной 2: main.js, stand.js, js/village/drive.js)
      WORLD.makeCar(H, o) → car — модель и езда. o = { x, z, ry, color, can(x,z), vmax (8), edge {x,z,r}, layout, speedK (1,5) }
        W6: итоговая скорость = vmax × speedK (по умолчанию 8 × 1,5 = 12 м/с), разгон 5,5 × speedK; car.VMAX — итоговая
-       car.update(dt, ctl) → { bumped, edge } — ctl = { dir: [dx,dz,mag] | null, thr, str, brake }
+       car.update(dt, ctl) → { bumped, edge } — ctl = { dir: [dx,dz,mag] | null, thr, str, brake, coast } (coast — без газа накатом:
+         кнопки и педали телефона, HUD.driveCtl)
        car.root, body, wheels, paintMesh, trimMesh, glass, plate, outline, S, place(), reset(path), setColor(hex), VMAX
        W7: car.cockpit = { eye: [x,y,z], wheel: { c: [x,y,z], r, tilt, axis }, gripL, gripR } (оси car.body) — вид «из-за руля»;
          car.lamps { head, tail } (точки фар/фонарей), car.dims, car.driveCfg (размеры для VILLAGE.drive), car.setNight(k) — у кабриолета;
@@ -231,6 +232,7 @@
     // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): множитель скорости и разгона внутри машины —
     // main.js передаёт vmax: 8 явно, итоговая 12 м/с; разгон 5,5 → 8,25 м/с². o.speedK — свой множитель (1 — как раньше)
     const SPEED_K = o.speedK != null ? o.speedK : 1.5, VMAX = (o.vmax || 8) * SPEED_K, ACC = 5.5 * SPEED_K;
+    const COAST = 3.2;   // накат без газа, м/с²: с 12 м/с — до остановки ≈ 3,8 с (≈ 22 м)
     // звук мотора (js/engine_sound.js): один объект на машину — без новых объектов за кадр
     const ES = { kind: 'cabrio', speed: 0, vmax: VMAX, throttle: 0, braking: false, onGround: true, driving: true };
     const _m = new T.Matrix4(), _q = new T.Quaternion(), _q2 = new T.Quaternion(), _p = new T.Vector3(), _s = new T.Vector3(1, 1, 1), _X = new T.Vector3(1, 0, 0), _Y = new T.Vector3(0, 1, 0);
@@ -288,7 +290,9 @@
           if (!ok(x, z, h)) { const free = Math.max(0, d - 1.2); target = Math.min(target, Math.max(1.4, Math.sqrt(2 * 5 * free))); break; }
         }
       }
-      const acc = (Math.sign(target) !== Math.sign(S.v) && Math.abs(S.v) > 0.05) || Math.abs(target) < Math.abs(S.v) ? 10 : ACC;
+      // ctl.coast (кнопки и педали телефона): газ отпущен, тормоза нет — катится накатом (COAST м/с²), а не встаёт как вкопанная
+      const coast = !!(ctl && ctl.coast && !ctl.thr && !ctl.brake);
+      const acc = coast ? COAST : (Math.sign(target) !== Math.sign(S.v) && Math.abs(S.v) > 0.05) || Math.abs(target) < Math.abs(S.v) ? 10 : ACC;
       const dv = Math.max(-acc * dt, Math.min(acc * dt, target - S.v)); S.v += dv;
       S.steer += (delta - S.steer) * Math.min(1, dt * 7);
       // W6: предел рыскания от скорости — 1,6 рад/с до 8 м/с, 1,2 рад/с на 12 м/с (быстрая машина не «вертится»)

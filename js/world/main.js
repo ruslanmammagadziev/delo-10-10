@@ -907,7 +907,8 @@
     const onDown = e => {
       if (isUI(e.target) || s.finished || s.benching) return;
       const r = w.root.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-      if (joyZone(x, y, r) && joy.id === null && e.pointerType !== 'mouse') {
+      // за рулём с кнопками (HUD.driveCtl) джойстика нет: касание мимо кнопок — камера
+      if (joyZone(x, y, r) && joy.id === null && e.pointerType !== 'mouse' && !(ui.driveCtl && ui.driveCtl.vis)) {
         joy.id = e.pointerId; joy.x = joy.y = 0; joy.late = false;
         joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
         if (canInput() && ui.joyCtl) { const c = ui.joyCtl.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; ui.joyCtl.show(true); }
@@ -1088,6 +1089,7 @@
     async function sideVisit(d, fn, after) {
       const t0 = performance.now();
       s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off();
+      if (ui.driveCtl) ui.driveCtl.show(false);   // город на паузе: кнопки руля прячем (вернётся — покажет updUI)
       // слабый телефон: на время комнаты отпустить видеокарту (§5.3), при возврате сцена загрузится сама
       try { if (window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()) release(); } catch (e) { /* ignore */ }
       let r = null;
@@ -1619,6 +1621,7 @@
       if (s.mode === 'ride' && w.bike) { try { await w.bike.dismount({ instant: true }); } catch (x) { /* уже слезла */ } }
       const t0 = performance.now();
       s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off();
+      if (ui.driveCtl) ui.driveCtl.show(false);   // город на паузе: кнопки руля прячем (вернётся — покажет updUI)
       if (w.minimap) w.minimap.close(true);
       // слабый телефон: видеокарту города отпустить, регион рисует на своём рендерере; назад — город загрузится сам
       const low = !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem());
@@ -1814,6 +1817,7 @@
       [ui.horn, ui.bell, ui.color, ui.reset, ui.swap, ui.ck].forEach(el => ui.show(el, false));
       ckSet(false);
       if (ui.joyCtl) { ui.joyCtl.end(); ui.joyCtl.show(false); }
+      if (ui.driveCtl) ui.driveCtl.show(false);
       s.actWave = false; ui.setDayNight(false);
       w5Off(); if (w.mv) w.mv.setRun(false);
       if (IA) { try { IA.cancel(); } catch (e) { /* ignore */ } }
@@ -2028,9 +2032,12 @@
     }
     function stepDrive(dt) {
       const dir = moveInput();
+      // телефон: «‹‹» «››» и педали (HUD.driveCtl) — газ, руль, тормоз (стоит — тормоз везёт назад); без газа — накатом
+      const dc = ui.driveCtl && ui.driveCtl.vis ? ui.driveCtl.frame(dt) : null;
       let ctl = null;
       if (s.autopilot) ctl = { dir: s.autopilot() };
       else if (keys.u || keys.d || keys.l || keys.r) ctl = { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0) };
+      else if (dc) { const fw = car.S.v > 0.6; ctl = { thr: dc.gas ? 1 : dc.brake && !fw ? -1 : 0, str: dc.str, brake: dc.brake && fw, coast: true }; }
       else if (dir) ctl = { dir: joy.id !== null ? softDir(dir, car.S.ry) : dir };
       if (!w.carCtl && s.braking) { ctl = { brake: true }; if (Math.abs(car.S.v) < 0.4) { s.braking = false; exitCar(); return; } }
       const r = w.carCtl ? w.carCtl.update(dt, ctl) : car.update(dt, ctl);
@@ -2358,8 +2365,11 @@
       s.actLbl = lbl;
       s.actWave = !lbl && !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting;
       if (s.actWave) { lbl = 'Помахать'; soft = true; }
-      ui.setAct(lbl, soft);
-      if (ui.joyCtl) ui.joyCtl.show(!busy && !blk && !s.anim && !s.benching && !(s.sitting && !s.sitting.car) && (s.mode === 'walk' || s.mode === 'ride' || (s.mode === 'drive' && (!w.carCtl || w.carCtl.mode === 'drive'))));
+      // за рулём на телефоне: «‹‹» «››» и педали вместо джойстика; в углу P — газ, поэтому «Выйти» — пилюлей A2 над тормозом
+      if (ui.driveCtl) ui.driveCtl.show(s.mode === 'drive' && !s.anim && !busy && !blk && !s.benching && (!w.carCtl || w.carCtl.mode === 'drive'));
+      const pedals = !!(ui.driveCtl && ui.driveCtl.vis);
+      ui.setAct(lbl, soft, pedals ? 'a2' : 'P');
+      if (ui.joyCtl) ui.joyCtl.show(!pedals && !busy && !blk && !s.anim && !s.benching && !(s.sitting && !s.sitting.car) && (s.mode === 'walk' || s.mode === 'ride' || (s.mode === 'drive' && (!w.carCtl || w.carCtl.mode === 'drive'))));
       // волна 5: «Прыжок» и «Бум!» — только пешком, вне диалогов, мест, лавок и посадки (в машине и на велосипеде — нет)
       { const walkFree = !busy && !blk && !s.anim && !s.benching && s.mode === 'walk' && !s.sitting && !s.pickBusy;
         if (w.mvUi) w.mvUi.setVisible(walkFree);

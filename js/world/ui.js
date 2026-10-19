@@ -3,7 +3,8 @@
    .w-root — корень; .w-act — главная кнопка P справа внизу (значок + слово, полная подпись — aria-label; без действия — 👋 «Помахать»);
    дуга маленьких кнопок 46 px (data-hud-slot s1…s4): в машине .w-horn 📯 (s1), .w-color 🎨 (s2), .w-reset 🛟 (s3), на велосипеде
    .w-bell 🔔 (s1), пешком — «Прыжок» (move.js; бег — джойстиком за край кружка) и «Бум!»/«Листья» (playfight.js); .w-swap «🔁 Другая машина» — пилюля A2 над дугой;
-   .w-joy.hud-joy — джойстик снизу по центру (HUD.joystick: в покое — кружок, под пальцем — плавающий); .w-edge.hud-chev — шеврон у края
+   .w-joy.hud-joy — джойстик снизу по центру (HUD.joystick: в покое — кружок, под пальцем — плавающий); за рулём (телефон) вместо него
+   ui.driveCtl (HUD.driveCtl): «‹‹» «››» слева, «газ» и «тормоз» справа, «Выйти» — пилюлей A2 (ui.setAct(label, soft, 'a2')); .w-edge.hud-chev — шеврон у края
    с расстоянием; .w-tag — ярлык метки; .w-near — подпись у двери; .w-say (.hero) — облачка. Карточка дела — пилюля цели в верхней
    полосе (HUD.objective; ui.setCase/setDist — прежние имена); день и ночь — строка меню ☰ (ui.setDayNight хранит состояние);
    подсказки управления — тостом (ui.hintShow). Стили по умолчанию — здесь, через :where() (вес 0): правила css/style.css главнее.
@@ -77,9 +78,11 @@
     const $ = s => ui.querySelector(s);
     // джойстик (HUD.joystick): один элемент — в покое кружок снизу по центру, под пальцем — плавающий
     const joyCtl = HUD ? HUD.joystick.create(ui, { root }) : null;
+    // за рулём (телефон): «‹‹» «››» слева, «газ» и «тормоз» справа — вместо джойстика (HUD.driveCtl)
+    const driveCtl = HUD && HUD.driveCtl ? HUD.driveCtl.create(ui) : null;
     const R = {
       ui, bubbles: $('.w-bubbles'), near: $('.w-near'), tag: $('.w-tag'), edge: $('.w-edge'),
-      joyCtl, joy: joyCtl ? joyCtl.el : null, knob: joyCtl ? joyCtl.knob : null, ghost: joyCtl ? joyCtl.el : null,
+      joyCtl, joy: joyCtl ? joyCtl.el : null, knob: joyCtl ? joyCtl.knob : null, ghost: joyCtl ? joyCtl.el : null, driveCtl,
       act: $('.w-act'), horn: $('.w-horn'), bell: $('.w-bell'), color: $('.w-color'), reset: $('.w-reset'), swap: $('.w-swap'),
       // совместимость: отдельной 👋 больше нет — это та же главная кнопка P (без действия — «Помахать»)
       wave: $('.w-act'),
@@ -87,11 +90,15 @@
     };
     const show = (el, on) => { if (el) el.classList.toggle('hidden', !on); };
     let actNow = null;
-    // главная кнопка P: значок + слово (HUD.paintAct), полная подпись — aria-label/title/data-full
-    R.setAct = (label, soft) => {
-      const key = label ? label + (soft ? '~' : '') : '';
+    // главная кнопка P: значок + слово (HUD.paintAct), полная подпись — aria-label/title/data-full;
+    // slot 'a2' — мягкой пилюлей над педалями (за рулём в углу P — газ, как в горах)
+    R.setAct = (label, soft, slot) => {
+      const a2 = slot === 'a2' && !!(HUD && HUD.paintSlot);
+      const key = label ? label + (soft ? '~' : '') + (a2 ? '@a2' : '') : '';
       if (key === actNow) return; actNow = key;
-      if (label) { if (HUD) HUD.paintAct(R.act, label, soft); else { R.act.textContent = label; R.act.classList.toggle('soft', !!soft); } }
+      // пилюля — без .w-act (его ширина 64 px из :where(.w-act) обрезала бы подпись); «занята» прячет и .hud-a2
+      if (label && a2) { R.act.className = ''; HUD.paintSlot(R.act, label, 'a2', soft); }
+      else if (label) { if (HUD) { R.act.className = 'w-act hud-act'; delete R.act.dataset.faceKey; HUD.slot(R.act, 'P'); HUD.paintAct(R.act, label, soft); } else { R.act.textContent = label; R.act.classList.toggle('soft', !!soft); } }
       R.act.dataset.label = label || '';
       show(R.act, !!label);
     };

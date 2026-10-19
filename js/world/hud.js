@@ -26,6 +26,9 @@
                                               без кривой (руль в горах); бег — палец за краем кружка (r ≥ 1,4 хода) 0,3 с в одну сторону
                                               (класс .edge — пунктир порога, .arm — золотое кольцо, .run — бег), назад внутрь хода — шаг.
                                               running(ok) = frame
+   HUD.driveCtl.create(host, { pedals?, always? }) → D: { el, btn, frame(dt) → { str, gas, brake }, show(on), release(), dispose() } —
+                                              за рулём: слева «‹‹» «››» (руль плавно, HUD.DRV), справа «газ» и «тормоз» (pedals: false — свои);
+                                              показан — body.hud-driving (джойстика нет, радар над кнопками руля)
    HUD.radarSlot(el)                      — радар в угол (класс + data-hud-slot=radar)
    HUD.menu.add({ id, icon, label, sub?, value?, badge?, toggle?, when?|visible?, onTap|onClick, onLong?, order?, keepOpen? })
              .remove(id) .update(id, patch) .open() .close() .isOpen() .news(id, on) .info(fn|text) .note(text|null)
@@ -421,6 +424,67 @@
     },
   };
 
+  /* ---------- За рулём: кнопки руля слева, педали справа (как в гонках на телефоне) ---------- */
+  // руль: держать «‹‹»/«››» — поворот сразу с DRV.KICK (короткий тап — лёгкая поправка), дальше доворачивается DRV.IN в секунду
+  // (до упора ≈ 0,3 с); отпустила — руль сам к центру (DRV.OUT в секунду); обе сразу — прямо. Педали: «газ» — ехать, «тормоз» —
+  // тормозить, на месте — назад (это решает игра). Каждая кнопка — свой палец (мультитач). Пока показан — на <body> класс
+  // .hud-driving: джойстик спрятан, радар поднят над кнопками руля (style.css)
+  const DRV = HUD.DRV = { KICK: 0.3, IN: 2.6, OUT: 5 };
+  const drives = new Set();   // показанные сейчас (у города и у гор — свои): body.hud-driving, пока есть хоть один
+  const drivingCls = () => document.body.classList.toggle('hud-driving', drives.size > 0);
+  const STEER_SVG = d => `<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">` +
+    (d < 0 ? '<path d="M24,12 L12,24 L24,36"/><path d="M36,12 L24,24 L36,36"/>' : '<path d="M12,12 L24,24 L12,36"/><path d="M24,12 L36,24 L24,36"/>') + '</g></svg>';
+  HUD.driveCtl = {
+    // o.pedals: false — без своих педалей (у гор свои .wr-pedal); o.always — показывать и без сенсорного экрана
+    create(host, o = {}) {
+      const el = document.createElement('div');
+      el.className = 'hud-drive hidden';
+      el.innerHTML = `<button type="button" class="hud-steer l" data-hud-slot="steerL" aria-label="Руль влево" title="Руль влево">${STEER_SVG(-1)}</button>` +
+        `<button type="button" class="hud-steer r" data-hud-slot="steerR" aria-label="Руль вправо" title="Руль вправо">${STEER_SVG(1)}</button>` +
+        (o.pedals === false ? '' : '<button type="button" class="hud-pedal" data-hud-slot="brake" aria-label="Тормоз">тормоз</button>' +
+          '<button type="button" class="hud-pedal" data-hud-slot="gas" aria-label="Газ">газ</button>');
+      if (host) host.appendChild(el);
+      const q = s => el.querySelector(s);
+      const btn = { l: q('.hud-steer.l'), r: q('.hud-steer.r'), gas: q('[data-hud-slot="gas"]'), brake: q('[data-hud-slot="brake"]') };
+      const down = { l: null, r: null, gas: null, brake: null };   // id пальца на кнопке (или null)
+      const D = { el, btn, vis: false, str: 0, gas: false, brake: false };
+      const set = (k, id) => { down[k] = id; if (btn[k]) btn[k].classList.toggle('down', id !== null); };
+      Object.keys(btn).forEach(k => {
+        const b = btn[k]; if (!b) return;
+        b.addEventListener('pointerdown', e => {
+          e.preventDefault(); e.stopPropagation(); set(k, e.pointerId);
+          try { b.setPointerCapture(e.pointerId); } catch (er) { /* старый браузер */ }
+          try { if (navigator.vibrate) navigator.vibrate(6); } catch (er) { /* нет */ }
+        });
+        const up = e => { e.stopPropagation(); if (down[k] === e.pointerId) set(k, null); };
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, up));
+        ['touchstart', 'touchend', 'mousedown', 'click', 'contextmenu'].forEach(t => b.addEventListener(t, ev => { ev.stopPropagation(); if (ev.cancelable && t !== 'touchstart') ev.preventDefault(); }, { passive: false }));
+      });
+      D.release = () => { Object.keys(down).forEach(k => set(k, null)); D.str = 0; D.gas = D.brake = false; };
+      // раз в кадр → { str −1…1 (вправо +), gas, brake }; спрятан — всё отпущено
+      D.frame = dt => {
+        dt = clamp(dt || 0, 0, 0.1);
+        if (!D.vis) { if (D.str || D.gas || D.brake) D.release(); return { str: 0, gas: false, brake: false }; }
+        const t = (down.r !== null ? 1 : 0) - (down.l !== null ? 1 : 0);
+        if (t) { if (D.str * t < DRV.KICK) D.str = t * DRV.KICK; D.str = clamp(D.str + t * DRV.IN * dt, -1, 1); }
+        else { const k = DRV.OUT * dt; D.str = Math.abs(D.str) <= k ? 0 : D.str - Math.sign(D.str) * k; }
+        D.gas = down.gas !== null; D.brake = down.brake !== null;
+        return { str: D.str, gas: D.gas, brake: D.brake };
+      };
+      // показать за рулём (только на сенсорных экранах: на компьютере — стрелки); спрятать — отпустить всё
+      D.show = on => {
+        const vis = !!(on && (coarse() || o.always));
+        if (vis === D.vis) return;
+        D.vis = vis; el.classList.toggle('hidden', !vis);
+        if (vis) drives.add(D); else drives.delete(D);
+        drivingCls();
+        if (!vis) D.release();
+      };
+      D.dispose = () => { D.show(false); el.remove(); };
+      return D;
+    },
+  };
+
   /* ---------- Тост (§3.3) ---------- */
   HUD.toast = function (text, ms, o) {
     const g = G_(); if (!g || !g.toast || !text) return;
@@ -731,6 +795,7 @@
       ? [['🕹', 'Кружок — идти', 'палец внизу слева — кружок встанет под него; дальше от центра — быстрее'],
         ['👟', 'За край кружка — бег', 'дотянись подальше за край кружка и подержи — кружок засияет'],
         ['🦘', 'Прыжок — кнопка справа', 'над большой кнопкой'],
+        ['🚗', 'За рулём — кнопки', 'слева «‹‹» «››» — руль, справа — газ и тормоз; стоишь и жмёшь тормоз — назад'],
         ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'],
         ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'],
         ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'],

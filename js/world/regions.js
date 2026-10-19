@@ -392,7 +392,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const fade = document.createElement('div'); fade.className = 'wr-fade'; fade.innerHTML = '<div class="lbl"></div><div class="sub"></div>';
       const $ = s => root.querySelector(s);
       const J = H && H.joystick ? H.joystick.create(root) : null;
-      const u = { root, touch, fade, J, bub: $('.w-bubbles'), joy: J ? J.el : $('.w-joy'), knob: J ? J.knob : $('.w-joy .joy-knob'), act: $('.wr-act'), act2: $('.wr-act2'), gas: $('.wr-pedal.gas'), brk: $('.wr-pedal.brk'),
+      // за рулём (телефон): «‹‹» «››» слева — руль вместо джойстика; педали — свои (.wr-pedal)
+      const steer = H && H.driveCtl ? H.driveCtl.create(root, { pedals: false }) : null;
+      const u = { root, touch, fade, J, steer, bub: $('.w-bubbles'), joy: J ? J.el : $('.w-joy'), knob: J ? J.knob : $('.w-joy .joy-knob'), act: $('.wr-act'), act2: $('.wr-act2'), gas: $('.wr-pedal.gas'), brk: $('.wr-pedal.brk'),
         tap: $('.wr-tap'), skip: $('.wr-skip'), blink: $('.wr-blink'), grip: $('.wr-grip'), gripT: $('.wr-grip-t') };
       paintBtn(u.skip, '⏭ Пропустить', true, 'P'); show(u.skip, false);   // зиплайн: «⏭ Дальше» на месте главной кнопки
       return u;
@@ -417,7 +419,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function hint(t, ms = 3500) { if (!ui || !t) return; toast(t, Math.min(ms, 3500)); }
     const touchUi = () => { const H = HUD_(); return H && H.coarse ? H.coarse() : ('ontouchstart' in window); };
     const HINT = {
-      drive: () => (touchUi() ? 'Газ и тормоз — справа · кружок внизу — руль' : 'Стрелки — руль и газ · B — тормоз'),
+      drive: () => (touchUi() ? 'Руль — кнопки слева · газ и тормоз — справа' : 'Стрелки — руль и газ · B — тормоз'),
       walk: () => (touchUi() ? 'Кружок внизу — идти · тап по месту — подойти' : 'WASD — идти · Enter — действие · Q/E — камера'),
     };
 
@@ -470,6 +472,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function hudMode() {
       if (!ui) return;
       const m = S.sport ? 'sport' : S.zip ? 'zip' : S.dance ? 'dance' : S.look ? 'look' : flyActive() ? 'fly' : (S.sitting || S.view || S.inShop || S.golf) ? 'sit' : S.mode === 'drive' ? 'drive-pedals' : 'walk';
+      if (ui.steer) ui.steer.show(m === 'drive-pedals' && S.active && !S.busy);
       if (m === S.hudMode) return;
       S.hudMode = m;
       const H = HUD_(); if (H) H.mode(ui.root, m); else ui.root.dataset.hudMode = m;
@@ -620,7 +623,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } return; }
       // HUD v2: джойстик — касание в нижней половине левее дуги кнопок (круг встаёт под палец, не заезжает на радар и дугу);
       // выше и правее — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
-      if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r)) {
+      // за рулём с кнопками руля (HUD.driveCtl) джойстика нет: касание мимо кнопок — камера
+      if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r) && !(ui.steer && ui.steer.vis)) {
         joy.id = e.pointerId; joy.x = joy.y = joy.lx = joy.ly = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0; joy.late = false;
         if (canInput()) joyBegin(x, y, r);
       } else look.set(e.pointerId, { x, y, x0: x, y0: y, t0: performance.now(), moved: 0 });
@@ -1530,6 +1534,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (mvUi) { try { mvUi.dispose(); } catch (e) { /* ok */ } mvUi = null; }
       hidden.forEach(([el, d]) => { el.style.display = d; }); hidden = [];
       const f = ui.fade, uiOld = ui;
+      if (uiOld.steer) uiOld.steer.dispose();   // снимает и body.hud-driving
       uiOld.touch.remove(); uiOld.root.remove();
       // шторку держим, пока город не нарисует первый кадр (интегратор продолжает петлю сразу после ответа)
       setTimeout(() => { f.classList.remove('on'); setTimeout(() => f.remove(), 700); }, 260);
@@ -2696,11 +2701,15 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       (h.moments || []).forEach(m => { if (!m.done && drv.S.s > m.s0 && drv.S.s < m.s1 && drv.S.v > 0.5 && S.dir === 'up') { m.done = true; m.t = 0; if (m.id === 'emerge' && !S.sim) fogSay('emerge', 2800, 'out'); } if (m.t != null && m.t < m.dur) { m.t += dt; momentLook = m.look; momentW = Math.min(1, m.t / 1.2, (m.dur - m.t) / 1.2); } });
     }
     // без помощников: газ, тормоз и руль — только от игрока (drive.touchInput); автопилот — только для отладки и тестов
-    function driveInput() {
+    function driveInput(dt) {
+      // кнопки руля (HUD.driveCtl) — каждый кадр, даже если ввод сейчас не наш: отпущенный руль сам возвращается к центру
+      const st = ui && ui.steer && ui.steer.vis ? ui.steer.frame(dt) : null;
       if (S.busy || S.sitting || S.view || blocked()) return { brake: true };
       if (S.auto) return { auto: true, thr: S.auto, road: S.autoRoad || undefined };
       if (keys.u || keys.d || keys.l || keys.r) return { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0), brake: ped.brk };
       const V = V_();
+      // телефон: руль — «‹‹» «››» (джойстика за рулём нет), газ и тормоз — педали
+      if (st && V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? st.str : 0, jy: 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
       // палец на экране — руль и газ без кривой джойстика (у touchInput своя: мёртвая зона 8 % и степень 1,35); отладка — joy.x/y
       const lv = joy.live && ui && ui.J;
       if (V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? (lv ? joy.lx : joy.x) : 0, jy: canInput() ? (lv ? joy.ly : joy.y) : 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
@@ -2709,7 +2718,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     function stepDrive(dt, inp) {
       if (!drv) return;
-      drv.update(dt, inp || driveInput());
+      drv.update(dt, inp || driveInput(dt));
       if (drv.brakeLabel && ui) { const lb = drv.brakeLabel(); if (lb !== S.brkLabel) { S.brkLabel = lb; ui.brk.textContent = lb; } }
       S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y;
       if (!S.trip.down && S.dir === 'down' && S.h.road) S.trip.down = drv.S.s < (S.h.road.len * 0.5);

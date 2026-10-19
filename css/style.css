@@ -48,6 +48,7 @@
   --hud-joy-b: calc(var(--hud-b) + 4px);
   --hud-act: 64px;
   --hud-btn: 46px;
+  --hud-steer: clamp(70px, 20vw, 80px);
   --hud-icon-btn: 44px;
   --hud-pill-h: 36px;
   --hud-glass: rgba(255, 253, 249, .90);
@@ -1104,6 +1105,30 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 .hud-pedal { width: 64px; border: 0; border-radius: 22px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8px; font-family: inherit; font-size: 13px; font-weight: 900; z-index: 21; touch-action: none; box-shadow: 0 4px 0 rgba(58,46,63,.16); }
 .hud-pedal[data-hud-slot="gas"] { height: 76px; background: #A8D8C4; color: #24584A; }
 .hud-pedal[data-hud-slot="brake"] { height: 56px; background: #F2B8C6; color: #7A2E44; }
+.hud-pedal { cursor: pointer; -webkit-user-select: none; user-select: none; transition: transform .06s, filter .06s, box-shadow .06s; }
+.hud-pedal.down { transform: translateY(3px) scale(.97); filter: brightness(.95); box-shadow: 0 1px 0 rgba(58,46,63,.16); }
+.hud-drive .hud-pedal[data-hud-slot="gas"]::before { content: ''; position: absolute; top: 13px; left: 50%; margin-left: -9px; border: 9px solid transparent; border-top: 0; border-bottom: 11px solid rgba(36,88,74,.32); }
+/* за рулём (HUD.driveCtl): «‹‹» «››» слева внизу — крупные, под большой палец; педали — справа (слоты gas/brake);
+   body.hud-driving — джойстика нет, радар поднят над кнопками руля */
+.hud-drive { display: contents; }
+.hud-drive.hidden { display: none; }
+.hud-steer {
+  bottom: var(--hud-b); width: var(--hud-steer); height: var(--hud-steer); padding: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; background: var(--hud-glass-2); color: var(--cherry);
+  box-shadow: 0 4px 0 rgba(58,46,63,.16), 0 8px 18px rgba(58,46,63,.12); z-index: 21; cursor: pointer; touch-action: none;
+  -webkit-user-select: none; user-select: none; transition: transform .06s, box-shadow .06s, background-color .12s, color .12s;
+}
+.hud-steer svg { width: 36px; height: 36px; display: block; pointer-events: none; }
+.hud-steer.l { left: var(--hud-l); top: auto; right: auto; }
+.hud-steer.r { left: calc(var(--hud-l) + var(--hud-steer) + 12px); top: auto; right: auto; }
+.hud-steer.down { transform: translateY(3px) scale(.96); background: #F7C948; color: #6B3A12; box-shadow: 0 1px 0 #C9962A; }
+body.hud-driving .hud-joy { display: none !important; }
+body.hud-driving [data-hud-slot="radar"] { bottom: calc(var(--hud-b) + var(--hud-steer) + 14px); }
+/* город за рулём: «Выйти» — пилюлей над тормозом (как в горах), 📯 — слева от газа, 👁 — слева от тормоза, 🎨 и 🛟 — левее */
+body.hud-driving .w-horn { --s1-dx: 62px; --s1-dy: 0px; }
+body.hud-driving .w-ck { --s4-dx: 62px; --s4-dy: 82px; }
+body.hud-driving .w-color { --s2-dx: 116px; --s2-dy: 41px; }
+body.hud-driving .w-reset { --s3-dx: 116px; --s3-dy: 95px; }
 /* джойстик: кольцо в покое по центру снизу, под пальцем — плавающий */
 .hud-joy {
   position: absolute; width: var(--hud-joy); height: var(--hud-joy); margin: 0; border-radius: 50%; z-index: 19; pointer-events: none !important;
