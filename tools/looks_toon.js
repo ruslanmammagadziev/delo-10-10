@@ -35,6 +35,8 @@ function opts() {
     else if (k === '--jobs') { o.jobs = Math.max(1, +v | 0); i++; }
     else if (k === '--still') { o.still = v.split(',').map(Number); i++; }
     else if (k === '--chrome') { o.chrome = v; i++; }
+    else if (k === '--yaw') { o.yaw = +v; i++; }
+    else if (k === '--no-bg') { o.bg = false; }
     else { console.error('неизвестный ключ ' + k); process.exit(2); }
   }
   if (!o.out) { console.error('нужен --out <папка вне репозитория>'); process.exit(2); }
@@ -77,7 +79,8 @@ async function look(browser, base, id, o) {
   const logs = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => logs.push('pageerror: ' + e.message));
-  await page.goto(`${base}tools/looks_toon.html?look=${id}&ss=${o.ss}&frames=${N}`, { waitUntil: 'load' });
+  const yawQ = (o.yaw == null ? '' : `&yaw=${o.yaw}`) + (o.bg === false ? '&bg=0' : '');
+  await page.goto(`${base}tools/looks_toon.html?look=${id}&ss=${o.ss}&frames=${N}${yawQ}`, { waitUntil: 'load' });
   await page.waitForFunction(() => document.title === 'OK' || document.title === 'FAIL', null, { timeout: 600000 });
   const st = await page.evaluate(() => (window.TOON && window.TOON.error) || null);
   if (st) throw new Error(id + ': ' + st + '\n' + logs.join('\n'));
@@ -87,7 +90,7 @@ async function look(browser, base, id, o) {
     for (let i = 0; i <= last; i++) {
       const b = await page.evaluate(([i, r]) => TOON.frame(i, r), [i, want.has(i)]);
       if (!b) continue;
-      const fn = path.join(o.out, `${id}_f${String(i).padStart(3, '0')}.png`);
+      const fn = path.join(o.out, `${id}${o.yaw == null ? '' : '_y' + o.yaw}_f${String(i).padStart(3, '0')}.png`);
       const ff = ffmpeg([...raw(W, H), '-vf', VF, '-frames:v', '1', fn]);
       ff.stdin.end(Buffer.from(b, 'base64')); await ff.done;
       console.log('  ' + fn);

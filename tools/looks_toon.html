@@ -76,6 +76,7 @@
 
     /* ---------- фон ---------- */
     const bg = new T.Group(); scene.add(bg);
+    bg.visible = Q.get('bg') !== '0';   // ?bg=0 — без декораций (ракурсы, где стены закрывают героиню)
     const B = builder(T, K, bg);
     SC.build(B);
     bg.traverse(m => { if (m.isMesh) { m.castShadow = !!m.userData.cast; if (m.userData.noRecv) m.receiveShadow = false; } });
@@ -221,6 +222,8 @@
 
     /* ---------- камера: облёт с периодом N ---------- */
     const C = Object.assign({ d: 5.2, fov: 27, cy: 1.05, ty: 0.973, A: 12, A0: 0, dolly: 0.02, head: 0.4 }, SC.cam || {});
+    // ?yaw=90 — неподвижная камера под этим углом (проверка образа сбоку и сзади; ролики снимаются без него)
+    if (Q.has('yaw')) { C.A0 = +Q.get('yaw'); C.A = 0; C.head = 0; }
     const cam = new T.PerspectiveCamera(C.fov, W / H, 0.1, 400);
     const ph = i => 2 * PI * (((i % N) + N) % N) / N;
     const yaw = i => (C.A0 + C.A * Math.sin(ph(i))) * D2R;
