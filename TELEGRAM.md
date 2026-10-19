@@ -8,13 +8,14 @@
 Папка `site/` — готовая сборка «её версии» (даты открытия по календарю):
 - `site/index.html` — игра одним файлом (prod);
 - `site/cover.png` — превью ссылки;
+- `site/looks/` — ролики шести образов героини (экран выбора образа; мультяшный рендер 3D-героини игры — `tools/looks_toon.js` + `tools/looks_build.py`); выкладывать вместе с `index.html`;
 - голоса героев **выключены** (решение автора 15.10: `VOICES: false` в `js/config.js`) — реплики только текстом, папки `site/voice/` нет. Включить обратно: `VOICES: true` и пересобрать (папка `voice/` с записями лежит в репозитории).
 
 
 Пересобрать `site/` из исходников (нужны Python 3 и Node.js):
 ```
 npm i terser
-python3 tools/build_single.py --prod --out site/index.html   # кладёт рядом и site/voice/
+python3 tools/build_single.py --prod --out site/index.html   # кладёт рядом и site/voice/, и site/looks/ (ролики образов)
 cp cover.png site/
 ```
 

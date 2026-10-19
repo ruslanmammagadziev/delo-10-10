@@ -190,7 +190,12 @@
     return waved() ? x.replace(/\{name(?:\|[^}]*)?\}/g, () => G.herName()) : unnamed(x);
   };
   const toastMs = s => clamp(1900 + 45 * String(s).length, 2300, 4200);
-  const heroLook = () => { const st = S(); return { bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128' }; };
+  // образ героини: id (js/hero_looks.js) + старые цвета (запасная перекраска тренча, лента букета, вывески)
+  const heroLook = () => {
+    const st = S(), H = window.HeroLooks;
+    if (H && G.look) { const id = G.look(); return Object.assign({ look: id }, H.legacy(id)); }
+    return { bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128' };
+  };
   const catFollows = () => S().catHelper === true || ensure().cat === 1;
   const inkOf = c => { try { return Art.shade(c || '#F7C9D3', -38); } catch (e) { return '#C2405B'; } };
   const seededRot = id => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 997; return (h % 13) - 6; };
@@ -291,10 +296,14 @@
       get look() { const lk = V.is3d && V.api && typeof V.api.look === 'function' ? call(V.api, 'look') : null; return Object.assign(heroLook(), lk || {}); },
       setLook(lk, persist) {
         live(); lk = lk || {};
+        const H = window.HeroLooks;
+        // образ целиком: { look } -> вместе со старыми цветами (3D меняет одежду сразу, 2D — по G.look())
+        if (H && H.valid(lk.look)) lk = Object.assign({}, H.legacy(lk.look), lk);
         call(V.api, 'setLook', lk);
         if (persist) {
           const st = S(); let changed = false;
-          ['bow', 'coat', 'hair'].forEach(k => { if (lk[k] && st[k] !== lk[k]) { st[k] = lk[k]; changed = true; } });
+          if (H && H.valid(lk.look)) { changed = G.look() !== lk.look; if (changed) G.setLook(lk.look, { save: false }); }
+          else ['bow', 'coat', 'hair'].forEach(k => { if (lk[k] && st[k] !== lk[k]) { st[k] = lk[k]; changed = true; } });
           if (changed) { ensure().k.lc = 1; save(); }
         }
       },
@@ -851,7 +860,7 @@
     'Пудра гуляет, гусёнок — за Пудрой. Всё по плану.',
     'Голубь сел рядом и молчит. Хороший собеседник.',
     'Жу пролетела с ромашкой. Срочная доставка.',
-    'Лист упал прямо на берет. Осень ставит печать.',
+    'Лист упал прямо на макушку. Осень ставит печать.',
     { wk: 5, text: 'Снежинка села на рукав. Шесть лучей, как положено.' },
     { wk: 6, text: 'Над улицей зажглась гирлянда. Город держится — вместе.' },
   ];
@@ -963,7 +972,7 @@
       onNpc: (id, api) => (id === 'cat' ? catOffer(api, true) : null),
       pickups: picks, onPickup: (id, api) => (kit.pickFind ? kit.pickFind(id, api) : null),
       lines: kit.STREET_LINES || {}, hudLabel: 'Город нараспашку',
-      heroLine: 'Бант держится. Планов нет. Какое счастье.',
+      heroLine: 'Образ держится. Планов нет. Какое счастье.',
       beforeActive: async () => { await firstWalkHints(); },
       done, fallback,
     };
@@ -1197,7 +1206,7 @@
   function photoCardHTML(cls = '') {
     const t = ensure(), lk = heroLook(), m = /b(\d)/.exec(t.ph || ''), bg = PH_BG[(m ? +m[1] : 0) % PH_BG.length];
     let art = '';
-    try { art = Art.heroine({ crop: true, bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { art = ''; }
+    try { art = Art.heroine({ crop: true, look: lk.look, bow: lk.bow, coat: lk.coat, hair: lk.hair }); } catch (e) { art = ''; }
     return `<div class="town-photocard ${cls}"><div class="tp-photo" style="background:${bg}">${art}</div><div class="tp-cap">Фотокарточка</div></div>`;
   }
   function passportHTML() {

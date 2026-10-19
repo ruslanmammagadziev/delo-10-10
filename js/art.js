@@ -53,6 +53,20 @@
   }
   // кончики волос: как у HERO.tipsOf (по умолчанию в цвет волос); без hero_assets — тоже в цвет волос
   const tipsOf = hair => (window.HERO && typeof HERO.tipsOf === 'function' ? HERO.tipsOf(hair) : hair);
+  // образ героини (один из шести роликов, js/hero_looks.js): o.look, если он из шести, иначе текущий образ игры
+  // (G.look), иначе образ по умолчанию. Без реестра образов — null (старый путь: перекраска тренча по bow/coat/hair).
+  function lookOf(o) {
+    const HL = window.HeroLooks;
+    if (!HL || typeof HL.valid !== 'function') return null;
+    if (o && HL.valid(o.look)) return o.look;
+    try { if (window.G && typeof G.look === 'function') { const id = G.look(); if (HL.valid(id)) return id; } } catch (e) { /* ignore */ }
+    return HL.DEFAULT;
+  }
+  // запасная векторная героиня в цветах образа: пальто = основной цвет, волосы, ноги/обувь; без берета и банта
+  function lookVec(o, id) {
+    const e = window.HeroLooks.get(id), p = e.pal || {};
+    return Object.assign({}, o, { coat: p.main, hair: p.hair, legs: p.legs, shoes: p.shoes, noHat: true });
+  }
   // Векторная героиня — запасной вариант, если нет js/hero_assets.js (window.HERO)
   function heroineVec(o = {}) {
     if (o.view === 'back') return heroineBack(o);
@@ -73,8 +87,8 @@
       <path d="M33,38 C21,50 19,65 22,77 C24,86 18,94 20,104 C22,114 17,124 22,134 C26,142 36,142 44,138 L76,138 C84,142 94,142 98,134 C103,124 98,114 100,104 C102,94 96,86 98,77 C101,65 99,50 87,38 Z" fill="${hair}"/>
       <path d="M20,108 C21,116 17,124 22,134 C26,142 36,142 44,138 L76,138 C84,142 94,142 98,134 C103,124 99,116 100,108 C85,116 35,116 20,108 Z" fill="${tips}"/>
       <!-- ноги -->
-      <g class="leg-l"><rect x="52" y="150" width="6.5" height="27" rx="3.2" fill="${INK}"/><ellipse cx="55" cy="178.5" rx="5.6" ry="3.2" fill="#6B3A4F"/></g>
-      <g class="leg-r"><rect x="61.5" y="150" width="6.5" height="27" rx="3.2" fill="${INK}"/><ellipse cx="65" cy="178.5" rx="5.6" ry="3.2" fill="#6B3A4F"/></g>
+      <g class="leg-l"><rect x="52" y="150" width="6.5" height="27" rx="3.2" fill="${o.legs || INK}"/><ellipse cx="55" cy="178.5" rx="5.6" ry="3.2" fill="${o.shoes || '#6B3A4F'}"/></g>
+      <g class="leg-r"><rect x="61.5" y="150" width="6.5" height="27" rx="3.2" fill="${o.legs || INK}"/><ellipse cx="65" cy="178.5" rx="5.6" ry="3.2" fill="${o.shoes || '#6B3A4F'}"/></g>
       <!-- шея -->
       <rect x="55.5" y="78" width="9" height="12" rx="3" fill="${SKD}"/>
       <!-- тренч -->
@@ -101,8 +115,8 @@
       <path d="M31,50 C29,30 43,19 60,19 C77,19 91,30 89,50 C82,40 72,35 60,35 C48,35 38,40 31,50 Z" fill="${hair}"/>
       <path d="M55,23 C40,24 29,35 29,52 C28,62 32,70 29,81 C34,77 36,71 37,64 C38,56 41,46 46,40 C49,36 52,33 55,31 Z" fill="${hair}"/>
       <path d="M55,23 C74,21 91,32 91,52 C92,62 88,71 92,81 C86,77 84,71 83,63 C81,54 78,45 72,39 C67,34 61,32 55,31 Z" fill="${hair}"/>
-      <!-- берет и бант -->
-      <g transform="rotate(-12 60 24)">
+      <!-- берет и бант (в образах из роликов их нет — noHat) -->
+      ${o.noHat ? '' : `<g transform="rotate(-12 60 24)">
         <ellipse cx="60" cy="24" rx="30" ry="9.5" fill="${beret}"/>
         <ellipse cx="60" cy="27" rx="27" ry="3.6" fill="${shade(beret, -14)}" opacity=".55"/>
         <circle cx="60" cy="14.5" r="2.8" fill="${beret}"/>
@@ -112,7 +126,7 @@
         <path d="M0,0 C-12,-10 -15,7 0,2 Z" fill="${bow}"/><path d="M0,0 C12,-10 15,7 0,2 Z" fill="${bow}"/>
         <path d="M-3.2,-0.8 C-7,-4 -9.5,0.8 -4.8,1.2" stroke="${shade(bow, 25)}" stroke-width="1.3" fill="none" stroke-linecap="round"/>
         <circle cx="0" cy="1" r="3" fill="${bowD}"/>
-      </g>
+      </g>`}
       ${side ? `<path d="M31,50 C29,62 31,74 35,85 L42,85 C39,73 39,61 43,50 Z" fill="${hair}"/>` : ''}
       ${side ? `<g transform="translate(6 0)">${heroFace(mood)}</g>` : heroFace(mood)}`;
     let out = side ? body.replace('<path d="M33,38 C21,50', '<path transform="translate(-5 0)" d="M33,38 C21,50') : body;
@@ -133,8 +147,8 @@
     const wrapStep = b => (o.step ? stepPose(b, o.step) : b);
     return svg('0 0 120 188', wrapStep(`
       <ellipse cx="60" cy="183" rx="20" ry="3.6" fill="rgba(58,46,63,.15)"/>
-      <g class="leg-l"><rect x="52" y="150" width="6.5" height="27" rx="3.2" fill="${INK}"/><ellipse cx="55" cy="178.5" rx="5.6" ry="3.2" fill="#6B3A4F"/></g>
-      <g class="leg-r"><rect x="61.5" y="150" width="6.5" height="27" rx="3.2" fill="${INK}"/><ellipse cx="65" cy="178.5" rx="5.6" ry="3.2" fill="#6B3A4F"/></g>
+      <g class="leg-l"><rect x="52" y="150" width="6.5" height="27" rx="3.2" fill="${o.legs || INK}"/><ellipse cx="55" cy="178.5" rx="5.6" ry="3.2" fill="${o.shoes || '#6B3A4F'}"/></g>
+      <g class="leg-r"><rect x="61.5" y="150" width="6.5" height="27" rx="3.2" fill="${o.legs || INK}"/><ellipse cx="65" cy="178.5" rx="5.6" ry="3.2" fill="${o.shoes || '#6B3A4F'}"/></g>
       <path d="M47,88 Q60,84 73,88 L76,111 L82,152 Q60,157 38,152 L44,111 Z" fill="${coat}"/>
       <path d="M60,118 L60,154" stroke="${coatD}" stroke-width="1.3"/><path d="M60,140 L56,154 M60,140 L64,154" stroke="${coatD}" stroke-width="1.1"/>
       <rect x="43.5" y="109.5" width="33" height="5" rx="2.5" fill="${coatD}"/>
@@ -143,11 +157,11 @@
       <path d="M33,38 C24,52 25,70 28,84 C30,96 27,108 31,120 C34,128 44,130 52,127 L68,127 C76,130 86,128 89,120 C93,108 90,96 92,84 C95,70 96,52 87,38 Z" fill="${hair}"/>
       <path d="M29,106 C29,112 27,116 31,120 C34,128 44,130 52,127 L68,127 C76,130 86,128 89,120 C93,116 91,112 91,106 C78,112 42,112 29,106 Z" fill="${tips}"/>
       <ellipse cx="60" cy="50" rx="28" ry="30" fill="${hair}"/>
-      <g transform="rotate(12 60 24)"><ellipse cx="60" cy="24" rx="30" ry="9.5" fill="${beret}"/><circle cx="60" cy="14.5" r="2.8" fill="${beret}"/></g>
+      ${o.noHat ? '' : `<g transform="rotate(12 60 24)"><ellipse cx="60" cy="24" rx="30" ry="9.5" fill="${beret}"/><circle cx="60" cy="14.5" r="2.8" fill="${beret}"/></g>
       <g transform="translate(35 20) rotate(-14)">
         <path d="M-1.6,2.4 L-7,14 L-2.8,12.2 Z M1.6,2.4 L7,14 L2.8,12.2 Z" fill="${bowD}"/>
         <path d="M0,0 C-12,-10 -15,7 0,2 Z" fill="${bow}"/><path d="M0,0 C12,-10 15,7 0,2 Z" fill="${bow}"/><circle cx="0" cy="1" r="3" fill="${bowD}"/>
-      </g>`), 'hero-svg');
+      </g>`}`), 'hero-svg');
   }
   function heroFace(mood) {
     const BR = '#2B1D18', EY = '#2E1E18';
@@ -182,7 +196,10 @@
      собранным спискам пикселей каждой области и на холсте 0.75 от рисунка (WS; на экране неотличимо, при WS = 1
      результат совпадает с HERO.paint до бита). Считается синхронно один раз на образ, data:-адрес кешируется.
      Пока картинки не декодированы (первые кадры), отдаётся рисунок в цветах по умолчанию с пометкой data-hk —
-     после декода такие <image> перекрашиваются сами. Без HERO — векторная героиня (heroineVec). */
+     после декода такие <image> перекрашиваются сами. Без HERO — векторная героиня (heroineVec).
+     Образы из роликов (o.look или G.look, см. lookOf): готовые рисунки window.HERO_LOOKS2D (js/hero_looks2d.js) —
+     тот же кадр и якоря, лицо и кисти автора; без перекраски, кроп аватара — свой у образа (item.head).
+     Нет рисунка образа — прежняя перекраска тренча (в сейве лежат цвета образа). */
   const HeroPic = (function () {
     const H = window.HERO;
     if (!H || !H.full || !H.labels || !H.w || !H.h || !H.anchors || typeof H.targets !== 'function' || typeof document === 'undefined') return null;
@@ -311,7 +328,8 @@
       // старт»; считаем настоящий образ из кастинга, он ляжет в кеш), потом разметка вида со спины
       const ric = window.requestIdleCallback || (f => setTimeout(f, 300));
       ric(() => {
-        try { if (!stats.n) urlOf({ bow: '#B0304A', coat: '#6B6F7A', hair: '#1F1A1D' }, 'warm'); } catch (e) { /* ignore */ }
+        // с рисунками образов (HERO_LOOKS2D) перекраска — только запасной путь: её прогрев не нужен
+        try { if (!stats.n && !window.HERO_LOOKS2D) urlOf({ bow: '#B0304A', coat: '#6B6F7A', hair: '#1F1A1D' }, 'warm'); } catch (e) { /* ignore */ }
         ric(() => { try { prepBackIdle(); } catch (e) { /* ignore */ } }, { timeout: 5000 });
       }, { timeout: 3000 });
     }).catch(() => { failed = true; pending.clear(); });
@@ -474,15 +492,55 @@
       } catch (e) { return { href: orig, hk: '' }; }
     }
 
+    // ---- образы из роликов: готовые рисунки, декод — в простое (текущий образ сразу, остальные — по запросу)
+    const L2 = window.HERO_LOOKS2D && window.HERO_LOOKS2D.items ? window.HERO_LOOKS2D : null;
+    const lookImgs = new Map(), warmed = new Set();
+    function lookItem(o) {
+      if (!L2) return null;
+      const id = lookOf(o), it = id && L2.items[id];
+      return it && it.full ? { id, it } : null;
+    }
+    // Promise<Image | null>: декодированный рисунок образа (для экспорта блокнота и прогрева)
+    function lookImg(id, view) {
+      const it = L2 && L2.items[id], src = it && (view === 'back' ? it.back : it.full);
+      if (!src) return Promise.resolve(null);
+      const k = id + ':' + view;
+      if (!lookImgs.has(k)) lookImgs.set(k, load(src).catch(() => null));
+      return lookImgs.get(k);
+    }
+    function warmLook(id) {
+      if (!id || warmed.has(id) || !L2 || !L2.items[id]) return;
+      warmed.add(id);
+      const ric = window.requestIdleCallback || (f => setTimeout(f, 200));
+      ric(() => { lookImg(id, 'front'); ric(() => { lookImg(id, 'back'); }, { timeout: 4000 }); }, { timeout: 2500 });
+    }
+    // все образы (или один): например, когда открывается гардероб
+    function warm(id) {
+      if (!L2) return;
+      if (id) { warmLook(id); return; }
+      Object.keys(L2.items).forEach(warmLook);
+    }
+    if (L2 && typeof window.addEventListener === 'function') {
+      window.addEventListener('herolook', e => { try { warmLook(e && e.detail && e.detail.id); } catch (er) { /* ignore */ } });
+    }
+
     const BLINK = H.blink && H.blink.src
       ? `<image href="${H.blink.src}" x="${n1(OX + H.blink.x)}" y="${n1(OY + H.blink.y)}" width="${H.blink.w}" height="${H.blink.h}" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.93;.945;.975;1" dur="4.2s" repeatCount="indefinite"/></image>` : '';
     const SHADOW = `<ellipse cx="${n1(FW / 2)}" cy="${n1(183 * U)}" rx="100" ry="19" fill="rgba(58,46,63,.15)"/>`;
     const stripSvg = s => s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
     function svgOf(o) {
       const view = o.view === 'back' ? 'back' : 'front';
-      if (view === 'back' && !views.back && (failed || !H.back)) return null;   // нет вида со спины — векторный
-      const look = { bow: o.bow, coat: o.coat, hair: o.hair, beret: o.beret };
-      const u = urlOf(look, view), A = H.anchors;
+      const lk = lookItem(o), A = H.anchors;
+      let u, head = A.head;
+      if (lk && (view === 'front' || lk.it.back)) {
+        // образ из ролика: готовый рисунок, свой кроп аватара (макушка без берета ниже)
+        u = { href: view === 'back' ? lk.it.back : lk.it.full, hk: '' };
+        if (lk.it.head) head = lk.it.head;
+        warmLook(lk.id);
+      } else {
+        if (view === 'back' && !views.back && (failed || !H.back)) return null;   // нет вида со спины — векторный
+        u = urlOf({ bow: o.bow, coat: o.coat, hair: o.hair, beret: o.beret }, view);
+      }
       let fig = `<image${u.hk ? ` data-hk="${u.hk}"` : ''} href="${u.href}" x="${n1(OX)}" y="${n1(OY)}" width="${H.w}" height="${H.h}"/>`;
       if (view === 'front') {
         if (o.blink !== false) fig += BLINK;
@@ -495,11 +553,24 @@
         }
         if (o.view === 'side') fig = `<g transform="matrix(.93 0 0 1 ${n1(FW / 2 * .07)} 0)">${fig}</g>`;
       }
-      const vb = o.crop ? `${n1(OX + A.head[0])} ${n1(OY + A.head[1])} ${n1(A.head[2])} ${n1(A.head[3])}` : `0 0 ${n1(FW)} ${n1(FH)}`;
+      const vb = o.crop ? `${n1(OX + head[0])} ${n1(OY + head[1])} ${n1(head[2])} ${n1(head[3])}` : `0 0 ${n1(FW)} ${n1(FH)}`;
       return svg(vb, (o.crop ? '' : SHADOW) + fig, 'hero-svg hero-pic');
     }
     // Promise<canvas | null>: героиня в том же кадре 120×188 (FW×FH px), полное разрешение — для экспорта в PNG
     function raster(o) {
+      const lk = lookItem(o);
+      if (lk) {
+        const view = o.view === 'back' && lk.it.back ? 'back' : 'front';
+        return lookImg(lk.id, view).then(img => {
+          if (!img) return null;
+          const c = document.createElement('canvas'); c.width = Math.round(FW * WS); c.height = Math.round(FH * WS);
+          const x = c.getContext('2d');
+          x.scale(WS, WS);
+          x.fillStyle = 'rgba(58,46,63,.15)'; x.beginPath(); x.ellipse(FW / 2, 183 * U, 100, 19, 0, 0, Math.PI * 2); x.fill();
+          x.drawImage(img, OX, OY, H.w, H.h);
+          return c;
+        }).catch(() => null);
+      }
       return whenReady.then(() => {
         if (!ready) return null;
         const view = o.view === 'back' && prepBack() ? 'back' : 'front', t = H.targets({ bow: o.bow, coat: o.coat, hair: o.hair, beret: o.beret });
@@ -511,12 +582,13 @@
         return c;
       }).catch(() => null);
     }
-    return { svg: svgOf, raster, stats, frame: { U, FW, FH, OX, OY, WS }, isReady: () => ready, whenReady, views };
+    return { svg: svgOf, raster, stats, frame: { U, FW, FH, OX, OY, WS }, isReady: () => ready, whenReady, views, warm, lookImg };
   })();
 
   function heroine(o = {}) {
     if (HeroPic) { try { const s = HeroPic.svg(o); if (s) return s; } catch (e) { /* ниже — векторная */ } }
-    return heroineVec(o);
+    const id = lookOf(o);
+    return heroineVec(id ? lookVec(o, id) : o);
   }
   // для экспорта блокнота: Promise<canvas> в кадре героини (или null — тогда рисуют SVG)
   function heroineRaster(o = {}) { return HeroPic ? HeroPic.raster(o) : Promise.resolve(null); }
@@ -1012,7 +1084,7 @@
 
   /* ---------- КАДР ИЗ ФИЛЬМА (пазл) ---------- */
   function cinemaFrame(o = {}) {
-    const bow = o.bow || '#F08FA8';
+    const bow = o.bow || '#F08FA8', look = lookOf(o);
     const body = `
       <rect width="360" height="240" fill="#EAD9C8"/>
       <rect y="180" width="360" height="60" fill="#B98C6A"/>
@@ -1054,12 +1126,44 @@
       <rect x="318" y="0" width="42" height="240" fill="#9E2F47"/>
       <path d="M318,0 Q330,60 320,120 Q332,180 318,240" stroke="#7E2238" stroke-width="3" fill="none"/>
       <path d="M338,0 Q346,70 340,140 Q348,190 342,240" stroke="#7E2238" stroke-width="2" fill="none"/>
-      <g transform="translate(320 116) rotate(-20)">
+      ${look ? `<g transform="translate(320 116) rotate(-10)">${sigIcon(look)}</g>` : `<g transform="translate(320 116) rotate(-20)">
         <path d="M0,0 C-11,-10 -14,7 0,2 Z" fill="${bow}"/><path d="M0,0 C11,-10 14,7 0,2 Z" fill="${bow}"/>
         <circle cx="0" cy="1" r="3" fill="${shade(bow, -18)}"/>
-      </g>
+      </g>`}
       <path d="M10,232 L350,232" stroke="rgba(0,0,0,.08)" stroke-width="2"/>`;
     return svg('0 0 360 240', body);
+  }
+  // примета образа на занавесе кадра (вместо банта; та же точка и та же зона нажатия):
+  // пиджак на плечиках, сумочка, очки «кошачий глаз», золотая серьга, сливовый цветок
+  function sigIcon(id) {
+    switch (id) {
+      case 'aurora': return `<path d="M0,-15 Q3.2,-15 3.2,-12 Q3.2,-10 0,-9 L0,-7.5" stroke="#E2C27A" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <path d="M-12,-5 L0,-8.5 L12,-5" stroke="#B88B64" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M-12,-5 L-14,12 L-4.5,13 L0,1 L4.5,13 L14,12 L12,-5 L4.5,-7.5 L0,1 L-4.5,-7.5 Z" fill="#23262E" stroke="#3A3F4A" stroke-width=".8"/>
+        <path d="M5,-6 L9,4 L12,11" stroke="#3FA88C" stroke-width="3.2" fill="none" opacity=".9"/><path d="M8,-4 L12,6" stroke="#7CD9B0" stroke-width="1.2" fill="none"/>
+        <path d="M-12,6 L-6,10" stroke="#3D4E96" stroke-width="3" opacity=".85"/>`;
+      case 'suede': return `<path d="M-6.5,-5 Q0,-15 6.5,-5" stroke="#3A0E10" stroke-width="2.4" fill="none"/>
+        <path d="M-13,-1 Q0,-9 13,-1 L15,11 Q0,14 -15,11 Z" fill="#5A1A1C" stroke="#8A3A3A" stroke-width="1.1"/>
+        <path d="M-11,-1 Q0,-6.5 11,-1" stroke="#C9A45C" stroke-width="1.3" fill="none"/><rect x="0.5" y="-5.5" width="2" height="4" fill="#C9A45C"/>
+        <path d="M-10,4 Q-8,8 -4,9" stroke="#8A3A3A" stroke-width="1.4" fill="none" opacity=".9"/>`;
+      case 'pink': return `<path d="M-16,-3 Q-9,-8 -1.5,-4 Q-1,4 -8,5.5 Q-14,5.5 -16,-3 Z" fill="#2B1D1A" stroke="#7A5A50" stroke-width="1"/>
+        <path d="M16,-3 Q9,-8 1.5,-4 Q1,4 8,5.5 Q14,5.5 16,-3 Z" fill="#2B1D1A" stroke="#7A5A50" stroke-width="1"/>
+        <path d="M-1.5,-3.5 Q0,-5 1.5,-3.5" stroke="#2B1D1A" stroke-width="1.6" fill="none"/>
+        <path d="M-12,-2 L-8,2" stroke="#fff" stroke-width="1.2" opacity=".6" stroke-linecap="round"/><path d="M5,-2 L9,2" stroke="#fff" stroke-width="1.2" opacity=".6" stroke-linecap="round"/>`;
+      case 'rust': return `<circle cx="0" cy="-11" r="2.8" fill="none" stroke="#A87C30" stroke-width="1.8"/>
+        <path d="M0,-7.5 C9,-6 10,6 3.5,11.5 C-4.5,15 -10,7.5 -8,0 C-7,-4.5 -3.5,-6.5 0,-7.5 Z" fill="none" stroke="#E2B85C" stroke-width="3.8"/>
+        <path d="M3,-6 C8,-4 9,3 6,8" stroke="#FFE9A8" stroke-width="1.3" fill="none" stroke-linecap="round"/>`;
+      case 'cream': return `<path d="M-6,-5 Q0,-14 6,-5" stroke="#C7B9A2" stroke-width="2.2" fill="none"/>
+        <path d="M-9.5,-3 L9.5,-3 L13,11 L-13,11 Z" fill="#E6DCCB" stroke="#3A2A22" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M-9.5,-3 L9.5,-3 L10,0 L-10,0 Z" fill="#F5EFE4"/><rect x="9.6" y="1.5" width="2.6" height="3.2" fill="#E0B860"/>`;
+      case 'floral': {
+        let p = '';
+        for (let i = 0; i < 8; i++) p += `<ellipse cx="0" cy="-7" rx="4.2" ry="7.4" fill="${i % 2 ? '#7E3A5E' : '#5A2440'}" transform="rotate(${i * 45} 0 0)"/>`;
+        return `<path d="M2,8 Q10,14 15,10 Q10,6 2,8 Z" fill="#7F8E52"/><path d="M3,8.5 Q9,11 14,10" stroke="#B7B2B5" stroke-width=".8" fill="none"/>${p}
+          <circle cx="0" cy="0" r="3.4" fill="#E6E0CC"/><circle cx="0" cy="0" r="1.2" fill="#B9B48E"/>`;
+      }
+      default: return '';
+    }
   }
   function seats() {
     let s = '';
@@ -1194,7 +1298,7 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   window.Art = {
-    shade, esc, heroine, heroineRaster, heroPic: HeroPic ? { stats: HeroPic.stats, frame: HeroPic.frame, isReady: HeroPic.isReady, whenReady: HeroPic.whenReady, _views: HeroPic.views } : null, cat, FLOWERS, flowerHead, flowerIcon, bouquet, bee, flowerCart, findTicket, findUmbrella, findSweater, findWatch, findFeather, findSaucer, findStar, findTulips, stPockets, raccoon, parrot, goose, bunny, fox, hedgehog,
+    shade, esc, heroine, heroineRaster, heroPic: HeroPic ? { stats: HeroPic.stats, frame: HeroPic.frame, isReady: HeroPic.isReady, whenReady: HeroPic.whenReady, warm: HeroPic.warm, _views: HeroPic.views } : null, cat, FLOWERS, flowerHead, flowerIcon, bouquet, bee, flowerCart, findTicket, findUmbrella, findSweater, findWatch, findFeather, findSaucer, findStar, findTulips, stPockets, raccoon, parrot, goose, bunny, fox, hedgehog,
     cinnabon, macaron, bubbletea, cinemaB, bureauB, sweetsB, roofB, kiosk, weatherBoard, lamp, cloud,
     cinemaFrame, seats, stFilm, stScroll, stDesserts, stNote, stSecret, sunOff, sunOn, teacup, booth, counter, noteMini, pigeon, mountains, silverShop,
   };

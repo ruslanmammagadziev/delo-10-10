@@ -574,6 +574,34 @@ def copy_voice(out_file):
     print(f'голоса: {len(names) - 1} реплик, {size / 1048576:.1f} МБ -> {dst} (обновлено {n}); выкладывать папку voice/ рядом с index.html')
 # ===== /ГОЛОСА ===================================================================================================
 
+# ===== ОБРАЗЫ (LOOKS) — ролики экрана выбора образа =================================================================
+# Папка looks/ (mp4 + webm + jpg с хэшем в имени, собирает tools/looks_build.py) копируется рядом с итоговым файлом:
+# dist/delo-10-10.html + dist/looks/, --out site/index.html -> site/looks/. Ролики не встраиваются никогда (и в
+# --embed-voices тоже). Без папки экран выбора работает на встроенных миниатюрах (js/looks_data.js), только без видео.
+# Лишние файлы в папке назначения удаляются.
+def copy_looks(out_file):
+    src = os.path.join(ROOT, 'looks')
+    if not os.path.isdir(src) or not any(f.endswith('.mp4') for f in os.listdir(src)):
+        print('образы: папки looks/ нет — экран выбора без видео (встроенные миниатюры)')
+        return
+    dst = os.path.join(os.path.dirname(os.path.abspath(out_file)), 'looks')
+    if os.path.abspath(dst) == os.path.abspath(src):
+        return
+    os.makedirs(dst, exist_ok=True)
+    names = {f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f)) and not f.startswith('.')}
+    n = size = 0
+    for fn in names:
+        a, b = os.path.join(src, fn), os.path.join(dst, fn)
+        size += os.path.getsize(a)
+        if not os.path.exists(b) or os.path.getsize(b) != os.path.getsize(a):
+            shutil.copy2(a, b)
+            n += 1
+    for fn in os.listdir(dst):
+        if fn not in names and os.path.isfile(os.path.join(dst, fn)):
+            os.remove(os.path.join(dst, fn))
+    print(f'образы: {len(names)} файлов, {size / 1048576:.1f} МБ -> {dst} (обновлено {n}); выкладывать папку looks/ рядом с index.html')
+# ===== /ОБРАЗЫ ======================================================================================================
+
 
 def main():
     ap = argparse.ArgumentParser(description='Сборка игры в один HTML')
@@ -602,6 +630,8 @@ def main():
         r = prod(args)
         if not args.embed_voices:   # «всё в одном» — голоса уже внутри, папка рядом не нужна
             copy_voice(args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ГОЛОСА (VOICE)
+        # ОБРАЗЫ (LOOKS): ролики не встраиваются никогда, папка looks/ всегда рядом
+        copy_looks(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))
         return r
     html = build_html()
     os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
@@ -616,6 +646,7 @@ def main():
     embed_report()
     if not args.embed_voices:
         copy_voice(out)   # ГОЛОСА (VOICE)
+    copy_looks(out)   # ОБРАЗЫ (LOOKS)
 
 
 if __name__ == '__main__':

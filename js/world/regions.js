@@ -774,6 +774,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     const inCarMode = () => S.mode === 'drive' || !!(drv && (drv.mode === 'enter' || drv.mode === 'exit' || drv.mode === 'stopping' || (drv.mode === 'drive' && drv.S && drv.S.hero)));
     let tAnim = 0;
+    // образ героини (js/hero_outfits.js): сумочка прячется в машине, спорте, полёте и на зиплайне, длинный подол подбирается
+    const outfitTick = (dt, st) => { if (hero && hero._outfit && window.HeroOutfits) { try { HeroOutfits.update(hero, dt, st); } catch (e) { /* без образа */ } } };
     function animHero(dt) {
       if (!hero) return;
       tAnim += dt;
@@ -2876,6 +2878,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           S.zip.update(dt);
           if (hero) { hero.root.getWorldPosition(tmpV); S.px = tmpV.x; S.py = tmpV.y; S.pz = tmpV.z; }
           if (kazWorn()) { try { V_().kaz.update(dt, { sitting: true }); } catch (e) { /* ok */ } }
+          outfitTick(dt, { zip: true });
           if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
           if (blob) blob.visible = false;
           S.h.update(dt, { x: S.px, y: S.py, z: S.pz }, cam);
@@ -2891,6 +2894,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           const st = S.fly.update(dt, flyInput());
           if (S.fly && S.fly.active()) { S.px = st.x; S.py = st.y; S.pz = st.z; }
           if (kazWorn()) { try { V_().kaz.update(dt, { sitting: st.phase === 'fly' || st.phase === 'final' || st.phase === 'lift', flying: true }); } catch (e) { /* ok */ } }
+          outfitTick(dt, { fly: true });
           if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
           if (blob) blob.visible = false;
           petsUpdate(dt);
@@ -2906,6 +2910,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (S.sport) {
           S.sport.update(dt);
           if (S.sport && hero) { hero.root.getWorldPosition(tmpV); S.px = tmpV.x; S.py = tmpV.y; S.pz = tmpV.z; S.ang = hero.root.rotation.y; }
+          outfitTick(dt, { sport: true });
           if (blob) { blob.position.set(S.px, S.py + 0.03, S.pz); blob.scale.setScalar(1); blob.visible = true; }
           if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
           petsUpdate(dt);
@@ -2924,6 +2929,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (IA) { IA.update(dt); if (!IA.busy() && S.iaDy) { S.iaDy *= 0.7; if (Math.abs(S.iaDy) < 0.01) S.iaDy = 0; } }
         if (S.golf && hero && hero.rig) { S.walking = false; S.golf.G.heroPose(hero.rig.anim, dt, hero.root); }
         if (kazWorn()) { try { V_().kaz.update(dt, S.animSt || {}); } catch (e) { if (!S.kazErr) { S.kazErr = true; console.warn('region kaz update', e); } } }
+        outfitTick(dt, Object.assign({ drive: inCarMode() }, S.animSt, S.golf ? { sport: true } : null));
         petsUpdate(dt);
         if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
         updCamera(dt);

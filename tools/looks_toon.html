@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>looks_toon</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<!-- Ролики экрана выбора образа: 3D-героиня игры в каждом из шести образов на мультяшном фоне.
+     Страницу открывает tools/looks_toon.js (Playwright): ?look=<id>&ss=<суперсэмплинг>&frames=<кадров>.
+     Героиня собрана как в игре (js/world/actors.js buildHeroRig): та же сетка, toon-материал с мягкой рампой,
+     контур-оболочка, контровой свет набора WORLD.createKit, образ — HeroOutfits.set, поза — HeroAnim. -->
+<script src="../js/vendor/three.min.js"></script>
+<script src="../js/vendor/GLTFLoader.js"></script>
+<script src="../js/hero_looks.js"></script>
+<script src="../js/hero3d.js"></script>
+<script src="../js/hero_look3d.js"></script>
+<script src="../js/hero_zones.js"></script>
+<script src="../js/hero_outfits.js"></script>
+<!-- js/hero_anim.js — не тегом: страница читает его текстом и правит две строки переминания (heroAnimToon ниже) -->
+<script src="../js/world/kit.js"></script>
+<script>
+/* =====================================================================
+   РЕНДЕР РОЛИКОВ ОБРАЗОВ (вместо фотороликов). Один кадр — window.TOON.frame(i): шаг анимации, кадр, пиксели RGBA
+   (base64, снизу вверх — как отдаёт readPixels). Кадров N (24 к/с × 6 с = 144), петля бесшовная:
+     · камера: облёт вокруг героини (рыскание ±A°) и лёгкий наезд — функции кадра i с периодом N;
+     · HeroAnim: шаг dt = PERIOD / N (PERIOD = 2 вдоха по 3,8 с = 7,6 с анимации на 6 с ролика), переминание
+       с ноги на ногу и «взгляд» в HeroAnim выбираются через Math.random — на время шага он подменён сценарием:
+       взгляд — прямо (голова следит за камерой здесь, накладкой);
+     · переминание: в игре вес догоняет цель экспонентой (damp) — скорость скачком, «толчок» каждые ~3 с. Здесь
+       js/hero_anim.js читается текстом и в нём правятся две строки (heroAnimToon): вес wsS — функция кадра (wsAt:
+       −1 → +1 → −1, переходы smootherstep по ~1,1 с, без скачков скорости и ускорения), сгиб колена свободной ноги —
+       тоже функция кадра (fkAt) вместо |wsS| (без остановки колена рывком в середине перехода). Не нашлась строка — прежний
+       сценарий (смена опоры каждые N/2 шагов) и предупреждение в <id>.json;
+     · ветер (SCENES.<id>.wind, только «Медный закат» и «Звезда вечера»): смещение вершин одежды в её же шейдере
+       (windSetup) до скиннинга — функция исходной точки и фазы петли, без состояния: подол юбки / полотнище накидки
+       уходит по ветру, подветренная сторона раздувается, по подолу бежит волна; вес — по высоте ниже пояса/плеч (верх
+       стоит). Оболочка контура одежды — в той же сетке с теми же исходными точками: смещается так же;
+     · прогрев WARM периодов без кадров: пружины волос и пол, сглаживания HeroAnim успевают выйти на период;
+     · TOON.seam() после последнего кадра — шаг N (≡ кадр 0): расхождение костей с кадром 0 (должно быть ≈ 0).
+   Фоны — простые низкополигональные сцены в палитре игры (toon и рампа набора WORLD.createKit), без надписей,
+   людей, вывесок и номеров; фон чуть мягче и бледнее героини (дымка Fog начинается за ней).
+   ===================================================================== */
+(async function () {
+  'use strict';
+  const T = THREE, Q = new URLSearchParams(location.search), PI = Math.PI, D2R = PI / 180;
+  const LOOK = Q.get('look') || 'suede';
+  const SS = +(Q.get('ss') || 2), OW = 600, OH = 900, W = OW * SS, H = OH * SS;
+  const N = +(Q.get('frames') || 144), PERIOD = 7.6, DT = PERIOD / N, WARM = 3;
+  const info = { look: LOOK, w: W, h: H, frames: N };
+  const fail = e => { console.error(e); window.TOON = { error: String(e && e.stack || e) }; document.title = 'FAIL'; };
+  try {
+    if (!window.HeroLooks || !HeroLooks.valid(LOOK)) throw new Error('неизвестный образ ' + LOOK);
+    const r = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false });
+    r.setPixelRatio(1); r.setSize(W, H);
+    r.shadowMap.enabled = true; r.shadowMap.type = T.PCFShadowMap;
+    document.body.appendChild(r.domElement);
+    const H3 = await HERO3D.load();
+    if (!H3) throw new Error('HERO3D.load: нет модели');
+    const SC = SCENES[LOOK];
+    const scene = new T.Scene();
+    const L = SC.light;
+    const K = WORLD.createKit({ rim: L.rim });
+    scene.background = new T.Color(L.fog[0]);
+    scene.fog = new T.Fog(new T.Color(L.fog[0]), L.fog[1], L.fog[2]);
+    const hemi = new T.HemisphereLight(L.hemi[0], L.hemi[1], L.hemi[2]); scene.add(hemi);
+    const sun = new T.DirectionalLight(L.sun[0], L.sun[1]);
+    const sd = new T.Vector3().fromArray(L.sun[2]).normalize();
+    sun.position.copy(sd).multiplyScalar(16); sun.target.position.set(0, 0, 0);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = L.shR || 4;
+    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 2, far: 40 });
+    sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+    scene.add(sun); scene.add(sun.target);
+    (L.extra || []).forEach(x => scene.add(x(T)));
+    // героиня — отдельным проходом со своим светом: нейтральный ключ (белое читается белым, слоновая кость — слоновой
+    // костью), тёплым остаётся только фон; направление ключа — как у солнца сцены (тень и свет на ней согласованы)
+    const HL_ = Object.assign({ hemi: ['#F3F1F5', '#DED8D2', 0.6], key: ['#FFFAF4', 0.48] }, SC.hero || {});
+    const heroScene = new T.Scene();
+    heroScene.add(new T.HemisphereLight(HL_.hemi[0], HL_.hemi[1], HL_.hemi[2]));
+    const key = new T.DirectionalLight(HL_.key[0], HL_.key[1]); key.position.copy(sd).multiplyScalar(16); heroScene.add(key); heroScene.add(key.target);
+
+    /* ---------- фон ---------- */
+    const bg = new T.Group(); scene.add(bg);
+    bg.visible = Q.get('bg') !== '0';   // ?bg=0 — без декораций (ракурсы, где стены закрывают героиню)
+    const B = builder(T, K, bg);
+    SC.build(B);
+    bg.traverse(m => { if (m.isMesh) { m.castShadow = !!m.userData.cast; if (m.userData.noRecv) m.receiveShadow = false; } });
+
+    /* ---------- героиня: копия buildHeroRig (js/world/actors.js) ---------- */
+    const GV3 = [150, 150, 152, 156, 172, 190, 200, 206, 214, 228, 240, 246, 255, 255, 255, 255];
+    const d3 = new Uint8Array(64); GV3.forEach((v, i) => d3.set([v, v, v, 255], i * 4));
+    const GRAD3 = new T.DataTexture(d3, 16, 1, T.RGBAFormat); GRAD3.minFilter = GRAD3.magFilter = T.LinearFilter; GRAD3.generateMipmaps = false; GRAD3.needsUpdate = true;
+    H3.map.encoding = T.LinearEncoding; H3.map.anisotropy = 4; H3.map.needsUpdate = true;
+    const mat = new T.MeshToonMaterial({ map: H3.map, color: 0xFFFFFF, gradientMap: GRAD3 });
+    const RB = H3.rig.bones, bones = RB.map(b => { const o = new T.Bone(); o.name = b[0]; return o; });
+    RB.forEach((b, i) => { const p = b[1] >= 0 ? RB[b[1]][2] : [0, 0, 0]; bones[i].position.set(b[2][0] - p[0], b[2][1] - p[1], b[2][2] - p[2]); if (b[1] >= 0) bones[b[1]].add(bones[i]); });
+    const root = new T.Group(), body = new T.Group(); root.add(body); heroScene.add(root);
+    const mesh = new T.SkinnedMesh(H3.geometry, mat); mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
+    RB.forEach((b, i) => { if (b[1] < 0) mesh.add(bones[i]); });
+    body.add(mesh); root.updateMatrixWorld(true);
+    const skeleton = new T.Skeleton(bones); mesh.bind(skeleton);
+    // переминание (см. шапку): вес −1 → +1 → −1 за петлю, переходы smootherstep S длиной WS.d (доля петли) с началом
+    // в WS.a и WS.a + ½ — кадр 0 и постер стоят на опоре; функция кадра — петля бесшовна по построению.
+    // Колено: в игре сгиб свободной ноги = |wsS| — вес проходит центр на полной скорости, и колено, что выпрямляется,
+    // встаёт за 2–3 кадра. Здесь сгиб — функция времени перехода u: S(|1 − 2u|) — прежняя свободная нога плавно
+    // выпрямляется к середине перехода, новая плавно сгибается после (ноль скорости и ускорения в середине)
+    info.ws = await heroAnimToon();
+    const WS = Object.assign({ a: 0.08, d: 0.185 }, SC.ws || {});
+    const sm5 = u => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * u * (u * (u * 6 - 15) + 10));
+    const wsU = i => { const x = (((i % N) + N) % N) / N; return [(x - WS.a) / WS.d, (x - WS.a - 0.5) / WS.d]; };
+    const wsAt = i => { const u = wsU(i); return -1 + 2 * sm5(u[0]) - 2 * sm5(u[1]); };
+    const fkAt = i => { const u = wsU(i).map(v => Math.min(1, Math.max(0, v))); return sm5(Math.abs(1 - 2 * u[0])) * sm5(Math.abs(1 - 2 * u[1])); };
+    let wsCur = -1, fkCur = 1;
+    if (info.ws.ok) { window.TOON_WS = () => wsCur; window.TOON_FK = () => fkCur; }
+    // HeroAnim: Math.random на время create/update — сценарий (см. шапку): очередь значений, иначе 0.1 («взгляд прямо»)
+    const rq = [], R0 = Math.random, RND = () => (rq.length ? rq.shift() : 0.1);
+    const TIMER = (N / 2 - 0.5) * DT;   // таймер переминания: срабатывает ровно на N/2-м шаге (полшага запаса на округление)
+    let wsM = 0, wsK = 0;
+    rq.push((TIMER - 2) / 3); wsM = 2 + rq[0] * 3;   // как в HeroAnim.create: wsT = 2 + random * 3
+    Math.random = RND;
+    let anim;
+    try { anim = HeroAnim.create(mesh); } finally { Math.random = R0; }
+    rq.length = 0;
+    if (!anim) throw new Error('HeroAnim.create: нет костей');
+    (function olN(g) {
+      if (g.userData.olNormal) return;
+      const p = g.attributes.position, n = g.attributes.normal, map = new Map(), acc = [], ids = new Int32Array(p.count);
+      for (let i = 0; i < p.count; i++) { const k = Math.round(p.getX(i) * 2e3) + ',' + Math.round(p.getY(i) * 2e3) + ',' + Math.round(p.getZ(i) * 2e3); let id = map.get(k); if (id === undefined) { id = acc.length / 3; map.set(k, id); acc.push(0, 0, 0); } ids[i] = id; acc[id * 3] += n.getX(i); acc[id * 3 + 1] += n.getY(i); acc[id * 3 + 2] += n.getZ(i); }
+      const out = new Float32Array(p.count * 3);
+      for (let i = 0; i < p.count; i++) { const j = ids[i] * 3, l = Math.hypot(acc[j], acc[j + 1], acc[j + 2]) || 1; out[i * 3] = acc[j] / l; out[i * 3 + 1] = acc[j + 1] / l; out[i * 3 + 2] = acc[j + 2] / l; }
+      g.setAttribute('olNormal', new T.BufferAttribute(out, 3)); g.userData.olNormal = true;
+    })(H3.geometry);
+    const olMat = new T.ShaderMaterial({
+      uniforms: { thick: { value: 0.00085 }, col: { value: new T.Color('#4A3A48') } },
+      vertexShader: '#include <common>\n#include <skinning_pars_vertex>\nuniform float thick;\nattribute vec3 olNormal;\nvoid main(){\n vec3 objectNormal = olNormal;\n#include <skinbase_vertex>\n#include <skinnormal_vertex>\n vec3 transformed = vec3(position);\n#include <skinning_vertex>\n vec4 mv = modelViewMatrix * vec4(transformed, 1.0); vec3 nn = normalize(normalMatrix * objectNormal); mv.xyz += nn * thick * (-mv.z); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 col; void main(){ gl_FragColor = vec4(col, 1.0); }', side: T.BackSide,
+    });
+    const outline = new T.SkinnedMesh(H3.geometry, olMat); outline.frustumCulled = false; outline.castShadow = false; outline.receiveShadow = false;
+    body.add(outline); outline.bind(skeleton, mesh.bindMatrix);
+    const A = (window.HERO3D && HERO3D.anchors) || {};
+    const head = new T.Group(); head.position.set(0, (A.head || [0, 1.5])[1] - 1.335, (A.head || [0, 0, -0.09])[2] + 0.012); anim.bones.head.add(head);
+    const beret = new T.Group(); beret.position.set(0, 0.235, -0.02); head.add(beret);
+    const hero = { root, body, head, beret, rig: { anim, mesh, outline, skeleton }, mats: [mat] };
+    const res = HeroOutfits.set(H3, hero, LOOK);
+    info.outfit = res;
+    if (!res || !res.ok) throw new Error('HeroOutfits.set ' + LOOK + ': ' + JSON.stringify(res));
+    // контровой свет — на все toon-материалы героини после образа (как js/world/main.js)
+    { const seen = new Set(); root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !seen.has(m.material)) { seen.add(m.material); K.addRim(m.material, 1); tone(m.material); } }); }
+    const WIND = SC.wind ? windSetup(SC.wind) : null;
+    info.wind = WIND ? WIND.info : null;
+
+    /* ---------- ветер (см. шапку) ----------
+       Сетка одежды образа — ищем в героине (SkinnedMesh 'hero:outfit' / geometry.userData.outfit), куски ткани — по
+       связности треугольников тела одежды (без оболочки контура: olk = 1) и рамке/костям куска: cfg.pick(c) решает,
+       что развевается (маска aWind = 1). Вес по высоте — в шейдере (uWY: yTop, yBot, степень cfg.p). Вершины оболочки —
+       копии вершин тела в тех же точках: маска по той же точке, смещение и нормаль те же — контур не отходит от ткани. */
+    function windSetup(cfg) {
+      let om = null;
+      root.traverse(m => { if (!om && m.isMesh && m.visible && m.geometry && (m.name === 'hero:outfit' || m.geometry.userData.outfit)) om = m; });
+      if (!om || !om.geometry.index) { console.warn('ветер ' + LOOK + ': нет сетки одежды образа'); return null; }
+      const g = om.geometry, P = g.attributes.position, nV = P.count, I = g.index.array;
+      const OL = g.attributes.olk ? g.attributes.olk.array : new Float32Array(nV);
+      const SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight.array;
+      const bn = (om.skeleton ? om.skeleton.bones : bones).map(b => b.name);
+      const grp = nm => (/^(upperarm|forearm|hand|shoulder)/.test(nm) ? 'arm' : /^(neck|head|hair)/.test(nm) ? 'head' : /^foot/.test(nm) ? 'foot' : /^(thigh|shin|coat)/.test(nm) ? 'leg' : 'torso');
+      // куски: объединение по треугольникам тела одежды
+      const par = new Int32Array(nV); for (let i = 0; i < nV; i++) par[i] = i;
+      const fd = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+      for (let t = 0; t < I.length; t += 3) { const a = I[t]; if (OL[a] > 0.5) continue; const ra = fd(a); par[fd(I[t + 1])] = ra; par[fd(I[t + 2])] = ra; }
+      const C = new Map();
+      for (let i = 0; i < nV; i++) {
+        if (OL[i] > 0.5) continue;
+        const k = fd(i); let c = C.get(k);
+        if (!c) { c = { n: 0, x0: 9, x1: -9, y0: 9, y1: -9, z0: 9, z1: -9, w: { arm: 0, head: 0, foot: 0, leg: 0, torso: 0 } }; C.set(k, c); }
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        c.n++; c.x0 = Math.min(c.x0, x); c.x1 = Math.max(c.x1, x); c.y0 = Math.min(c.y0, y); c.y1 = Math.max(c.y1, y); c.z0 = Math.min(c.z0, z); c.z1 = Math.max(c.z1, z);
+        for (let q = 0; q < 4; q++) c.w[grp(bn[SI[i * 4 + q]] || '')] += SW[i * 4 + q];
+      }
+      C.forEach(c => { for (const k in c.w) c.w[k] /= c.n; });
+      const pick = new Set(); C.forEach((c, k) => { if (cfg.pick(c)) pick.add(k); });
+      if (!pick.size) { console.warn('ветер ' + LOOK + ': не нашлось ткани (cfg.pick)'); return null; }
+      let yTop = -9, yBot = 9;
+      pick.forEach(k => { const c = C.get(k); yTop = Math.max(yTop, c.y1); yBot = Math.min(yBot, c.y0); });
+      yTop = typeof cfg.yTop === 'function' ? cfg.yTop(yTop) : cfg.yTop;
+      const key = i => Math.round(P.getX(i) * 2e3) + ',' + Math.round(P.getY(i) * 2e3) + ',' + Math.round(P.getZ(i) * 2e3);
+      const W = new Float32Array(nV), byKey = new Set();
+      let nW = 0;
+      for (let i = 0; i < nV; i++) {
+        if (OL[i] > 0.5 || !pick.has(fd(i))) continue;
+        W[i] = 1; byKey.add(key(i)); if (P.getY(i) < yTop) nW++;
+      }
+      let nS = 0;
+      for (let i = 0; i < nV; i++) if (OL[i] > 0.5 && byKey.has(key(i))) { W[i] = 1; nS++; }
+      g.setAttribute('aWind', new T.BufferAttribute(W, 1));
+      const dw = new T.Vector2(cfg.dir[0], cfg.dir[1]).normalize();
+      const U = {
+        uWT: { value: 0 },
+        uWD: { value: new T.Vector4(dw.x, dw.y, 0, 0) },
+        uWG: { value: new T.Vector4().fromArray(cfg.gust) },
+        uWA: { value: new T.Vector4().fromArray(cfg.amp) },
+        uWP: { value: new T.Vector4().fromArray(cfg.wave) },
+        uWY: { value: new T.Vector4(yTop, yBot, cfg.p, 0) },
+      };
+      const mat = om.material, own = n => (Object.prototype.hasOwnProperty.call(mat, n) ? mat[n] : null);
+      const prev = own('onBeforeCompile'), prevKey = own('customProgramCacheKey');
+      mat.onBeforeCompile = (sh, rr) => {
+        if (prev) prev.call(mat, sh, rr);
+        Object.assign(sh.uniforms, U);
+        if (sh.vertexShader.indexOf('#include <skinning_vertex>') < 0 || sh.vertexShader.indexOf('#include <skinbase_vertex>') < 0) { console.warn('ветер: нет skinning_vertex / skinbase_vertex в шейдере одежды'); return; }
+        sh.vertexShader = WIND_GLSL + sh.vertexShader
+          .replace('#include <skinbase_vertex>', 'objectNormal = toonWindN(position, objectNormal, aWind);\n#include <skinbase_vertex>')
+          .replace('#include <skinning_vertex>', 'transformed += toonWind(position, aWind);\n#include <skinning_vertex>');
+      };
+      mat.customProgramCacheKey = () => 'wind2' + (prevKey ? prevKey.call(mat) : '');
+      mat.needsUpdate = true;
+      const pk = []; pick.forEach(k => { const c = C.get(k); pk.push({ n: c.n, y: [+c.y0.toFixed(3), +c.y1.toFixed(3)] }); });
+      return { U, cfg, W, mesh: om, info: { pieces: pk, verts: nW, shell: nS, yTop: +yTop.toFixed(3), yBot: +yBot.toFixed(3) } };
+    }
+    // тень — от простой «куклы» (как в городе), плюс мягкое пятно под ногами
+    {
+      const inv = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+      [[K.GEO.cone, [0, 0.82, 0], [0.36, 1.0, 0.3]], [K.GEO.sph, [0, 1.5, -0.05], [0.33, 0.36, 0.31]], [K.GEO.sph, [0, 1.82, -0.02], [0.3, 0.09, 0.3]], [K.GEO.cyl, [0, 0.2, 0], [0.11, 0.4, 0.06]]]
+        .forEach(([g, p, s]) => { const m = new T.Mesh(g, inv); m.position.fromArray(p); m.scale.fromArray(s); m.castShadow = true; m.receiveShadow = false; m.renderOrder = -1; scene.add(m); });
+      const blob = new T.Mesh(K.GEO.plane, K.blobMat); blob.rotation.x = -PI / 2; blob.position.set(0, 0.004, 0.02);
+      blob.scale.set(0.95, 0.62, 1); blob.material.opacity = L.blob == null ? 1 : L.blob; blob.renderOrder = 1; scene.add(blob);
+    }
+
+    /* ---------- камера: облёт с периодом N ---------- */
+    const C = Object.assign({ d: 5.2, fov: 27, cy: 1.05, ty: 0.973, A: 12, A0: 0, dolly: 0.02, head: 0.4 }, SC.cam || {});
+    // ?yaw=90 — неподвижная камера под этим углом (проверка образа сбоку и сзади; ролики снимаются без него)
+    if (Q.has('yaw')) { C.A0 = +Q.get('yaw'); C.A = 0; C.head = 0; }
+    const cam = new T.PerspectiveCamera(C.fov, W / H, 0.1, 400);
+    const ph = i => 2 * PI * (((i % N) + N) % N) / N;
+    const yaw = i => (C.A0 + C.A * Math.sin(ph(i))) * D2R;
+    function place(i) {
+      const th = yaw(i), d = C.d * (1 + C.dolly * Math.cos(ph(i)));
+      cam.position.set(d * Math.sin(th), C.cy, d * Math.cos(th));
+      cam.lookAt(0, C.ty, 0);
+    }
+
+    /* ---------- шаг анимации ---------- */
+    const S = { speed: 0, idle: true }, OS = {};
+    const B_ = anim.bones;
+    function step(i) {
+      // переминание: зеркалим таймер HeroAnim (те же операции с плавающей точкой) и кладём в очередь выбор и новый таймер
+      wsM -= DT;
+      if (wsM <= 0) { wsK++; const rc = wsK % 2 ? 0.1 : 0.9, rt = (TIMER - 3.5) / 3.5; rq.push(rc, rt); wsM = 3.5 + rt * 3.5; }
+      wsCur = wsAt(i); fkCur = fkAt(i);   // правленый HeroAnim берёт вес и сгиб колена отсюда (сценарий выше — запасной путь)
+      if (WIND) WIND.U.uWT.value = ph(i);
+      Math.random = RND;
+      try { anim.update(DT, S); } finally { Math.random = R0; }
+      rq.length = 0;
+      HeroOutfits.update(hero, DT, OS);
+      // голова чуть следит за камерой (накладка поверх позы HeroAnim; волосы — как HeroAnim: 45 % поворота головы и шеи)
+      const hy = yaw(i) * C.head;
+      B_.head.rotation.y += hy * 0.8; B_.neck.rotation.y += hy * 0.2; B_.hair.rotation.y += hy * 0.45;
+      if (SC.tick) SC.tick(ph(i), B);
+      root.updateMatrixWorld(true);
+    }
+    const snap = () => bones.map(b => b.quaternion.toArray().concat(b.position.toArray()));
+    // прогрев: WARM периодов, кадр 0 = шаг WARM·N
+    let k = 0;
+    for (; k < WARM * N; k++) step(k);
+    r.autoClear = false; r.info.autoReset = false;   // два прохода: счётчики вызовов — за кадр целиком
+    place(0); r.compile(scene, cam); r.compile(heroScene, cam);
+    const gl = r.getContext(), buf = new Uint8Array(W * H * 4);
+    let snap0 = null, next = 0;
+    function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+    window.TOON = {
+      info,
+      // кадр i (строго по порядку 0..N−1); read=false — только шаг (для --still)
+      frame(i, read = true) {
+        if (i !== next) throw new Error('кадры по порядку: ждали ' + next + ', пришёл ' + i);
+        next++;
+        step(i);
+        if (i === 0) snap0 = snap();
+        if (!read) return null;
+        place(i); r.info.reset(); r.clear(); r.render(scene, cam); r.render(heroScene, cam);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        return b64(buf);
+      },
+      // шаг N (≡ кадр 0 следующего круга): максимум расхождения костей с кадром 0
+      seam() {
+        step(N); const a = snap(); let m = 0;
+        a.forEach((v, j) => v.forEach((x, q) => { m = Math.max(m, Math.abs(x - snap0[j][q])); }));
+        return m;
+      },
+      stats: () => ({ calls: r.info.render.calls, tris: r.info.render.triangles }),
+      // проверки (tools/looks_toon.js их не зовёт): мировые точки костей после шага и вес переминания
+      pose() {
+        const o = { ws: wsCur }, v = new T.Vector3();
+        ['hips', 'chest', 'head', 'hand_L', 'hand_R', 'shin_L', 'shin_R', 'foot_L', 'foot_R'].forEach(n => { B_[n].getWorldPosition(v); o[n] = [v.x, v.y, v.z]; });
+        return o;
+      },
+      // ткань под ветром против тела: вершины одежды с маской (смещение toonWindJS, скиннинг на CPU) — к ближайшей видимой
+      // вершине героини или неподвижной одежды (в радиусе 4 см) по её нормали: s < 0 — внутри. В зачёт — вершины, которым
+      // ветер сделал хуже, чем без ветра: { pen — насколько глубже вошла (м), at — где, worse — сколько вершин глубже 3 мм }
+      windCheck() {
+        if (!WIND) return null;
+        const om = WIND.mesh, sk = om.skeleton;
+        const mats = sk.bones.map((b, k) => new T.Matrix4().multiplyMatrices(b.matrixWorld, sk.boneInverses[k]));
+        const v = new T.Vector3(), acc = new T.Vector3(), tmp = new T.Vector3(), nAcc = new T.Vector3();
+        function skin(m, g, i, p, out, nIn, nOut) {
+          const SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight.array;
+          v.set(p[0], p[1], p[2]).applyMatrix4(m.bindMatrix); acc.set(0, 0, 0); nAcc.set(0, 0, 0);
+          for (let q = 0; q < 4; q++) { const wt = SW[i * 4 + q]; if (wt > 0) { acc.addScaledVector(tmp.copy(v).applyMatrix4(mats[SI[i * 4 + q]]), wt); if (nIn) nAcc.addScaledVector(tmp.copy(nIn).transformDirection(mats[SI[i * 4 + q]]), wt); } }
+          out.copy(acc).applyMatrix4(m.bindMatrixInverse).applyMatrix4(m.matrixWorld);
+          if (nOut) nOut.copy(nAcc).normalize();
+        }
+        // препятствия: вершины видимых (невырожденных) треугольников тела и неподвижной одежды
+        if (!WIND.obs) {
+          const list = [];
+          [[mesh, null], [om, WIND.W]].forEach(([m, mask]) => {
+            const g = m.geometry, I = g.index.array, OL = g.attributes.olk ? g.attributes.olk.array : null, use = new Uint8Array(g.attributes.position.count);
+            for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2]; if (a !== b && b !== c && a !== c) use[a] = use[b] = use[c] = 1; }
+            for (let i = 0; i < use.length; i++) if (use[i] && !(OL && OL[i] > 0.5) && !(mask && mask[i] > 0)) list.push([m, i]);
+          });
+          WIND.obs = list;
+        }
+        const H = new Map(), cs = 0.04, cell = (x, y, z) => Math.floor(x / cs) + ',' + Math.floor(y / cs) + ',' + Math.floor(z / cs);
+        const pw = [], pn = [];
+        WIND.obs.forEach(([m, i], j) => {
+          const g = m.geometry, P = g.attributes.position, N = g.attributes.normal, o = new T.Vector3(), n = new T.Vector3();
+          skin(m, g, i, [P.getX(i), P.getY(i), P.getZ(i)], o, new T.Vector3(N.getX(i), N.getY(i), N.getZ(i)), n);
+          pw.push(o); pn.push(n);
+          const k = cell(o.x, o.y, o.z); if (!H.has(k)) H.set(k, []); H.get(k).push(j);
+        });
+        function side(c) {
+          let best = 9, bj = -1;
+          const cx = Math.floor(c.x / cs), cy = Math.floor(c.y / cs), cz = Math.floor(c.z / cs);
+          for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let e = -1; e <= 1; e++) {
+            const L = H.get((cx + a) + ',' + (cy + b) + ',' + (cz + e)); if (!L) continue;
+            L.forEach(j => { const d = pw[j].distanceToSquared(c); if (d < best) { best = d; bj = j; } });
+          }
+          return bj < 0 || best > cs * cs ? null : { s: tmp.subVectors(c, pw[bj]).dot(pn[bj]), j: bj };
+        }
+        const g = om.geometry, P = g.attributes.position, OL = g.attributes.olk ? g.attributes.olk.array : null;
+        const p = [0, 0, 0], d = [0, 0, 0], c0 = new T.Vector3(), c1 = new T.Vector3();
+        let pen = 0, at = null, worse = 0, maxD = 0;
+        for (let i = 0; i < P.count; i++) {
+          if (!(WIND.W[i] > 0) || (OL && OL[i] > 0.5)) continue;
+          p[0] = P.getX(i); p[1] = P.getY(i); p[2] = P.getZ(i);
+          toonWindJS(WIND.U, p, WIND.W[i], d); const dl = Math.hypot(d[0], d[1], d[2]); maxD = Math.max(maxD, dl);
+          if (dl < 1e-4) continue;
+          skin(om, g, i, p, c0); skin(om, g, i, [p[0] + d[0], p[1] + d[1], p[2] + d[2]], c1);
+          // та же вершина-препятствие для обоих положений (ближайшая к смещённому): глубина не больше самого смещения
+          const s1 = side(c1); if (!s1 || s1.s > -0.003) continue;
+          const r0 = Math.min(0, tmp.subVectors(c0, pw[s1.j]).dot(pn[s1.j]));
+          if (s1.s < r0 - 0.001) {
+            worse++;
+            if (r0 - s1.s > pen) { const ob = WIND.obs[s1.j]; pen = r0 - s1.s; at = { y: +p[1].toFixed(3), obj: ob[0] === mesh ? 'тело' : 'одежда', oy: +pw[s1.j].y.toFixed(3), ox: +pw[s1.j].x.toFixed(3), oz: +pw[s1.j].z.toFixed(3), rest: +r0.toFixed(4), d: +dl.toFixed(3) }; }
+          }
+        }
+        return { pen: +pen.toFixed(4), at, worse, maxD: +maxD.toFixed(4) };
+      },
+    };
+    document.title = 'OK';
+  } catch (e) { fail(e); }
+
+  // тон одежды при нейтральном ключе: js/hero_outfits.js делит тёмные и средние цвета роликов на LITC (тёплый свет
+  // города вернёт их обратно), светлые оставляет как есть. Под нейтральным ключом возвращаем это умножение в шейдере
+  // (те же LITC и тот же порог по яркости): средние тона — как в роликах, белое — белое, без тёплого налёта
+  function tone(mat) {
+    const own = n => (Object.prototype.hasOwnProperty.call(mat, n) ? mat[n] : null);
+    const prev = own('onBeforeCompile'), prevKey = own('customProgramCacheKey');
+    mat.onBeforeCompile = (sh, rr) => {
+      if (prev) prev.call(mat, sh, rr);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n{ float luT = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb *= mix(vec3(1.22, 1.045, 0.965), vec3(1.0), 0.9 * smoothstep(0.588, 0.922, luT)); }');
+    };
+    mat.customProgramCacheKey = () => 'tone1' + (prevKey ? prevKey.call(mat) : '');
+    mat.needsUpdate = true;
+    return mat;
+  }
+
+  // js/hero_anim.js текстом с правкой переминания только для ролика (см. шапку): вес wsS берёт window.TOON_WS, сгиб
+  // колена свободной ноги — window.TOON_FK (если заданы). Строка не нашлась ровно один раз — без правки, с предупреждением
+  async function heroAnimToon() {
+    const src = await (await fetch('../js/hero_anim.js', { cache: 'no-store' })).text();
+    const REP = [
+      ['wsS = damp(wsS, idleOk ? ws : 0, 1.6, dt);', 'wsS = window.TOON_WS ? window.TOON_WS() : damp(wsS, idleOk ? ws : 0, 1.6, dt);'],
+      ['fk = Math.abs(wsS) * still;', 'fk = (window.TOON_FK ? window.TOON_FK() : Math.abs(wsS)) * still;'],
+    ];
+    let s = src;
+    const hits = REP.map(([a, b]) => { if (s.split(a).length !== 2) return false; s = s.replace(a, () => b); return true; });
+    const ok = hits[0];
+    if (!ok) { s = src; console.warn('looks_toon: в js/hero_anim.js не нашлась строка переминания — вес по прежнему сценарию (рывок на смене опоры)'); }
+    else if (!hits[1]) console.warn('looks_toon: в js/hero_anim.js не нашлась строка колена свободной ноги — излом колена на переходе веса');
+    const el = document.createElement('script'); el.textContent = s + '\n//# sourceURL=hero_anim.toon.js'; document.head.appendChild(el);
+    if (!window.HeroAnim) throw new Error('hero_anim.js (правленый) не выполнился');
+    return { ok, knee: ok && hits[1] };
+  }
+
+  /* =====================================================================
+     НАБОР СТРОИТЕЛЯ ФОНА
+     ===================================================================== */
+  function builder(T, K, g) {
+    const MC = new Map();
+    const hx = c => new T.Color(c);
+    // toon-материал набора (рампа GRAD — та же, что у города); кэш по цвету и опциям
+    const M = (c, x) => { const k = c + (x ? JSON.stringify(Object.keys(x).map(n => [n, x[n] && x[n].isTexture ? x[n].uuid : String(x[n])])) : ''); if (!MC.has(k)) MC.set(k, K.toon(c, x || {})); return MC.get(k); };
+    const cnv = (w, h) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; return [cv, cv.getContext('2d')]; };
+    const tex = (cv, rx, ry) => { const t = new T.CanvasTexture(cv); t.anisotropy = 8; if (rx) { t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rx, ry || rx); } return t; };
+    const box = (m, x, y, z, w, h, d, o) => { const b = K.put(g, K.GEO.box, m, [x, y, z], [w, h, d], o && o.r); if (o && o.cast) b.userData.cast = 1; return b; };
+    const rbox = (m, x, y, z, w, h, d, rr, o) => { const b = K.put(g, K.rboxGeo(w, h, d, rr || 0.04), m, [x, y, z], null, o && o.r); if (o && o.cast) b.userData.cast = 1; return b; };
+    const sph = (m, x, y, z, sx, sy, sz, par) => K.put(par || g, K.GEO_HI.sph, m, [x, y, z], [sx, sy === undefined ? sx : sy, sz === undefined ? sx : sz]);
+    const cyl = (m, x, y, z, rad, h, rot, par) => K.put(par || g, K.GEO_HI.cyl, m, [x, y, z], [rad, h, rad], rot);
+    const put = (geo, m, p, s, rot, par) => K.put(par || g, geo, m, p, s, rot);
+    const rng = K.rng;
+    const lerpC = (a, b, t) => hx(a).lerp(hx(b), t);
+    // цвет по ключам [[x, '#hex'], ...]
+    const ramp = (st, x) => { if (x <= st[0][0]) return hx(st[0][1]); for (let i = 1; i < st.length; i++) if (x <= st[i][0]) return lerpC(st[i - 1][1], st[i][1], (x - st[i - 1][0]) / (st[i][0] - st[i - 1][0])); return hx(st[st.length - 1][1]); };
+    // земля: плоскость с рисованной текстурой (рисунок draw(c, s) на холсте s×s, повтор rep раз на 400 м)
+    function ground(col, draw, rep, o) {
+      let m;
+      if (draw) { const [cv, c] = cnv(512, 512); c.fillStyle = col; c.fillRect(0, 0, 512, 512); draw(c, 512); m = K.toon('#FFFFFF', { map: tex(cv, rep, rep) }); }
+      else m = M(col);
+      const pl = new T.Mesh(new T.PlaneGeometry((o && o.w) || 400, (o && o.d) || 400), m);
+      pl.rotation.x = -PI / 2; pl.position.set((o && o.x) || 0, (o && o.y) || 0, (o && o.z) || 0); pl.receiveShadow = true; g.add(pl);
+      return pl;
+    }
+    // небо: дуга цилиндра (R = 90 м) позади сцены, рисованный градиент по углу места + мягкие облака; без дымки
+    function sky(stops, o) {
+      o = o || {};
+      const Rr = 90, y0 = -14, hh = 64, Wc = 1024, Hc = 1024;
+      const [cv, c] = cnv(Wc, Hc);
+      for (let y = 0; y < Hc; y++) {
+        const wy = y0 + (1 - (y + 0.5) / Hc) * hh, el = Math.atan2(wy - 1.05, Rr) / D2R;
+        c.fillStyle = '#' + ramp(stops, el).getHexString(); c.fillRect(0, y, Wc, 1);
+      }
+      const rn = rng(o.seed || 7);
+      c.filter = 'blur(' + (o.blur || 7) + 'px)';
+      (o.clouds || []).forEach(cl => {
+        const [az, el, w, h, a, col] = cl;
+        const cx = (0.5 + az / 90) * Wc, cy = (1 - ((1.05 + Rr * Math.tan(el * D2R)) - y0) / hh) * Hc;
+        for (let j = 0; j < 9; j++) {
+          const px = cx + (rn() - 0.5) * w * 1.6, py = cy + (rn() - 0.5) * h * 0.7, rr = (0.35 + rn() * 0.45) * w * 0.5;
+          const gr = c.createRadialGradient(px, py, 0, px, py, rr);
+          gr.addColorStop(0, col || 'rgba(255,255,255,' + a + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          c.fillStyle = gr; c.beginPath(); c.ellipse(px, py, rr, rr * h / w * 1.2, 0, 0, 2 * PI); c.fill();
+        }
+      });
+      c.filter = 'none';
+      const t = tex(cv);
+      const geo = new T.CylinderGeometry(Rr, Rr, hh, 64, 1, true, PI - PI / 4, PI / 2);
+      const m = new T.Mesh(geo, new T.MeshBasicMaterial({ map: t, side: T.BackSide, fog: false, depthWrite: false }));
+      m.position.y = y0 + hh / 2; m.renderOrder = -10; m.receiveShadow = false; g.add(m);
+      return m;
+    }
+    // хребет гор: три ряда точек (гребень, плечо, подножие) -> грани с плоскими нормалями (каждая грань своим тоном рампы)
+    function ridge(o) {
+      const rn = rng(o.seed || 3), n = o.n || 40, P = [], S = [], F = [], step = (o.x1 - o.x0) / n;
+      const f1 = rn() * 6.3, f2 = rn() * 6.3;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, x = o.x0 + step * i + (rn() - 0.5) * step * 0.5, env = o.env ? o.env(t) : 1;
+        const nz = 0.5 + 0.22 * Math.sin(t * 7 + f1) + 0.14 * Math.sin(t * 19 + f2) + 0.14 * (rn() - 0.5) * 2;
+        const h = (o.h0 + (o.h1 - o.h0) * nz) * env;
+        P.push([x, h, o.z + (rn() - 0.5) * o.dz]);
+        S.push([x + (rn() - 0.5) * step * 0.8, h * (0.4 + rn() * 0.25), o.z + o.dz * (0.9 + rn() * 0.6)]);
+        F.push([x, -1, o.z + o.dz * 2.4]);
+      }
+      const pos = [];
+      for (let i = 0; i < n; i++) pos.push(...P[i], ...S[i], ...P[i + 1], ...P[i + 1], ...S[i], ...S[i + 1], ...S[i], ...F[i], ...S[i + 1], ...S[i + 1], ...F[i], ...F[i + 1]);
+      const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+      const m = new T.Mesh(geo, K.toon(o.col, { side: T.DoubleSide })); m.receiveShadow = false; g.add(m);
+      return m;
+    }
+    // круглое дерево: ствол и 3 шара кроны
+    function tree(x, z, s, col, colD, trunk) {
+      const tg = new T.Group(); tg.position.set(x, 0, z); g.add(tg);
+      cyl(M(trunk || '#8A6A52'), 0, 0.9 * s, 0, 0.09 * s, 1.8 * s, null, tg);
+      sph(M(col), 0, 2.3 * s, 0, 0.95 * s, 0.85 * s, 0.95 * s, tg);
+      sph(M(colD || col), 0.45 * s, 2.0 * s, 0.2 * s, 0.6 * s, 0.55 * s, 0.6 * s, tg);
+      sph(M(col), -0.4 * s, 2.05 * s, -0.1 * s, 0.62 * s, 0.56 * s, 0.62 * s, tg);
+      return tg;
+    }
+    // ореол лампы: аддитивный мягкий диск
+    let haloM = null;
+    function halo(x, y, z, s, op, rotY) {
+      if (!haloM) haloM = new T.MeshBasicMaterial({ map: K.haloTex, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false });
+      const m = new T.Mesh(K.GEO.plane, haloM.clone()); m.material.opacity = op == null ? 0.8 : op;
+      m.position.set(x, y, z); m.scale.set(s, s, 1); if (rotY) m.rotation.y = rotY; m.renderOrder = 5; m.receiveShadow = false; g.add(m);
+      return m;
+    }
+    return { T, K, g, M, cnv, tex, box, rbox, sph, cyl, put, rng, ramp, ground, sky, ridge, tree, halo, hx };
+  }
+})();
+
+/* =====================================================================
+   СЦЕНЫ. Оси: героиня в нуле лицом к +Z, камера на +Z, фон — в −Z; +x — справа в кадре.
+   light: свет фона — hemi [небо, земля, сила], sun [цвет, сила, направление на солнце], fog [цвет, начало, конец]
+          (дымка за героиней: фон мягче), blob — непрозрачность пятна под ногами; rim [цвет, сила] — контровой героини.
+   hero: свет героини (свой проход) — hemi, key [цвет, сила]; по умолчанию почти белый, направление ключа = sun.
+   cam: A — облёт ±A°, A0 — сдвиг, d — расстояние, dolly — наезд (доля), head — доля поворота головы за камерой.
+   ===================================================================== */
+const PI = Math.PI;
+/* ветер в шейдере одежды (windSetup): p — исходная точка вершины (оси модели, до скиннинга), m — маска куска (aWind).
+   Вес по высоте w = ((yTop − y) / (yTop − yBot))^k (uWY = yTop, yBot, k): у пояса (плеч) 0, у подола 1.
+   rd — направление от оси тела (z оси — uWP.x), lee — 0 на наветренной стороне, 1 на подветренной (гладко по точке).
+   uWD.xy — куда дует (xz); uWA — снос по ветру, раздув подветренной стороны, бегущая волна, подъём подола (м при w = 1);
+   uWP.y — волн вдоль подола от наветренной стороны к подветренной, uWP.z — циклов волны за петлю (целое), uWP.w —
+   запаздывание низа (рад при w = 1); порыв: 1 + uWG.x·sin(τ + uWG.y) + uWG.z·sin(2τ + uWG.w) — 1 и 2 цикла за петлю.
+   Всё — функция точки и фазы петли τ = uWT: кадр N = кадр 0. Нормаль — через якобиан смещения (разности по 1 см):
+   n' ∥ cof(F)·n, F = I + ∂d/∂p — свет, контровой и оболочка контура (она раздвигается по нормали) идут за тканью. */
+const WIND_GLSL = [
+  'attribute float aWind;', 'uniform float uWT;', 'uniform vec4 uWD;', 'uniform vec4 uWG;', 'uniform vec4 uWA;', 'uniform vec4 uWP;', 'uniform vec4 uWY;',
+  'vec3 toonWindD(vec3 p) {',
+  ' float w = pow(max(1e-6, clamp((uWY.x - p.y) / (uWY.x - uWY.y), 0.0, 1.0)), uWY.z);',
+  ' vec2 rd = vec2(p.x, p.z - uWP.x); float rl = length(rd); rd = rl > 1e-4 ? rd / rl : uWD.xy;',
+  ' float lee = 0.5 + 0.5 * dot(rd, uWD.xy);',
+  ' float ph = 6.2831853 * uWP.y * lee - uWP.z * uWT - uWP.w * w;',
+  ' float gust = 1.0 + uWG.x * sin(uWT + uWG.y) + uWG.z * sin(2.0 * uWT + uWG.w);',
+  ' vec3 d;',
+  ' d.xz = uWD.xy * (uWA.x * w * gust) + rd * (w * (uWA.y * lee * lee * gust + uWA.z * (0.35 + 0.65 * lee) * sin(ph)));',
+  ' d.y = uWA.w * w * w * lee * lee * (0.75 + 0.25 * sin(ph + 1.3)) * gust;',
+  ' return d;',
+  '}',
+  'vec3 toonWind(vec3 p, float m) { return m > 0.0 ? m * toonWindD(p) : vec3(0.0); }',
+  'vec3 toonWindN(vec3 p, vec3 n, float m) {',
+  ' if (m <= 0.0) return n;',
+  ' vec3 d0 = toonWindD(p);',
+  ' vec3 a = vec3(1.0, 0.0, 0.0) + m * (toonWindD(p + vec3(0.01, 0.0, 0.0)) - d0) * 100.0;',
+  ' vec3 b = vec3(0.0, 1.0, 0.0) + m * (toonWindD(p + vec3(0.0, 0.01, 0.0)) - d0) * 100.0;',
+  ' vec3 c = vec3(0.0, 0.0, 1.0) + m * (toonWindD(p + vec3(0.0, 0.0, 0.01)) - d0) * 100.0;',
+  ' return normalize(mat3(cross(b, c), cross(c, a), cross(a, b)) * n);',
+  '}', ''].join('\n');
+// то же на JS — для проверки зазора до ног и рук (TOON.windCheck); m — маска куска
+function toonWindJS(U, p, m, out) {
+  out[0] = out[1] = out[2] = 0;
+  const Y = U.uWY.value, w = m > 0 ? Math.pow(Math.max(1e-6, Math.min(1, Math.max(0, (Y.x - p[1]) / (Y.x - Y.y)))), Y.z) : 0;
+  if (w <= 1e-5) return out;
+  const D = U.uWD.value, G = U.uWG.value, A = U.uWA.value, P = U.uWP.value, t = U.uWT.value;
+  let rx = p[0], rz = p[2] - P.x; const rl = Math.hypot(rx, rz); if (rl > 1e-4) { rx /= rl; rz /= rl; } else { rx = D.x; rz = D.y; }
+  const lee = 0.5 + 0.5 * (rx * D.x + rz * D.y), ph = 2 * PI * P.y * lee - P.z * t - P.w * w;
+  const gust = 1 + G.x * Math.sin(t + G.y) + G.z * Math.sin(2 * t + G.w);
+  const rad = w * (A.y * lee * lee * gust + A.z * (0.35 + 0.65 * lee) * Math.sin(ph));
+  out[0] = m * (D.x * A.x * w * gust + rx * rad); out[2] = m * (D.y * A.x * w * gust + rz * rad);
+  out[1] = m * A.w * w * w * lee * lee * (0.75 + 0.25 * Math.sin(ph + 1.3)) * gust;
+  return out;
+}
+var SCENES = {
+  /* 1. «Северное сияние»: светлый каменный фасад, широкие ступени, кованая решётка ворот, низкое тёплое солнце */
+  aurora: {
+    light: { hemi: ['#E6E2EC', '#D2CAC0', 0.58], sun: ['#FFE0BE', 0.54, [5.5, 4.0, 5.0]], rim: ['#FFE6D4', 0.26], fog: ['#E0DDD8', 7, 60] },
+    cam: { A: 12 },
+    build(B) {
+      const { M, box, rbox, put, T, K, cnv, tex } = B;
+      B.ground('#D6D3CE', (c, s) => { c.strokeStyle = 'rgba(150,140,128,.25)'; c.lineWidth = 3; for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(i * s / 4, 0); c.lineTo(i * s / 4, s); c.stroke(); c.beginPath(); c.moveTo(0, i * s / 4); c.lineTo(s, i * s / 4); c.stroke(); } }, 100);
+      // широкие ступени: подступёнок темнее, проступь светлее, с носиком; фасад — сразу за площадкой
+      const NS = 5, RS = 0.15, TD = 0.42, Z0 = -2.0, ZW = -5.2, yL = NS * RS;
+      const riser = M('#CBC6BF'), tread = M('#E4E1DC');
+      for (let k = 0; k < NS; k++) {
+        const top = (k + 1) * RS, zf = Z0 - k * TD;
+        box(riser, 0, top / 2 - 0.015, (zf + ZW) / 2, 16, top - 0.03, zf - ZW);
+        box(tread, 0, top - 0.015, (zf + ZW) / 2 + 0.03, 16, 0.03, zf - ZW + 0.06);
+      }
+      // фасад: кладка светлого камня (швы — тонкие линии, без рисунков)
+      const [cv, c] = cnv(512, 512); c.fillStyle = '#E4E1DB'; c.fillRect(0, 0, 512, 512);
+      c.strokeStyle = 'rgba(150,142,132,.3)'; c.lineWidth = 3;
+      for (let rI = 0; rI < 8; rI++) { const y = rI * 64; c.beginPath(); c.moveTo(0, y); c.lineTo(512, y); c.stroke(); for (let x = (rI % 2) * 64; x < 512; x += 128) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 64); c.stroke(); } }
+      const wall = K.toon('#FFFFFF', { map: tex(cv, 1, 1) });
+      const wg = new T.BoxGeometry(18, 9, 0.6); const uv = wg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 18 / 3.6, uv.getY(i) * 9 / 3.6);
+      put(wg, wall, [0, yL + 4.5, ZW - 0.3]);
+      box(M('#D3CEC6'), 0, yL + 0.2, ZW + 0.05, 18, 0.4, 0.14);   // цоколь
+      // ворота: тёмный проём + кованая решётка (прутья, пики, кольца, волна завитков, полукруглый верх с лучами)
+      const iron = M('#2C282C'), dark = M('#3A3640');
+      const gx = -1.4, gw = 2.1, gh = 3.0, zg = ZW + 0.1;
+      box(dark, gx, yL + gh / 2, ZW + 0.03, gw, gh, 0.04);
+      const arc = new T.Mesh(new T.CircleGeometry(gw / 2, 24, 0, PI), dark); arc.position.set(gx, yL + gh, ZW + 0.03); B.g.add(arc);
+      [gx - gw / 2, gx + gw / 2].forEach(x => box(iron, x, yL + gh / 2, zg, 0.06, gh, 0.06));
+      [yL + 0.04, yL + 0.55, yL + 1.95, yL + 2.35, yL + gh].forEach(y => box(iron, gx, y, zg, gw, 0.05, 0.05));
+      const bar = K.GEO_HI.cyl;
+      for (let x = gx - gw / 2 + 0.11; x < gx + gw / 2 - 0.05; x += 0.118) {
+        put(bar, iron, [x, yL + gh / 2, zg], [0.012, gh, 0.012]);
+        put(K.GEO.cone, iron, [x, yL + 0.62, zg], [0.03, 0.08, 0.03]);
+      }
+      const ringG = new T.TorusGeometry(1, 0.13, 6, 20);
+      for (let x = gx - gw / 2 + 0.17; x < gx + gw / 2 - 0.1; x += 0.236) { put(ringG, iron, [x, yL + 2.15, zg + 0.01], [0.085, 0.085, 0.085]); put(ringG, iron, [x + 0.118, yL + 1.25, zg + 0.01], [0.05, 0.05, 0.05]); }
+      const half = new T.TorusGeometry(1, 0.12, 6, 14, PI);
+      for (let x = gx - gw / 2 + 0.2; x < gx + gw / 2 - 0.1; x += 0.236) { put(half, iron, [x, yL + 0.95, zg + 0.01], [0.07, 0.07, 0.07]); put(half, iron, [x, yL + 0.81, zg + 0.01], [0.07, 0.07, 0.07], [0, 0, PI]); }
+      put(new T.TorusGeometry(1, 0.03, 6, 32, PI), iron, [gx, yL + gh, zg + 0.01], [gw / 2, gw / 2, 1]);
+      put(new T.TorusGeometry(1, 0.06, 6, 24, PI), iron, [gx, yL + gh, zg + 0.01], [gw / 4, gw / 4, 1]);
+      for (let a = 1; a < 8; a++) { const an = a * PI / 8; put(bar, iron, [gx + Math.cos(an) * gw * 0.37, yL + gh + Math.sin(an) * gw * 0.37, zg + 0.01], [0.01, gw * 0.24, 0.01], [0, 0, an - PI / 2]); }
+      // пилястры с базой и капителью (отбрасывают тень на стену)
+      const stone = M('#E2DFD9'), stoneD = M('#D3CEC6');
+      [-2.78, -0.02, 2.4, 4.95, -5.3].forEach(x => {
+        rbox(stone, x, yL + 3.1, ZW + 0.25, 0.62, 6.2, 0.42, 0.03, { cast: 1 });
+        rbox(stoneD, x, yL + 0.3, ZW + 0.32, 0.8, 0.6, 0.56, 0.03, { cast: 1 });
+        rbox(stoneD, x, yL + 6.25, ZW + 0.32, 0.82, 0.34, 0.58, 0.04, { cast: 1 });
+      });
+      // окно справа: каменный наличник, тёмное стекло, кованая решётка
+      rbox(stoneD, 1.2, yL + 2.6, ZW + 0.06, 1.36, 2.5, 0.12, 0.03);
+      box(dark, 1.2, yL + 2.6, ZW + 0.13, 1.08, 2.2, 0.04);
+      [0.9, 1.2, 1.5].forEach(x => put(bar, iron, [x, yL + 2.6, ZW + 0.17], [0.012, 2.2, 0.012]));
+      [yL + 2.0, yL + 3.2].forEach(y => box(iron, 1.2, y, ZW + 0.17, 1.08, 0.04, 0.04));
+      rbox(stone, 1.2, yL + 1.28, ZW + 0.2, 1.5, 0.12, 0.34, 0.03, { cast: 1 });
+      // карниз
+      rbox(stone, 0, yL + 6.62, ZW + 0.3, 18, 0.36, 0.6, 0.06, { cast: 1 });
+      rbox(stoneD, 0, yL + 6.95, ZW + 0.22, 18, 0.24, 0.48, 0.05);
+    },
+  },
+
+  /* 2. «Конная прогулка»: конюшня — жердевая изгородь, низкое здание с навесом, зелёное пастбище, лошадь за изгородью */
+  suede: {
+    light: { hemi: ['#E4E8F0', '#D9C8AA', 0.62], sun: ['#FFE7CA', 0.52, [-5, 6.5, 4.5]], rim: ['#FFF0E4', 0.2], fog: ['#E8EBE4', 7, 90] },
+    // облёт ±5.5° (не ±8): лошадь в 3 м за героиней ходит в кадре от параллакса меньше; остаток гасит поворот её головы
+    // (tick) — голова всё время целиком между волосами героини и правым краем (при ±8° — заходила за волосы и под край)
+    cam: { A: 5.5 },
+    build(B) {
+      const { M, box, rbox, sph, cyl, put, T, K } = B;
+      B.ground('#DCC8A6', (c, s) => { const rn = B.rng(5); for (let i = 0; i < 900; i++) { c.fillStyle = rn() < 0.5 ? 'rgba(170,140,100,.18)' : 'rgba(255,245,225,.22)'; c.beginPath(); c.arc(rn() * s, rn() * s, 1 + rn() * 3, 0, 7); c.fill(); } }, 120);
+      // выгон за изгородью — трава
+      B.ground('#A9BE7E', (c, s) => { const rn = B.rng(9); for (let i = 0; i < 700; i++) { c.fillStyle = rn() < 0.5 ? 'rgba(120,150,80,.2)' : 'rgba(210,225,160,.2)'; c.fillRect(rn() * s, rn() * s, 2, 5 + rn() * 6); } }, 60, { y: 0.006, z: -202.9, d: 400 });
+      // изгородь: столбы и две жерди (светлое обветренное дерево)
+      const post = M('#C9B394'), rail = M('#D8C7A9');
+      for (let x = -6.3; x <= 6.4; x += 1.8) rbox(post, x, 0.56, -2.3, 0.14, 1.12, 0.14, 0.03, { cast: 1 });
+      [0.46, 0.86].forEach(y => rbox(rail, 0, y, -2.21, 14, 0.12, 0.07, 0.03, { cast: 1 }));
+      rbox(rail, 0, 1.1, -2.3, 14, 0.06, 0.17, 0.025, { cast: 1 });
+      // конюшня: светлые стены, плоская крыша с навесом (низ навеса — дерево), денники с решётками
+      const wallM = M('#DCD5CA'), roofM = M('#CFC8BC'), wood = M('#A8845F'), door = M('#8E6748'), dark = M('#3D3532'), iron = M('#34302F');
+      box(wallM, -3.2, 1.35, -10.4, 8.6, 2.7, 2.6);
+      box(roofM, -3.2, 2.86, -9.8, 9.4, 0.32, 4.4);
+      box(wood, -3.2, 2.69, -8.3, 9.3, 0.04, 1.3);
+      for (let i = 0; i < 4; i++) {
+        const x = -6.4 + i * 1.75;
+        box(door, x, 0.55, -9.08, 1.25, 1.1, 0.06);
+        box(dark, x, 1.65, -9.1, 1.25, 1.1, 0.04);
+        for (let b = 0; b < 7; b++) put(K.GEO_HI.cyl, iron, [x - 0.54 + b * 0.18, 1.65, -9.05], [0.012, 1.1, 0.012]);
+        box(iron, x, 2.19, -9.05, 1.25, 0.04, 0.04);
+      }
+      box(roofM, 1.05, 1.35, -10.4, 0.1, 2.7, 2.6);
+      // холмы пастбища и деревья
+      [[18, -38, 34, 4.2, 16, '#A2BD77'], [-14, -46, 30, 5.5, 18, '#9CB772'], [4, -60, 40, 7, 20, '#AFC48A'], [30, -55, 26, 6, 14, '#A8C080']].forEach(([x, z, sx, sy, sz, col]) => { const m = sph(M(col), x, -0.4, z, sx, sy, sz); m.receiveShadow = false; });
+      B.tree(6.5, -16, 1.3, '#8FAE6A', '#7E9E5E'); B.tree(9.5, -24, 1.6, '#93B06C', '#80A060'); B.tree(-9.5, -20, 1.4, '#8FAE6A', '#7E9E5E');
+      // дальняя изгородь выгона
+      for (let x = -2; x <= 16; x += 2.4) rbox(post, x, 0.5, -22, 0.12, 1.0, 0.12, 0.02);
+      rbox(rail, 7, 0.8, -21.95, 18.4, 0.08, 0.06, 0.02);
+      B.sky([[-20, '#E9EDE6'], [0, '#EEF0EA'], [4, '#DDE9EE'], [14, '#BCD7EA'], [30, '#A9CBE6']], { clouds: [[-14, 9, 160, 50, 0.55], [12, 13, 220, 60, 0.5], [30, 7, 140, 40, 0.45]], seed: 11 });
+      // лошадь — простая мультяшная (в игре своей лошади нет; пропорции и цвет — как у пони из js/village/kubachi.js)
+      B.horse = horse(B, { x: 1.80, z: -3.0, ry: 0.72, s: 0.95, turn: 0.25 });
+    },
+    // лошадь дышит, кивает и машет хвостом — с периодом ролика; голову поворачивает навстречу облёту (шея — вокруг
+    // вертикали, ±9°): когда камера уходит влево и лошадь от параллакса едет к волосам героини, морда отворачивается
+    // вправо, и наоборот — голова почти стоит в кадре, между волосами и правым краем
+    tick(p, B) {
+      const h = B.horse; if (!h) return;
+      h.neck.rotation.z = h.neck0 + 0.05 * Math.sin(p) + 0.025 * Math.sin(2 * p + 0.6);
+      h.neck.rotation.y = -0.16 * Math.sin(p);
+      h.headG.rotation.z = -0.04 * Math.sin(p + 0.8);
+      h.tail.rotation.x = 0.18 * Math.sin(2 * p); h.tail.rotation.z = 0.08 * Math.sin(p);
+      h.ears.forEach((e, j) => { e.rotation.x = 0.15 * Math.max(0, Math.sin(3 * p + j * 1.3)); });
+      h.body.position.y = 0.006 * Math.sin(2 * p);
+    },
+  },
+
+  /* 3. «Зефирка»: бесшовная тёплая кремовая студия (циклорама), мягкий студийный свет */
+  pink: {
+    light: { hemi: ['#F6F2EE', '#E6DED6', 0.74], sun: ['#FFFFFF', 0.3, [-1, 9, 3]], rim: ['#FFF1E8', 0.18], fog: ['#E9E0D0', 9, 80], shR: 10, blob: 0.9 },
+    cam: { A: 12 },
+    build(B) {
+      const { T, K, g } = B;
+      // профиль: пол z 14 → −3.4, скругление R 2.2, стена до 14 м; цвет вершин — мягкое пятно света за героиней
+      const prof = [];
+      for (let i = 0; i <= 24; i++) prof.push([14 - (17.4 * i) / 24, 0]);
+      for (let i = 1; i <= 16; i++) { const a = (i / 16) * PI / 2; prof.push([-3.4 - Math.sin(a) * 2.2, 2.2 - Math.cos(a) * 2.2]); }
+      for (let i = 1; i <= 16; i++) prof.push([-5.6, 2.2 + (11.8 * i) / 16]);
+      const nx = 48, pos = [], col = [], idx = [];
+      const c0 = B.hx('#F3E7D3'), cE = B.hx('#E2D2BA'), cT = B.hx('#E8DAC6'), tmp = new T.Color();
+      prof.forEach(([z, y]) => {
+        for (let ix = 0; ix <= nx; ix++) {
+          const x = -16 + (32 * ix) / nx;
+          pos.push(x, y, z);
+          const dx = x / 7, dyz = (y > 0.5 ? (y - 1.6) / 4.5 : (z + 3.4) / 9), f = Math.min(1, dx * dx + dyz * dyz);
+          tmp.copy(c0).lerp(cE, f * 0.9); if (y > 4) tmp.lerp(cT, Math.min(1, (y - 4) / 6) * 0.5);
+          col.push(tmp.r, tmp.g, tmp.b);
+        }
+      });
+      for (let j = 0; j < prof.length - 1; j++) for (let ix = 0; ix < nx; ix++) { const a = j * (nx + 1) + ix, b = a + nx + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+      const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new T.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      // ключевой свет спереди сверху: и пол, и стена, и скругление — на плато рампы (без ступенек на дуге)
+      const m = new T.Mesh(geo, K.toon('#FFFFFF', { vertexColors: true, side: T.FrontSide }));
+      m.receiveShadow = true; g.add(m);
+    },
+  },
+
+  /* 4. «Медный закат»: песчаный двор, бежевый дом-коробка, коричневые горы, ясное тёплое небо, золотой вечерний свет */
+  rust: {
+    light: { hemi: ['#ECE6EE', '#DCCAB4', 0.56], sun: ['#FFDDB6', 0.58, [6.5, 2.9, 3.2]], rim: ['#FFE2CC', 0.3], fog: ['#EEE0D0', 7, 170] },
+    hero: { key: ['#FFF6EC', 0.5] },
+    cam: { A: 12 },
+    // ветер: атласная юбка в пол уходит влево в кадре (−x) и чуть назад, левый в кадре бок раздувается и приподнимается,
+    // по подолу бегут складки (3 за петлю); куски ниже пояса без рук и головы — юбка и концы кушака (или юбка, сшитая
+    // с лифом в один кусок: всё до пола; выше yTop вес 0 — лиф стоит)
+    wind: {
+      pick: c => (c.y1 < 1.06 && c.y0 < 0.95 || c.y0 < 0.1) && c.w.arm + c.w.head + c.w.foot < 0.1,
+      yTop: 0.92, p: 2.2,
+      dir: [-1, -0.35], gust: [0.25, 0.4, 0.1, 1.9], amp: [0.07, 0.1, 0.025, 0.06], wave: [0.0, 1.5, 3, 1.2],
+    },
+    build(B) {
+      const { M, box, rbox, sph, put, T, K } = B;
+      B.ground('#E2D3BE', (c, s) => {
+        c.strokeStyle = 'rgba(195,160,120,.2)'; c.lineWidth = 3;
+        for (let i = 0; i < 14; i++) { c.beginPath(); const y0 = i * s / 14; for (let x = 0; x <= s; x += 8) c.lineTo(x, y0 + Math.sin(x / s * 2 * PI * 2 + i) * 6); c.stroke(); }
+        const rn = B.rng(4); for (let i = 0; i < 500; i++) { c.fillStyle = rn() < 0.5 ? 'rgba(180,140,95,.18)' : 'rgba(255,240,215,.25)'; c.beginPath(); c.arc(rn() * s, rn() * s, 1 + rn() * 2.5, 0, 7); c.fill(); }
+      }, 90);
+      // дом-коробка: стены, нависающая плита крыши, глубокая ниша с тёмным стеклом
+      const wall = M('#E6DDD0'), wallD = M('#D8CDBE'), slab = M('#ECE5DA'), glass = M('#4A4440'), frame = M('#5E5248');
+      box(wall, -4.6, 1.6, -9.2, 4.0, 3.2, 3.6, { cast: 1 });
+      box(wallD, -1.6, 1.5, -9.9, 2.4, 3.0, 2.2);
+      box(glass, -1.75, 1.2, -8.78, 1.3, 2.4, 0.06);
+      [-2.4, -1.1].forEach(x => box(frame, x, 1.2, -8.74, 0.06, 2.4, 0.06));
+      box(frame, -1.75, 2.42, -8.74, 1.36, 0.06, 0.06);
+      box(slab, -3.4, 3.35, -8.6, 7.2, 0.36, 5.0, { cast: 1 });
+      box(wall, -0.25, 1.6, -9.4, 0.6, 3.2, 3.0, { cast: 1 });
+      sph(M('#2E2826'), -0.75, 0.3, -8.3, 0.3, 0.3, 0.3);   // круглая тёмная ваза у входа
+      box(M('#E4DCD0'), -3.4, 0.08, -7.6, 7.4, 0.16, 1.4);    // светлое крыльцо-подиум
+      // низкая стена двора справа и сухое деревце за ней
+      box(wall, 4.2, 0.6, -7.4, 6.4, 1.2, 0.35, { cast: 1 });
+      rbox(slab, 4.2, 1.24, -7.4, 6.5, 0.08, 0.45, 0.02);
+      B.tree(3.4, -9.4, 1.05, '#BCA872', '#A89462', '#7A5E46');
+      B.tree(7.5, -12, 1.25, '#B9A774', '#A59364', '#7A5E46');
+      // горы: два коричневых хребта в дымке
+      B.ridge({ x0: -60, x1: 70, z: -72, dz: 6, n: 44, h0: 5, h1: 15, seed: 21, col: '#957060', env: t => 0.55 + 0.45 * Math.sin(t * PI) });
+      B.ridge({ x0: -40, x1: 50, z: -50, dz: 5, n: 40, h0: 2, h1: 9, seed: 8, col: '#7E5A48', env: t => 0.45 + 0.55 * Math.sin(t * PI * 1.3 + 0.2) });
+      B.sky([[-20, '#F2DDC6'], [0, '#F3DFC8'], [4, '#E8E1D8'], [8, '#CADCEA'], [16, '#AAC8E4'], [40, '#94B8DC']], { clouds: [], seed: 3 });
+    },
+  },
+
+  /* 5. «Сливочный шик»: светлая городская площадь, высокие сине-бирюзовые стеклянные башни (сетка окон), мощение, синее небо */
+  cream: {
+    light: { hemi: ['#E8EEF6', '#E2DACE', 0.64], sun: ['#FFF3E4', 0.52, [-3.5, 7.5, 4.5]], rim: ['#F6F6FF', 0.16], fog: ['#DCE9F2', 8, 160] },
+    cam: { A: 12 },
+    build(B) {
+      const { M, box, rbox, put, T, K, cnv, tex } = B;
+      B.ground('#D2CEC7', (c, s) => { c.strokeStyle = 'rgba(150,140,130,.36)'; c.lineWidth = 3; for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(i * s / 4, 0); c.lineTo(i * s / 4, s); c.stroke(); c.beginPath(); c.moveTo(0, i * s / 4); c.lineTo(s, i * s / 4); c.stroke(); } c.strokeStyle = 'rgba(165,155,145,.14)'; c.lineWidth = 2; for (let i = 0; i < 8; i++) { c.beginPath(); c.moveTo(i * s / 8 + s / 16, 0); c.lineTo(i * s / 8 + s / 16, s); c.stroke(); } }, 100);
+      // стекло башни: сетка рам, стёкла чуть разные, отражение неба светлеет кверху
+      function glassTex(seed, base, hi) {
+        const [cv, c] = cnv(256, 512), rn = B.rng(seed);
+        const gr = c.createLinearGradient(0, 512, 0, 0); gr.addColorStop(0, base); gr.addColorStop(1, hi); c.fillStyle = gr; c.fillRect(0, 0, 256, 512);
+        for (let y = 0; y < 512; y += 32) for (let x = 0; x < 256; x += 32) { c.fillStyle = 'rgba(' + (rn() < 0.5 ? '255,255,255,' : '20,40,60,') + (rn() * 0.08).toFixed(3) + ')'; c.fillRect(x, y, 32, 32); }
+        c.fillStyle = 'rgba(30,58,72,.55)'; for (let x = 0; x < 256; x += 32) c.fillRect(x, 0, 4, 512); for (let y = 0; y < 512; y += 32) c.fillRect(0, y, 256, 3);
+        return cv;
+      }
+      function tower(x, z, w, d, h, seed, base, hi) {
+        const t = tex(glassTex(seed, base, hi)); t.wrapS = t.wrapT = T.RepeatWrapping;
+        const geo = new T.BoxGeometry(w, h, d), uv = geo.attributes.uv, nrm = geo.attributes.normal;
+        for (let i = 0; i < uv.count; i++) { const side = Math.abs(nrm.getX(i)) > 0.5 ? d : w; uv.setXY(i, uv.getX(i) * side / 10, uv.getY(i) * h / 20); }
+        put(geo, K.toon('#FFFFFF', { map: t }), [x, h / 2, z]);
+        box(M('#C9D4DA'), x, 0.6, z + d / 2 + 0.05, w + 0.1, 1.2, 0.2);
+      }
+      tower(-4.3, -16, 5.4, 8, 42, 1, '#3F6F84', '#7FA9BC');
+      tower(-9.5, -28, 8, 9, 64, 2, '#3A6A80', '#86AEC0');
+      tower(4.4, -19, 5.8, 8, 50, 3, '#456F86', '#8EB4C6');
+      tower(10.5, -33, 8, 8, 76, 4, '#3C6B83', '#7EA6BA');
+      tower(7, -62, 10, 10, 58, 5, '#4A7A90', '#93B8CA');
+      tower(-1.5, -78, 14, 10, 13, 6, '#507E94', '#9ABDCD');
+      // кадки с круглыми деревцами вдоль площади
+      [[3.2, -7.5], [-3.6, -9.5], [5.2, -11.5]].forEach(([x, z]) => { rbox(M('#D4CFC8'), x, 0.3, z, 1.0, 0.6, 1.0, 0.06); B.tree(x, z, 0.75, '#8DB27A', '#7CA26C'); });
+      B.sky([[-20, '#DCEAF3'], [0, '#DCEAF3'], [6, '#BCD8EC'], [20, '#94C0E2'], [40, '#7FB2DC']], { clouds: [[-20, 18, 200, 50, 0.55], [18, 24, 260, 60, 0.5]], seed: 5 });
+    },
+  },
+
+  /* 6. «Звезда вечера»: коридор отеля — кремовые стены с панелями, тёплые бра, тёмные двери, ковровая дорожка, точка схода */
+  floral: {
+    light: { hemi: ['#F4E6D2', '#9A7E66', 0.62], sun: ['#FFE6C8', 0.42, [0.8, 6, 5]], rim: ['#FFEBD8', 0.22], fog: ['#E8D6BC', 7, 42], blob: 0.9,
+      extra: [T => { const p = new T.PointLight('#FFD9A8', 0.35, 9, 2); p.position.set(0, 2.6, -1.5); return p; }] },
+    hero: { key: ['#FFF7EE', 0.48] },
+    cam: { A: 10 },
+    // ветер: полотнище накидки (от плеч до пола, кости корпуса) — назад и чуть влево в кадре, края раздуваются, по подолу —
+    // мягкая волна (2 за петлю); платье-«русалка» (кости ног) и пелерина на плечах стоят (полотнище, сшитое с пелериной
+    // и стойкой в один кусок, тоже подходит: вес от плеч, yTop ≤ 1.17)
+    wind: {
+      pick: c => c.y0 < 0.15 && c.y1 > 1.05 && c.w.arm + c.w.head + c.w.foot < 0.3 && c.w.leg < 0.3,
+      yTop: y1 => Math.min(y1, 1.2) - 0.03, p: 1.8,
+      dir: [-0.45, -0.9], gust: [0.3, 2.2, 0.12, 0.7], amp: [0.05, 0.05, 0.02, 0.02], wave: [-0.02, 1.2, 2, 1.0],
+    },
+    build(B) {
+      const { M, box, rbox, sph, cyl, put, T, K, cnv, tex, halo } = B;
+      const Z0 = 7, Z1 = -30, XW = 1.85, HH = 3.1, len = Z0 - Z1, zc = (Z0 + Z1) / 2;
+      // пол: тёмный полированный край, ковровая дорожка с каймой и розетками (без надписей)
+      box(M('#7E6450'), 0, -0.01, zc, XW * 2, 0.02, len);
+      const [cv, c] = cnv(256, 256);
+      c.fillStyle = '#D6C8B0'; c.fillRect(0, 0, 256, 256);
+      c.fillStyle = '#6E584A'; c.fillRect(0, 0, 20, 256); c.fillRect(236, 0, 20, 256);
+      c.fillStyle = '#B8A28A'; c.fillRect(24, 0, 4, 256); c.fillRect(228, 0, 4, 256);
+      // ромбы и розетки — тон в тон, мелкий шаг (за героиней не пестрит)
+      c.strokeStyle = '#BCA78E'; c.lineWidth = 3;
+      [[128, 0], [128, 128], [128, 256]].forEach(([x, y]) => { c.beginPath(); c.moveTo(x, y - 64); c.lineTo(x + 92, y); c.lineTo(x, y + 64); c.lineTo(x - 92, y); c.closePath(); c.stroke(); });
+      const ros = (x, y, r) => { for (let k = 0; k < 8; k++) { const a = k * PI / 4; c.fillStyle = k % 2 ? '#BCA68C' : '#B09A80'; c.beginPath(); c.ellipse(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.42, r * 0.2, a, 0, 2 * PI); c.fill(); } c.fillStyle = '#9C846C'; c.beginPath(); c.arc(x, y, r * 0.25, 0, 2 * PI); c.fill(); };
+      ros(128, 0, 34); ros(128, 128, 34); ros(128, 256, 34); ros(60, 64, 16); ros(196, 64, 16); ros(60, 192, 16); ros(196, 192, 16);
+      const ct = tex(cv); ct.wrapS = ct.wrapT = T.RepeatWrapping; ct.repeat.set(1, len / 1.1);
+      const carpet = new T.Mesh(new T.PlaneGeometry(2.2, len), K.toon('#FFFFFF', { map: ct })); carpet.rotation.x = -PI / 2; carpet.position.set(0, 0.006, zc); carpet.receiveShadow = true; B.g.add(carpet);
+      // стены, плинтус, рейка, карниз, потолок
+      const wallM = M('#EFE5D4'), trim = M('#E4D7C3'), ceil = M('#F3EBDE');
+      [-1, 1].forEach(s => {
+        box(wallM, s * (XW + 0.1), HH / 2, zc, 0.2, HH, len);
+        box(trim, s * (XW - 0.01), 0.09, zc, 0.04, 0.18, len);
+        box(trim, s * (XW - 0.015), 0.95, zc, 0.03, 0.05, len);
+        box(trim, s * (XW - 0.03), HH - 0.1, zc, 0.08, 0.2, len);
+      });
+      box(ceil, 0, HH + 0.05, zc, XW * 2 + 0.4, 0.1, len);
+      // светильники в потолке — тёплые прямоугольники
+      const glow = new T.MeshBasicMaterial({ color: '#FFF0D6', fog: true });
+      for (let z = 2; z > Z1 + 2; z -= 3.4) { const m = new T.Mesh(K.GEO.plane, glow); m.rotation.x = PI / 2; m.position.set(0, HH - 0.001, z); m.scale.set(0.9, 0.5, 1); B.g.add(m); }
+      // двери (тёмное дерево, наличник, ручка), панели стен, бра с ореолами
+      const doorM = M('#3E2C24'), archi = M('#E6DAC7'), gold = M('#D4B070', { emissive: new T.Color('#5A4020') }), shadeM = new T.MeshBasicMaterial({ color: '#FFE4B8', fog: true });
+      const doors = { '-1': [-3.2, -9.6, -16, -22.4], '1': [-6.4, -12.8, -19.2, -25.6] };
+      [-1, 1].forEach(s => {
+        const xw = s * XW;
+        doors[String(s)].forEach(z => {
+          rbox(archi, xw - s * 0.03, 1.2, z, 0.06, 2.55, 1.3, 0.02);
+          rbox(doorM, xw - s * 0.05, 1.12, z, 0.06, 2.3, 1.05, 0.015);
+          [0.62, 1.6].forEach(y => rbox(M('#4A362C'), xw - s * 0.085, y, z, 0.02, y < 1 ? 0.8 : 0.9, 0.78, 0.01));
+          sph(gold, xw - s * 0.11, 1.08, z + 0.36, 0.035);
+        });
+        // панели и бра между дверями
+        for (let z = 3.6; z > Z1 + 1; z -= 3.2) {
+          const near = doors[String(s)].some(dz => Math.abs(dz - z) < 1.1);
+          if (near) continue;
+          [[0.5, 0.62], [1.95, 1.45]].forEach(([y, h]) => {
+            rbox(trim, xw - s * 0.012, y, z, 0.02, h, 1.5, 0.008);
+            rbox(wallM, xw - s * 0.022, y, z, 0.02, h - 0.1, 1.4, 0.008);
+          });
+          // бра: пластина, абажур (светится), ореол на стене
+          rbox(gold, xw - s * 0.03, 1.82, z, 0.03, 0.16, 0.08, 0.01);
+          const sh = new T.Mesh(new T.CylinderGeometry(0.08, 0.12, 0.18, 12), shadeM); sh.position.set(xw - s * 0.16, 1.98, z); B.g.add(sh);
+          halo(xw - s * 0.02, 2.0, z, 1.1, 0.55, s * -PI / 2);
+          halo(xw - s * 0.2, 1.98, z, 0.42, 0.7);
+        }
+      });
+      // консоли с настольными лампами у стен
+      [[-1, -6.4], [1, -9.6], [-1, -12.8]].forEach(([s, z]) => {
+        const x = s * (XW - 0.25);
+        box(doorM, x, 0.78, z, 0.42, 0.05, 1.0);
+        [[-0.4], [0.4]].forEach(([dz]) => box(doorM, x, 0.39, z + dz, 0.05, 0.78, 0.05));
+        cyl(gold, x, 0.95, z, 0.06, 0.3);
+        const sh = new T.Mesh(new T.CylinderGeometry(0.12, 0.2, 0.26, 14), shadeM); sh.position.set(x, 1.22, z); B.g.add(sh);
+        halo(x, 1.22, z + 0.01, 0.7, 0.6);
+      });
+      // дальний конец: светлая арка окна
+      box(wallM, 0, HH / 2, Z1 - 0.1, XW * 2, HH, 0.2);
+      box(new T.MeshBasicMaterial({ color: '#FFF4E2', fog: false }), 0, 1.45, Z1 + 0.01, 1.3, 2.3, 0.02);
+      [-0.33, 0.33].forEach(x => box(archi, x, 1.45, Z1 + 0.03, 0.05, 2.3, 0.03)); box(archi, 0, 1.7, Z1 + 0.03, 1.3, 0.05, 0.03);
+    },
+  },
+};
+
+/* лошадь: капсулы и шары; морда тёмная, грива и хвост почти чёрные, белая проточина; смотрит налево (−x) и к камере */
+function horse(B, o) {
+  const { T, K, M, g } = B;
+  const coat = M('#7B4C33'), coatD = M('#5C3826'), mane = M('#2E1F18'), hoof = M('#3A2A22'), blaze = M('#EFE6DA'), eye = M('#1E1614'), muz = M('#4E3426'), strap = M('#3A2620');
+  const cap = (r, l) => new T.CapsuleGeometry(r, l, 6, 12);
+  const root = new T.Group(); root.position.set(o.x, 0, o.z); root.rotation.y = o.ry || 0; root.scale.setScalar(o.s || 1); g.add(root);
+  const body = new T.Group(); root.add(body);
+  const P = (geo, m, p, s, r, par) => { const x = new T.Mesh(geo, m); x.position.fromArray(p); if (s) x.scale.fromArray(s); if (r) x.rotation.fromArray(r); x.receiveShadow = false; (par || body).add(x); return x; };
+  P(cap(0.34, 0.95), coat, [0, 1.18, 0], [1, 1, 0.95], [0, 0, PI / 2]);
+  P(K.GEO_HI.sph, coat, [-0.55, 1.22, 0], [0.4, 0.42, 0.36]);
+  P(K.GEO_HI.sph, coat, [0.6, 1.2, 0], [0.4, 0.4, 0.38]);
+  [[-0.55, 0.15], [-0.55, -0.15], [0.62, 0.15], [0.62, -0.15]].forEach(([x, z], i) => {
+    P(cap(0.075, 0.7), i < 2 ? coat : coatD, [x, 0.55, z], [1, 1, 1]);
+    P(K.GEO_HI.cyl, coatD, [x, 0.2, z], [0.075, 0.22, 0.075]);
+    P(K.GEO_HI.cyl, hoof, [x, 0.05, z], [0.085, 0.1, 0.085]);
+  });
+  // шея (поворот вокруг основания) и голова: скула, сужающаяся морда, ноздри, проточина, недоуздок
+  const neck = new T.Group(); neck.position.set(-0.75, 1.35, 0); body.add(neck);
+  const neck0 = 0.85; neck.rotation.z = neck0;
+  P(cap(0.17, 0.62), coat, [0, 0.42, 0], [1, 1, 0.85], null, neck);
+  P(K.GEO.box, mane, [0.12, 0.45, 0], [0.07, 0.82, 0.08], [0, 0, 0.1], neck);
+  const headG = new T.Group(); headG.position.set(0, 0.84, 0); neck.add(headG);
+  const hb = new T.Group(); hb.rotation.set(0, o.turn == null ? 0.5 : o.turn, -neck0 + 0.85); headG.add(hb);
+  P(K.GEO_HI.sph, coat, [-0.04, 0.0, 0], [0.17, 0.15, 0.125], null, hb);
+  P(cap(0.095, 0.3), coat, [-0.27, -0.01, 0], [1, 1, 0.9], [0, 0, PI / 2 + 0.06], hb);
+  P(K.GEO_HI.sph, muz, [-0.47, -0.03, 0], [0.105, 0.095, 0.09], null, hb);
+  [-1, 1].forEach(s => P(K.GEO_HI.sph, eye, [-0.54, -0.01, s * 0.045], [0.018, 0.022, 0.016], null, hb));
+  P(K.GEO.box, blaze, [-0.27, 0.09, 0], [0.32, 0.02, 0.045], [0, 0, -0.06], hb);
+  [-1, 1].forEach(s => P(K.GEO_HI.sph, eye, [-0.08, 0.07, s * 0.112], [0.026, 0.028, 0.02], null, hb));
+  const ears = [-1, 1].map(s => { const e = new T.Group(); e.position.set(0.04, 0.12, s * 0.065); hb.add(e); P(K.GEO.cone, coat, [0, 0.07, 0], [0.04, 0.14, 0.03], null, e); return e; });
+  P(K.GEO.box, mane, [-0.02, 0.135, 0], [0.12, 0.04, 0.07], [0, 0, -0.3], hb);
+  P(new T.TorusGeometry(1, 0.1, 6, 18), strap, [-0.36, -0.015, 0], [0.105, 0.1, 0.1], [0, PI / 2, 0], hb);
+  [-1, 1].forEach(s => P(K.GEO.box, strap, [-0.17, 0.02, s * 0.118], [0.4, 0.022, 0.012], [0, 0, 0.32], hb));
+  const tail = new T.Group(); tail.position.set(0.95, 1.32, 0); body.add(tail);
+  P(cap(0.07, 0.55), mane, [0.08, -0.36, 0], [1, 1, 1], [0, 0, 0.25], tail);
+  // контур — тоньше и светлее, чем у героини (фон мягче)
+  const olM = new T.ShaderMaterial({ uniforms: { thick: { value: 0.0009 }, col: { value: new T.Color('#5A4038') } },
+    vertexShader: 'uniform float thick; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); mv.xyz += n * thick * (-mv.z); gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 col; void main(){ gl_FragColor = vec4(col, 1.0); }', side: T.BackSide, fog: false });
+  const list = []; root.traverse(m => { if (m.isMesh && m.geometry.type !== 'BoxGeometry' && m.geometry.type !== 'ConeGeometry' && m.geometry.type !== 'TorusGeometry') list.push(m); });
+  list.forEach(m => { const ol = new T.Mesh(m.geometry, olM); ol.position.copy(m.position); ol.rotation.copy(m.rotation); ol.scale.copy(m.scale); m.parent.add(ol); });
+  return { root, body, neck, neck0, headG, tail, ears };
+}
+</script>
+</body></html>

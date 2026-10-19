@@ -487,12 +487,14 @@
           const T = THREE, hd = ctx.api.heroHead(), [cv, c] = (() => { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64; return [cv2, cv2.getContext('2d')]; })();
           c.fillStyle = '#FFD98A'; c.strokeStyle = '#B8903A'; c.lineWidth = 3; c.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, r = i % 2 ? 12 : 28; c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } c.closePath(); c.fill(); c.stroke();
           const tx = new T.CanvasTexture(cv), sp = new T.Sprite(new T.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
-          sp.scale.setScalar(0.14); sp.position.set(-0.08, 0.36, 0.06); hd.add(sp);
+          // высота — над причёской образа (HeroOutfits.headTop: верх волос в метрах модели; без образов — как над беретом)
+          const top = window.HeroOutfits && typeof HeroOutfits.headTop === 'function' ? HeroOutfits.headTop() - 1.5 : 0.396;
+          sp.scale.setScalar(0.14); sp.position.set(-0.08, (isFinite(top) ? top : 0.396) - 0.036, 0.06); hd.add(sp);
           setTimeout(() => { try { hd.remove(sp); sp.material.dispose(); tx.dispose(); } catch (e) { /* комнаты уже нет */ } }, 6000);
         } catch (e) { /* без звезды */ }
       }
       ctx.sparkle('star');
-      await ctx.say({ text: 'Звезда села прямо на берет. Кажется, теперь у тебя собственное созвездие.', s: 'z_star' });
+      await ctx.say({ text: 'Звезда села прямо на макушку. Кажется, теперь у тебя собственное созвездие.', s: 'z_star' });
       return true;
     }
     await ctx.line('projector');
@@ -550,7 +552,7 @@
     },
     secrets: [
       { id: 'z_bow', title: 'Созвездие Банта', trigger: 'кресла: «Ковш», потом пять звёзд «Банта»' },
-      { id: 'z_star', title: 'Звезда на берете', trigger: 'проектор: третий раз за визит' },
+      { id: 'z_star', title: 'Звезда на макушке', trigger: 'проектор: третий раз за визит' },
       { id: 'z_cat', title: 'Музыка под куполом', trigger: 'конец «Ковша», кот рядом' },
     ],
     stamp: { title: 'Ясно', icon: '🔭' },

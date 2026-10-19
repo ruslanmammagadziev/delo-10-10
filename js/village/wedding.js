@@ -2620,7 +2620,8 @@
       if (!cand.length) return false;
       const a = cand.sort((p, q) => Math.hypot(p.px - hl.x, p.pz - hl.z) - Math.hypot(q.px - hl.x, q.pz - hl.z))[0];
       const kazOn = !!(V.kaz && V.kaz.isWorn && V.kaz.isWorn());
-      const kind = st.hero && !kazOn && V.kaz && V.kaz.hideBeret ? 'beret' : 'jingle';
+      // у образов героини (js/hero_outfits.js) берета нет — только «звяк-звяк»
+      const kind = st.hero && !kazOn && V.kaz && V.kaz.hideBeret && (!window.HeroOutfits || HeroOutfits.hasHat()) ? 'beret' : 'jingle';
       if (a.mode === 'fight' && a.fight) { const F = a.fight, o = F.a0 === a ? F.a1 : F.a0; a.fight = null; if (o.mode === 'fight') palStart(o, 'walk'); }
       if (ACTS[a.mode] && ACTS[a.mode].end) ACTS[a.mode].end(a);
       // сторона, с которой подойти к героине: ближняя к ряженому, но где никто не стоит (иначе он топчется вокруг занятого места)

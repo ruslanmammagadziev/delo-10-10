@@ -10,7 +10,8 @@
   const DARK = '#2F2834', LIGHT = '#FFF4EC';
 
   /* ---------- Утилиты ---------- */
-  const heroArt = (o = {}) => Art.heroine(Object.assign({ bow: S().bow, coat: S().coat, hair: S().hair }, o));
+  // героиня в выбранном образе (look — новый рисунок; bow/coat/hair — запасная перекраска тренча)
+  const heroArt = (o = {}) => Art.heroine(Object.assign({ look: G.look(), bow: S().bow, coat: S().coat, hair: S().hair }, o));
   const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
   const RU_DAYS = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
   const RU_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -119,47 +120,20 @@
     'Синоптики сказали: «Ну, бывает».<br/>Горожане потребовали другого синоптика.',
     'Завели дело № 10/10.<br/>Пока это единственное, что здесь на десять из десяти.',
     'Тогда позвали ту, кто вычисляет злодея раньше, чем герои успевают представиться.',
-    'Совпадения случайны.<br/>Бант — нет.',
+    'Совпадения случайны.<br/>Образ — нет.',
   ]);
 
   /* ---------- КАСТИНГ ---------- */
-  const BOWS = [['#F08FA8', 'розовый'], ['#FFF1E6', 'молочный'], ['#B0304A', 'вишнёвый'], ['#2E2A3B', 'чёрный'], ['#A98BE8', 'лавандовый']];
-  const COATS = [['#E9D4B6', 'бежевый'], ['#F2C4CE', 'пудровый'], ['#6B6F7A', 'графитовый'], ['#FFFDF9', 'молочный']];
-  const HAIRS = [['#4A3128', 'тёмные'], ['#1F1A1D', 'чёрные'], ['#7A4A2E', 'каштановые'], ['#D9B27A', 'светлые'], ['#F2A7C0', 'розовые']];
-  function casting() {
-    return new Promise(res => {
-      const st = S();
-      if (!st.name) st.name = G.tgUserFirstName() || C.HER_NAME_DEFAULT || '';
-      const sw = (arr, key) => arr.map(([c, n]) => `<button class="swatch ${st[key] === c ? 'on' : ''}" data-k="${key}" data-c="${c}" style="background:${c}" aria-label="${n}"></button>`).join('');
-      const scr = show(`
-        <div class="grow casting pad" style="padding-bottom:calc(16px + var(--safe-bottom))">
-          <div style="text-align:center"><div class="case-badge">Кастинг</div></div>
-          <div class="title h2" style="text-align:center;margin:10px 0 0">Собираем главную героиню</div>
-          <p class="small muted" style="text-align:center;font-weight:800;margin-top:4px">В серьёзном деле важны две вещи: улики и хороший бант.</p>
-          <div class="char preview bob" id="pv">${heroArt({ magnifier: true })}</div><div class="stand"></div>
-          <div class="opt-label">Бант</div><div class="row wrap">${sw(BOWS, 'bow')}</div>
-          <div class="opt-label">Тренч</div><div class="row wrap">${sw(COATS, 'coat')}</div>
-          <div class="opt-label">Волосы</div><div class="row wrap">${sw(HAIRS, 'hair')}</div>
-          <div class="opt-label">Имя следователя</div>
-          <input class="field" id="nm" maxlength="20" placeholder="Как тебя зовут?" value="${esc(st.name)}" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="done"/>
-          <button class="btn block sticky-cta" id="next" style="margin-top:18px">Всё. Я великолепна</button>
-        </div>`, '');
-      const pv = scr.querySelector('#pv'), nm = scr.querySelector('#nm');
-      nm.addEventListener('keydown', e => { if (e.key === 'Enter') nm.blur(); });
-      scr.querySelectorAll('.swatch').forEach(b => b.addEventListener('click', () => {
-        haptic('select'); sfx('tap');
-        st[b.dataset.k] = b.dataset.c;
-        scr.querySelectorAll(`.swatch[data-k="${b.dataset.k}"]`).forEach(x => x.classList.toggle('on', x === b));
-        pv.innerHTML = heroArt({ magnifier: true });
-        pv.classList.remove('hop'); void pv.offsetWidth; pv.classList.add('hop');
-      }));
-      scr.querySelector('#next').addEventListener('click', () => {
-        const v = nm.value.trim();
-        if (!v) { nm.focus(); toast('У главной героини должно быть имя. Даже у легенды.'); return; }
-        st.name = v; G.save(); haptic('medium'); sfx('ok');
-        teamScreen().then(res);
-      });
-    });
+  // образ — один из шести роликов (js/looks_picker.js: карусель -> имя следователя), затем команда
+  async function casting() {
+    const st = S();
+    if (window.Looks && window.HeroLooks) await Looks.casting();
+    else if (!st.name) { st.name = G.tgUserFirstName() || C.HER_NAME_DEFAULT || ''; G.save(); }
+    await teamScreen();
+  }
+  // пересказ: образа ещё нет — карусель и имя, без команды
+  async function castingLook() {
+    if (window.Looks && window.HeroLooks && !HeroLooks.valid(S().look)) await Looks.casting({ recap: true });
   }
   function teamScreen() {
     return new Promise(res => {
@@ -340,7 +314,7 @@
 
   /* ---------- БУКЕТ: цветочная тележка пчёлки Жу ---------- */
   const PAPERS = [['#E8D3B6', 'крафт'], ['#F6C6D0', 'пудровая'], ['#FFF6EC', 'молочная'], ['#DCCFF2', 'лавандовая']];
-  const ribbons = () => [[S().bow, 'как бант'], ['#FFFDF9', 'белая'], ['#B0304A', 'вишнёвая'], ['#9DBFA8', 'шалфей']];
+  const ribbons = () => [[S().bow, 'в тон образу'], ['#FFFDF9', 'белая'], ['#B0304A', 'вишнёвая'], ['#9DBFA8', 'шалфей']];
   const MAX_STEMS = 9, MIN_STEMS = 3;
   const flName = id => (Art.FLOWERS.find(f => f.id === id) || {}).name || '';
   const stemsWord = n => (n % 10 === 1 && n % 100 !== 11 ? 'веточка' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'веточки' : 'веточек');
@@ -459,14 +433,14 @@
         target, idx, again: !!opts.again,
         justLit: idx > 0 && !opts.again ? ORDER[idx - 1] : null,
         isLit: k => ORDER.indexOf(k) < idx,
-        hero: { bow: st.bow, coat: st.coat, hair: st.hair, cup: st.drink && idx >= 3 ? st.drink : null },
+        hero: { look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, cup: st.drink && idx >= 3 ? st.drink : null },
         catHelper: !!st.catHelper && !opts.intro,
         hudLabel: label(target), sky: SKIES[Math.min(idx, 3)], fogColor: FOGS[Math.min(idx, 3)], leafColor: idx > 1 ? '#8FB88A' : '#A6B3A2',
         rain: idx === 0,
         arrowText: ARROW[target], nameText: BNAME[target],
         headline: HEADLINES[Math.min(idx, 3)],
         weatherText: idx >= 3 ? 'Прогноз: прояснение откладывается до серии\u00A02.' : 'Прогноз: пасмурно, местами подозрительно. К вечеру прояснение.',
-        heroLine: st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка банта. Всё прекрасно. Можно спасать мир.',
+        heroLine: st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка образа. Всё прекрасно. Можно спасать мир.',
         secretAvailable: !!C.ENABLE_SECRET_STICKER && !st.stickers.includes('secret'),
         held: st.bouquet ? { kind: 'bouquet', data: st.bouquet } : null,
         spots: [{ id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'собрать букет', bubble2: 'пересобрать букет', auto: !st.metBee && !opts.intro }],
@@ -686,7 +660,7 @@
         haptic('light');
         heroChar.classList.remove('hop'); void heroChar.offsetWidth; heroChar.classList.add('hop');
         sparkleAt(heroChar, { n: 6, dist: 36 });
-        toast(st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка банта. Всё прекрасно. Можно спасать мир.', 2200);
+        toast(st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка образа. Всё прекрасно. Можно спасать мир.', 2200);
       });
       const cartX = L.cart + 66;
       let cartBusy = false, cartAuto = !st.metBee && !opts.intro;
@@ -922,7 +896,8 @@
   const FRAME_TARGETS = [
     { id: 'clock', x: 272, y: 44, r: 30, msg: 'Тринадцать на часах! У времени начались проблемы с математикой.' },
     { id: 'mirror', x: 200, y: 58, r: 36, msg: 'Ваза есть, отражения нет. Надеюсь, у вазы просто плохой день.' },
-    { id: 'bow', x: 322, y: 116, r: 26, msg: 'Секундочку. Это МОЙ бант. Я теперь ещё и актриса без гонорара?', who: 'hero' },
+    // id 'bow' — внутренний (хранится в прогрессе кадра cin.f), реплика — про вещь из выбранного образа
+    { id: 'bow', x: 322, y: 116, r: 26, who: 'hero', get msg() { return 'Секундочку. Это ' + (window.HeroLooks ? HeroLooks.get(G.look()).sig.my : 'МОЙ бант') + '. Я теперь ещё и актриса без гонорара?'; } },
   ];
   const FRAME_DECOYS = [
     { x: 170, y: 148, r: 12, free: true, msgs: ['Пахнет яблоком с корицей. Виновница — свеча. Обидно.', 'Свеча делает вид, что она пирог. Не верим.'] },
@@ -1017,7 +992,7 @@
     md.querySelector('.frame-close').addEventListener('click', () => { if (F.busy || F.finished || document.querySelector('#layer .dlg-wrap')) return; haptic('light'); close('closed'); });
     return { md, F, kit, close, result, setSkip: f => { onSkip = f; } };
   }
-  const heroOf = st => ({ bow: st.bow, coat: st.coat, hair: st.hair, cup: null });
+  const heroOf = st => ({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, cup: null });
   const cycler = () => { const c = {}; return (k, list) => { const i = c[k] || 0; c[k] = i + 1; return list[i % list.length]; }; };
   // f2 — 2D-версия сцены на случай, если 3D не запустилось
   function room3D(id, o, f2) {
@@ -1177,7 +1152,7 @@
       const BOOTH = ['Слёз было столько, что я дважды протирал глаза платком. Экран — ни разу.', 'Проектор старый, но честный. Показывает только то, что было.', 'Если кадр заело — ищите, что в нём лишнее. Так учил мой учитель. Тоже енот.'];
       City3D.run({
         room: 'cinema', hudLabel: label('cinema'),
-        hero: { bow: st.bow, coat: st.coat, hair: st.hair, cup: null },
+        hero: { look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, cup: null },
         catHelper: !!st.catHelper, catSweater: !!st.catSweater && !!st.catHelper,
         held: st.bouquet ? { kind: 'bouquet', data: st.bouquet } : null,
         onSpot: async (id, api) => {
@@ -1290,7 +1265,7 @@
       const st = S();
       const scr = show(`
         <div class="loc-title" style="color:#F7C9D3">Кинотеатр «Саспенс»</div>
-        <div class="screen-frame film-grain" id="frame"><div class="frame-tag">❚❚ кадр заело</div>${Art.cinemaFrame({ bow: st.bow })}</div>
+        <div class="screen-frame film-grain" id="frame"><div class="frame-tag">❚❚ кадр заело</div>${Art.cinemaFrame({ bow: st.bow, look: G.look() })}</div>
         <div class="puzzle-bar" id="pbar"></div>
         <div class="beam" id="beam"></div>
         <div class="booth" id="booth">${Art.booth()}</div>
@@ -1934,12 +1909,13 @@
     const st = S();
     if (!st.name) st.name = G.tgUserFirstName() || C.HER_NAME_DEFAULT || '';
     await cards([
-      'В городе пропало солнце. На дело вызвали девушку с бантом. Солнце уже нервничает.',
-      'В кинотеатре завис кадр: тринадцатый час, невидимая в зеркале ваза и подозрительно знакомый бант.',
+      'В городе пропало солнце. На дело вызвали девушку с безупречным образом. Солнце уже нервничает.',
+      'В кинотеатре завис кадр: тринадцатый час, невидимая в зеркале ваза и кое-что подозрительно знакомое.',
       'Попугай перевёл послание так, что пришлось спасать не только солнце, но и английский язык.',
       'Три десерта дали показания. Бабл-ти прокололся. След ведёт на крышу.',
       'Но ступеньки куда-то делись. Кто-то оставил на двери загадку и вместо подписи нарисовал чашку чая.',
     ]);
+    await castingLook();
     const e = G.ep(1);
     e.recap = true;
     ['prologue', 'casting', 'cinema', 'bureau', 'sweets', 'roof'].forEach(c => { if (!e.cp.includes(c)) e.cp.push(c); });
@@ -1992,5 +1968,5 @@
 
   window.Ep1 = { run, title, endCard, credits, ruDate, whenText, restart, scene, ORDER };
   // набор для прогулки «Город нараспашку» (js/town.js)
-  window.Ep1.kit = { stageFinds, pickFind, flowerCart, bouquetFlow, FINDS, STREET_LINES, intertitle, stageDirection, hintKit, framePuzzle, BOWS, COATS, HAIRS };
+  window.Ep1.kit = { stageFinds, pickFind, flowerCart, bouquetFlow, FINDS, STREET_LINES, intertitle, stageDirection, hintKit, framePuzzle };
 })();
