@@ -2026,10 +2026,11 @@
         sv: (a, v) => shellS(S, a, lerp(brk + 0.004, o.notch + 0.012, v)),
         off: (a, s, u, v) => off(a, lerp(brk, o.notch, v)) + 0.0035 + (o.lift || 0.002) * uu(u) * (0.4 + 0.6 * v),
         col: (p, a, s, u, v) => o.col(p, a, p[1], uu(u) > 0.8 ? 'edge' : 'lapel') });
-      // тень под внешним краем лацкана: узкая тёмная полоса на поле (1 см) — лацкан читается и в однотонной ткани
-      const xo = y => xs(y, 1) * sd;
-      shellPiece(B, S, { rows: LR, ol: false, cols: v => { const y = lerp(brk + 0.01, o.notch + 0.006, v), x0 = xo(y), out = [sd * x0, sd * (x0 + 0.01)].map(x => shellAz(S, x, y, sd)); return sd > 0 ? out : out.reverse(); },
-        sv: (a, v) => shellS(S, a, lerp(brk + 0.01, o.notch + 0.006, v)), off: (a, s, u, v) => off(a, lerp(brk, o.notch, v)) + 0.0012,
+      // тень под внешним краем лацкана: узкая тёмная полоса на поле (1 см) — лацкан читается и в однотонной ткани;
+      // o.shTop — её верх (по умолчанию у уступа: notch + 6 мм)
+      const xo = y => xs(y, 1) * sd, shT = o.shTop == null ? o.notch + 0.006 : o.shTop;
+      shellPiece(B, S, { rows: LR, ol: false, cols: v => { const y = lerp(brk + 0.01, shT, v), x0 = xo(y), out = [sd * x0, sd * (x0 + 0.01)].map(x => shellAz(S, x, y, sd)); return sd > 0 ? out : out.reverse(); },
+        sv: (a, v) => shellS(S, a, lerp(brk + 0.01, shT, v)), off: (a, s, u, v) => off(a, lerp(brk, o.notch, v)) + 0.0012,
         col: (p, a, s, u, v) => o.col(p, a, p[1], 'shadow') });
     };
     lap(1); lap(-1);
@@ -2653,8 +2654,9 @@
     };
     const basePt = (th, R) => { const ct = Math.cos(th); return [Math.sin(th) * R[1], R[0], R[2] + ct * (ct > 0 ? R[3] : R[4])]; };
     // линия роста волос сзади (у шеи, по углу кольца от середины лба 0 к затылку π): за ухом на уровне мочки, к затылку
-    // чуть ниже — на коже под затылком (её рваный верхний край — под шапочкой), посередине — под пучком
-    const HL = [[1.1, 1.5], [1.35, 1.465], [1.7, 1.44], [2.3, 1.425], [2.7, 1.4], [PI, 1.39]];
+    // ниже — до шеи (низ затылка у автора — кожа «полкой» под черепом: снизу она видна под краем шапочки рыжим), посередине
+    // — под пучком
+    const HL = [[1.1, 1.5], [1.35, 1.465], [1.7, 1.425], [2.3, 1.4], [2.7, 1.38], [PI, 1.372]];
     const fold = th => { const a = ((th % (2 * PI)) + 2 * PI) % (2 * PI); return a > PI ? 2 * PI - a : a; };
     const napeLine = th => { const a = fold(th); if (a <= HL[0][0]) return HL[0][1]; for (let i = 1; i < HL.length; i++) if (a <= HL[i][0]) return lerp(HL[i - 1][1], HL[i][1], (a - HL[i - 1][0]) / (HL[i][0] - HL[i - 1][0])); return HL[HL.length - 1][1]; };
     // низ шапочки по столбцу (угол th вокруг оси головы): верх кожи маски (сплошной кусок не меньше 1 см по высоте)
@@ -2725,7 +2727,7 @@
         // ниже низа шапочки: спереди — не больше 1.2 см (по центру грани), с боков и сзади — ни одной вершиной ниже 6 мм
         // (у челюсти, за ухом и у затылка кайма свисала бы «бахромой»)
         const cl = capLine(st), thc = Math.atan2(cx - CH[0], cz - CH[2]);
-        if (Math.abs(thc) < 0.8 ? cy < cl(thc) - 0.012 : [a, b, c].some(v => P0[v * 3 + 1] < cl(Math.atan2(P0[v * 3] - CH[0], P0[v * 3 + 2] - CH[2])) - 0.002)) { f[t] = 2; continue; }
+        if (Math.abs(thc) < 0.8 ? cy < cl(thc) - 0.005 : [a, b, c].some(v => P0[v * 3 + 1] < cl(Math.atan2(P0[v * 3] - CH[0], P0[v * 3 + 2] - CH[2])) - 0.002)) { f[t] = 2; continue; }
         f[t] = 1;
       }
       // пряди, которые у автора закрывают край лица спереди (луч от центра грани назад упирается в лицо не дальше 3 см), —
@@ -2751,7 +2753,7 @@
       for (let t = 0; t < st.nt; t++) {
         if (f[t] !== 2) continue;
         const a = I0[t * 3] * 3, b = I0[t * 3 + 1] * 3, c = I0[t * 3 + 2] * 3, ox = (P0[a] + P0[b] + P0[c]) / 3, oy = (P0[a + 1] + P0[b + 1] + P0[c + 1]) / 3, oz = (P0[a + 2] + P0[b + 2] + P0[c + 2]) / 3;
-        f[t] = ox < 0.02 && DIRS.some(d => hits(ox, oy, oz, d)) ? 1 : 0;
+        f[t] = ox < 0.02 && oy < 1.62 && DIRS.some(d => hits(ox, oy, oz, d)) ? 1 : 0;
       }
       st.creamBand = f;
       return f;
@@ -2806,7 +2808,7 @@
     // сходятся к пучку, пробор посередине, мягкий блик
     const UV0 = 0.97, UVH = 0.47;
     const capV = y => UV0 - UVH * (Y0 - y) / (Y0 - Y1);
-    const HAIRC = mix3(HD, HB, 0.8);
+    const HAIRC = mix3(HD, HB, 0.8), SCALP = mix3(HAIRC, tc('#E8B89A'), 0.5);
     const texPost = (c, S) => {
       const y0p = Math.floor((1 - UV0) * S), y1p = Math.ceil((1 - (UV0 - UVH)) * S), im = c.getImageData(0, y0p, S, y1p - y0p), d = im.data;
       const F = [0, 1.75, 0.1], Bn = [0, 1.43, -0.25], ax = [Bn[0] - F[0], Bn[1] - F[1], Bn[2] - F[2]], al = Math.hypot(ax[0], ax[1], ax[2]);
@@ -2820,10 +2822,12 @@
         const phi = Math.atan2(wx, wy * up[1] + wz * up[2]);
         const s2 = 0.55 * Math.sin(phi * 46 + Math.sin(phi * 7) * 0.8) + 0.45 * Math.sin(phi * 19 + 1.3);
         let k = 0.9 + 0.075 * s2;
-        if (Math.abs(phi) < 0.035 && along < 0.2) k *= 0.62 + 0.38 * Math.abs(phi) / 0.035;
         k += 0.16 * Math.exp(-Math.pow((Math.abs(phi) - 0.75) / 0.18, 2)) * sst(0.32, 0.12, along);
-        const j = ((py - y0p) * S + px) * 4;
-        for (let ch = 0; ch < 3; ch++) d[j + ch] = clamp(HAIRC[ch] * k, 0, 255);
+        // гладко от пробора: вдоль пробора — блик (пряди расходятся в стороны), сам пробор — светлая линия кожи
+        k += 0.1 * Math.exp(-Math.pow((Math.abs(phi) - 0.11) / 0.05, 2)) * sst(0.22, 0.08, along);
+        // пробор — по середине (|x| до 3.5 мм) от линии лба через макушку и чуть за неё
+        const j = ((py - y0p) * S + px) * 4, pk = clamp(1.4 - Math.abs(q[0]) / 0.0035, 0, 1) * (Math.cos(th) > 0 ? 1 : sst(1.775, 1.8, y));
+        for (let ch = 0; ch < 3; ch++) d[j + ch] = clamp(lerp(HAIRC[ch] * k, SCALP[ch], pk * 0.8), 0, 255);
         d[j + 3] = 255;
       }
       c.putImageData(im, 0, y0p);
@@ -2881,9 +2885,12 @@
         const nv = r === 0 ? [0, 1, 0] : nl > 1e-7 ? [n[0] / nl, n[1] / nl, n[2] / nl] : (() => { const l = Math.hypot(o[0], o[1], o[2]) || 1; return o.map(q => q / l); })();
         B.v(p, nv, [255, 255, 255], w, [(colTh(s / SEG) + PI) / (2 * PI), capV(YS[r * (SEG + 1) + s])], 0);
       }
+      // спереди над висками (не по середине лба и не сбоку — там силуэт) шапочка без контура: оболочка контура вылезала
+      // из складок над каймой тёмными косыми «прядями» — читалась косая чёлка
       for (let r = 0; r < NR - 1; r++) for (let s = 0; s < SEG; s++) {
-        const i00 = r * (SEG + 1) + s, i01 = i00 + 1, i10 = i00 + SEG + 1, i11 = i10 + 1;
-        B.tri(base + i00, base + i10, base + i01); B.tri(base + i01, base + i10, base + i11);
+        const i00 = r * (SEG + 1) + s, i01 = i00 + 1, i10 = i00 + SEG + 1, i11 = i10 + 1, ath = Math.abs(colTh((s + 0.5) / SEG));
+        const ol = !(r >= 3 && ath > 0.2 && ath < 1.3);
+        B.tri(base + i00, base + i10, base + i01, ol); B.tri(base + i01, base + i10, base + i11, ol);
       }
       B.part = 0;
     }
@@ -2902,12 +2909,197 @@
       // ровный цвет (свет даёт объём): без строчек и хлястика тренча
       o.f = 1; return y < 0.83 ? mix3(IV, IVD, 0.12, out) : IV;
     };
+    // рукава пиджака (рукав тренча): верх у плеча — на 10 % к оси (под подплечник, без «пилы» на стыке с плечом), манжета
+    // тренча и низ рукава — в одну трубу (радиус 5 см, как рукав): длинный ровный рукав до запястья, без отворота с хлястиком
+    const creamArms = sleeveShape((t, r) => {
+      if (t < 0) return 1 - 0.1 * sst(-0.6, -0.92, t);
+      const R = 0.05, w = sst(0.55, 0.72, t);
+      return r > R ? lerp(1, R / r, w) : 1;
+    }, ['sleeve', 'cuff']);
+    // лодочки с острым носом (у автора — круглые носы кед): носок на 6 см вытянут вперёд на 3 см, сужен и прижат к подошве
+    const pointToes = ctx => {
+      const { st, p, zn, moved } = ctx;
+      [1, -1].forEach(s => {
+        let zMax = -9, yMin = 9, cx = 0, cn = 0;
+        for (let i = 0; i < st.n; i++) if (zn[i] === Z.shoes && p[i * 3] * s > 0) { zMax = Math.max(zMax, p[i * 3 + 2]); yMin = Math.min(yMin, p[i * 3 + 1]); }
+        if (zMax < -1) return;
+        for (let i = 0; i < st.n; i++) if (zn[i] === Z.shoes && p[i * 3] * s > 0 && p[i * 3 + 2] > zMax - 0.03) { cx += p[i * 3]; cn++; }
+        cx /= cn || 1;
+        const z0 = zMax - 0.06;
+        for (let i = 0; i < st.n; i++) {
+          if (zn[i] !== Z.shoes || p[i * 3] * s <= 0 || p[i * 3 + 2] <= z0) continue;
+          const z = p[i * 3 + 2], k = (z - z0) / (zMax - z0), k2 = k * k;
+          p[i * 3] = cx + (p[i * 3] - cx) * (1 - 0.72 * k2);
+          p[i * 3 + 1] = yMin + (p[i * 3 + 1] - yMin) * (1 - 0.5 * k2);
+          p[i * 3 + 2] = z + 0.035 * k2;
+          moved[i] = 1;
+        }
+      });
+    };
     // вырез топа: спереди 1.19, сзади 1.24
     const topNeck = a => { const aa = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))); return lerp(1.19, 1.245, sst(0.5, 1.6, aa)); };
-    const BAG = ['#E6DCCB', '#D4C7B1', '#F5EFE4'];
+    // веса вершины одежды — как у ближайших вершин модели (cand — индексы вершин): k ближайших, обратно расстоянию
+    function nearW(st, cand, p, k) {
+      const SIa = st.geo.attributes.skinIndex.array, SWb = st.geo.attributes.skinWeight, SWa = SWb.array, P0 = st.P0;
+      const swk = SWb.normalized ? (SWa instanceof Uint8Array ? 1 / 255 : SWa instanceof Uint16Array ? 1 / 65535 : 1) : 1;
+      const best = [];
+      for (let q = 0; q < cand.length; q++) {
+        const i = cand[q], d = Math.hypot(P0[i * 3] - p[0], P0[i * 3 + 1] - p[1], P0[i * 3 + 2] - p[2]);
+        if (best.length < k || d < best[best.length - 1][0]) { best.push([d, i]); best.sort((x, y) => x[0] - y[0]); if (best.length > k) best.pop(); }
+      }
+      const acc = new Map();
+      best.forEach(([d, i]) => { const f = 1 / (d + 0.003); for (let j = 0; j < 4; j++) { const bi = SIa[i * 4 + j], w = SWa[i * 4 + j] * swk * f; if (w > 0) acc.set(bi, (acc.get(bi) || 0) + w); } });
+      const top = Array.from(acc.entries()).sort((x, y) => y[1] - x[1]).slice(0, 4), sum = top.reduce((s, q) => s + q[1], 0) || 1;
+      const si = [0, 0, 0, 0], sw = [0, 0, 0, 0];
+      top.forEach((q, j) => { si[j] = q[0]; sw[j] = q[1] / sum; });
+      if (!top.length) { si[0] = Math.max(0, boneIdx('neck')); sw[0] = 1; }
+      return { si, sw };
+    }
+    // Шея целиком — «рукавом» кожи на 1.5 мм поверх шеи автора: от ворота (1.296) до низа челюсти спереди и с боков (где
+    // лицо выходит из шеи больше чем на 1 см) и до кожи под шапочкой сзади. У автора низ лица на шее — тень под
+    // подбородком и рыжий тон сзади (под тренчем и распущенными волосами её не видно); при пучке и открытом вороте она
+    // читалась рыжим пятном. Цвет — кожа шеи автора (как в вырезе топа), под челюстью чуть темнее; веса — ближайших
+    // вершин шеи и лица автора (рукав гнётся вместе с шеей и головой); без контура — край шеи рисует контур героини
+    const NK = { cz: -0.012, y0: 1.296, y1: 1.47, dy: 0.0025, na: 48, cols: 28, rows: 5 };
+    function neckSleeve(B, st) {
+      if (!st || !st.tex) return;
+      const P0 = st.P0, I0 = st.I0, NA = NK.na, NY = Math.round((NK.y1 - NK.y0) / NK.dy) + 1, R = new Float32Array(NA * NY);
+      const kOf = a => ((Math.floor((a + PI) / (2 * PI) * NA) % NA) + NA) % NA;
+      // растр: наибольший радиус лица и шеи автора от оси шеи по (азимут, высота)
+      for (let t = 0; t < st.nt; t++) {
+        const zt = st.tz[t];
+        if (zt !== Z.face && zt !== Z.neck) continue;
+        const a = I0[t * 3] * 3, b = I0[t * 3 + 1] * 3, c = I0[t * 3 + 2] * 3;
+        if (Math.max(P0[a + 1], P0[b + 1], P0[c + 1]) < NK.y0 - 0.01 || Math.min(P0[a + 1], P0[b + 1], P0[c + 1]) > NK.y1) continue;
+        const e = Math.max(Math.hypot(P0[a] - P0[b], P0[a + 1] - P0[b + 1], P0[a + 2] - P0[b + 2]), Math.hypot(P0[c] - P0[b], P0[c + 1] - P0[b + 1], P0[c + 2] - P0[b + 2]), Math.hypot(P0[a] - P0[c], P0[a + 1] - P0[c + 1], P0[a + 2] - P0[c + 2]));
+        const nS = clamp(Math.ceil(e / 0.002), 1, 24);
+        for (let i = 0; i <= nS; i++) for (let j = 0; j <= nS - i; j++) {
+          const wa = i / nS, wb = j / nS, wc = 1 - wa - wb, y = P0[a + 1] * wa + P0[b + 1] * wb + P0[c + 1] * wc;
+          if (y < NK.y0 || y > NK.y1) continue;
+          const x = P0[a] * wa + P0[b] * wb + P0[c] * wc, z = P0[a + 2] * wa + P0[b + 2] * wb + P0[c + 2] * wc - NK.cz, o = Math.round((y - NK.y0) / NK.dy) * NA + kOf(Math.atan2(x, z)), r = Math.hypot(x, z);
+          if (r > R[o]) R[o] = r;
+        }
+      }
+      // нижняя ячейка с кожей по столбцу (сзади низ шеи у автора — дыра под воротником тренча: кожа начинается выше);
+      // пустые ячейки — от соседей по высоте (ниже первой — её радиусом); огибающая ±1 ячейка (рукав не входит в шею
+      // между точками растра)
+      const jF = new Int32Array(NA);
+      for (let k = 0; k < NA; k++) {
+        let j = 0; while (j < NY - 1 && !R[j * NA + k]) j++;
+        jF[k] = j;
+        let v = R[j * NA + k];
+        for (let q = 0; q < NY; q++) { if (R[q * NA + k]) v = R[q * NA + k]; else R[q * NA + k] = v; }
+      }
+      const RE = new Float32Array(NA * NY);
+      for (let j = 0; j < NY; j++) for (let k = 0; k < NA; k++) { let m = 0; for (let dj = -1; dj <= 1; dj++) for (let dk = -1; dk <= 1; dk++) { const jj = clamp(j + dj, 0, NY - 1); m = Math.max(m, R[jj * NA + (k + dk + NA) % NA]); } RE[j * NA + k] = m; }
+      // верх столбца: спереди и с боков — где лицо выходит из шеи (радиус больше шеи на 1 см: низ челюсти), сзади — край
+      // кожи под шапочкой (линия у шеи + 1 см: рукав уходит под шапочку)
+      const top = new Float32Array(NA), j0 = Math.round((1.31 - NK.y0) / NK.dy);
+      for (let k = 0; k < NA; k++) {
+        const a = -PI + (k + 0.5) * 2 * PI / NA, js = Math.max(j0, jF[k]), r0 = R[Math.min(NY - 1, js + 2) * NA + k];
+        let j = js;
+        while (j < NY - 1 && R[(j + 1) * NA + k] < r0 + 0.01) j++;
+        const yJaw = NK.y0 + j * NK.dy, yNape = Math.min(napeLine(a) + 0.01, NK.y1);
+        top[k] = lerp(yJaw, yNape, sst(1.9, 2.4, Math.abs(a)));
+      }
+      const t1 = new Float32Array(NA), t2 = new Float32Array(NA);
+      for (let k = 0; k < NA; k++) t1[k] = Math.min(top[(k + NA - 1) % NA], top[k], top[(k + 1) % NA]);
+      for (let k = 0; k < NA; k++) t2[k] = (t1[(k + NA - 1) % NA] + 2 * t1[k] + t1[(k + 1) % NA]) / 4;
+      const fa = a => { const f = (a + PI) / (2 * PI) * NA - 0.5; return [((Math.floor(f) % NA) + NA) % NA, f - Math.floor(f)]; };
+      const topAt = a => { const [k, q] = fa(a); return lerp(t2[k], t2[(k + 1) % NA], q); };
+      const rAt = (a, y) => { const [k, q] = fa(a), fj = clamp((y - NK.y0) / NK.dy, 0, NY - 1.001), j = Math.floor(fj), kj = fj - j, g = (kk, jj) => RE[jj * NA + kk]; return lerp(lerp(g(k, j), g((k + 1) % NA, j), q), lerp(g(k, j + 1), g((k + 1) % NA, j + 1), q), kj); };
+      // кандидаты для весов: вершины шеи и лица у шеи
+      const cand = [];
+      for (let i = 0; i < st.n; i++) if ((st.zn[i] === Z.neck || st.zn[i] === Z.face) && P0[i * 3 + 1] > 1.26 && P0[i * 3 + 1] < 1.5) cand.push(i);
+      const NSK = neckSkin(st), NSD = [NSK[0] * 0.9, NSK[1] * 0.87, NSK[2] * 0.86], NC = NK.cols, NRw = NK.rows, G = [];
+      for (let r = 0; r <= NRw; r++) for (let c = 0; c < NC; c++) {
+        const a = -PI + (c + 0.5) * 2 * PI / NC, v = r / NRw, yt = topAt(a), y = lerp(NK.y0, yt, Math.pow(v, 0.8));
+        // у верха радиус — с отметки на 4 мм ниже (без раструба к челюсти), верхний ряд — на 1 мм под кожу
+        const rr = rAt(a, Math.min(y, yt - 0.004)) + (r === NRw ? -0.001 : 0.0015);
+        G.push({ p: [Math.sin(a) * rr, y, NK.cz + Math.cos(a) * rr], a, y, yt });
+      }
+      const base = B.p.length / 3, at = (r, c) => G[clamp(r, 0, NRw) * NC + ((c % NC) + NC) % NC];
+      for (let r = 0; r <= NRw; r++) for (let c = 0; c < NC; c++) {
+        const g = at(r, c), a1 = at(r, c + 1).p, a0 = at(r, c - 1).p, b1 = at(r + 1, c).p, b0 = at(r - 1, c).p;
+        const tx = [a1[0] - a0[0], a1[1] - a0[1], a1[2] - a0[2]], ty = [b1[0] - b0[0], b1[1] - b0[1], b1[2] - b0[2]];
+        let n = [ty[1] * tx[2] - ty[2] * tx[1], ty[2] * tx[0] - ty[0] * tx[2], ty[0] * tx[1] - ty[1] * tx[0]];
+        if (n[0] * Math.sin(g.a) + n[2] * Math.cos(g.a) < 0) n = n.map(q => -q);
+        const nl = Math.hypot(n[0], n[1], n[2]) || 1;
+        // под челюстью (спереди и с боков) — тень чуть темнее, сзади ровно
+        const sh = sst(g.yt - 0.014, g.yt, g.y) * (1 - sst(1.6, 2.3, Math.abs(g.a))) * 0.7;
+        B.v(g.p, [n[0] / nl, n[1] / nl, n[2] / nl], mix3(NSK, NSD, sh, [0, 0, 0]), nearW(st, cand, g.p, 4));
+      }
+      for (let r = 0; r < NRw; r++) for (let c = 0; c < NC; c++) {
+        const i00 = base + r * NC + c, i01 = base + r * NC + (c + 1) % NC, i10 = i00 + NC, i11 = i01 + NC;
+        B.tri(i00, i01, i10, false); B.tri(i01, i11, i10, false);
+      }
+    }
+    // Сумка-трапеция в левой руке (как в ролике): корпус слоновой кости висит под кистью, широкой стороной вперёд и наружу
+    // (поворот beta вокруг вертикали: спереди, вполоборота и сбоку — трапеция), скруглённые рёбра с тонким тёмным кантом
+    // (вертикальные рёбра, верх и низ), две короткие ручки-дуги из верхней грани в ладонь. Жёстко на кости кисти, часть 2:
+    // прячется в транспорте, спорте, полёте и сидя
+    const TOTE = { w0: 0.185, w1: 0.148, d0: 0.064, d1: 0.054, h: 0.135, rc: 0.007, beta: 0.95, drop: 0.085, dx: 0.03, grip: 0.048, hw: 0.036, hr: 0.005 };
+    function tote(B) {
+      const a = J('forearm_L'), b = J('hand_L'), al = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1;
+      const G = [b[0] + (b[0] - a[0]) / al * TOTE.grip, b[1] + (b[1] - a[1]) / al * TOTE.grip, b[2] + (b[2] - a[2]) / al * TOTE.grip];
+      const w = W1('hand_L'), cb = Math.cos(TOTE.beta), sb = Math.sin(TOTE.beta), U = [cb, 0, -sb], V = [sb, 0, cb];
+      const yTop = G[1] - TOTE.drop, yBot = yTop - TOTE.h, C = [G[0] + TOTE.dx, 0, G[2]];
+      const P = (u, y, v) => [C[0] + U[0] * u + V[0] * v, y, C[2] + U[2] * u + V[2] * v];
+      const BODY = tc('#EEE6D6'), SIDE = tc('#DDD2BF'), PIPE = tc('#4A372C'), TOPC = tc('#F2ECE0'), HND = tc('#CBBDA3');
+      const rc = TOTE.rc, RT = [0, 0.035, 0.5, 0.965, 1], NP = 12, pp = B.part;
+      B.part = 2;
+      // сечение: скруглённый прямоугольник, на каждое ребро — начало дуги, середина (кант), конец
+      const ring = t => {
+        const W = lerp(TOTE.w0, TOTE.w1, t), D = lerp(TOTE.d0, TOTE.d1, t), hu = W / 2 - rc, hv = D / 2 - rc, out = [];
+        [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([su, sv], q) => {
+          for (let m = 0; m < 3; m++) { const th = q * PI / 2 + m * PI / 4, cu = Math.cos(th), cv = Math.sin(th); out.push({ u: su * hu + rc * cu, v: sv * hv + rc * cv, nu: cu, nv: cv, pipe: m === 1 }); }
+        });
+        return out;
+      };
+      const base = B.p.length / 3, rings = RT.map(ring);
+      rings.forEach((rg, ri) => {
+        const t = RT[ri], y = lerp(yBot, yTop, t);
+        rg.forEach(q => {
+          const n = [U[0] * q.nu + V[0] * q.nv, 0, U[2] * q.nu + V[2] * q.nv];
+          // гусеты темнее, низ чуть темнее, рёбра, верх и низ — кант
+          const col = q.pipe || ri === 0 || ri === RT.length - 1 ? PIPE : mix3(mix3(BODY, SIDE, Math.abs(q.nu)), SIDE, (1 - t) * 0.25, [0, 0, 0]);
+          B.v(P(q.u, y, q.v), n, col, w);
+        });
+      });
+      for (let r = 0; r < RT.length - 1; r++) for (let s = 0; s < NP; s++) {
+        const i00 = base + r * NP + s, i01 = base + r * NP + (s + 1) % NP, i10 = i00 + NP, i11 = i01 + NP;
+        B.tri(i00, i10, i01); B.tri(i01, i10, i11);
+      }
+      // донышко и верх: свои вершины по краю (цвет ткани — кант только на боках), веер к середине
+      [[0, -1], [RT.length - 1, 1]].forEach(([ri, sg]) => {
+        const y = lerp(yBot, yTop, RT[ri]), c0 = B.v(P(0, y, 0), [0, sg, 0], sg > 0 ? TOPC : SIDE, w), cb0 = B.p.length / 3;
+        rings[ri].forEach(q => B.v(P(q.u, y, q.v), [0, sg, 0], sg > 0 ? TOPC : SIDE, w));
+        for (let s = 0; s < NP; s++) { const p0 = cb0 + s, p1 = cb0 + (s + 1) % NP; if (sg > 0) B.tri(c0, p1, p0); else B.tri(c0, p0, p1); }
+      });
+      // ручки: дуги из верхней грани (у передней и задней стенки) в ладонь, рядом друг с другом; без контура (тоньше его)
+      [1, -1].forEach(sv => {
+        const dv = TOTE.d1 * 0.22 * sv, A1 = P(-TOTE.hw, yTop, dv), A2 = P(TOTE.hw, yTop, dv), Gp = [G[0] + V[0] * 0.004 * sv, G[1], G[2] + V[2] * 0.004 * sv];
+        const K = [2 * Gp[0] - (A1[0] + A2[0]) / 2, 2 * Gp[1] - (A1[1] + A2[1]) / 2, 2 * Gp[2] - (A1[2] + A2[2]) / 2];
+        const bz = t => [0, 1, 2].map(i => (1 - t) * (1 - t) * A1[i] + 2 * (1 - t) * t * K[i] + t * t * A2[i]);
+        const NR = 10, NS = 6, hb = B.p.length / 3;
+        for (let r = 0; r <= NR; r++) {
+          const t = r / NR, c = bz(t), c1 = bz(Math.min(1, t + 0.01)), c0 = bz(Math.max(0, t - 0.01)), T3 = [c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]], tl = Math.hypot(T3[0], T3[1], T3[2]) || 1;
+          const Tn = T3.map(q => q / tl), N3 = [Tn[1] * V[2] - Tn[2] * V[1], Tn[2] * V[0] - Tn[0] * V[2], Tn[0] * V[1] - Tn[1] * V[0]], nl = Math.hypot(N3[0], N3[1], N3[2]) || 1;
+          for (let s = 0; s < NS; s++) {
+            const ph = s / NS * 2 * PI, ca = Math.cos(ph), sa = Math.sin(ph), nn = [0, 1, 2].map(i => N3[i] / nl * ca + V[i] * sa);
+            B.v([c[0] + nn[0] * TOTE.hr, c[1] + nn[1] * TOTE.hr, c[2] + nn[2] * TOTE.hr], nn, HND, w);
+          }
+        }
+        for (let r = 0; r < NR; r++) for (let s = 0; s < NS; s++) {
+          const i00 = hb + r * NS + s, i01 = hb + r * NS + (s + 1) % NS, i10 = i00 + NS, i11 = i01 + NS;
+          B.tri(i00, i10, i01, false); B.tri(i01, i10, i11, false);
+        }
+      });
+      B.part = pp;
+    }
     LOOKS.cream = {
       hem: 0.65, hair: H, top: 1.808, keep: 0.3, hatW: -0.03, texPost,
-      morph: [flatten(['cuff']), neckIn],
+      morph: [flatten(['cuff']), creamArms, neckIn, pointToes],
       // волосы модели — прочь, кроме каймы у лица (причёска — шапочка и пучок в одежде); верх и полы тренча — прочь
       // (пиджак, топ, кожа и цепочки — новым кроем)
       hide: st => {
@@ -2917,13 +3109,15 @@
       },
       paint: {
         hair_skull: bandPaint, hair_back: bandPaint,
-        neck: neckPaint,
+        // низ шеи — кожей шеи автора ровно (под рукавом кожи; без рыжего тона тени под подбородком)
+        neck: (x, y, z, o) => { o.f = 1; return neckSkin(o.st); },
         sleeve, cuff: sleeve,
-        shoes: (x, y, z, o) => { o.k = 0.2; return tc('#EFE6DA'); },
+        // лодочки телесно-бежевые (как в ролике), не белые
+        shoes: (x, y, z, o) => { o.k = 0.2; return tc('#D3B597'); },
       },
       garment: B => {
-        // кожа на шее сзади и с боков (выемка у основания шеи в профиль)
-        neckPatch(B, LASTST);
+        // кожа шеи кругом — от ворота до челюсти и под шапочку (выемка у основания шеи в профиль, тень автора на шее)
+        neckSleeve(B, LASTST);
         capGeo(B);
         const st = LASTST, SS = shellSurf(st);
         trousers(B, { col: '#EDE5D6', light: '#FAF6EE', dark: '#D0C4AE', top: 1.0, wide: 0.118, rings: 8, seg: 9, seat: { y0: 0.82, rx: 0.13, rz: 0.11, cz: -0.012 }, inShell: SS ? { S: SS, m: 0.004, y0: 0.66 } : null });
@@ -2931,15 +3125,16 @@
           // топ: кольцо от талии до выреза, выше — кожа шеи (цвет автора), две тонкие золотые цепочки по коже
           shellPiece(B, SS, { rows: 5, closed: true, cols: () => ringAz(20), ol: (u, v) => v > 0.75,
             sv: (a, v) => shellS(SS, a, lerp(0.96, topNeck(a), v)), off: () => 0.003, col: () => TOPW });
-          // кожа от выреза до шеи; сзади — в тон шеи над ней (у автора там тень от волос), спереди — как у автора
-          const NT2 = neckTone(st);
+          // кожа от выреза до шеи — ровно кожей шеи автора (как рукав кожи на шее над ней)
+          const NSK = neckSkin(st);
           shellPiece(B, SS, { rows: 4, closed: true, cols: () => ringAz(20), ol: false,
             sv: (a, v) => lerp(shellS(SS, a, topNeck(a) - 0.008), 1, v), off: (a, s, u, v) => lerp(-0.0006, 0.0005, v),
-            col: (p, a, s) => mix3(skinAt(st, SS, a, s, [0, 0, 0]), NT2[1], sst(0.9, 2.2, Math.abs(Math.atan2(Math.sin(a), Math.cos(a)))), [0, 0, 0]) });
+            col: () => NSK });
           beadsOn(B, SS, a => 1.262 - 0.035 * Math.pow(Math.cos(a), 2), -1.0, 1.0, 3, 0.0012, 0.0012, () => GOLD, 3, true);
           beadsOn(B, SS, a => 1.255 - 0.05 * Math.pow(Math.cos(a), 2), -0.9, 0.9, 3, 0.0012, 0.0012, () => GOLD, 3, true);
-          blazer(B, SS, { hem: 0.65, brk: 0.95, xHem: 0.07, xBrk: 0.05, notch: 1.2, lw: 0.064, lift: 0.005, col: jcol, rows: 11, cols: 24,
-            off: (a, y) => 0.01 + 0.008 * sst(0.95, 0.65, y) + 0.012 * sst(1.12, 1.24, y) * Math.pow(Math.sin(a), 4),
+          // тень лацкана — до 1.5 см под уступом (выше она торчала «флажком» над лацканом); плечи — с подплечниками
+          blazer(B, SS, { hem: 0.65, brk: 0.95, xHem: 0.07, xBrk: 0.05, notch: 1.2, lw: 0.064, lift: 0.005, col: jcol, rows: 11, cols: 24, shTop: 1.185,
+            off: (a, y) => 0.01 + 0.008 * sst(0.95, 0.65, y) + 0.025 * sst(1.1, 1.23, y) * Math.pow(Math.sin(a), 4),
             pockets: [[1, 0.815, 0.072], [-1, 0.815, 0.072]], chest: [0.075, 1.115, 0.05], button: [-0.062, 0.95] });
         }
         // низкий гладкий пучок у затылка (наполовину в шапочке), пряди закручены
@@ -2956,13 +3151,8 @@
         }
         // золотые серьги-«купола»
         earrings(B, { y: 1.47, x: 0.198, z: -0.008, make: (B2, c, s, w) => B2.blob(c, [0.017, 0.02, 0.014], (n) => mix3(GOLD, GOLDL, Math.max(0, n[1] * 0.5 + n[2] * 0.6)), w, 7, 4) });
-        // сумка-трапеция: светлый камень, тонкий кант только по рёбрам, две ручки, золотая фурнитура сбоку
-        bagOnForearm(B, {
-          col: BAG[0], strap: '#3A2A22', strapT: 0.42, size: [0.08, 0.13, 0.17], dx: 0.064, drop: 0.12, handles: false,
-          body: bagBox([0.075, 0.13, 0.17], BAG, { sq: 6, seg: 10, pipe: '#3A2A22', pipeRings: false, shade: 0.4, prof: t => [lerp(1, 0.85, t), lerp(1, 0.78, t)], handles: [0.06, 0.0055], handleZ: [-0.01, 0.01], handleCol: '#D9CCB6', handleSeg: 5, extra: (B2, c, w) => {
-            B2.blob([c[0] + 0.036, c[1] + 0.02, c[2]], [0.004, 0.01, 0.012], tc('#C9A45C'), w, 6, 4);
-          } }),
-        });
+        // сумка-трапеция слоновой кости в левой руке за ручки, тонкий тёмный кант по рёбрам
+        tote(B);
       },
     };
   }
