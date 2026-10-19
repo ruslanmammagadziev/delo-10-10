@@ -8,8 +8,10 @@
    HUD.metrics(W, H)                      → { top, barBottom, g, B0, R0, L0, safe:{t,b,l,r}, radar:{x,y,d}, joy:{cx,cy,d,r,knob,travel},
                                               zone:{x1,y0}, P:{cx,cy,d}, slots:{s1..s4:{cx,cy}}, a2:{bottom,top}, gas, brake }
    HUD.joyZone(x, y, W, H)                → начинать ли джойстик с этого касания (кнопки проверяет вызывающий)
-   HUD.joyPlace(x, y, W, H)               → { cx, cy } — центр круга под пальцем (зажат: радар, дуга, низ)
+   HUD.joyPlace(x, y, W, H)               → { cx, cy } — где нарисовать кружок под пальцем (только чтобы весь был на экране)
    HUD.joyRest(W, H)                      → { cx, cy } — место покоя
+   HUD.joyGuard(x, y, W, H)               → касание на кружке покоя или рядом (r + 16 px): короткий тап тут — не «идти туда»
+   HUD.JOY                                — все числа джойстика (ход, мёртвая зона, кривая, сглаживание, бег); HUD.joyShape(n) → сила 0…1
    HUD.layout(root?)                      — пишет --hud-joy-cx (px) на #app; зовётся сам на resize
    HUD.actFace(label)                     → { icon, short, full, known } — лицо главной кнопки по подписи
    HUD.paintAct(btn, label, soft)         — <i>значок</i><b>слово</b>, aria-label/title/data-full = подпись
@@ -17,9 +19,13 @@
    HUD.mode(root, mode)                   — data-hud-mode = walk|drive|drive-pedals|ride|fly|sit|look|dance|zip|sport|room|street|2d
    HUD.sbtn(host, { slot, icon, label, cls, onPress }) → кнопка 46 px в слоте (значок; подпись — aria-label)
    HUD.actions.set(host, [{ id, icon, label, onPress, slot?, main?, on?, soft? }]) — набор кнопок кластера (лишние прячутся)
-   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), begin(x,y), drag(x,y) → {x,y,m,r}, end(), show(on), layout(), active,
-                                              running(ok) → bool, run } — r: отклонение без зажима (дальше края > 1); running —
-                                              раз в кадр: палец до стрелок (r ≥ 1,25) дольше 0,15 с — бег (класс .run), назад внутрь — шаг
+   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), guard(x,y), begin(x,y), drag(x,y) → {x,y,m,r}, frame(ok) → bool,
+                                              end(), show(on), layout(), dispose(), active, x, y, m, lx, ly, r, run } — центр — сам палец
+                                              (на касании сила 0); drag — палец и ручка (мгновенно, для «палец пошёл»); frame — раз в
+                                              кадр: x/y/m — сглаженная сила по кривой (ходьба, полёт, лестница, машина города), lx/ly —
+                                              без кривой (руль в горах); бег — палец за краем кружка (r ≥ 1,4 хода) 0,3 с в одну сторону
+                                              (класс .edge — пунктир порога, .arm — золотое кольцо, .run — бег), назад внутрь хода — шаг.
+                                              running(ok) = frame
    HUD.radarSlot(el)                      — радар в угол (класс + data-hud-slot=radar)
    HUD.menu.add({ id, icon, label, sub?, value?, badge?, toggle?, when?|visible?, onTap|onClick, onLong?, order?, keepOpen? })
              .remove(id) .update(id, patch) .open() .close() .isOpen() .news(id, on) .info(fn|text) .note(text|null)
@@ -31,7 +37,8 @@
    HUD.topBar.render(hudEl, opts)         — полоса (зовёт G.setHud); HUD.topBar.el()
    HUD.toast(text, ms? | { ms }, { kind?:'place'|'sticker', replace? }) — через G.toast, очередь
    HUD.arrive(title, sub?)                — тост «place» при въезде в место
-   HUD.coach(el, text, key)               — первая подсказка у маленькой кнопки (3 раза за всё время)
+   HUD.coach(el, text, key, o?) → bool    — первая подсказка у маленькой кнопки (o.max раз за всё время, по умолчанию 3; o.above — над,
+                                            на o.gap px выше, по умолчанию 8); true — показана
    HUD.chev(el, { on, x, y, side, rot, dist }) — шеврон у края; HUD.chevY(y, H), HUD.labelY(y, H) — зажим по высоте
    HUD.rects(root?)                       → [{ k, el, x0, y0, x1, y1, round }] видимых элементов HUD — для тестов перекрытий
    HUD.build()                            → «версия 16.10 14:05 · 1a2b3c4d» (window.BUILD_INFO из tools/build_single.py) | «версия dev»
@@ -42,7 +49,8 @@
   const HUD = window.HUD = window.HUD || {};
   HUD.v = 1;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const angW = a => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+  const esc =s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const G_ = () => window.G || null;
   const app = () => document.getElementById('app') || document.body;
   const layerEl = () => document.getElementById('layer');
@@ -55,6 +63,22 @@
   const SLOT = { s1: [0, 70], s2: [49.5, 49.5], s3: [70, 0], s4: [46, 115] };
   const ACT = 64, BTN = 46, GAP = 8;
   HUD.SLOT = SLOT;
+  // джойстик «удобно с телефона» (все числа — тут): ход ручки T = 0,44 диаметра кружка (390 px — 45,8, 360 — 42,3);
+  // мёртвая зона с запасом — включается с 16 % хода, гаснет ниже 10 %; кривая — с 0,10 у края зоны (DZ0), степень 1,4,
+  // полная сила с 80 % хода; сила сглажена 60 мс, курс держится, пока палец дрожит в пределах ~2 px дуги (2°…8°);
+  // палец дальше 1,6 хода — центр едет следом; бег — палец за порогом (1,4 хода: ~11 px за кольцом, там пунктир) 0,3 с в
+  // одну сторону (±30°), назад внутрь хода ручки — шаг; мелкие (до 0,02 хода, ~1 px) и короткие (< 150 мс) нырки внутрь
+  // порога удержание не сбрасывают, глубже или дольше — сбрасывают, как и круг по краю быстрее ~100°/с (отставание курса
+  // > 11° при 0,1 с); золотое кольцо горит с 80 мс удержания — и тогда бег через ≤ 0,22 с; пунктир порога виден, пока ручка
+  // у края (≥ 1 хода, гаснет ниже 0,85); тап на кружке покоя (r + 16 px) — не «идти туда»; подсказка про бег — 2 раза за всё время
+  const JOY = HUD.JOY = {
+    TRAVEL: 0.44, DZ_ON: 0.16, DZ_OFF: 0.10, DZ0: 0.12, SAT: 0.80, EXPO: 1.4, M0: 0.10, TAU_M: 0.06,
+    HEAD_ARC: 2.0, HEAD_MIN: 0.035, HEAD_MAX: 0.14, HEAD_T: 0.25, FOLLOW: 1.6,
+    RUN_ON: 1.4, RUN_OFF: 1.0, RUN_T: 300, RUN_ANG: 0.52, RUN_DIP: 0.02, ARM_ON: 80, ARM_OFF: 150, SWEEP: 0.19, SWEEP_T: 0.1, EDGE: 0.85,
+    GUARD: 16, TIP_T: 2.5, TIP_N: 2,
+  };
+  // сила по отклонению n = d / ход (0…1): с 0,10 у края мёртвой зоны, мягко (степень 1,4), полная — с 80 % хода
+  const joyShape = HUD.joyShape = n => JOY.M0 + (1 - JOY.M0) * Math.pow(clamp((n - JOY.DZ0) / (JOY.SAT - JOY.DZ0), 0, 1), JOY.EXPO);
   let probe = null, probeKey = '', probeVal = null;
   // замер env(safe-area-inset-*) и clamp(…vw…) через невидимый элемент (как их видит CSS)
   function measure() {
@@ -90,7 +114,7 @@
     const jcy = H - (B0 + 4) - jr;
     const s3 = slots.s3, dy = Math.abs(jcy - s3.cy), need = jr + BTN / 2 + GAP;
     const jcx = Math.min(W / 2, s3.cx - Math.sqrt(Math.max(0, need * need - dy * dy)));
-    const joy = { cx: jcx, cy: jcy, d: jd, r: jr, knob, travel: (jd - knob) / 2 + 4 };
+    const joy = { cx: jcx, cy: jcy, d: jd, r: jr, knob, travel: Math.round(jd * JOY.TRAVEL * 10) / 10 };
     const zone = { x1: s3.cx - BTN / 2 - 4, y0: H * 0.5 };
     const a2b = B0 + 180;
     return {
@@ -102,14 +126,14 @@
   HUD.metrics = metrics;
   HUD.joyRest = (W, H) => { const m = metrics(W, H); return { cx: m.joy.cx, cy: m.joy.cy }; };
   HUD.joyZone = (x, y, W, H) => { const m = metrics(W, H); return y >= m.zone.y0 && x <= m.zone.x1; };
+  // центр джойстика — сам палец; кружок рисуется под ним, зажат только краями экрана (у нижнего края — чуть выше пальца)
   HUD.joyPlace = (x, y, W, H) => {
     const m = metrics(W, H), R = m.joy.r;
-    const cx = clamp(x, m.L0 + R, Math.max(m.L0 + R, m.joy.cx));
-    let cy = clamp(y, Math.min(m.H * 0.5 + R, m.joy.cy), m.joy.cy);
-    const rd = m.radar;
-    if (cx - R < rd.x + rd.d + GAP && cy + R > rd.y - GAP) cy = rd.y - GAP - R;
+    const cx = clamp(x, m.safe.l + R + 2, Math.max(m.safe.l + R + 2, m.W - m.safe.r - R - 2));
+    const cy = clamp(y, m.barBottom + R, Math.max(m.barBottom + R, m.H - m.safe.b - R - 2));
     return { cx, cy };
   };
+  HUD.joyGuard = (x, y, W, H) => { const m = metrics(W, H); return Math.hypot(x - m.joy.cx, y - m.joy.cy) <= m.joy.r + JOY.GUARD; };
   HUD.layout = function (root) {
     const a = root || app();
     try {
@@ -261,10 +285,11 @@
   const joys = new Set();
   const JOY_SVG = '<svg class="hud-joy-ch" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M44,15 L50,9 L56,15"/><path d="M44,85 L50,91 L56,85"/><path d="M15,44 L9,50 L15,56"/><path d="M85,44 L91,50 L85,56"/></g></svg>';
-  // желание 7: бег «сильнее обычного» — палец дальше края хода ручки, до стрелок (≥ RUN_ON хода) дольше RUN_T мс — бег (J.run,
-  // класс .run: ручка тёплая, как горящая «Бег», стрелки ярче); вернула палец внутрь (< RUN_OFF хода) или отпустила — шаг.
-  // Касание сразу за краем (кружок встал выше пальца у нижнего края экрана) бег не включает: палец сначала побывает внутри
-  const RUN_ON = 1.25, RUN_OFF = 1, RUN_T = 150;
+  // бег — самим джойстиком (кнопки «Бег» больше нет): палец за порогом (≥ JOY.RUN_ON хода) держит одно направление
+  // JOY.RUN_T мс — бег (J.run, класс .run: ручка и кольцо золотые, стрелки ярче); ручка упёрлась в край — пунктир порога
+  // (класс .edge: куда тянуться); идёт удержание — золотое кольцо (класс .arm, с JOY.ARM_ON мс; кольцо и удержание — одно
+  // и то же, так что горит — значит, скоро бег); вернула палец внутрь хода ручки (< JOY.RUN_OFF) или отпустила — шаг.
+  // Центр — всегда сам палец (и при позднем начале), так что первый же кадр за краем — честное начало удержания
   HUD.joystick = {
     create(host, o = {}) {
       const el = document.createElement('div');
@@ -274,10 +299,20 @@
       if (host) host.appendChild(el);
       const knob = el.querySelector('.joy-knob');
       const dims = () => { const h = o.root || host || app(); return { W: h.clientWidth || app().clientWidth, H: h.clientHeight || app().clientHeight }; };
-      const runCls = b => { J.run = b; el.classList.toggle('run', b); };
+      const runCls = b => { J.run = b; el.classList.toggle('run', b); if (b) J._ran = true; };
+      const armCls = b => { if (b !== J._armV) { J._armV = b; el.classList.toggle('arm', b); } };
+      const edgeCls = b => { if (b !== J._edV) { J._edV = b; el.classList.toggle('edge', b); } };
+      // кружок рисуется целиком на экране (у края — чуть выше пальца), центр джойстика — сам палец; ручка — отклонение от центра,
+      // пунктир порога бега — вокруг кружка (вся картинка — одна и та же, у края она просто чуть сдвинута от пальца)
+      const place = () => {
+        const d = dims(), m = metrics(d.W, d.H), p = HUD.joyPlace(J.cx, J.cy, d.W, d.H);
+        el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
+      };
       const J = {
-        el, knob, active: false, cx: 0, cy: 0, x: 0, y: 0, m: 0, r: 0, run: false, want: false, _arm: false, _rt: 0,
+        el, knob, active: false, cx: 0, cy: 0, fx: 0, fy: 0, x: 0, y: 0, m: 0, lx: 0, ly: 0, r: 0, run: false, want: false, travel: 34,
+        _on: false, _hd: 0, _m: 0, _n: 0, _rt: 0, _ro: 0, _ra: 0, _rf: 0, _ft: 0, _fullT: 0, _armV: false, _edV: false, _tipEnd: 0, _ran: false, _tip: false,
         zone(x, y) { const d = dims(); return HUD.joyZone(x, y, d.W, d.H); },
+        guard(x, y) { const d = dims(); return HUD.joyGuard(x, y, d.W, d.H); },
         layout() {
           if (J.active) return;
           const d = dims(), m = metrics(d.W, d.H), l = Math.round(m.joy.cx - m.joy.r) + 'px', t = Math.round(m.joy.cy - m.joy.r) + 'px';
@@ -285,36 +320,88 @@
           J._l = l; J._t = t;
           el.style.left = l; el.style.top = t; el.style.bottom = 'auto';
         },
+        // палец коснулся: центр — точка касания (сила 0), кружок — под пальцем
         begin(x, y) {
-          const d = dims(), p = HUD.joyPlace(x, y, d.W, d.H), m = metrics(d.W, d.H);
-          J.active = true; J.cx = p.cx; J.cy = p.cy; J.x = J.y = J.m = J.r = 0; J._arm = false; J._rt = 0; if (J.run) runCls(false);
+          const d = dims(), m = metrics(d.W, d.H);
+          J.active = true; J.cx = J.fx = x; J.cy = J.fy = y; J.travel = m.joy.travel;
+          J.x = J.y = J.m = J.lx = J.ly = J.r = J._m = J._n = 0; J._on = false; J._rt = J._ro = J._tipEnd = 0; J._fullT = 0; J._ft = performance.now();
+          if (J.run) runCls(false);
+          armCls(false); edgeCls(false);
           el.classList.remove('rest', 'back'); el.classList.add('live');
-          el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
-          J.travel = m.joy.travel;
-          J.drag(x, y);
-          return p;
+          el.style.setProperty('--hud-joy-run', (2 * JOY.RUN_ON * J.travel).toFixed(1) + 'px');
+          place(); knob.style.transform = '';
+          return { cx: x, cy: y };
         },
+        // палец едет: ручка — сразу за пальцем; ответ — мгновенная сила без сглаживания (для «палец пошёл»: отменить «идти туда»)
         drag(x, y) {
           if (!J.active) return { x: 0, y: 0, m: 0, r: 0 };
-          let dx = x - J.cx, dy = y - J.cy; const dd = Math.hypot(dx, dy), T = J.travel || 34;
-          if (dd > T) { dx *= T / dd; dy *= T / dd; }
-          knob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
-          if (dd < 8) { J.x = J.y = J.m = 0; } else { J.x = dx / T; J.y = dy / T; J.m = Math.min(1, Math.hypot(J.x, J.y)); }
-          // r — отклонение без зажима (палец дальше края — больше 1): порог бега; задержка бега — от первого касания порога
-          J.r = dd < 8 ? 0 : dd / T;
-          if (J.r < RUN_OFF) { J._arm = true; J._rt = 0; if (J.run) runCls(false); }
-          else if (J.r < RUN_ON) { if (!J.run) J._rt = 0; }
-          else if (J._arm && !J._rt) J._rt = performance.now();
-          return { x: J.x, y: J.y, m: J.m, r: J.r };
+          J.fx = x; J.fy = y;
+          let dx = x - J.cx, dy = y - J.cy, dd = Math.hypot(dx, dy);
+          const T = J.travel || 34, F = JOY.FOLLOW * T;
+          // палец ушёл дальше 1,6 хода — центр тянется следом: вернула палец — тише, но в ту же сторону
+          if (dd > F) { const k = (dd - F) / dd; J.cx += dx * k; J.cy += dy * k; dx = x - J.cx; dy = y - J.cy; dd = F; place(); }
+          const c = dd > T ? T / dd : 1;
+          knob.style.transform = `translate(${(dx * c).toFixed(1)}px, ${(dy * c).toFixed(1)}px)`;
+          const n = Math.min(1, dd / T), on = J._on ? n >= JOY.DZ_OFF : n >= JOY.DZ_ON, s = on ? joyShape(n) : 0;
+          J.r = dd / T;
+          return { x: dd > 0 ? dx / dd * s : 0, y: dd > 0 ? dy / dd * s : 0, m: s, r: J.r };
         },
-        // раз в кадр: бежать ли сейчас; ok — можно ли (игра: пешком, есть Move). Класс меняется только на переходе
-        running(ok) {
-          if (!ok || !J.active) { if (J.run) runCls(false); return false; }
-          if (!J.run && J._rt && performance.now() - J._rt >= RUN_T) runCls(true);
+        // раз в кадр: сглаженная сила, удержанный курс, бег (ok — можно ли бежать: пешком, есть Move). Возвращает J.run
+        frame(ok) {
+          const now = performance.now(), dt = clamp((now - (J._ft || now)) / 1000, 0, 0.1);
+          J._ft = now;
+          if (!J.active) { J.x = J.y = J.m = J.lx = J.ly = 0; armCls(false); edgeCls(false); if (J.run) runCls(false); return false; }
+          const dx = J.fx - J.cx, dy = J.fy - J.cy, d = Math.hypot(dx, dy), T = J.travel || 34, n = Math.min(1, d / T), th = Math.atan2(dx, -dy);
+          // мёртвая зона с запасом: включается с 16 % хода, гаснет ниже 10 % — дрожь у края не мигает «стоит — идёт»
+          if (!J._on && n >= JOY.DZ_ON) { J._on = true; J._hd = th; } else if (J._on && n < JOY.DZ_OFF) J._on = false;
+          if (J._on) {
+            // курс держится, пока палец дрожит в пределах ~2 px дуги; дальше — тянется за пальцем (отставание не больше полосы)
+            const band = clamp(JOY.HEAD_ARC / Math.max(1, d), JOY.HEAD_MIN, JOY.HEAD_MAX);
+            let e = angW(th - J._hd);
+            if (Math.abs(e) > band) { J._hd += e - Math.sign(e) * band; e = angW(th - J._hd); }
+            J._hd += e * (1 - Math.exp(-dt / JOY.HEAD_T));
+          }
+          const k = 1 - Math.exp(-dt / JOY.TAU_M);
+          J._m += ((J._on ? joyShape(n) : 0) - J._m) * k; J._n += ((J._on ? n : 0) - J._n) * k;
+          if (!J._on && J._m < 0.02) J._m = J._n = 0;
+          const ux = Math.sin(J._hd), uy = -Math.cos(J._hd);
+          J.x = ux * J._m; J.y = uy * J._m; J.m = J._m; J.lx = ux * J._n; J.ly = uy * J._n;
+          // бег: палец за порогом (1,4 хода) держит одно направление 0,3 с; назад внутрь хода ручки — шаг. Удержание терпит
+          // мелкие и короткие нырки внутрь порога (≤ 0,02 хода и < 150 мс — шум касания), а гаснет сразу, если нырок глубже или
+          // палец ведёт по кругу: курс отстаёт от сглаженного (0,1 с) больше 11° — это ~100°/с, то же «30° за 0,3 с», но без
+          // мигания кольца на каждом новом отсчёте
+          const r = d / T, ea = r < JOY.RUN_OFF ? 0 : angW(th - J._rf);
+          J._rf = r < JOY.RUN_OFF ? th : J._rf + ea * (1 - Math.exp(-dt / JOY.SWEEP_T));
+          if (!ok || r < JOY.RUN_OFF) { J._rt = J._ro = 0; if (J.run) runCls(false); }
+          else if (!J.run) {
+            if (Math.abs(ea) > JOY.SWEEP) J._rt = J._ro = 0;
+            else if (r >= JOY.RUN_ON) {
+              if (!J._rt || Math.abs(angW(th - J._ra)) > JOY.RUN_ANG) { J._rt = now; J._ra = th; }
+              J._ro = 0;
+            } else if (J._rt) { J._ro = J._ro || now; if (r < JOY.RUN_ON - JOY.RUN_DIP || now - J._ro >= JOY.ARM_OFF) J._rt = J._ro = 0; }
+            if (J._rt && now - J._rt >= JOY.RUN_T) runCls(true);
+          }
+          // золотое кольцо = само удержание (с 80 мс): горит — значит, бег через ≤ 0,22 с; удержание сорвалось — гаснет сразу
+          armCls(!!(ok && J._rt && !J.run && now - J._rt >= JOY.ARM_ON));
+          // пунктир порога: ручка упёрлась в край (или висит подсказка про бег) — видно, куда тянуться за бегом
+          edgeCls(!!(ok && !J.run && (r >= (J._edV ? JOY.EDGE : JOY.RUN_OFF) || now < J._tipEnd)));
+          // подсказка: долго идёт «до упора» и ещё не бегала — «За край кружка — бег» над кружком (2 раза за всё время)
+          if (ok && !J.run && !J._ran && J._m >= 0.98) {
+            J._fullT += dt;
+            if (J._fullT >= JOY.TIP_T && !J._tip) {
+              // над кружком, выше ручки «до упора» (она выходит за кольцо), чтобы подпись не легла на ручку
+              const dd = dims(), mm = metrics(dd.W, dd.H), gap = Math.max(8, Math.round(J.travel + mm.joy.knob / 2 - mm.joy.r + 8));
+              J._tip = true;
+              if (HUD.coach(el, 'За край кружка — бег', 'joy-run', { above: true, gap, max: JOY.TIP_N })) J._tipEnd = now + 2500;
+            }
+          } else J._fullT = 0;
           return J.run;
         },
+        running(ok) { return J.frame(ok); },
         end() {
-          J.active = false; J.x = J.y = J.m = J.r = 0; J._arm = false; J._rt = 0; if (J.run) runCls(false);
+          J.active = false; J.x = J.y = J.m = J.lx = J.ly = J.r = 0; J._m = J._n = 0; J._on = false; J._rt = J._ro = J._tipEnd = 0; J._fullT = 0;
+          if (J.run) runCls(false);
+          armCls(false); edgeCls(false);
           knob.style.transform = '';
           el.classList.remove('live'); el.classList.add('rest', 'back');
           J.layout();
@@ -326,7 +413,7 @@
           if (vis !== J.vis) { J.vis = vis; el.classList.toggle('hidden', !vis); }
           J.want = !!on; if (vis && !J.active) J.layout();
         },
-        dispose() { joys.delete(J); el.remove(); },
+        dispose() { clearTimeout(J._bt); joys.delete(J); el.remove(); },
       };
       joys.add(J);
       J.layout();
@@ -344,17 +431,23 @@
   HUD.arrive = (title, sub) => HUD.toast(sub ? title + '\n' + sub : title, 3000, { kind: 'place', sub: sub || '' });
 
   /* ---------- Первая подсказка у маленькой кнопки ---------- */
-  HUD.coach = function (el, text, key) {
-    if (!el || !text) return;
-    const g = G_(), st = g && g.state ? g.state() : null;
+  // o.max — сколько раз за всё время (по умолчанию 3); o.above — над элементом по центру (джойстик; o.gap — зазор, px), иначе — слева от кнопки
+  HUD.coach = function (el, text, key, o) {
+    if (!el || !text) return false;
+    o = o || {};
+    const g = G_(), st = g && g.state ? g.state() : null, max = o.max || 3;
     key = key || text;
-    if (st) { st.hudSeen = st.hudSeen || {}; if ((st.hudSeen[key] || 0) >= 3) return; st.hudSeen[key] = (st.hudSeen[key] || 0) + 1; try { g.save(); } catch (e) { /* ignore */ } }
-    const host = el.offsetParent || el.parentNode; if (!host) return;
+    if (st) { st.hudSeen = st.hudSeen || {}; if ((st.hudSeen[key] || 0) >= max) return false; st.hudSeen[key] = (st.hudSeen[key] || 0) + 1; try { g.save(); } catch (e) { /* ignore */ } }
+    const host = el.offsetParent || el.parentNode; if (!host) return false;
     const t = document.createElement('div'); t.className = 'hud-coach'; t.textContent = text;
     const hr = host.getBoundingClientRect(), r = el.getBoundingClientRect();
-    t.style.right = Math.round(hr.right - r.left + 8) + 'px'; t.style.top = Math.round(r.top - hr.top + r.height / 2) + 'px';
+    if (o.above) { t.style.left = Math.round(r.left - hr.left + r.width / 2) + 'px'; t.style.top = Math.round(r.top - hr.top - (o.gap || 8)) + 'px'; t.style.transform = 'translate(-50%, -100%)'; }
+    else { t.style.right = Math.round(hr.right - r.left + 8) + 'px'; t.style.top = Math.round(r.top - hr.top + r.height / 2) + 'px'; }
     host.appendChild(t);
+    // над кружком у края экрана — подпись целиком на экране (не ближе 8 px к краю)
+    if (o.above) { const w = t.offsetWidth || 0, c = r.left - hr.left + r.width / 2; t.style.left = Math.round(clamp(c, 8 + w / 2, Math.max(8 + w / 2, hr.width - 8 - w / 2))) + 'px'; }
     setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 2500);
+    return true;
   };
 
   /* ---------- Шеврон у края и зажим ярлыков (§3.7) ---------- */
@@ -635,7 +728,13 @@
     let top = null; try { top = typeof HUD.helpTop === 'function' ? HUD.helpTop() : null; } catch (e) { top = null; }
     const m = document.createElement('div'); m.className = 'modal sheet hud-help';
     const rows = touch
-      ? [['🕹', 'Кружок внизу — идти', 'палец в нижней половине слева — кружок встанет под него'], ['👟', 'Дальше края — бег', 'толкни кружок до стрелок и держи'], ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'], ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'], ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'], ['✌️', 'Камера', 'проведи пальцем вверху; двумя — ближе или дальше']]
+      ? [['🕹', 'Кружок — идти', 'палец внизу слева — кружок встанет под него; дальше от центра — быстрее'],
+        ['👟', 'За край кружка — бег', 'дотянись подальше за край кружка и подержи — кружок засияет'],
+        ['🦘', 'Прыжок — кнопка справа', 'над большой кнопкой'],
+        ['👆', 'Тап по двери — подойти', 'или по любому месту на земле'],
+        ['🔴', 'Большая кнопка — действие', 'войти, поговорить, сесть; без дела — помахать'],
+        ['🗺', 'Карта — слева внизу', 'тап по кружку карты — большая карта'],
+        ['✌️', 'Камера', 'проведи пальцем вверху; двумя — ближе или дальше']]
       : [['⌨️', 'WASD или стрелки — идти', 'Shift — бег, пробел — прыжок'], ['⏎', 'Enter — действие', 'войти, поговорить, сесть'], ['🖱', 'Мышь — камера', 'Q/E — повернуть, колёсико — ближе'], ['🗺', 'Карта — слева внизу', 'клик по кружку карты — большая карта']];
     m.innerHTML = '<div class="sheet-card" role="dialog"><div class="sheet-head"><div class="sheet-title">Как играть</div><button class="sheet-x" type="button" aria-label="Закрыть">✕</button></div><div class="sheet-body hud-mlist">' +
       (top ? `<button type="button" class="hud-mrow t-sun hud-help-top"><span class="hud-mi" aria-hidden="true">${esc(top.icon || '💡')}</span><span class="hud-mt"><b>${esc(top.title)}</b><span>${esc(top.sub || '')}</span></span></button>` : '') +

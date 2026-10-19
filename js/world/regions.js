@@ -284,7 +284,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     let renderer = refs.renderer || null, ownR = false, canvas = null, host = refs.host || null, cam = null, scene = null;
     let ui = null, raf = 0, last = 0, cap = null, tripRes = null, drv = null, chase = null, blob = null, hidden = [], prevSpk = null, inCarNow = false;
     let IA = null, prevHands = null, shadowProxy = null, dn = null, dnToggle = null, dnOff = null, radar = null, pets = [];
-    let mvUi = null;   // кнопки «Бег»/«Прыжок» (Move.mountButtons) — одни на поездку, перепривязываются к Move каждого региона
+    // кнопка «Прыжок» (Move.mountButtons) — одна на поездку, перепривязывается к Move каждого региона; бег — джойстик или Shift
+    let mvUi = null;
 
     /* ---------- облачка, тост, лист-запас ---------- */
     const bubbles = [];
@@ -369,7 +370,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
 
     /* ---------- интерфейс региона (HUD v2): радар слева внизу (minimap.js), джойстик снизу по центру, справа — главная кнопка P
-       (значок + слово; без дела — «👋 Помахать») и дуга маленьких кнопок (Прыжок/Бег — move.js, «Бум!»/«Листья» — playfight.js),
+       (значок + слово; без дела — «👋 Помахать») и дуга маленьких кнопок («Прыжок» — move.js, «Бум!»/«Листья» — playfight.js; бег —
+       джойстиком за край кружка),
        A2 — второе действие; за рулём: газ в углу P, тормоз над ним, главное действие («🚪 Выйти») — в A2, второе — в s3.
        Полоса сверху — общая (engine.js + hud.js): каз, «В город», время суток — строки меню ☰; скорость и вариометр — правый слот;
        маршрут — пилюля цели; название места — тост при въезде. ---------- */
@@ -540,7 +542,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
 
     /* ---------- ввод: джойстик слева, камера справа, тап — идти туда, клавиши; гольф — «рогатка»; «Осмотреться» — взгляд и щипок ---------- */
-    const keys = {}, joy = { id: null, x: 0, y: 0, cx: 0, cy: 0, x0: 0, y0: 0, t0: 0, moved: 0 }, look = new Map(), ped = { gas: false, brk: false }, pts = new Map();
+    const keys = {}, joy = { id: null, x: 0, y: 0, lx: 0, ly: 0, cx: 0, cy: 0, x0: 0, y0: 0, t0: 0, moved: 0, late: false }, look = new Map(), ped = { gas: false, brk: false }, pts = new Map();
     const KM = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r', KeyQ: 'q', KeyE: 'e' };
     const canInput = () => S.active && !S.busy && !blocked();
     const onKeyDown = e => {
@@ -566,7 +568,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.zipPts = 0; S.zipHoldKey = false; gripPts.clear(); if (S.zip && S.zip.hold) S.zip.hold(false); if (S.mv) S.mv.holdRun(false);
     };
     const rel = e => { const r = host.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r]; };
-    // джойстик HUD v2 (HUD.joystick: покой по центру снизу, под пальцем — плавающий); без HUD — прежний круг под пальцем
+    // джойстик HUD v2 (HUD.joystick: покой снизу, центр — сам палец, сила и курс — раз в кадр в joyRun); без HUD — прежний круг под пальцем
     const joyZone = (x, y, r) => { const H = HUD_(); return H && H.joyZone ? H.joyZone(x, y, r.width, r.height) : x < r.width * 0.5; };
     function joyBegin(x, y, r) {
       if (!ui) return; joy.live = true;
@@ -576,22 +578,25 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; show(ui.joy, true); ui.knob.style.transform = '';
     }
     function joyDrag(x, y) {
-      if (!ui || !joy.live) return { x: 0, y: 0 };
-      if (ui.J) { const v = ui.J.drag(x, y); return { x: v.x, y: v.y }; }
+      if (!ui || !joy.live) return { x: 0, y: 0, m: 0 };
+      if (ui.J) return ui.J.drag(x, y);
       let dx = x - joy.cx, dy = y - joy.cy; const d = Math.hypot(dx, dy), R0 = 46;
       if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
       ui.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-      return d < 8 ? { x: 0, y: 0 } : { x: dx / R0, y: dy / R0 };
+      return d < 8 ? { x: 0, y: 0, m: 0 } : { x: dx / R0, y: dy / R0, m: Math.min(1, d / R0) };
     }
     function joyEnd() {
       const was = joy.live; joy.live = false; if (!ui) return;
       if (ui.J) { if (was || ui.J.active) ui.J.end(); joyRest(); return; }
       show(ui.joy, false);
     }
-    // желание 7: палец дальше края кружка, до стрелок (HUD.joystick.running: порог и 0,15 с) — бег, пока держит; назад внутрь или
-    // отпустила — шаг. Бег тот же, что у кнопки «Бег» (Move.holdRun: кнопка горит), на старте — лёгкий отклик. Раз в кадр (tick)
+    // раз в кадр (tick): сила и курс джойстика (HUD.joystick.frame — кривая, сглаживание, удержание курса) → joy.x/y, без кривой —
+    // joy.lx/ly (руль в горах); бег — палец за краем кружка держит одно направление 0,3 с (HUD.JOY), пока держит; назад внутрь хода
+    // или отпустила — шаг. Бег — Move.holdRun (как Shift), на старте — лёгкий отклик. Отладка (walk, input, driveHold) пишет joy.x/y
+    // сама — копия только, пока палец на экране
     function joyRun(ok) {
-      const on = !!(ui && ui.J && ui.J.running && ui.J.running(ok && joy.live && !!S.mv));
+      const J = ui && ui.J, on = !!(J && J.frame && J.frame(ok && joy.live && !!S.mv));
+      if (joy.live && J) { joy.x = J.x; joy.y = J.y; joy.lx = J.lx; joy.ly = J.ly; }
       if (on !== !!S.joyRun) { S.joyRun = on; if (S.mv) S.mv.holdRun(on); if (on) haptic('light'); }
       else if (on && !S.mv.run) S.mv.holdRun(true);
     }
@@ -616,7 +621,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // HUD v2: джойстик — касание в нижней половине левее дуги кнопок (круг встаёт под палец, не заезжает на радар и дугу);
       // выше и правее — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
       if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r)) {
-        joy.id = e.pointerId; joy.x = joy.y = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0;
+        joy.id = e.pointerId; joy.x = joy.y = joy.lx = joy.ly = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0; joy.late = false;
         if (canInput()) joyBegin(x, y, r);
       } else look.set(e.pointerId, { x, y, x0: x, y0: y, t0: performance.now(), moved: 0 });
     };
@@ -632,9 +637,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        if (!joy.live && canInput()) joyBegin(joy.x0, joy.y0);   // джойстик начался в паузе (шторка, рука занята) — подхватить
-        const v = joyDrag(x, y); joy.x = v.x; joy.y = v.y;
-        if (v.x || v.y) S.moveTo = null;
+        // палец лёг в паузе (шторка, рука занята) — джойстик начинается отсюда: без рывка и без тапа
+        if (!joy.live && canInput()) { joyBegin(x, y); joy.late = true; }
+        const v = joyDrag(x, y);
+        if (!(ui && ui.J)) { joy.x = v.x; joy.y = v.y; }
+        if (v.m > 0 || v.x || v.y) S.moveTo = null;
         return;
       }
       const p = look.get(e.pointerId); if (!p) return;
@@ -653,8 +660,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) { const dr = S.golf.drag; S.golf.drag = null; if (e.type === 'pointerup' && dr.aimed) golfShoot(); return; }
       if (S.look && pts.size < 2) S.look.pinch = null;
       if (e.pointerId === joy.id) {
-        joy.id = null; joy.x = joy.y = 0; joyEnd();
-        if (e.type === 'pointerup' && joy.moved < 10 && performance.now() - joy.t0 < 320) onTap(joy.x0, joy.y0);
+        joy.id = null; joy.x = joy.y = joy.lx = joy.ly = 0; joyEnd();
+        // тап по кружку покоя — промах по джойстику, а не «идти туда»
+        const H = HUD_(), r = host.getBoundingClientRect();
+        if (e.type === 'pointerup' && !joy.late && joy.moved < 10 && performance.now() - joy.t0 < 320 && !(H && H.joyGuard && H.joyGuard(joy.x0, joy.y0, r.width, r.height))) onTap(joy.x0, joy.y0);
         return;
       }
       const p = look.get(e.pointerId); if (!p) return; look.delete(e.pointerId);
@@ -964,9 +973,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       return true;
     }
 
-    /* ---------- W5 MOVE (js/move.js): «Бег» и «Прыжок», запрыгнуть на всё, до чего достаёт (лавочки, ящики, крыша машины, крыши
-       села), мультяшные падения (присела / кувырок «Ух!» / «Ой!» и мягкий возврат), машина твёрдая (коробки по модели).
-       Один Move на регион; кнопки — одни на поездку. На площадке башни (S.level 'top') — прежняя ходьба (парапет, лестница). */
+    /* ---------- W5 MOVE (js/move.js): бег (джойстик за край кружка, Shift) и «Прыжок», запрыгнуть на всё, до чего достаёт
+       (лавочки, ящики, крыша машины, крыши села), мультяшные падения (присела / кувырок «Ух!» / «Ой!» и мягкий возврат), машина
+       твёрдая (коробки по модели). Один Move на регион; кнопка «Прыжок» — одна на поездку. На площадке башни (S.level 'top') — прежняя ходьба (парапет, лестница). */
     const mvPool = [], mvArr = [], mvCar = { type: 'car', src: null, kind: 'coupe' };
     // подвижные коллайдеры (каждый кадр, без выделений): жители — круги, машина — коробки (на серпантине — и после «Выйти»)
     function mvDyn() {
@@ -2577,7 +2586,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       later(1400, () => toast('Смотровая: посиди минутку, отсюда видно башню.', 3200));
       const tur = npcBy('tur'); if (tur) later(3200, () => { if (S.sitting && S.sitting.road) greet(tur); });
     }
-    // W5: кнопки «Бег»/«Прыжок», «Бум!»/«Листья» (дуга s1–s4) — только когда она свободно гуляет (не в машине, не на месте, не в игре)
+    // W5: кнопки «Прыжок», «Бум!»/«Листья» (дуга s1–s4) — только когда она свободно гуляет (не в машине, не на месте, не в игре)
     const freeNow = () => S.active && !S.busy && !blocked() && S.mode === 'walk' && !inCarNow && !S.sitting && !S.view && !S.look && !S.golf && !S.dance && !S.inShop && !S.climb && !S.zip && !S.sport && !flyActive() && !S.shopBuy && !S.springT && !S.treat;
     function updW5Ui() {
       if (!ui) return;
@@ -2636,7 +2645,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         return;
       }
       const inDir = moveInput(); let dir = inDir, speed = 0;
-      if (dir) { speed = 1.2 + 2.2 * dir[2]; S.moveTo = null; }
+      if (dir) { speed = Math.max(0.35, 2.2 * dir[2]); S.moveTo = null; }
       else if (S.moveTo) {
         const m = S.moveTo; let tx = m.x, tz = m.z;
         while (m.wp && m.wp.length) { const q = m.wp[0]; if (Math.hypot(q[0] - S.px, q[1] - S.pz) < 0.45) m.wp.shift(); else { tx = q[0]; tz = q[1]; break; } }
@@ -2692,7 +2701,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.auto) return { auto: true, thr: S.auto, road: S.autoRoad || undefined };
       if (keys.u || keys.d || keys.l || keys.r) return { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0), brake: ped.brk };
       const V = V_();
-      if (V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? joy.x : 0, jy: canInput() ? joy.y : 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
+      // палец на экране — руль и газ без кривой джойстика (у touchInput своя: мёртвая зона 8 % и степень 1,35); отладка — joy.x/y
+      const lv = joy.live && ui && ui.J;
+      if (V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? (lv ? joy.lx : joy.x) : 0, jy: canInput() ? (lv ? joy.ly : joy.y) : 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
       if (ped.gas || ped.brk) return { thr: ped.gas ? 1 : (drv.S.v > 0.6 ? 0 : -1), brake: ped.brk && drv.S.v > 0.6 };
       return {};
     }
@@ -2778,7 +2789,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (keys.q) { S.yaw += dt * 1.8; S.manualT = 2.5; } if (keys.e) { S.yaw -= dt * 1.8; S.manualT = 2.5; }
       S.manualT = Math.max(0, S.manualT - dt);
-      if (S.manualT <= 0 && S.walking && S.moveT > 0.6) { const e = angDiff(S.ang, S.yaw); if (Math.abs(e) < 2.3) S.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
+      // камера за героиней — только когда курс ушёл больше чем на 20°, мягко и не быстрее 34°/с: идёт чуть вбок — камера стоит
+      if (S.manualT <= 0 && S.walking && S.moveT > 0.6) {
+        const CAM_BAND = 0.35, CAM_T = 1.4, CAM_MAX = 0.6, e = angDiff(S.ang, S.yaw), ae = Math.abs(e);
+        if (ae > CAM_BAND && ae < 2.3) S.yaw += clamp((e - Math.sign(e) * CAM_BAND) * (1 - Math.exp(-dt / CAM_T)), -CAM_MAX * dt, CAM_MAX * dt);
+      }
       const top = S.level === 'top';
       let dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
       // W7 (желание 3): взгляд вверх-вниз пальцем — камера по дуге вокруг головы: вниз — выше, вверх — ниже и ближе (небо,
@@ -2872,7 +2887,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
       fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
       try {
-        // желание 7: палец дальше края джойстика — бег (только пешком: не в машине, не на лестнице, не в полёте и не в игре)
+        // джойстик раз в кадр (сила и курс → joy.x/y, lx/ly) и бег — палец за краем кружка (только пешком: не в машине, не на
+        // лестнице, не в полёте и не в игре)
         joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive());
         if (S.zip && S.mode === 'zip') {   // зиплайн: поездка сама ведёт героиню, руки и камеру
           S.zip.update(dt);
@@ -3157,7 +3173,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         bazaar: on => bazaarSet(on),
         mv: () => (S.mv ? Object.assign({}, S.mv.state, { pos: Object.assign({}, S.mv.state.pos), busy: S.mv.busy(), stats: S.mv.stats(), lastSafe: Object.assign({}, S.mv.lastSafe) }) : null),
         mvLog: () => S.mvLog.slice(), jump: () => { if (!S.mv) return false; S.mv.jump(); return true; }, run: b => { if (!S.mv) return null; S.mv.setRun(b); return S.mv.run; },
-        mvButtons: () => (mvUi ? { visible: !mvUi.el.classList.contains('hide'), run: mvUi.run.classList.contains('on') } : null),
+        mvButtons: () => (mvUi ? { visible: !mvUi.el.classList.contains('hide'), run: !!(S.mv && S.mv.run) } : null),
         support: (x, z, y) => (S.mv ? S.mv.supportAt(x, z, y) : null),
         pf: () => (S.pf ? Object.assign(S.pf.state(), { enabled: S.pf.enabled(), target: S.pf.target() ? S.pf.target().id : null }) : null), pfLog: () => S.pfLog.slice(), pfCtl: () => S.pf,
         bonk: () => { if (!S.pf) return false; S.pf.bonk(); return true; },

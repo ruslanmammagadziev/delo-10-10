@@ -38,7 +38,7 @@
      sfx(name)   — 'bonk' 'slap' 'whoosh' 'squeak' 'piu' 'boop' 'thud' 'tweet' 'pop' 'splat' 'leaves' 'throw' 'jingle';
                    по умолчанию PlayFight.synth (WebAudio в шину G.audioBus('sfx'), если звук включён; иначе тишина);
      buttonsHost — куда положить кнопки «Бум!» и «Листья»/«Снежок» (и табло битвы). По умолчанию — столбик справа НАД
-                   рядом «Прыжок»/«Бег» (Move.mountButtons: right 14, bottom 150, высота 80): «Бум!» right 23 / bottom 242,
+                   кнопкой «Прыжок» (Move.mountButtons: right 14, bottom 150, высота 80): «Бум!» right 23 / bottom 242,
                    бросок — bottom 316 (62 px, зазоры 12 px). Так они не задевают ни 👋 и «действие» города (.w-wave, .w-act),
                    ни второе действие региона (.wr-act2, bottom 84), ни ряд Move. slots — свои места; .pf-inline у хозяина —
                    кнопки встают в его поток;

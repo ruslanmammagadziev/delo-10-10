@@ -276,7 +276,6 @@
         <div class="c3d-loading">строим город…</div>
         <div class="edge-arrow hidden" id="edge"></div>
         <div class="near-bubble hidden" id="nearBubble"></div>
-        <div class="joy hidden" id="joy"><div class="joy-knob"></div></div>
         <button class="ctl act hidden" id="act" data-hud-slot="P">Войти</button>
         <button class="ctl wave hidden" id="waveBtn" aria-label="Помахать">👋</button>
         <div class="ctl-hint hidden" id="hint"></div>
@@ -322,7 +321,9 @@
     root.style.background = ROOM ? RLOOK.bg : SKY3D[LI];
     if (ROOM) root.classList.add('room3d');
     root.dataset.idx = LI;
-    const edge = scr.querySelector('#edge'), bubble = scr.querySelector('#nearBubble'), joy = scr.querySelector('#joy'), knob = joy.querySelector('.joy-knob');
+    const edge = scr.querySelector('#edge'), bubble = scr.querySelector('#nearBubble');
+    // джойстик — общий HUD.joystick (как в городе и регионах: кружок под пальцем, та же кривая и сглаживание; бега тут нет)
+    const J = window.HUD && HUD.joystick ? HUD.joystick.create(root, { root }) : null;
     const act = scr.querySelector('#act'), hint = scr.querySelector('#hint'), waveBtn = scr.querySelector('#waveBtn');
     ensureWaveCss();
     const coarse = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return true; } })();
@@ -3015,27 +3016,39 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       else if (e.key === 'h' || e.key === 'H' || e.key === 'р' || e.key === 'Р') { if (!blocked()) doWave(); }
     };
     const ku = e => { const k = KEYS[e.key]; if (k) held[k] = false; };
-    const blur = () => { held.l = held.r = held.u = held.d = false; joyVec = null; };
+    const blur = () => { held.l = held.r = held.u = held.d = false; joyVec = null; joyId = null; if (J) J.end(); };
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('blur', blur);
 
-    /* --- ввод: джойстик --- */
-    let joyId = null, joyC = null;
+    /* --- ввод: джойстик (HUD.joystick) — касание внизу слева (зона HUD), центр — сам палец; движение и отпускание слушаем на
+       window без захвата указателя: короткий тап по полу/жителю/месту по-прежнему доходит до холста (click) --- */
+    let joyId = null, joyT0 = 0, joyX0 = 0, joyY0 = 0, joyMoved = 0, joyGuard = false, eatClickT = -1e9;
+    const joyRel = e => { const r = root.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    // «фокус» (кино, Ковш, волосок: кружок скрыт) или мини-игра ловит тапы (intercept) — палец внизу слева не джойстик,
+    // а тап по сцене; полоса мини-занятия (.room-puzzle) — свои кнопки
+    const joyOff = () => root.classList.contains('focus-on') || !!interceptFn;
+    const joyDown = e => {
+      if (!J || joyId !== null || e.pointerType === 'mouse' || joyOff()) return;
+      if (e.target && e.target.closest && e.target.closest('button, .modal, .room-puzzle, [data-hud-slot]:not(.hud-joy)')) return;
+      const [x, y] = joyRel(e);
+      if (!J.zone(x, y) || !active || finished || blocked()) return;
+      joyId = e.pointerId; joyT0 = performance.now(); joyX0 = x; joyY0 = y; joyMoved = 0; joyGuard = J.guard(x, y);
+      J.begin(x, y); J.show(true);
+    };
     const joyMove = e => {
-      if (joyId !== e.pointerId || !joyC) return;
-      let dx = e.clientX - joyC.x, dy = e.clientY - joyC.y; const len = Math.hypot(dx, dy), max = Math.max(24, ((joy.offsetWidth || 104) - (knob.offsetWidth || 44)) / 2 + 4);
-      if (len > max) { dx *= max / len; dy *= max / len; }
-      knob.style.transform = `translate(${dx}px, ${dy}px)`;
-      joyVec = len > 8 ? { x: dx / max, z: dy / max } : null; moveTo = null; pendingEnter = false; pendingTwirl = null;
+      if (!J || e.pointerId !== joyId) return;
+      const [x, y] = joyRel(e);
+      joyMoved = Math.max(joyMoved, Math.hypot(x - joyX0, y - joyY0));
+      const v = J.drag(x, y);
+      if (v.m > 0) { moveTo = null; pendingEnter = false; pendingTwirl = null; }
     };
-    const joyStart = e => {
-      if (!active || finished || blocked()) return;
-      joyId = e.pointerId; const r = joy.getBoundingClientRect(); joyC = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      try { joy.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
-      joyMove(e); e.preventDefault();
+    const joyUp = e => {
+      if (!J || e.pointerId !== joyId) return;
+      joyId = null; joyVec = null; J.end();
+      // не тап (палец ехал или держал; касание на кружке покоя) — щелчок по холсту после него не «идти туда»
+      if (e.type !== 'pointerup' || joyMoved >= 10 || performance.now() - joyT0 >= 320 || joyGuard) eatClickT = performance.now();
     };
-    const joyEnd = e => { if (joyId !== e.pointerId) return; joyId = null; joyVec = null; knob.style.transform = ''; };
-    joy.addEventListener('pointerdown', joyStart); joy.addEventListener('pointermove', joyMove);
-    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => joy.addEventListener(ev, joyEnd));
+    root.addEventListener('pointerdown', joyDown);
+    window.addEventListener('pointermove', joyMove); window.addEventListener('pointerup', joyUp); window.addEventListener('pointercancel', joyUp);
     act.addEventListener('click', e => { e.stopPropagation(); if (actWave) doWave(); else tryEnter(); });
 
     /* --- ввод: тап по миру --- */
@@ -3043,6 +3056,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const visibleChain = ob => { for (let x = ob; x; x = x.parent) if (!x.visible) return false; return true; };
     const keyOf = ob => { for (let x = ob; x; x = x.parent) if (x.userData && x.userData.key) return x.userData.key; return null; };
     canvas.addEventListener('click', async e => {
+      if (performance.now() - eatClickT < 400) return;
       idleAll = 0;
       if (finished || blocked()) return;
       const r = canvas.getBoundingClientRect();
@@ -3186,7 +3200,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     /* --- игровой цикл --- */
     // скорости героини (HeroAnim.SPEEDS, волна 3): шаг 2,0 м/с, трусца 3,0; джойстик — шаг до 85% наклона, дальше трусца
     const HS = (window.HeroAnim && window.HeroAnim.SPEEDS) || { walk: 2.0, jog: 3.0, run: 6.8 };
-    const joySpeed = m => (m <= 0.85 ? HS.walk * m / 0.85 : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
+    const joySpeed = m => (m <= 0.85 ? Math.max(0.35, HS.walk * m / 0.85) : HS.walk + (HS.jog - HS.walk) * (m - 0.85) / 0.15);
+    // сила джойстика (HUD.joystick.frame: кривая и сглаживание) — раз в кадр; оси комнаты неподвижны: x — вправо, z — к камере
+    const joyV = { x: 0, z: 0 };
     let SPEED = HS.walk;
     const proj = new T.Vector3();
     const toScreen = (x, y, z) => { proj.set(x, y, z).project(camera); return { x: (proj.x + 1) / 2 * root.clientWidth, y: (1 - proj.y) / 2 * root.clientHeight }; };
@@ -3199,6 +3215,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       const rawDt = Math.max(0, (now - last) / 1000), dt = Math.min(0.12, rawDt); last = now;
       const t = now / 1000;
       let vx = 0, vz = 0;
+      // включился «фокус» или перехват тапов, пока палец на джойстике, — джойстик отпускает (героиня не встаёт и не идёт)
+      if (J && joyId !== null && joyOff()) { joyId = null; joyVec = null; J.end(); }
+      if (J) { J.frame(false); if (joyId !== null && J.m > 0) { joyV.x = J.x; joyV.z = J.y; joyVec = joyV; } else joyVec = null; }
       if (sitting && (joyVec || held.l || held.r || held.u || held.d) && !iaBusy()) spotApi.stand();
       // волна 4: руки заняты (взять, съесть) — стоим; палец на джойстике или стрелки — один мягкий cancel
       if (iaBusy()) { if ((joyVec || held.l || held.r || held.u || held.d) && !iaCancelled && active && !finished) { iaCancelled = true; IA.cancel(); } }
@@ -3624,6 +3643,9 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (IA) { try { IA.cancel(); IA.dispose(); } catch (e) { /* ignore */ } IA = null; }
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('blur', blur);
       window.removeEventListener('resize', resize);
+      root.removeEventListener('pointerdown', joyDown);
+      window.removeEventListener('pointermove', joyMove); window.removeEventListener('pointerup', joyUp); window.removeEventListener('pointercancel', joyUp);
+      if (J) { joyId = null; J.dispose(); }
       setTimeout(() => {
         disposables.forEach(d => { try { d.dispose(); } catch (e) { /* ignore */ } });
         try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) { /* ignore */ }
@@ -3648,7 +3670,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     if (finished) return;
     active = true;
     if (RM && RM.catSpot) setTimeout(() => { if (!finished && cat.root.visible && !catPin) catPin = { x: RM.catSpot.x, z: RM.catSpot.z, ry: RM.catSpot.ry, y: RM.catSpot.y }; }, 2500);
-    joy.classList.remove('hidden');
+    if (J) J.show(true);
     // подсказка управления — тостом (HUD v2)
     if (o.showHint) toast(coarse ? 'Кружок внизу — идти · тап по земле — туда' : 'Стрелки — идти · Enter — войти', 4000);
   }

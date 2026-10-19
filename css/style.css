@@ -1081,15 +1081,15 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 .hud-act.soft:active { box-shadow: 0 1px 0 rgba(58,46,63,.16); }
 .hud-act.go > i { animation: wWave .8s ease-in-out; }
 /* маленькие круглые кнопки дуги, 46 px, только значок */
-.hud-sbtn, [data-hud-slot^="s"].mv-jump, [data-hud-slot^="s"].mv-run, [data-hud-slot^="s"].pf-btn {
+.hud-sbtn, [data-hud-slot^="s"].mv-jump, [data-hud-slot^="s"].pf-btn {
   width: var(--hud-btn); height: var(--hud-btn); padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center;
   background: var(--hud-glass-2); color: var(--cherry); box-shadow: 0 3px 0 rgba(58,46,63,.14), 0 6px 14px rgba(58,46,63,.12);
   font-family: inherit; font-size: 0; line-height: 1; cursor: pointer; z-index: 21; touch-action: manipulation; gap: 0;
 }
-.hud-sbtn > i, [data-hud-slot^="s"].mv-jump > i, [data-hud-slot^="s"].mv-run > i, [data-hud-slot^="s"].pf-btn > i { font-style: normal; font-size: 22px; line-height: 1; height: auto; display: block; }
-[data-hud-slot^="s"].pf-btn > b, [data-hud-slot^="s"].mv-jump > b, [data-hud-slot^="s"].mv-run > b { display: none; }
-.hud-sbtn:active, .hud-sbtn.down, [data-hud-slot^="s"].mv-jump.down, [data-hud-slot^="s"].mv-run.down { transform: translateY(3px); box-shadow: 0 1px 0 rgba(58,46,63,.14); }
-.hud-sbtn.on, [data-hud-slot^="s"].mv-run.on { background: #F7C948; color: #6B3A12; box-shadow: 0 3px 0 #C9962A, 0 0 0 4px rgba(247,201,72,.35); }
+.hud-sbtn > i, [data-hud-slot^="s"].mv-jump > i, [data-hud-slot^="s"].pf-btn > i { font-style: normal; font-size: 22px; line-height: 1; height: auto; display: block; }
+[data-hud-slot^="s"].pf-btn > b, [data-hud-slot^="s"].mv-jump > b { display: none; }
+.hud-sbtn:active, .hud-sbtn.down, [data-hud-slot^="s"].mv-jump.down { transform: translateY(3px); box-shadow: 0 1px 0 rgba(58,46,63,.14); }
+.hud-sbtn.on { background: #F7C948; color: #6B3A12; box-shadow: 0 3px 0 #C9962A, 0 0 0 4px rgba(247,201,72,.35); }
 .mv-btns { display: contents; }
 .mv-btns.hide { display: none; }
 /* доп. действие A2: мягкая пилюля над дугой */
@@ -1121,13 +1121,24 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
 }
 .hud-joy.live .joy-knob { transition: none; }
 .hud-joy .joy-knob::after { content: ''; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--powder); inset: auto; display: block; font-size: 0; }
-/* желание 7: палец дальше края, до стрелок — бег (HUD.joystick .run): ручка тёплая, как горящая «Бег», кольцо и стрелки ярче;
-   .joy.hud-joy — на класс сильнее правил «.city3d .joy …» ниже (корень города — .city3d) */
+/* бег джойстиком (HUD.joystick .run): палец за краем кружка — ручка и кольцо золотые, стрелки ярче;
+   .joy.hud-joy — на класс сильнее общих правил «.joy» */
 .hud-joy.live .joy-knob { transition: background-color .15s, box-shadow .15s; }
 .joy.hud-joy.run { box-shadow: inset 0 0 0 2px rgba(247,201,72,.95), inset 0 0 0 3px rgba(201,150,42,.16), 0 0 0 4px rgba(247,201,72,.2), 0 6px 16px rgba(201,150,42,.16); }
 .joy.hud-joy.run .hud-joy-ch { opacity: .9; color: #C9962A; }
 .joy.hud-joy.run .joy-knob { background: #F7C948; box-shadow: 0 3px 0 #C9962A, 0 0 0 3px rgba(255,253,249,.55), 0 6px 12px rgba(201,150,42,.3); }
 .joy.hud-joy.run .joy-knob::after { background: #FFFDF9; }
+/* JOY: бег — палец за порогом (пунктир 2 × 1,4 хода вокруг кружка). Ручка упёрлась в край — порог виден пунктиром (.edge);
+   палец за ним — кольцо сплошное золотое, свет нарастает 0,22 с (.arm, с 80 мс удержания) — как раз к бегу (0,3 с);
+   бег — горит ярче (.run) */
+.hud-joy::before { content: ''; position: absolute; left: 50%; top: 50%; box-sizing: border-box; width: var(--hud-joy-run, 120px); height: var(--hud-joy-run, 120px);
+  margin: calc(var(--hud-joy-run, 120px) / -2) 0 0 calc(var(--hud-joy-run, 120px) / -2); border-radius: 50%; pointer-events: none;
+  border: 2px dashed #C9962A; box-shadow: 0 0 0 1.5px rgba(255,253,249,.6), inset 0 0 0 1.5px rgba(255,253,249,.6);
+  opacity: 0; transform: scale(.9); transition: opacity .15s, transform .15s ease-out, box-shadow .22s ease-out; }
+.hud-joy.edge::before { opacity: .8; transform: scale(1); }
+.hud-joy.arm::before { opacity: .9; border: 3px solid #F7C948; box-shadow: 0 0 10px 2px rgba(247,201,72,.4); transform: scale(1); }
+.hud-joy.arm .hud-joy-ch { opacity: .6; }
+.joy.hud-joy.run::before { opacity: 1; border: 3px solid #F7C948; box-shadow: 0 0 18px 4px rgba(247,201,72,.55); transform: scale(1); }
 /* шеврон у края: кружок со стрелкой и расстояние */
 .hud-chev {
   position: absolute; z-index: 15; width: 36px; transform: translate(-50%, -18px); display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -1147,14 +1158,7 @@ body.hud-quiet .w-edge, body.hud-quiet .edge-arrow, body.hud-quiet .w-near, body
 body.hud-quiet .hud-a2, body.hud-quiet .hud-pedal, body.hud-quiet #hud .hud-obj, body.hud-quiet #hud .hud-card, body.hud-quiet .mv-say {
   opacity: 0 !important; pointer-events: none !important; transition: opacity .18s;
 }
-/* улица-запас (?world=off, js/city3d.js): джойстик на месте покоя по центру снизу, тот же вид; 2D-улица (js/ep1.js): ◀ ▶ на месте джойстика */
-.city3d .joy {
-  left: calc(var(--hud-joy-cx) - var(--hud-joy) / 2); bottom: var(--hud-joy-b); width: var(--hud-joy); height: var(--hud-joy); z-index: 19;
-  background: rgba(255,253,249,.32) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23C2405B' stroke-opacity='.35' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M44,15 L50,9 L56,15'/%3E%3Cpath d='M44,85 L50,91 L56,85'/%3E%3Cpath d='M15,44 L9,50 L15,56'/%3E%3Cpath d='M85,44 L91,50 L85,56'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.8), inset 0 0 0 3px rgba(58,46,63,.06), 0 6px 16px rgba(58,46,63,.10);
-}
-.city3d .joy .joy-knob { width: var(--hud-knob); height: var(--hud-knob); margin: calc(var(--hud-knob) / -2) 0 0 calc(var(--hud-knob) / -2); background: rgba(255,253,249,.96); box-shadow: 0 3px 0 rgba(58,46,63,.16), 0 6px 12px rgba(58,46,63,.14); }
-.city3d .joy .joy-knob::after { content: ''; inset: auto; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--powder); }
+/* улица-запас и комнаты (js/city3d.js): тот же HUD.joystick (.hud-joy); 2D-улица (js/ep1.js): ◀ ▶ на месте джойстика */
 .pad-ctl { left: calc(var(--hud-joy-cx) - 64px); bottom: calc(var(--hud-joy-b) + var(--hud-joy) / 2 - 28px); gap: 16px; z-index: 19; }
 .pad-ctl .ctl { width: 56px; height: 56px; font-size: 22px; background: var(--hud-glass-2); }
 .city3d .ctl.wave { display: none !important; }
