@@ -9,6 +9,9 @@
    Руль крутится вместе с колёсами (сетка отделки со скелетом из двух костей — без лишнего вызова).
    Управление «покажи, куда ехать»: джойстик задаёт направление и газ; отпустила — сама тормозит; задний ход
    включается сам; перед стеной и бордюром сама сбавляет ход; о бордюр мягко пружинит и скользит вдоль.
+   Ручное управление (телефон — кнопки руля и педали HUD.driveCtl, компьютер — стрелки): газ, руль от скорости (полный руль —
+   1,6 рад/с на малом ходу, 1,0 на полном), тормоз, без газа — накатом (ctl.coast); сама не сбавляет — как решил игрок.
+   Кабриолет — быстрая машина: 20 м/с, разгон 9,5 м/с², тормоз 13 м/с² (запасное купе и o.speedK — прежние 12 м/с).
 
    API (совместимо с волной 2: main.js, stand.js, js/village/drive.js)
      WORLD.makeCar(H, o) → car — модель и езда. o = { x, z, ry, color, can(x,z), vmax (8), edge {x,z,r}, layout, speedK (1,5) }
@@ -41,6 +44,7 @@
   const WORLD = window.WORLD = window.WORLD || {};
   const PI = Math.PI;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const sst01 = x => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
   const angDiffG = (a, b) => { let d = (a - b) % (PI * 2); if (d > PI) d -= PI * 2; if (d < -PI) d += PI * 2; return d; };
   WORLD.CAR_COLORS = [['жёлтый', '#FCD93A'], ['мятный', '#A8D8C4'], ['пудровый', '#F2B8C6'], ['сливочный', '#F6E3B8'], ['вишнёвый', '#D9566E'], ['небесный', '#A9C9EE'], ['графитовый', '#6F6A78']];
 
@@ -224,6 +228,7 @@
     let M = null;
     const CB = window.VEHICLES && window.VEHICLES.cabrio;
     if (CB && typeof CB.build === 'function') { try { M = CB.build(H, { color: o.color, root, body }); } catch (e) { console.warn('car: cabrio body failed, retro coupe', e); M = null; } }
+    const cab = !!M;   // кабриолет — быстрая машина (CAB ниже); запасное ретро-купе — как раньше
     if (!M) M = retroBody(H, o, root, body);
     const { paintMesh, outline, trimMesh, boneWheel, glass, plate, wheels, WP, WR, WHEEL_C, COL_AX } = M;
 
@@ -231,8 +236,15 @@
     const S = { x: o.x || 0, z: o.z || 0, ry: o.ry || 0, v: 0, steer: 0, spin: 0, squash: 0, sq: 0, pitch: 0, roll: 0, bumpT: 0, stuckT: 0, lastBump: -1, edgeIn: false, slideT: 0 };
     // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): множитель скорости и разгона внутри машины —
     // main.js передаёт vmax: 8 явно, итоговая 12 м/с; разгон 5,5 → 8,25 м/с². o.speedK — свой множитель (1 — как раньше)
-    const SPEED_K = o.speedK != null ? o.speedK : 1.5, VMAX = (o.vmax || 8) * SPEED_K, ACC = 5.5 * SPEED_K;
-    const COAST = 3.2;   // накат без газа, м/с²: с 12 м/с — до остановки ≈ 3,8 с (≈ 22 м)
+    // Кабриолет (желание автора: «это же быстрая машина»): 20 м/с (72 км/ч) вместо 12, разгон 9,5 м/с² (до 60 км/ч ≈ 1,8 с),
+    // тормоз 13 м/с², накат 4 м/с²; o.speedK задан — прежняя формула (тесты и запасное купе)
+    const CAB = cab && o.speedK == null ? { vmax: 20, acc: 9.5 } : null;
+    const SPEED_K = o.speedK != null ? o.speedK : 1.5, VMAX = CAB ? CAB.vmax : (o.vmax || 8) * SPEED_K, ACC = CAB ? CAB.acc : 5.5 * SPEED_K;
+    const COAST = 4, BRAKE = CAB ? 13 : 10, VREV = 4;   // накат без газа и тормоз, м/с²; задний ход, м/с
+    // руль от скорости (ручное управление — кнопки, педали, стрелки): полный руль = желаемое рыскание: 1,6 рад/с до 6 м/с,
+    // 1,0 рад/с на полном ходу (радиус ≈ 20 м). Раньше уже половина руля на 12 м/с упиралась в предел рыскания — «всё или ничего»
+    const yawWant = v => 1.6 - 0.6 * sst01((Math.abs(v) - 6) / Math.max(1, VMAX - 6));
+    const steerLim = v => Math.min(0.55, Math.atan(yawWant(v) * 2.2 / Math.max(Math.abs(v), 0.5)));
     // звук мотора (js/engine_sound.js): один объект на машину — без новых объектов за кадр
     const ES = { kind: 'cabrio', speed: 0, vmax: VMAX, throttle: 0, braking: false, onGround: true, driving: true };
     const _m = new T.Matrix4(), _q = new T.Quaternion(), _q2 = new T.Quaternion(), _p = new T.Vector3(), _s = new T.Vector3(1, 1, 1), _X = new T.Vector3(1, 0, 0), _Y = new T.Vector3(0, 1, 0);
@@ -277,12 +289,14 @@
           if (S.v < 0.3 && Math.abs(err) > 0.4) target = Math.max(target, 2.2);   // с места на повороте — хотя бы тихий ход
         }
       } else if (ctl && (ctl.thr || ctl.str)) {
-        target = ctl.thr > 0 ? VMAX * ctl.thr : ctl.thr < 0 ? (S.v > 0.6 ? 0 : -4) : 0;
-        delta = -(ctl.str || 0) * 0.55;
+        target = ctl.thr > 0 ? VMAX * ctl.thr : ctl.thr < 0 ? (S.v > 0.6 ? 0 : -VREV) : 0;
+        delta = -(ctl.str || 0) * steerLim(S.v);
       }
       if (ctl && ctl.brake) target = 0;
-      // сама сбавляет ход перед стеной/бордюром: смотрим вперёд по дуге руля на тормозной путь (W6: на 12 м/с — дальше, до 15 м)
-      if (target > 1.2 && S.v > 0.8) {
+      // сама сбавляет ход перед стеной/бордюром — только когда ведёт джойстик или автопилот («покажи, куда ехать»): смотрим вперёд
+      // по дуге руля на тормозной путь. Ручное управление (кнопки, стрелки) — как игрок решил: раньше машина у бордюров
+      // ползла 1,4 м/с с полным газом
+      if (ctl && ctl.dir && target > 1.2 && S.v > 0.8) {
         const look = Math.min(15, 1.6 + S.v * S.v / 10), k = Math.tan(S.steer) / 2.2;
         let x = S.x, z = S.z, h = S.ry;
         for (let d = 0.9; d <= look; d += 0.9) {
@@ -292,11 +306,13 @@
       }
       // ctl.coast (кнопки и педали телефона): газ отпущен, тормоза нет — катится накатом (COAST м/с²), а не встаёт как вкопанная
       const coast = !!(ctl && ctl.coast && !ctl.thr && !ctl.brake);
-      const acc = coast ? COAST : (Math.sign(target) !== Math.sign(S.v) && Math.abs(S.v) > 0.05) || Math.abs(target) < Math.abs(S.v) ? 10 : ACC;
+      const braking = !!(ctl && (ctl.brake || (ctl.thr < 0 && S.v > 0.6)));
+      const acc = coast ? COAST : braking ? BRAKE : (Math.sign(target) !== Math.sign(S.v) && Math.abs(S.v) > 0.05) || Math.abs(target) < Math.abs(S.v) ? 10 : ACC;
       const dv = Math.max(-acc * dt, Math.min(acc * dt, target - S.v)); S.v += dv;
       S.steer += (delta - S.steer) * Math.min(1, dt * 7);
-      // W6: предел рыскания от скорости — 1,6 рад/с до 8 м/с, 1,2 рад/с на 12 м/с (быстрая машина не «вертится»)
-      const wLim = 1.6 - 0.4 * Math.min(1, Math.max(0, (Math.abs(S.v) - 8) / 4));
+      // предел рыскания от скорости: чуть выше желаемого (yawWant) — ручной руль в него не упирается, джойстик (руль до 0,6) —
+      // как раньше: на скорости машина не «вертится»
+      const wLim = yawWant(S.v) * 1.08;
       let w = S.v / 2.2 * Math.tan(S.steer); w = Math.max(-wLim, Math.min(wLim, w));
       const nry = S.ry + w * dt, nx = S.x + Math.sin(nry) * S.v * dt, nz = S.z + Math.cos(nry) * S.v * dt;
       let bumped = false;

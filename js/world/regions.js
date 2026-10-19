@@ -870,6 +870,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
 
     /* ---------- машина ---------- */
     const wantSedan = () => { try { if (refs.carKind) return refs.carKind === 'sedan'; if (WORLD.carChoice) return WORLD.carChoice() === 'sedan'; } catch (e) { /* ниже */ } return false; };
+    // кабриолет — быстрая машина (желание автора): на серпантине 21 м/с вместо 18, разгон 9,5 м/с², тормоз 12,5; седан — как был.
+    // Руль от скорости у drive.js свой (steerMax → steerHi к vmax) — растягивается сам
+    const CAB_DRIVE = { vmax: 21, acc: 9.5, brake: 12.5, vCap: 23 };
+    const driveCfgOf = c => Object.assign({}, c.driveCfg, c.kind === 'sedan' || wantSedan() ? null : CAB_DRIVE);
     function ensureCar() {
       if (car) return car;
       const V = V_();
@@ -915,7 +919,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const cr = c.root || c, V = V_();
       if (id === 'serpentine' && V.drive) {
         scene.add(cr);
-        drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: c.driveCfg });
+        drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: driveCfgOf(c) });
         chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
         if (from === 'kubachi') placeCarTop(); else if (from === 'hotel') placeCarHotel(); else placeCarStart();
         if (hero) { if (drv.heroIn) drv.heroIn(hero, { instant: true }); else heroToCar(); }
@@ -926,7 +930,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         // волна 6 (VILLAGE-ROADS): по селу тоже ездим — тот же drive.js, «дорога» — сеть проездов села (h.drive.road);
         // машина стоит на h.carSpawn (парковка; из отеля — наверху дороги к школе, и тогда героиня уже за рулём)
         scene.add(cr);
-        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign({}, c.driveCfg, h.drive.cfg) });   // по селу — тише (h.drive.cfg: vmax 10)
+        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign(driveCfgOf(c), h.drive.cfg) });   // по селу — тише (h.drive.cfg: vmax 10)
         chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
         S.dir = 'village'; S.exitArmed = {};
         if (h.drive.heroInCar && hero) {
