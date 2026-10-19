@@ -2168,20 +2168,26 @@
       },
     };
   }
-  /* ---------- 2. «Конная прогулка»: длинное замшевое пальто, голубая водолазка, кремовые брюки, сапоги, бордовый саквояж ---------- */
+  /* ---------- 2. «Конная прогулка»: длинное замшевое пальто, голубая водолазка, кремовые бриджи, сапоги, бордовый саквояж ---------- */
   {
     const H = { base: '#2E1C14', dark: '#1A100B', light: '#5A3C2A', tips: '#7A5338', part: 0.04, keep: 0.6 };
     const HP = hairPaint(H);
     const SU = tc('#4A2C1C'), SUD = tc('#2E1A10'), SUL = tc('#6A4430');
     const TN = tc('#A9C6E3'), TND = tc('#7F9DBE'), TNL = tc('#CFE1F2');
-    const CR = tc('#E8E0D0'), CRD = tc('#C9BDA8');
+    const CR = tc('#E8E0D0'), CRD = tc('#C9BDA8'), CRL = tc('#F6F0E4');
     const BT = tc('#3A2218'), BTL = tc('#6B4A3C'), BTD = tc('#22130C');
     const out = [0, 0, 0];
-    // замша: матовая, мелкий ворс (шум) и светлые потёртости по краям полы и манжет
+    // замша: мягкие тональные пятна ворса (10–30 см, без мелкой ряби: одинаково ровно и на сетке пальто, и на текселях
+    // рукавов) — светлее, где ворс «поднят», темнее, где «примят»
+    const napK = (x, y, z) => {
+      const u = x * 19 + 0.9 * Math.sin(y * 13 + z * 7), v = y * 15 + 0.9 * Math.sin(x * 17 - z * 11), w = z * 21 + 0.7 * Math.sin(x * 9 + y * 11);
+      return clamp(0.5 + 0.22 * Math.sin(u + v * 0.6) + 0.16 * Math.sin(v - w * 0.7 + 1.7) + 0.12 * Math.sin(u * 1.7 - w + 0.6), 0, 1);
+    };
+    const napC = (x, y, z, o) => { const k = napK(x, y, z); return k > 0.5 ? mix3(SU, SUL, Math.min(1, (k - 0.5) * 1.5), o) : mix3(SU, SUD, Math.min(1, (0.5 - k) * 1.15), o); };
+    // рукава (краска модели): та же замша, светлые потёртости у подола
     const suede = (x, y, z, o) => {
       o.f = 1;
-      const nap = 0.5 + 0.5 * Math.sin(x * 211 + y * 97) * Math.sin(y * 173 - z * 131);
-      mix3(SU, SUL, nap * 0.22, out);
+      napC(x, y, z, out);
       if (y < 0.5) mix3(out, SUL, sst(0.5, 0.47, y) * 0.35, out);
       return out;
     };
@@ -2200,10 +2206,9 @@
       const sh = Math.pow(Math.max(0, Math.cos(Math.atan2(x - (x > 0 ? 0.06 : -0.06), z) - (x > 0 ? 0.5 : -0.5))), 8);
       return mix3(BT, BTL, sh * 0.8, out);
     };
-    // пальто новым кроем: замша (ворс, светлые потёртости у края и подола), широкие лацканы с длинным изломом к пуговице
+    // пальто новым кроем: замша (пятна ворса, светлые потёртости у края и подола), широкие лацканы с длинным изломом к пуговице
     const jcol = (p, a, y, part) => {
-      const nap = 0.5 + 0.5 * Math.sin(p[0] * 211 + y * 97) * Math.sin(y * 173 - p[2] * 131);
-      const c = mix3(SU, SUL, nap * 0.22);
+      const c = napC(p[0], y, p[2], [0, 0, 0]);
       if (part === 'edge') return mix3(c, SUL, 0.55);
       if (part === 'lapel') return mix3(c, SUL, 0.22);
       if (part === 'shadow') return mix3(c, SUD, 0.75);
@@ -2213,6 +2218,124 @@
     };
     const ribAt = (p, a) => { const r = 0.5 + 0.5 * Math.sin(a * 60); return mix3(TN, TND, r * 0.18); };
     const BAG = ['#5A1A1C', '#3A0E10', '#8A3A3A'];
+    // бриджи: две облегающие штанины по осям бёдер (+3–5 мм к ногам модели). Между ногами — узкий ровный просвет от шага до
+    // колена (8–28 мм: тёмная линия, две ноги), а не «клин» изнанки пальто, как у юбки; у колена уже верха голенищ
+    // (заправлены, без светлого «носка»). Профиль: [y, x центра, полуось x, полуось z]; выше 0.82 штанины сходятся в общее
+    // сечение (перед в распахе пальто ровный), выше 0.5 — внутри поверхности тела + 4 мм (под пальто не проступают);
+    // последний столбец — z центра: у колена к оси голени (перед бриджей на 1 см внутри голенища, без мерцания)
+    const BR = [[0.82, 0.066, 0.068, 0.074, 0.008], [0.74, 0.066, 0.062, 0.068, 0.008], [0.62, 0.064, 0.058, 0.064, 0.006], [0.54, 0.062, 0.055, 0.06, 0.004], [0.48, 0.06, 0.05, 0.052, 0.001], [0.42, 0.058, 0.044, 0.045, 0]];
+    const brAt = y => {
+      for (let i = 1; i < BR.length; i++) if (y >= BR[i][0]) { const k = Math.min(1, (y - BR[i][0]) / (BR[i - 1][0] - BR[i][0])); return [1, 2, 3, 4].map(j => lerp(BR[i][j], BR[i - 1][j], k)); }
+      return BR[BR.length - 1].slice(1);
+    };
+    const breeches = (B, SS) => {
+      const top = 1.0, hem = 0.42, NR = 13, SEG = 11, SE = { y0: 0.82, rx: 0.13, rz: 0.11, cz: -0.012 };
+      const seatK = y => sst(SE.y0, top, y);
+      const inSh = R => {
+        R.k = a => {
+          const sa = Math.sin(a), ca = Math.cos(a);
+          const at = k => { const x = R.c[0] + sa * R.rx * k, z = R.c[2] + ca * R.rz * k; return Math.hypot(x, z - SH_CZ) - shellR(SS, Math.atan2(x, z - SH_CZ), R.c[1]) - 0.004; };
+          if (at(1) <= 0) return 1;
+          let lo = 0.2, hi = 1;
+          for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (at(m) <= 0) lo = m; else hi = m; }
+          return lo;
+        };
+        return R;
+      };
+      ['L', 'R'].forEach(sd => {
+        const s = sd === 'L' ? 1 : -1, hip = J('thigh_' + sd), knee = J('shin_' + sd), rings = [];
+        for (let r = 0; r < NR; r++) {
+          const y = lerp(top, hem, r / (NR - 1)), q = brAt(y), kS = seatK(y);
+          const R = { c: [lerp(s * q[0], 0, kS), y, lerp(q[3], SE.cz, kS)], rx: lerp(q[1], SE.rx, kS), rz: lerp(q[2], SE.rz, kS) };
+          rings.push(SS && y > 0.5 ? inSh(R) : R);
+        }
+        B.tube(rings, SEG, (ri, si, p, a) => {
+          const y = p[1], kS = seatK(y);
+          let w;
+          if (y > hip[1] + 0.02) w = mixW('hips', 'thigh_' + sd, sst(top, hip[1] + 0.02, y) * 0.5);
+          else if (y > knee[1] + 0.07) w = mixW('hips', 'thigh_' + sd, 0.5 + 0.5 * sst(hip[1] + 0.02, hip[1] - 0.08, y));
+          else w = mixW('thigh_' + sd, 'shin_' + sd, sst(knee[1] + 0.07, knee[1] - 0.05, y));
+          // перед светлее, бока мягко темнее; внутренняя сторона (где бёдра сходятся) — в тени: две ноги, а не панель
+          const fr = Math.max(0, Math.cos(a)), side = Math.abs(Math.sin(a)), inner = Math.max(0, -Math.sin(a) * s);
+          const c = mix3(mix3(CR, CRL, fr * fr * 0.4 * (1 - kS), [0, 0, 0]), CRD, (Math.pow(side, 6) * 0.25 + Math.pow(inner, 3) * 0.55) * (1 - kS));
+          return { col: c, w, tk: 0 };
+        }, { capTop: 'noline' });
+      });
+    };
+    // сапоги для верховой езды: стройное голенище по голени модели (+6–8 мм: икра, к щиколотке уже), верх спереди чуть
+    // выше и раструбом, открыт (внутри — изнанка темнее, бриджи уходят внутрь); гладкая тёмная кожа с узким бликом
+    // спереди-сбоку и тёмным кантом по верху. [y, радиус]
+    const BOOT = [[0.46, 0.055], [0.435, 0.052], [0.38, 0.05], [0.32, 0.049], [0.26, 0.045], [0.2, 0.04], [0.14, 0.035], [0.075, 0.036]];
+    const ridingBoots = B => {
+      ['L', 'R'].forEach(sd => {
+        const s = sd === 'L' ? 1 : -1, knee = J('shin_' + sd), ank = J('foot_' + sd), rings = [];
+        BOOT.forEach(([y, r], i) => {
+          const t = clamp((knee[1] - y) / (knee[1] - ank[1]), 0, 1);
+          const R = { c: [lerp(knee[0], ank[0] + s * 0.004, t), y, lerp(0.002, -0.008, t)], rx: r, rz: r * 1.07 };
+          if (!i) R.dy = a => 0.012 * Math.pow(Math.max(0, Math.cos(a)), 2);
+          rings.push(R);
+        });
+        B.tube(rings, 12, (ri, si, p, a) => {
+          const y = p[1], w = y > ank[1] + 0.03 ? W1('shin_' + sd) : mixW('shin_' + sd, 'foot_' + sd, sst(ank[1] + 0.03, ank[1] - 0.01, y));
+          const sh = Math.pow(Math.max(0, Math.cos(a - 0.45 * s)), 12);
+          const c = mix3(mix3(BT, BTD, Math.pow(Math.abs(Math.sin(a)), 3) * 0.35, [0, 0, 0]), BTL, sh * 0.9 * (ri ? 1 : 0.4));
+          return { col: ri ? c : mix3(c, BTD, 0.55, c), w };
+        });
+      });
+    };
+    // бордовый саквояж-«боулинг» в свободной руке за ручки (у бедра, как в ролике): пухлый корпус — низ коробкой со
+    // скруглёнными рёбрами, верх куполом вдоль длины; две круглые ручки сходятся в кулаке. Длинной стороной наискосок
+    // (спереди виден торец и бок, сбоку — весь бок), чуть наружу от полы пальто и с креном к кулаку; молния по куполу,
+    // золотой бегунок. Корпус строится у начала координат и ставится поворотом; жёстко на кисти, прячется как сумочка
+    const BG = { size: [0.12, 0.168, 0.258], c: [0.276, 0.56, 0.045], grip: [0.214, 0.7, -0.002], yaw: -0.62, roll: 0.2 };
+    const bowlingBag = B => {
+      const w = W1('hand_L'), cy = Math.cos(BG.yaw), sy = Math.sin(BG.yaw), cf = Math.cos(BG.roll), sf = Math.sin(BG.roll), C = BG.c;
+      // крен вокруг длины (локальная z), потом поворот вокруг вертикали; обратный — для точки хвата
+      const rot = v => { const x1 = v[0] * cf - v[1] * sf, y1 = v[0] * sf + v[1] * cf; return [x1 * cy + v[2] * sy, y1, -x1 * sy + v[2] * cy]; };
+      const inv = v => { const x1 = v[0] * cy - v[2] * sy, z1 = v[0] * sy + v[2] * cy; return [x1 * cf + v[1] * sf, -x1 * sf + v[1] * cf, z1]; };
+      const [D, Hh, L] = BG.size, top = Hh * 0.5, G = inv([BG.grip[0] - C[0], BG.grip[1] - C[1], BG.grip[2] - C[2]]);
+      const i0 = B.p.length / 3;
+      B.part = 2;
+      // сечение: низ чуть скруглён, выше середины — купол поперёк (глубина к гребню) и вдоль (торцы скругляются: сбоку —
+      // «буханка», а не коробка)
+      const SEGB = 12;
+      bagBox(BG.size, BAG, { gloss: true, sq: 2.6, rings: 9, seg: SEGB,
+        prof: t => { const u = clamp((t - 0.4) / 0.6, 0, 1), b = 0.9 + 0.1 * sst(0, 0.14, t); return [Math.max(0.16, Math.sqrt(1 - u * u)) * b, Math.sqrt(1 - 0.72 * u * u) * (0.95 + 0.05 * b)]; } })(B, [0, 0, 0], w);
+      // донышко и макушка (крышки трубы, последние 2 × SEGB граней) у колец сверху вниз смотрят внутрь: с креном сумки дно
+      // видно сбоку — изнанкой (светлое, сиреневое). Разворачиваем грани крышек наружу (и в контуре)
+      [B.idx, B.ol].forEach(arr => { for (let k = arr.length - 2 * SEGB * 3; k < arr.length; k += 3) { const q = arr[k + 1]; arr[k + 1] = arr[k + 2]; arr[k + 2] = q; } });
+      const i1 = B.p.length / 3;
+      // молния по гребню купола (дугой: торцы скруглены) и золотой бегунок
+      const crest = z => { const zz = Math.abs(z) / (0.5 * L), u = Math.min(1, Math.sqrt(Math.max(0, 1 - zz * zz) / 0.72)); return -top + Hh * (0.4 + 0.6 * u) - 0.001; };
+      B.tube([0, 1, 2, 3, 4, 5, 6].map(i => { const z = lerp(-0.4, 0.4, i / 6) * L; return { c: [0, crest(z), z], rx: 0.0035, rz: 0.0035 }; }), 5, () => ({ col: tc('#2A0A0C'), w }));
+      B.blob([0.011, top - 0.012, 0.25 * L], [0.004, 0.012, 0.007], tc('#C9A45C'), w, 6, 4);
+      // ручки: дуги от боков купола (по обе стороны молнии) к кулаку; сечение — по рамке вдоль дуги (без контура: тонкие)
+      const HC = mix3(tc(BAG[0]), tc(BAG[2]), 0.25, [0, 0, 0]), HL = tc(BAG[2]);
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+      [-1, 1].forEach(k => {
+        const A0 = [k * D * 0.2, top - 0.012, -0.27 * L], A1 = [k * D * 0.2, top - 0.012, 0.27 * L], mid = [k * D * 0.2, top - 0.012, 0], up = [G[0] - mid[0], G[1] - mid[1], G[2] - mid[2]];
+        const pts = []; for (let i = 0; i <= 8; i++) { const u = i / 8, h = Math.sin(u * PI); pts.push([lerp(A0[0], A1[0], u) + up[0] * h, lerp(A0[1], A1[1], u) + up[1] * h, lerp(A0[2], A1[2], u) + up[2] * h]); }
+        // рамка: нормаль плоскости дуги (постоянная) и бинормаль поперёк касательной — без вырождения на вершине дуги
+        const PN = unit(cross([0, 0, 1], up)), base = B.p.length / 3, NS = 6, r = 0.0064;
+        pts.forEach((p, i) => {
+          const a = pts[Math.max(0, i - 1)], b = pts[Math.min(8, i + 1)], t = unit([b[0] - a[0], b[1] - a[1], b[2] - a[2]]), Bn = unit(cross(t, PN));
+          for (let j = 0; j <= NS; j++) { const v = j / NS * 2 * PI, cv = Math.cos(v), sv = Math.sin(v), nn = [PN[0] * cv + Bn[0] * sv, PN[1] * cv + Bn[1] * sv, PN[2] * cv + Bn[2] * sv]; B.v([p[0] + nn[0] * r, p[1] + nn[1] * r, p[2] + nn[2] * r], nn, mix3(HC, HL, Math.max(0, nn[1]) * 0.5, [0, 0, 0]), w); }
+        });
+        for (let i = 0; i < 8; i++) for (let j = 0; j < NS; j++) { const a = base + i * (NS + 1) + j, b = a + 1, c2 = a + NS + 1, d = c2 + 1; B.tri(a, b, c2, false); B.tri(b, d, c2, false); }
+      });
+      // на место: поворот и сдвиг всех вершин сумки; у корпуса — блик глянцевой кожи по итоговой нормали (спереди-сверху
+      // и сбоку снаружи: читается и в лоб, и в профиль)
+      const GL = tc('#B4605E'), L1 = [-0.27, 0.55, 0.79], L2 = [0.75, 0.48, 0.45];
+      for (let i = i0; i < B.p.length / 3; i++) {
+        const p = rot([B.p[i * 3], B.p[i * 3 + 1], B.p[i * 3 + 2]]), n = rot([B.n[i * 3], B.n[i * 3 + 1], B.n[i * 3 + 2]]);
+        B.p[i * 3] = p[0] + C[0]; B.p[i * 3 + 1] = p[1] + C[1]; B.p[i * 3 + 2] = p[2] + C[2];
+        B.n[i * 3] = n[0]; B.n[i * 3 + 1] = n[1]; B.n[i * 3 + 2] = n[2];
+        if (i >= i1) continue;
+        const d1 = Math.max(0, n[0] * L1[0] + n[1] * L1[1] + n[2] * L1[2]), d2 = Math.max(0, n[0] * L2[0] + n[1] * L2[1] + n[2] * L2[2]), h = Math.max(Math.pow(d1, 8), 0.7 * Math.pow(d2, 8)) * 0.6;
+        for (let c = 0; c < 3; c++) B.c[i * 3 + c] += (GL[c] / 255 - B.c[i * 3 + c]) * h;
+      }
+      B.part = 0;
+    };
     LOOKS.suede = {
       hem: 0.47, hair: H, top: 1.835, keep: 0.3,
       morph: [crown({ top: 1.835, vol: 0.008 }), flatten(['cuff']), neckIn],
@@ -2226,29 +2349,23 @@
       },
       garment: B => {
         const st = LASTST, SS = shellSurf(st);
-        bootShafts(B, { col: '#3A2218', light: '#6B4A3C', dark: '#22130C', top: 0.445, rTop: 0.06, rAnk: 0.046 });
-        // кремовые брюки для верховой езды: две узкие штанины от пояса до голенищ (видны в распахе пальто)
-        trousers(B, { col: '#E8E0D0', light: '#F6F0E4', dark: '#C9BDA8', top: 1.0, hem: 0.43, hipR: 0.084, hipRz: 0.088, wide: 0.052, hemX: 0.064, split: 0.5, rings: 12, seg: 10, seat: { y0: 0.82, rx: 0.13, rz: 0.11, cz: -0.012 }, inShell: SS ? { S: SS, m: 0.004, y0: 0.5 } : null });
+        ridingBoots(B);
+        // кремовые бриджи для верховой езды: две облегающие штанины от пояса в голенища (видны в распахе пальто)
+        breeches(B, SS);
         if (SS) {
           // водолазка: кольцо от талии до верха поверхности (шея), рубчик
           shellPiece(B, SS, { rows: 6, closed: true, cols: () => ringAz(22), ol: false,
             sv: (a, v) => lerp(shellS(SS, a, 0.96), 1, v), off: () => 0.0025, col: (p, a) => ribAt(p, a) });
-          blazer(B, SS, { hem: 0.47, brk: 0.98, xHem: 0.1, xBrk: 0.062, notch: 1.2, lw: 0.078, lift: 0.007, col: jcol, rows: 12, cols: 28, collarTop: 1.288,
+          // пальто распахнуто шире (у подола бриджи видны обеими ногами), лацканы широкие, с уступом у ключицы
+          blazer(B, SS, { hem: 0.47, brk: 0.97, xHem: 0.135, xBrk: 0.066, notch: 1.198, lw: 0.1, lift: 0.009, col: jcol, rows: 12, cols: 28, collarTop: 1.288,
             off: (a, y) => 0.011 + 0.01 * sst(0.95, 0.47, y) + 0.008 * sst(1.12, 1.24, y) * Math.pow(Math.sin(a), 4),
             pockets: [[1, 0.835, 0.075], [-1, 0.835, 0.075]], button: [-0.07, 0.978] });
         }
         // ворот-гольф: мягкий валик вокруг шеи до подбородка (ровный верх, закрывает пилообразный край краски)
         const nw = W1('neck'), roll = [[1.346, 0.052, 0.047], [1.335, 0.059, 0.054], [1.312, 0.062, 0.057], [1.29, 0.06, 0.055], [1.272, 0.057, 0.053]].map(([y, rx, rz]) => ({ c: [0, y, -0.011], rx, rz }));
         B.tube(roll, 16, (ri, si, p, a) => { const f = 0.5 + 0.5 * Math.sin(a * 30); return { col: mix3(TN, ri === 1 || ri === 2 ? TNL : TND, 0.12 + 0.1 * f), w: nw }; }, { capTop: 'noline' });
-        // бордовый «докторский» саквояж: низ — короткая коробка, верх — купол (полуцилиндр вдоль длины), две круглые
-        // ручки, молния по куполу и золотой бегунок
-        bagOnForearm(B, {
-          col: BAG[0], strap: '#3A0E10', strapT: 0.4, size: [0.095, 0.15, 0.22], dx: 0.066, drop: 0.125, handles: false,
-          body: bagBox([0.095, 0.15, 0.22], BAG, { gloss: true, sq: 3.2, rings: 9, seg: 10, prof: t => { const u = clamp((t - 0.42) / 0.58, 0, 1); return [Math.max(0.14, Math.sqrt(1 - u * u)), 1 - 0.08 * u * u]; }, handles: [0.055, 0.0065], handleZ: [-0.012, 0.012], handleCol: '#3A0E10', extra: (B2, c, w) => {
-            B2.tube([0, 1, 2, 3, 4, 5].map(i => { const u = i / 5; return { c: [c[0], c[1] + 0.071, c[2] + lerp(-0.085, 0.085, u)], rx: 0.0035, rz: 0.0035 }; }), 5, () => ({ col: tc('#2A0A0C'), w }));
-            B2.blob([c[0] + 0.012, c[1] + 0.062, c[2] + 0.06], [0.004, 0.012, 0.007], tc('#C9A45C'), w, 6, 4);
-          } }),
-        });
+        // бордовый саквояж-«боулинг» в левой руке за ручки
+        bowlingBag(B);
       },
     };
   }
