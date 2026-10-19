@@ -2971,64 +2971,107 @@
     const H = { base: '#1E140F', dark: '#120B07', light: '#4A362A', part: 0.055, partSkin: 0.25, partLen: 0.06, keep: 0.6, gloss: 0.3 };
     const HP = hairPaint(H);
     const IVO = tc('#EFE7DE'), IVOD = tc('#D2C6B8'), CAPE = tc('#F4EFE8'), CAPED = tc('#D8CCBE');
-    const PET = tc('#6A2238'), PETD = tc('#3C1020'), PETL = tc('#94456A'), TIP = tc('#C893AE');
-    const CEN = tc('#E6E0CC'), SEP = tc('#B9B48E'), LEAF = tc('#7F8E52'), LEAFD = tc('#556B35'), LEAFL = tc('#A3B07A'), VEIN = tc('#ABA6AC');
-    const out = [0, 0, 0], t1 = [0, 0, 0];
-    // георгин (как в ролике): ярусы узких заострённых лепестков (снаружи 18, затем 14, 10, 7) — внутренний ярус поверх,
-    // тень к середине, светлые сиреневые кромки и кончики, тёмная складка между лепестками, светлая жилка посередине;
-    // (cx, cy) — центр (метры по ткани спереди), R — радиус, sx/sy — масштаб осей, rot — поворот
-    const TIERS = [[1.0, 18, 0.0], [0.8, 14, 0.37], [0.6, 10, 0.11], [0.4, 7, 0.53]];
-    const dahlia = (x, y, cx, cy, R, sx, sy, rot) => {
-      let dx = (x - cx) / sx, dy = (y - cy) / sy;
-      if (rot) { const c = Math.cos(rot), sn = Math.sin(rot), t = dx * c + dy * sn; dy = -dx * sn + dy * c; dx = t; }
-      const r = Math.hypot(dx, dy);
-      if (r > R) return null;
-      if (r < R * 0.1) return r < R * 0.05 ? CEN : SEP;
-      const a = Math.atan2(dy, dx);
-      for (let q = TIERS.length - 1; q >= 0; q--) {
-        const [kR, nP, ph] = TIERS[q], f = (((a / (2 * PI) + ph) * nP) % 1 + 1) % 1, e = Math.abs(2 * f - 1);
-        const rr = R * kR * (0.56 + 0.44 * Math.pow(1 - e, 0.75));
-        if (r > rr) continue;
-        const t = r / rr;
-        mix3(PETD, PET, clamp(0.2 + 0.85 * t - (q === 3 ? 0.15 : 0), 0, 1), t1);
-        if (t > 0.72) mix3(t1, TIP, (t - 0.72) / 0.28 * 0.7, t1);
-        if (e > 0.62 && e < 0.86) mix3(t1, PETL, 0.35, t1);
-        if (e >= 0.86) mix3(t1, PETD, 0.65, t1);
-        if (e < 0.07 && t > 0.25) mix3(t1, PETL, 0.3, t1);
+    const PET = tc('#5E1F45'), PETD = tc('#33102A'), PETL = tc('#8A4672'), RIM = tc('#D9AFCB');
+    const CEN = tc('#EEE9DA'), CENG = tc('#C9CFAE'), VEIN = tc('#ABA6AC'), STEM = tc('#8E957A');
+    // листья: [основная половина, светлая половина, жилка] — зелёные по юбке, шалфейные у основания цветов
+    const LPAL = [[tc('#74844A'), tc('#A0AE74'), tc('#4C6030')], [tc('#A4B088'), tc('#C7CFAF'), tc('#7A8A60')]];
+    const t1 = [0, 0, 0];
+    // пион «веером» (как в ролике): ярусы округлых лепестков чешуёй от бледной серединки-основания, веер — в сторону dir
+    // (рад, от +x к +y) на ±span; внутренний ярус поверх внешнего. Лепесток: тёмное основание (тень яруса выше), к кромке
+    // светлее, светлая сиреневая кромка по фестону, тёмная щель между соседями; у серединки — белые штрихи.
+    // F = { cx, cy — основание (метры по ткани спереди), R — радиус, dir, span, el — вытянут к ed: R·(1 + el·cos) }
+    const PROWS = [[1.0, 7, 0.0], [0.82, 6, 0.43], [0.65, 6, 0.17], [0.49, 5, 0.61], [0.34, 4, 0.29]];
+    const peony = (x, y, F) => {
+      const dx = x - F.cx, dy = y - F.cy, r = Math.hypot(dx, dy);
+      if (r > F.R * (1 + F.el)) return null;
+      const an = Math.atan2(dy, dx);
+      let a = an - F.dir;
+      a = Math.atan2(Math.sin(a), Math.cos(a));
+      if (Math.abs(a) > F.span) return null;
+      const ta = (a + F.span) / (2 * F.span), Ra = F.R * (1 + F.el * Math.cos(an - F.ed)) * (0.55 + 0.45 * Math.sqrt(Math.sin(PI * ta)));
+      if (r < Ra * 0.17) {
+        // серединка: сливочная, к краю зеленоватая, тонкие сливовые лучи
+        mix3(CEN, CENG, r / (Ra * 0.17) * 0.6, t1);
+        if (r > Ra * 0.06 && (ta * 13) % 1 < 0.22) mix3(t1, PETL, 0.55, t1);
+        return t1;
+      }
+      const NRw = PROWS.length;
+      for (let q = NRw - 1; q >= 0; q--) {
+        const [kR, nP, ph] = PROWS[q], f = ta * nP + ph, e = 2 * (f - Math.floor(f)) - 1;
+        const tip = Ra * kR * (0.8 + 0.2 * Math.sqrt(1 - e * e));
+        if (r > tip) continue;
+        const r0 = q === NRw - 1 ? Ra * 0.17 : Ra * PROWS[q + 1][0] * 0.8, u = clamp((r - r0) / (tip - r0), 0, 1);
+        mix3(PETD, PET, clamp(0.12 + 0.95 * u, 0, 1), t1);
+        if (Math.abs(e) < 0.12 && u > 0.2 && u < 0.75) mix3(t1, PETL, 0.3, t1);
+        if (Math.abs(e) > 0.88) mix3(t1, PETD, 0.6, t1);
+        else if (u > 0.78) mix3(t1, RIM, 0.25 + 0.6 * (u - 0.78) / 0.22, t1);
+        if (q === NRw - 1 && u < 0.5 && Math.abs(e) < 0.7 && (f * 3) % 1 < 0.5) mix3(t1, CEN, 0.7 * (1 - u / 0.5), t1);
         return t1;
       }
       return null;
     };
-    // листья шалфея (длинные узкие, с изгибом и тёмной серединкой) и серебристые стебли — по ткани спереди и сзади;
-    // { x, y — основание, ang — от вертикали вниз (+ к её левой), len, w, bend, c — 0 лист, 1 стебель, back — сзади }
-    const BL = [];
+    // цветок 1 — по лифу: основание чуть левее середины над талией, веер вверх и вправо (весь бюст); цветок 2 — крупнее,
+    // основание у правого бока героини (слева в кадре) ниже талии, веер вправо, вытянут вниз-вправо — к её левому бедру
+    const FL1 = { cx: -0.035, cy: 1.015, R: 0.175, el: 0.15, dir: 1.2, ed: 1.2, span: 1.85 };
+    const FL2 = { cx: -0.08, cy: 0.93, R: 0.2, el: 0.45, dir: -0.1, ed: -0.75, span: 1.65 };
+    // вышивка по юбке (как в ролике): редкие веточки — тонкий изогнутый стебель и узкие заострённые листья наискось от
+    // него (поочерёдно в стороны) плюс лист на конце; спереди и сзади под разными углами. У основания цветов — шалфейные
+    // листья, от цветка 2 вниз — веточка. Лист: { k 0, x, y — основание, dx, dy — направление, L, W, bend, pal, back },
+    // стебель: { k 1, x, y — x1, y1, w, back }; сетка 4 см по (x, y) — на выборку только примитивы своей ячейки
+    const LV = [], ST2 = [];
     {
       const rnd = k => { const v = Math.sin(k * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
-      // пучок из-под сливовой массы на бёдрах: длинные листья веером вниз и в стороны к подолу
-      for (let i = 0; i < 9; i++) { const t = i / 8; BL.push({ x: lerp(-0.15, 0.08, t) + 0.015 * (rnd(i) - 0.5), y: 0.74 - 0.05 * rnd(i + 9), ang: lerp(-0.6, 0.45, t) + 0.1 * (rnd(i + 3) - 0.5), len: 0.26 + 0.18 * rnd(i + 5), w: 0.011 + 0.006 * rnd(i + 7), bend: lerp(-1.2, 1.2, t) * (0.5 + 0.5 * rnd(i + 11)), c: 0 }); }
-      // по подолу спереди: одиночные листья
-      for (let i = 0; i < 7; i++) { const t = i / 6; BL.push({ x: lerp(-0.2, 0.2, t) + 0.03 * (rnd(i + 40) - 0.5), y: lerp(0.5, 0.36, rnd(i + 41)), ang: (t - 0.5) * 0.8 + 0.2 * (rnd(i + 42) - 0.5), len: 0.18 + 0.12 * rnd(i + 43), w: 0.009 + 0.005 * rnd(i + 44), bend: 1.4 * (rnd(i + 45) - 0.5), c: 0 }); }
-      // серебристые стебли между листьями (тонкие, светлые)
-      for (let i = 0; i < 7; i++) { const t = i / 6; BL.push({ x: lerp(-0.16, 0.12, t) + 0.02 * (rnd(i + 60) - 0.5), y: lerp(0.8, 0.55, rnd(i + 61)), ang: (t - 0.5) * 0.7, len: 0.25 + 0.2 * rnd(i + 63), w: 0.0045, bend: 1.0 * (rnd(i + 64) - 0.5), c: 1 }); }
+      const leaf = (x, y, ph, L, W, bend, pal, back) => LV.push({ k: 0, x, y, dx: Math.cos(ph), dy: Math.sin(ph), L, W, bend, pal, back: !!back });
+      // веточка: начало (x0, y0), направление ph0 (рад от +x к +y), длина, изгиб по длине (рад), сторона, зерно
+      const sprig = (x0, y0, ph0, len, curl, back, s) => {
+        let x = x0, y = y0, sd = rnd(s) > 0.5 ? 1 : -1;
+        for (let i = 1; i <= 5; i++) {
+          const ph = ph0 + curl * (i - 0.5) / 5, x1 = x + Math.cos(ph) * len / 5, y1 = y + Math.sin(ph) * len / 5;
+          ST2.push({ k: 1, x, y, x1, y1, w: 0.0055, back: !!back });
+          if (i >= 2 && i <= 4) { leaf(x1, y1, ph + sd * (0.38 + 0.25 * rnd(s + i)), 0.085 + 0.045 * rnd(s + i + 10), 0.017 + 0.004 * rnd(s + i + 20), -sd * 0.7 * rnd(s + i + 30), 0, back); sd = -sd; }
+          x = x1; y = y1;
+        }
+        leaf(x, y, ph0 + curl + 0.15 * (rnd(s + 40) - 0.5), 0.11 + 0.03 * rnd(s + 41), 0.019, 0.6 * (rnd(s + 42) - 0.5), 0, back);
+      };
+      // у основания цветов — шалфейные листья (поверх цветка 2)
+      leaf(-0.05, 1.005, 3.55, 0.075, 0.03, 0.3, 1); leaf(-0.035, 0.995, 4.35, 0.06, 0.026, -0.3, 1);
+      leaf(-0.105, 0.915, 3.75, 0.08, 0.032, 0.4, 1); leaf(-0.1, 0.905, 4.45, 0.07, 0.028, -0.3, 1);
+      // спереди: от цветка 2 вниз и россыпь по подолу
+      [[-0.115, 0.76, -1.75, 0.2, 0.35], [0.06, 0.5, 1.2, 0.22, 0.35], [-0.07, 0.36, 1.95, 0.22, -0.3], [0.03, 0.18, 1.45, 0.24, 0.3],
+        [-0.19, 0.05, 1.15, 0.24, 0.3], [0.16, 0.06, 2.0, 0.24, -0.3], [-0.01, 0.62, 1.8, 0.14, -0.25], [0.07, 0.27, 0.95, 0.16, 0.45]]
+        .forEach((q, i) => sprig(q[0], q[1], q[2], q[3], q[4], 0, i * 7 + 3));
       // сзади — реже
-      for (let i = 0; i < 8; i++) { const t = i / 7; BL.push({ x: lerp(-0.2, 0.2, t), y: lerp(0.72, 0.42, rnd(i + 80)), ang: (t - 0.5) * 0.6, len: 0.2 + 0.14 * rnd(i + 82), w: i % 3 ? 0.01 : 0.0045, bend: 1.0 * (rnd(i + 83) - 0.5), c: i % 3 ? 0 : 1, back: 1 }); }
-      BL.forEach(b => { b.dx = Math.sin(b.ang); b.dy = -Math.cos(b.ang); b.x1 = Math.min(b.x, b.x + b.dx * b.len) - 0.05; b.x2 = Math.max(b.x, b.x + b.dx * b.len) + 0.05; b.y1 = b.y + b.dy * b.len - 0.02; b.y2 = b.y + 0.01; });
+      [[0.06, 0.62, 1.3, 0.2, 0.3], [-0.08, 0.45, 1.9, 0.2, -0.3], [0.1, 0.22, 1.1, 0.22, 0.35], [-0.18, 0.08, 1.3, 0.24, 0.25], [0.2, 0.05, 2.1, 0.22, -0.3], [-0.04, 0.84, 1.5, 0.12, 0.3]]
+        .forEach((q, i) => sprig(q[0], q[1], q[2], q[3], q[4], 1, i * 11 + 50));
     }
-    const bladeAt = (x, y, back) => {
-      for (let i = 0; i < BL.length; i++) {
-        const b = BL[i];
-        if (!!b.back !== back || x < b.x1 || x > b.x2 || y < b.y1 || y > b.y2) continue;
-        const px = x - b.x, py = y - b.y, al = px * b.dx + py * b.dy;
-        if (al < 0 || al > b.len) continue;
-        const u = al / b.len, ac = px * -b.dy + py * b.dx - b.bend * b.len * u * u * 0.25, hw = b.w * 0.5 * Math.pow(Math.sin(PI * Math.pow(u, 0.75)), 0.8);
-        if (Math.abs(ac) > hw) continue;
-        if (b.c) return mix3(IVO, VEIN, 0.75, t1);
-        return Math.abs(ac) < hw * 0.22 ? LEAFD : u > 0.85 ? LEAFL : LEAF;
+    const GC = 0.04, GX0 = -0.44, GY0 = -0.06, GNX = 22, GNY = 30, GRID = [0, 1].map(() => Array.from({ length: GNX * GNY }, () => []));
+    LV.concat(ST2).forEach(p => {
+      const ex = p.k ? [p.x, p.x1] : [p.x, p.x + p.dx * p.L], ey = p.k ? [p.y, p.y1] : [p.y, p.y + p.dy * p.L], m = p.k ? p.w : p.W + Math.abs(p.bend) * p.L * 0.35;
+      const i0 = Math.max(0, Math.floor((Math.min(ex[0], ex[1]) - m - GX0) / GC)), i1 = Math.min(GNX - 1, Math.floor((Math.max(ex[0], ex[1]) + m - GX0) / GC));
+      const j0 = Math.max(0, Math.floor((Math.min(ey[0], ey[1]) - m - GY0) / GC)), j1 = Math.min(GNY - 1, Math.floor((Math.max(ey[0], ey[1]) + m - GY0) / GC));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) GRID[p.back ? 1 : 0][j * GNX + i].push(p);
+    });
+    // лист: две половины (основная и светлая), тёмная жилка; стебель — тонкая оливково-серая линия
+    const primOne = (p, x, y) => {
+      const px = x - p.x, py = y - p.y;
+      if (p.k) {
+        const ex = p.x1 - p.x, ey = p.y1 - p.y, t = clamp((px * ex + py * ey) / (ex * ex + ey * ey), 0, 1), qx = ex * t - px, qy = ey * t - py;
+        return qx * qx + qy * qy < p.w * p.w * 0.25 ? STEM : null;
       }
+      const al = px * p.dx + py * p.dy;
+      if (al < 0 || al > p.L) return null;
+      const u = al / p.L, d = -px * p.dy + py * p.dx - p.bend * p.L * u * u * 0.35, hw = p.W * 0.5 * Math.pow(Math.sin(PI * Math.pow(u, 0.8)), 0.85);
+      if (Math.abs(d) > hw) return null;
+      const P = LPAL[p.pal];
+      return Math.abs(d) < hw * 0.16 ? P[2] : d > 0 ? P[1] : P[0];
+    };
+    const leafAt = (x, y, back) => {
+      const i = Math.floor((x - GX0) / GC), j = Math.floor((y - GY0) / GC);
+      if (i < 0 || j < 0 || i >= GNX || j >= GNY) return null;
+      const L = GRID[back ? 1 : 0][j * GNX + i];
+      for (let n = 0; n < L.length; n++) { const c = primOne(L[n], x, y); if (c) return c; }
       return null;
     };
-    // рисунок ткани в точке (x, y): цветок 2 (у правого бедра) под цветком 1 (по лифу), листья и стебли, иначе айвори
-    // с тонкими серебристыми прожилками и блёстками
     // серебристые прожилки: тонкие ветвящиеся линии наискось по юбке (ствол и одна ветка), 3.5 мм
     const VN = [];
     {
@@ -3051,12 +3094,10 @@
       }
       return m;
     };
-    // рисунок ткани в точке (x, y): одна сливовая масса — цветок 1 по лифу поверх крупного цветка 2 (талия и верх
-    // бёдер, его лепестки заходят под цветок 1), листья и стебли, иначе айвори с серебристыми прожилками и блёстками
+    // рисунок ткани в точке (x, y): одна сливовая масса — цветок 1 по лифу поверх шалфейных листьев и крупного цветка 2
+    // (талия и бедро), веточки с листьями, иначе айвори с серебристыми прожилками и блёстками
     const printAt = (x, y, front, o) => {
-      let c = null;
-      if (front) c = dahlia(x, y, -0.004, 1.118, 0.136, 1.15, 1.0, 0) || dahlia(x, y, 0.095, 0.99, 0.085, 1.0, 1.0, 0.9) || dahlia(x, y, -0.03, 0.9, 0.216, 1.0, 1.05, 0.35);
-      if (!c) c = bladeAt(x, y, !front);
+      const c = front ? peony(x, y, FL1) || leafAt(x, y, false) || peony(x, y, FL2) : leafAt(x, y, true);
       if (c) { o[0] = c[0]; o[1] = c[1]; o[2] = c[2]; return o; }
       mix3(IVO, VEIN, veinAt(x, y, !front) * 0.7, o);
       if (Math.sin(x * 1913 + y * 777) > 0.994) mix3(o, [255, 255, 255], 0.6, o);
@@ -3076,23 +3117,50 @@
     const bodUV = (a, y) => [0.5 + 0.49 * ((((a + PI) % (2 * PI)) + 2 * PI) % (2 * PI)) / (2 * PI), 0.05 + 0.75 * (y - BY0) / (BY1 - BY0)];
     // лиф — узором атласа (правая половина): крупный пион по лифу и второй к правому бедру, листья, блёстки;
     // рисуется после поправки света (цвета tc), по настоящему x поверхности
-    // радиус юбки по высоте (как prof юбки ниже): точка атласа юбки -> x на теле
-    const skirtR = y => (y > 0.8 ? lerp(0.122, 0.19, Math.sqrt(clamp((1.0 - y) / 0.2, 0, 1))) : y > 0.45 ? lerp(0.19, 0.125, (0.8 - y) / 0.35) : lerp(0.125, 0.27, Math.pow((0.45 - y) / 0.444, 1.35)));
-    // рисунок после поправки света (цвета tc), попиксельно по настоящим точкам ткани: лиф (правая половина атласа, x — с
-    // поверхности тела) и юбка (левая половина: u — азимут, v — высота); цветок 2 и листья переходят с лифа на юбку
+    // силуэт «русалки» (как в ролике): талия 1.0 → бёдра 0.8 (дугой), по бёдрам к колену уже (0.36, ноги в паре), до 0.3
+    // облегает, ниже — раструб в пол: центр уходит назад (шлейф), спереди край чуть дальше носков (стопы под тканью, в
+    // ложбинах складок видны кончики сандалий), нижнее кольцо ложится на пол чуть шире (ткань «лужицей»). { cz, rx, rz, fk }
+    const MER = y => {
+      if (y > 0.8) { const s = Math.sin(clamp((1.0 - y) / 0.2, 0, 1) * PI / 2); return { cz: 0.018, rx: lerp(0.122, 0.176, s), rz: lerp(0.104, 0.138, s), fk: 0 }; }
+      if (y > 0.3) { const k = sst(0.8, 0.36, y); return { cz: lerp(0.018, 0.0, k), rx: lerp(0.176, 0.12, k), rz: lerp(0.138, 0.094, k), fk: 0.08 }; }
+      const k = clamp((0.3 - y) / 0.294, 0, 1), e = Math.pow(k, 1.7), pool = sst(0.07, 0.006, y);
+      return { cz: lerp(0.0, -0.11, e) - 0.01 * pool, rx: lerp(0.12, 0.27, e) + 0.015 * pool, rz: lerp(0.094, 0.265, e) + 0.03 * pool, fk: sst(0, 0.7, k) };
+    };
+    // дуга эллипса (rx, rz) от середины переда до азимута a (со знаком a): x рисунка на юбке — длина по ткани, а не проекция
+    // (у бока цветы и листья не растягиваются и не обрываются ровной линией)
+    const arcE = (rx, rz, a) => {
+      const h = a / 8;
+      let s = 0;
+      for (let k = 0; k <= 8; k++) { const t = k * h; s += (k === 0 || k === 8 ? 1 : k % 2 ? 4 : 2) * Math.hypot(rx * Math.cos(t), rz * Math.sin(t)); }
+      return s * h / 3;
+    };
+    // рисунок после поправки света (цвета tc), попиксельно по настоящим точкам ткани: лиф (правая половина атласа) и юбка
+    // (левая половина: u — азимут, v — высота); x рисунка — длина дуги по ткани от середины переда (сзади — от середины
+    // спинки, знак — сторона); цветок 2 и листья переходят с лифа на юбку
     const texPost = (c, S2) => {
       const SS = shellSurf(LASTST);
       const o = [0, 0, 0];
       if (SS) {
         const X0 = Math.floor(S2 * 0.5), X1 = S2, Y0p = Math.floor((1 - 0.8) * S2), Y1p = Math.ceil((1 - 0.05) * S2);
         const im = c.getImageData(X0, Y0p, X1 - X0, Y1p - Y0p), d = im.data, Wd = X1 - X0;
-        const NAq = 72, NYq = 28, XQ = new Float32Array(NAq * NYq), q = { p: [0, 0, 0], n: [0, 0, 0], si: [0, 0, 0, 0], sw: [0, 0, 0, 0] };
-        for (let i = 0; i < NAq; i++) for (let j = 0; j < NYq; j++) { const a = -PI + (i + 0.5) * 2 * PI / NAq, y = lerp(BY0, BY1, j / (NYq - 1)); shellAt(SS, a, shellS(SS, a, y), q); XQ[i * NYq + j] = q.p[0]; }
-        const gx = (ii, jj) => XQ[ii * NYq + jj], q3 = [0, 0, false];
+        // дуга по сечению поверхности лифа: SQ — от середины переда со знаком, HP± — полупериметр до середины спинки
+        const NAq = 72, NYq = 28, SQ = new Float32Array(NAq * NYq), HPp = new Float32Array(NYq), HPm = new Float32Array(NYq), q = { p: [0, 0, 0], n: [0, 0, 0], si: [0, 0, 0, 0], sw: [0, 0, 0, 0] };
+        const PX = new Float32Array(NAq), PZ = new Float32Array(NAq), iF = NAq / 2;
+        for (let j = 0; j < NYq; j++) {
+          const y = lerp(BY0, BY1, j / (NYq - 1));
+          for (let i = 0; i < NAq; i++) { const a = -PI + (i + 0.5) * 2 * PI / NAq; shellAt(SS, a, shellS(SS, a, y), q); PX[i] = q.p[0]; PZ[i] = q.p[2]; }
+          const sg = (i0, i1) => Math.hypot(PX[i1] - PX[i0], PZ[i1] - PZ[i0]);
+          SQ[iF * NYq + j] = sg(iF - 1, iF) / 2; SQ[(iF - 1) * NYq + j] = -SQ[iF * NYq + j];
+          for (let i = iF + 1; i < NAq; i++) SQ[i * NYq + j] = SQ[(i - 1) * NYq + j] + sg(i - 1, i);
+          for (let i = iF - 2; i >= 0; i--) SQ[i * NYq + j] = SQ[(i + 1) * NYq + j] - sg(i, i + 1);
+          HPp[j] = SQ[(NAq - 1) * NYq + j] + sg(NAq - 1, 0) / 2; HPm[j] = -SQ[j] + sg(NAq - 1, 0) / 2;
+        }
+        const gx = (ii, jj) => SQ[ii * NYq + jj], q3 = [0, 0, false];
         const atB = (pxf, pyf) => {
           const u = (pxf + 0.5) / S2, v = 1 - (pyf + 0.5) / S2, an = (u - 0.5) / 0.49, a = an * 2 * PI - PI, y = BY0 + (v - 0.05) / 0.75 * (BY1 - BY0);
           const fi = clamp((a + PI) / (2 * PI) * NAq - 0.5, 0, NAq - 1.001), fj = clamp((y - BY0) / (BY1 - BY0) * (NYq - 1), 0, NYq - 1.001), i0 = Math.floor(fi), j0 = Math.floor(fj), ki = fi - i0, kj = fj - j0;
-          q3[0] = lerp(lerp(gx(i0, j0), gx(i0 + 1, j0), ki), lerp(gx(i0, j0 + 1), gx(i0 + 1, j0 + 1), ki), kj); q3[1] = y; q3[2] = Math.cos(a) > 0.05;
+          const s = lerp(lerp(gx(i0, j0), gx(i0 + 1, j0), ki), lerp(gx(i0, j0 + 1), gx(i0 + 1, j0 + 1), ki), kj), fr = Math.cos(a) > 0.05;
+          q3[0] = fr ? s : s > 0 ? lerp(HPp[j0], HPp[j0 + 1], kj) - s : -(lerp(HPm[j0], HPm[j0 + 1], kj) + s); q3[1] = y; q3[2] = fr;
           return q3;
         };
         for (let py = Y0p; py < Y1p; py++) for (let px = X0; px < X1; px++) {
@@ -3105,7 +3173,11 @@
       // юбка: u 0..0.5 — азимут от −π до π, v = 1 − t (t 0 — пояс 1.0, 1 — подол)
       const W2 = Math.floor(S2 / 2), im2 = c.getImageData(0, 0, W2, S2), d2 = im2.data;
       const q4 = [0, 0, false];
-      const atS = (pxf, pyf) => { const t = (pyf + 0.5) / S2, y = lerp(1.0, 0.006, t), a = ((pxf + 0.5) / W2) * 2 * PI - PI; q4[0] = skirtR(y) * Math.sin(a); q4[1] = y; q4[2] = Math.cos(a) > 0; return q4; };
+      const atS = (pxf, pyf) => {
+        const t = (pyf + 0.5) / S2, y = lerp(1.0, 0.006, t), a = ((pxf + 0.5) / W2) * 2 * PI - PI, m = MER(y), fr = Math.cos(a) > 0;
+        q4[0] = fr ? arcE(m.rx, m.rz, a) : Math.sign(a) * arcE(m.rx, m.rz, PI - Math.abs(a)); q4[1] = y; q4[2] = fr;
+        return q4;
+      };
       for (let py = 0; py < S2; py++) {
         for (let px = 0; px < W2; px++) {
           printAA(atS, px, py, o);
@@ -3176,21 +3248,17 @@
       paint: {
         hair_skull: HP.hair, hair_back: hairGloss, beret: HP.strands, bow: HP.strands, neck: neckPaint,
         legs: (x, y, z, o) => { o.f = 1; return SKIN; },
-        shoes: (x, y, z, o) => { if (y > 0.06) { o.f = 1; return SKIN; } o.k = 0.3; o.lo = 0.75; return tc('#D9B79A'); },
+        // носки сандалий из-под подола — золотисто-бежевые (темнее кожи: читаются туфлей, а не стопой)
+        shoes: (x, y, z, o) => { if (y > 0.06) { o.f = 1; return SKIN; } o.k = 0.3; o.lo = 0.75; return tc('#BFA388'); },
       },
       garment: B => {
         // кожа на шее сзади и с боков (выемка у основания шеи в профиль)
         neckPatch(B, LASTST);
         const st = LASTST, SS = shellSurf(st);
-        // русалка: облегает до колена, ниже — раструб в пол, сзади шлейф; верх — по лифу (без ступеньки на талии)
+        // русалка (MER): облегает до колена и ниже, раструб в пол, сзади шлейф; верх — по лифу (без ступеньки на талии)
         longSkirt(B, {
-          top: 1.0, hem: 0.006, folds: 9, fold: 0.025, rings: 16, seg: 28,
-          prof: (y, t) => {
-            if (y > 0.8) { const k = (1.0 - y) / 0.2; return { cz: 0.018, rx: lerp(0.122, 0.19, Math.sqrt(k)), rz: lerp(0.104, 0.142, Math.sqrt(k)), fk: 0 }; }
-            if (y > 0.45) { const k = (0.8 - y) / 0.35; return { cz: lerp(0.018, 0.0, k), rx: lerp(0.19, 0.125, k), rz: lerp(0.142, 0.108, k), fk: 0.1 }; }
-            const k = (0.45 - y) / 0.444, e = Math.pow(k, 1.35);
-            return { cz: lerp(0.0, -0.035, e), rx: lerp(0.125, 0.27, e), rz: lerp(0.108, 0.275, e), fk: k };
-          },
+          top: 1.0, hem: 0.006, folds: 9, fold: 0.022, rings: 18, seg: 28,
+          prof: y => MER(y),
           fit: SS ? (a, y) => shellR(SS, a, y) + 0.006 : null,
           col: skirtCol, uv: (p, a, t) => [(a + PI) / (PI * 2) * 0.5, 1 - t], a0: -PI, a1: PI, shinK: 1.0, thighK: 0.8, backShin: 1, backLeg: 1, mid: 0.03, flareTk: 0.6,
         });
