@@ -263,7 +263,7 @@
     w.DETAIL = []; MAP.zones.forEach(g => g.children.forEach(m => { if (m.userData.detail) { m.geometry.computeBoundingBox(); w.DETAIL.push(m); } }));
     // дальний вид на востоке (js/world/far_view.js): хребты и село на склоне — слой неба, рисуется до города (tick)
     w.far = null;
-    if (WORLD.makeFarView) { try { w.far = WORLD.makeFarView({ THREE: T }); } catch (e) { console.warn('world far view', e); w.far = null; } }
+    if (WORLD.makeFarView) { try { w.far = WORLD.makeFarView({ THREE: T, quality: w.qKey }); } catch (e) { console.warn('world far view', e); w.far = null; } }
     // день и ночь по часам телефона (волна 4, js/daynight.js): до первого кадра — иначе шейдеры перекомпилируются
     w.dn = null;
     if (window.DayNight && QS.get('daynight') !== 'off') {
@@ -271,7 +271,7 @@
         w.dn = DayNight.create({ THREE: T, scene, renderer: w.renderer, camera, sun, hemi: w.hemi, sky: root, preset: 'city', quality: w.qKey === 'high' ? 'high' : 'low', ground: (x, z) => gy(w.L, x, z) });
         w.dn.attach(scene);                       // фасады, земля, кроны, жители, героиня; метки (группа 'markers') — без грейда
         if (MAP.halos) w.dn.addHalo(MAP.halos);   // фонари бульвара: ночью ярче и больше
-        if (w.far) { w.dn.attach(w.far.root); w.dn.addWindows(w.far.windows, { strength: 0.9 }); }   // дальний вид: тот же грейд, окна села к ночи теплеют
+        if (w.far) w.dn.attach(w.far.root);       // дальний вид: тот же грейд; свет окон села — far.setNight в renderFrame
         if (DEBUG && QS.get('clock') !== null) DayNight.setClock(() => +QS.get('clock'));   // отладка: «часы телефона» (22.5 — ночь)
       } catch (e) { console.warn('world daynight', e); w.dn = null; }
     }
@@ -585,6 +585,7 @@
     const r = w.renderer;
     if (!w.far || !w.far.visible) { r.render(w.scene, w.camera); return; }
     const ac = r.autoClear;
+    w.far.setNight(w.dn ? Math.max(w.dn.night(), w.dn.glow() * 0.85) : 0);   // окна села зажигаются к вечеру
     r.autoClear = false; r.clear(true, true, true);
     w.far.render(r, w.camera);
     r.clearDepth(); r.render(w.scene, w.camera);
