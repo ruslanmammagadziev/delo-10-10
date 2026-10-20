@@ -261,6 +261,9 @@
       } catch (e) { console.warn('world playfight', e); w.pf = null; }
     }
     w.DETAIL = []; MAP.zones.forEach(g => g.children.forEach(m => { if (m.userData.detail) { m.geometry.computeBoundingBox(); w.DETAIL.push(m); } }));
+    // дальний вид на востоке (js/world/far_view.js): хребты и село на склоне — слой неба, рисуется до города (tick)
+    w.far = null;
+    if (WORLD.makeFarView) { try { w.far = WORLD.makeFarView({ THREE: T }); } catch (e) { console.warn('world far view', e); w.far = null; } }
     // день и ночь по часам телефона (волна 4, js/daynight.js): до первого кадра — иначе шейдеры перекомпилируются
     w.dn = null;
     if (window.DayNight && QS.get('daynight') !== 'off') {
@@ -268,13 +271,14 @@
         w.dn = DayNight.create({ THREE: T, scene, renderer: w.renderer, camera, sun, hemi: w.hemi, sky: root, preset: 'city', quality: w.qKey === 'high' ? 'high' : 'low', ground: (x, z) => gy(w.L, x, z) });
         w.dn.attach(scene);                       // фасады, земля, кроны, жители, героиня; метки (группа 'markers') — без грейда
         if (MAP.halos) w.dn.addHalo(MAP.halos);   // фонари бульвара: ночью ярче и больше
+        if (w.far) { w.dn.attach(w.far.root); w.dn.addWindows(w.far.windows, { strength: 0.9 }); }   // дальний вид: тот же грейд, окна села к ночи теплеют
         if (DEBUG && QS.get('clock') !== null) DayNight.setClock(() => +QS.get('clock'));   // отладка: «часы телефона» (22.5 — ночь)
       } catch (e) { console.warn('world daynight', e); w.dn = null; }
     }
     await step('прогрев');
     resizeTo(w, 390, 844);
     camera.position.set(3, 5, 12); camera.lookAt(0, 1.3, 0);
-    try { w.renderer.compile(scene, camera); } catch (e) { /* не страшно */ }
+    try { w.renderer.compile(scene, camera); if (w.far) w.renderer.compile(w.far.scene, camera); } catch (e) { /* не страшно */ }
     // мини-карта и большая карта (MAPUI): DOM + 2D-холст, без вызовов WebGL; данные — из живой прогулки (S)
     if (WORLD.Minimap && unlock('minimap').ok) {
       try {
@@ -575,6 +579,17 @@
   let raf = 0, last = 0, tAll = 0, lastInfo = { calls: 0, tris: 0, shCalls: 0, shTris: 0 }, frames = 0;
   const PERF = { upd: 0, ren: 0 };
   const FT = [];
+  // кадр: сначала дальний вид (слой неба: хребты и село на востоке), потом — поверх, с чистой глубиной — город;
+  // цвет холста чистится один раз прозрачным (небо — CSS за холстом)
+  function renderFrame(w) {
+    const r = w.renderer;
+    if (!w.far || !w.far.visible) { r.render(w.scene, w.camera); return; }
+    const ac = r.autoClear;
+    r.autoClear = false; r.clear(true, true, true);
+    w.far.render(r, w.camera);
+    r.clearDepth(); r.render(w.scene, w.camera);
+    r.autoClear = ac;
+  }
   function loopStart() { if (raf) return; last = performance.now(); raf = requestAnimationFrame(tick); }
   function loopStop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function tick() {
@@ -589,7 +604,7 @@
       if (w.dn) w.dn.update(dt, w.camera);   // день/ночь: после кадра прогулки, до отрисовки
       const p1 = performance.now();
       w.renderer.info.reset(); w.SH.calls = w.SH.tris = 0;
-      w.renderer.render(w.scene, w.camera);
+      renderFrame(w);
       PERF.upd += (p1 - p0 - PERF.upd) * 0.1; PERF.ren += (performance.now() - p1 - PERF.ren) * 0.1; frames++;
       lastInfo = { calls: w.renderer.info.render.calls, tris: w.renderer.info.render.triangles, shCalls: w.SH.calls, shTris: w.SH.tris };
       FT.push(dt); if (FT.length > 240) FT.shift();
@@ -1108,6 +1123,8 @@
     }
 
     /* ---------- размещение ---------- */
+    // стартовая точка серии и прогулки (spawn 'start'): у бордюра Октябрьской, лицом на восток; pitch — взгляд чуть выше
+    const START = { x: -0.8, z: 1.9, pitch: 0.16, face: 1.36 };
     function placeAt(x, z, ang, yaw) {
       s.px = x; s.pz = z; s.vx = s.vz = 0; s.ang = ang; s.faceT = ang; s.yaw = yaw; s.tx = x; s.tz = z; s.camInit = false; s.manualT = 0;
       s.catX = x - Math.sin(ang) * 0.9 + Math.cos(ang) * 0.6; s.catZ = z - Math.cos(ang) * 0.9 - Math.sin(ang) * 0.6;
@@ -1124,7 +1141,12 @@
       if (sp && typeof sp === 'object') { placeAt(sp.x, sp.z, (sp.yaw || 0) + PI, sp.yaw !== undefined ? sp.yaw : PI); return; }
       const d = sp && sp !== 'start' ? doors.get(sp) : null;
       if (d) { placeAtDoor(d); return; }
-      placeAt(-2.2, 1.3, 0, PI);   // старт серии: у цветочной тележки, лицом к камере, кинотеатр рядом
+      // старт (желание автора): героиня у дороги, смотрит вдоль Октябрьской на восток — впереди указатель выезда,
+      // за домами на горизонте хребты и село (дальний вид). Камера держит кадр, взгляд чуть выше обычного, пока игрок
+      // не пошёл или не повёл камеру сам (updCamera: s.introCam); кинотеатр — за спиной слева, к нему ведёт шеврон
+      placeAt(START.x, START.z, PI / 2, PI / 2);
+      s.introCam = true; s.manualT = 1e9; s.pitch = START.pitch; s.pitchT = 0;
+      s.faceLock = START.face; s.faceLockT = 1e9;   // стоя героиня обычно смотрит в камеру — на старте смотрит на дорогу и указатель
     }
 
     /* ---------- экран-хозяин: G.show + корень города ---------- */
@@ -2200,11 +2222,15 @@
       const tyT = !drv && !rd && w.mv && s.mode === 'walk' && !s.anim ? s.py : gy(L, fx, fz), kY = s.camInit ? 1 - Math.exp(-dt * (s.air ? 2.5 : 9)) : 1;   // волна 5: в прыжке камера не скачет
       s.ty = (s.ty || 0) + (tyT - (s.ty || 0)) * kY;
       if (keys.q) { s.yaw += dt * 1.8; s.manualT = 3; } if (keys.e) { s.yaw -= dt * 1.8; s.manualT = 3; }
+      // стартовый кадр держится, пока героиня стоит; пошла, села, поехала или игрок сам повёл камеру — через 1,2 с обычная камера
+      if (s.introCam && (s.walking || s.moveTo || s.mode !== 'walk' || s.anim || s.manualT < 1e8)) { s.introCam = false; s.introWalk = s.walking || !!s.moveTo; if (s.manualT > 1e8) s.manualT = 1.2; if (s.faceLockT > 1e8) { s.faceLock = null; s.faceLockT = 0; } }
       s.manualT = Math.max(0, s.manualT - dt);
       if (drv || rd) { if (s.manualT <= 0) s.yaw += angDiff(drv ? car.S.ry : w.bike.ry, s.yaw) * (1 - Math.exp(-dt / (drv ? 0.35 : 0.5))); }
       else if (s.manualT <= 0 && !s.anim) {
         const onOct = s.pz < 3.4 && s.px > -60 && s.px < 82;   // тротуар Октябрьской: «диорама» — смотрим на фасады
-        if (onOct) s.yaw += clamp(angDiff(PI, s.yaw), -1.0 * dt, 1.0 * dt);
+        // пошла со стартового кадра (s.introWalk) — камера за ней, как вне Октябрьской; к фасадам повернётся, когда остановится
+        if (s.introWalk && !s.walking) s.introWalk = false;
+        if (onOct && !s.introWalk) s.yaw += clamp(angDiff(PI, s.yaw), -1.0 * dt, 1.0 * dt);
         else if (s.walking && s.moveT > 0.7) {
           // камера за героиней — только когда курс ушёл больше чем на 20°, мягко и не быстрее 34°/с: идёт чуть вбок — камера
           // стоит (раньше догоняла с 13° — и героиня ходила кругами)

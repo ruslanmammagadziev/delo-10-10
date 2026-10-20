@@ -743,7 +743,7 @@
     kind('lamp', lampG, H.VC.front, { r: 3.4 });
     const halos = [];
     const lamp = (x, z, ry = 0) => { inst('lamp', x, z, ry); const a = ry; halos.push(x - Math.sin(a) * 0.5, 2.79, z - Math.cos(a) * 0.5); addCircle(x, z, 0.16); };
-    [-3.2, 3.1, 9, 14.2, 19.6, 26.5, -9.1, -12.9, 32.0, 35.75].forEach(x => lamp(x, 3.25));
+    [-3.2, 9, 14.2, 19.6, 26.5, -9.1, -12.9, 32.0, 35.75].forEach(x => lamp(x, 3.25));   // у x 3,1 вместо фонаря — указатель выезда (виден со старта)
     for (let x = -21; x > -62; x -= 9) lamp(x, 3.25); for (let x = 44; x < 84; x += 9) lamp(x, 3.25);
     for (let x = -20; x <= 44; x += 12) lamp(x, I.z0 + 0.7, PI);
     for (let x = -20; x <= 44; x += 12) lamp(x, I.z1 - 0.7, 0);
@@ -997,7 +997,34 @@
     ];
     if (HOK) POSTS.push([HL.sx - 2.6, PL.z1 - 1.6, 0, P.board('Смотровая', 'город на ладони'), HL.top]);
     POSTS.forEach(([x, z]) => { if (!(x === 112.6 && z === -45.6)) addCircle(x, z, 0.15); });
-    [].concat(XS.map(s => s.cv), Object.values(CV).filter(v => v && v.getContext), CV.nums, POSTS.map(p => p[3])).forEach(cv => H.atlasAdd(cv));
+    // указатель у старта (желание автора): синий дорожный щит у бордюра Октябрьской — героиня видит его с первого кадра,
+    // за ним на горизонте — дальний вид (js/world/far_view.js). Схема маршрута «прямо, потом налево» — к выезду по Загородной;
+    // название — из модуля села (CONFIG.VILLAGE_NAMED), без него — «За город»
+    const roadCv = (() => {
+      let name = 'За город';
+      try {
+        const k = window.VILLAGE && VILLAGE.regions && VILLAGE.regions.kubachi;
+        const named = (window.CONFIG || {}).VILLAGE_NAMED !== false && !(WORLD.Regions && WORLD.Regions.settings && WORLD.Regions.settings().named === false);
+        if (named && k && typeof k.title === 'function') name = k.title(true) || name;
+      } catch (e) { /* без модуля села */ }
+      const [cv, c] = cnv(512, 288);
+      c.fillStyle = '#FFFFFF'; rrect(c, 0, 0, 512, 288, 26); c.fill();
+      c.fillStyle = '#1F5AA6'; rrect(c, 9, 9, 494, 270, 20); c.fill();
+      // название — слева (со старта надпись левее ряда фонарей у бордюра), схема — справа
+      text(c, name, 200, 120, 66, '#FFFFFF', { f: 'Comfortaa', w: 700, max: 300 });
+      text(c, 'по Загородной', 200, 198, 34, '#DCE8F7', { f: 'Comfortaa', w: 700, max: 300 });
+      c.strokeStyle = '#FFFFFF'; c.lineWidth = 26; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(452, 262); c.lineTo(452, 112); c.lineTo(408, 112); c.stroke();
+      c.fillStyle = '#FFFFFF'; c.beginPath(); c.moveTo(370, 112); c.lineTo(414, 76); c.lineTo(414, 148); c.closePath(); c.fill();   // остриё — налево
+      return cv;
+    })();
+    { const x = 3.4, z = 2.75, g = new T.Group(); g.position.set(x, 0, z); g.rotation.y = -PI / 2; zone(x, z).add(g);   // лицом на запад — к старту
+      const pole = K.m('#8E8C9A'), back = K.m('#B9B7C4');
+      cyl(g, pole, 0.72, 1.6, -0.06, 0.05, 3.2);                       // одна стойка — у самого бордюра (локальная x — мировая z)
+      box(g, back, 0, 2.55, -0.03, 2.12, 1.22, 0.04);                  // щит над тротуаром: низ на 1,94 м — проходу не мешает
+      put(g, GEO.plane, K.t(roadCv), [0, 2.55, 0], [2.12, 1.19, 1]);
+      addCircle(x, z + 0.72, 0.08); }
+    [].concat(XS.map(s => s.cv), Object.values(CV).filter(v => v && v.getContext), CV.nums, POSTS.map(p => p[3]), [roadCv]).forEach(cv => H.atlasAdd(cv));
 
     mark('signs prep'); await step('склейка кусков');
     /* ---------- атлас вывесок и склейка кусков ---------- */
