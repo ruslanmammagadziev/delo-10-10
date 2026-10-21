@@ -24,12 +24,12 @@
       free: { doors: doors.map(d => ({ id: d.id, bkey: d.bkey, x: d.x, label: d.label, mark: d.id === 'records' ? 'new' : d.id === 'books' ? 'fresh' : null })), spawnAt: spawn, exitText: '↺ заново' },
       openDoors: doors.map(d => d.id), closedText: 'Здесь пока закрыто.',
       hero: lookOf(), catHelper: true,
-      spots: [{ id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'тележка Жу' }, { id: 'weather', x: 3.1, z: -0.6, act: 'Прогноз', bubble: 'табло прогноза' },
+      spots: [{ id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'бутик Жу' }, { id: 'weather', x: 3.1, z: -0.6, act: 'Прогноз', bubble: 'табло прогноза' },
         { id: 'bench1', x: 4.4, z: -0.55, act: 'Присесть', bubble: 'лавочка' }, { id: 'kiosk', x: 9.6, z: -0.3, act: 'Газета', bubble: 'свежий номер' },
         { id: 'mailbox', x: 13.6, z: -0.9, act: 'Почта', bubble: 'почтовый ящик' }, { id: 'bench2', x: 20.4, z: -0.55, act: 'Присесть', bubble: 'лавочка' }],
       onSpot: async (id, api) => {
         if (id === 'bench1' || id === 'bench2') { await api.sit({ x: id === 'bench1' ? 4.4 : 20.4, z: -1.15, ry: 0 }); await sleep(1500); G.toast('Голубь сел рядом и молчит. Хороший собеседник.', 2600); return; }
-        if (id === 'flowers') { G.toast('Тележка Жу: букет собирается в игре, здесь — стенд города.', 3000); return; }
+        if (id === 'flowers') { G.toast('Бутик Жу: букет собирается в игре, здесь — стенд города.', 3000); return; }
         G.toast({ weather: 'Пасмурно. Зато идеальная погода зайти за какао.', kiosk: 'Свежий номер: «Город хорошеет».', mailbox: 'Почтовый ящик. Писем нет — все ушли гулять.' }[id] || id, 2600);
       },
       hudLabel: '🏙 Стенд города',

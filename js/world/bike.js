@@ -98,7 +98,7 @@
     if (sp && isFinite(sp.x) && isFinite(sp.z)) return { x: sp.x, z: sp.z, ry: isFinite(sp.ry) ? sp.ry : PI / 2, from: 'spawnPoints' };
     const poi = (L.pois || []).find(p => p && p.kind === 'bikes');
     if (poi) return { x: poi.x, z: poi.z, ry: isFinite(poi.ry) ? poi.ry : PI / 2, from: 'poi' };
-    // у кинотеатра: на тротуаре левее тележки Жу, вдоль бордюра, лицом на восток; если занято — ищем рядом
+    // у кинотеатра: на тротуаре левее двери кинотеатра, вдоль бордюра, лицом на восток; если занято — ищем рядом
     const want = [[-6.2, 2.75], [-7.4, 2.75], [-5.2, 2.75], [-8.6, 2.75], [-6.2, 2.2], [3.4, 2.75], [-10.4, 2.75]];
     for (const [x, z] of want) {
       const fx = 1, ok = freeAt(C, x, z, 0.32) && freeAt(C, x + fx * 0.55, z, 0.25) && freeAt(C, x - fx * 0.55, z, 0.25);

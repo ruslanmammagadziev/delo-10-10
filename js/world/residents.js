@@ -309,7 +309,7 @@
     const circlePts = (cx, cz, r, n = 28) => { const o2 = []; for (let i = 0; i < n; i++) { const a = i / n * TAU; o2.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); } return o2; };
     const F = L.fountain || { x: 11, z: 31.9, r: 3.05 };
     const FALLBACK = {
-      oct: [[[-46, 1.5], [-20, 1.5], [0, 1.45], [20, 1.45], [44, 1.5], [66, 1.5]], false],
+      oct: [[[-46, 1.5], [-20, 1.5], [0, 1.45], [4.4, 1.45], [5.3, 3.1], [8.5, 3.1], [9.5, 1.45], [20, 1.45], [44, 1.5], [66, 1.5]], false],   // 5,3…9,5 — в обход бутика Жу (map.js L.flowerShop) со стороны дороги, мимо фонаря (9; 3,25)
       block: [[[-24.2, 13.6], [46.4, 13.6], [46.4, 50.3], [-24.2, 50.3]], true],
       square: [circlePts(F.x, F.z, 8.85, 32), true],
       squareIn: [circlePts(F.x, F.z, 5.2, 24), true],

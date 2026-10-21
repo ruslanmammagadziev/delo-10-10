@@ -26,27 +26,29 @@
       const wall = K.m('#F7C6D1'), cream = K.m('#FFF6EE'), wood = K.m('#C9946A'), woodD = K.m('#A9744E'), pink = K.m('#F08FA8'),
         berry = K.m('#C2405B'), tin = K.m('#9FB7C4'), leaf = K.m('#8FAE62'), glass = K.m('#CFE6F0');
       const FL = ['#F08FA8', '#F3CF73', '#C7A8DD', '#EFA3B5', '#F7B267', '#FFFDF9', '#E8789A'];
-      const bunch = (x, y, z, r, n, i0) => { for (let k = 0; k < n; k++) { const a = k / n * PI * 2; sphS(c, K.m(FL[(i0 + k) % FL.length]), x + Math.cos(a) * r, y + (k % 2) * 0.045, z + Math.sin(a) * r, r * 0.95); } sphS(c, leaf, x, y - 0.06, z, r * 1.3); };
+      // цветок — икосаэдр в 20 треугольников (сфера — 110): букетиков в бутике ~45, иначе это +24 тыс. треугольников с тенью
+      const petalG = keep(new T.IcosahedronGeometry(1, 0)), dot = (m, x, y, z, s) => put(c, petalG, m, [x, y, z], [s, s, s]);
+      const bunch = (x, y, z, r, n, i0) => { for (let k = 0; k < n; k++) { const a = k / n * PI * 2; dot(K.m(FL[(i0 + k) % FL.length]), x + Math.cos(a) * r, y + (k % 2) * 0.045, z + Math.sin(a) * r, r * 0.95); } dot(leaf, x, y - 0.06, z, r * 1.3); };
       rbox(c, K.m('#EADBD0'), 0, 0.06, 0, 2.5, 0.12, 1.7, 0.04);                                  // подиум
       rbox(c, wall, 0, 1.27, -0.45, 2.4, 2.3, 0.7, 0.06);                                        // задняя часть с полками
       [-1, 1].forEach(s => { rbox(c, wall, s * 1.08, 1.27, 0.15, 0.24, 2.3, 1.1, 0.05);          // боковые стенки
         rbox(c, cream, s * 1.2, 1.27, 0.7, 0.12, 2.3, 0.12, 0.03);                               // белые угловые стойки
-        rbox(c, cream, s * 1.205, 1.5, 0.12, 0.03, 0.84, 0.84, 0.02); rbox(c, glass, s * 1.215, 1.5, 0.12, 0.02, 0.7, 0.7, 0.01);   // окошко в белой раме
-        rbox(c, cream, s * 1.22, 1.5, 0.12, 0.02, 0.7, 0.04, 0.01); rbox(c, cream, s * 1.22, 1.5, 0.12, 0.02, 0.04, 0.7, 0.01);     // переплёт
-        rbox(c, wood, s * 1.3, 1.02, 0.12, 0.2, 0.16, 0.86, 0.03);                                   // ящик с цветами под окном
+        box(c, cream, s * 1.205, 1.5, 0.12, 0.03, 0.84, 0.84); box(c, glass, s * 1.215, 1.5, 0.12, 0.02, 0.7, 0.7);   // окошко в белой раме
+        box(c, cream, s * 1.22, 1.5, 0.12, 0.02, 0.7, 0.04); box(c, cream, s * 1.22, 1.5, 0.12, 0.02, 0.04, 0.7);     // переплёт
+        box(c, wood, s * 1.3, 1.02, 0.12, 0.2, 0.16, 0.86);                                   // ящик с цветами под окном
         [-0.3, -0.1, 0.1, 0.3].forEach((z, i) => bunch(s * 1.3, 1.18, 0.12 + z, 0.05, 5, i + (s > 0 ? 2 : 0))); });
-      [1.3, 1.78].forEach((y, r) => { rbox(c, cream, 0, y, -0.06, 1.9, 0.05, 0.26, 0.02);        // полки с банками цветов
+      [1.3, 1.78].forEach((y, r) => { box(c, cream, 0, y, -0.06, 1.9, 0.05, 0.26);        // полки с банками цветов
         for (let i = 0; i < 6; i++) { const x = -0.8 + i * 0.32; cyl(c, K.m(i % 2 ? '#BFD8EA' : '#F3E3C9'), x, y + 0.1, -0.06, 0.06, 0.16); bunch(x, y + 0.25, -0.06, 0.045, 5, i * 2 + r); } });
       rbox(c, wood, 0, 0.48, 0.45, 1.6, 0.96, 0.5, 0.05); rbox(c, cream, 0, 0.98, 0.47, 1.7, 0.06, 0.56, 0.02);   // прилавок
-      rbox(c, pink, 0, 0.56, 0.705, 1.3, 0.46, 0.02, 0.02);
+      box(c, pink, 0, 0.56, 0.705, 1.3, 0.46, 0.02);
       [-0.55, -0.22, 0.6].forEach((x, i) => { cyl(c, tin, x, 1.11, 0.42, 0.1, 0.2); bunch(x, 1.3, 0.42, 0.07, 6, i); });   // вёдра на прилавке
       [-1, 1].forEach(s => [0, 1, 2].forEach(t => {                                              // стойки-лесенки по бокам
         const x0 = s * 0.88, y = 0.22 + t * 0.32, z = 1.0 - t * 0.13;
-        rbox(c, woodD, x0, y, z, 0.52, 0.05, 0.3, 0.02);
+        box(c, woodD, x0, y, z, 0.52, 0.05, 0.3);
         [-0.13, 0.13].forEach((dx, j) => { cyl(c, tin, x0 + dx, y + 0.12, z, 0.08, 0.18); bunch(x0 + dx, y + 0.29, z, 0.055, 5, t * 2 + j + (s > 0 ? 3 : 0)); });
       }));
-      for (let i = 0; i < 10; i++) rbox(c, i % 2 ? cream : pink, -1.17 + i * 0.26, 2.2, 0.98, 0.26, 0.05, 0.64, 0.02, [0.42, 0, 0]);   // навес
-      for (let i = 0; i < 10; i++) put(c, GEO.sph, i % 2 ? cream : pink, [-1.17 + i * 0.26, 2.04, 1.27], [0.13, 0.07, 0.03]);       // фестон
+      for (let i = 0; i < 10; i++) box(c, i % 2 ? cream : pink, -1.17 + i * 0.26, 2.2, 0.98, 0.26, 0.05, 0.64, [0.42, 0, 0]);   // навес
+      for (let i = 0; i < 10; i++) put(c, GEO.sphLo || GEO.sph, i % 2 ? cream : pink, [-1.17 + i * 0.26, 2.04, 1.27], [0.13, 0.07, 0.03]);       // фестон
       rbox(c, cream, 0, 2.45, -0.1, 2.6, 0.12, 1.5, 0.04);                                        // крыша
       const glow = m => { m.userData.dn = 'none'; return m; };
       // вывеска на крыше: видна со старта и с обеих сторон улицы
@@ -58,8 +60,8 @@
       const signM = glow(K.t(cv));
       rbox(c, berry, 0, 2.86, 0.2, 2.2, 0.66, 0.06, 0.05);
       put(c, GEO.plane, signM, [0, 2.86, 0.235], [2.1, 0.62, 1]); put(c, GEO.plane, signM, [0, 2.86, 0.165], [2.1, 0.62, 1], [0, PI, 0]);
-      [-1, 1].forEach(s => { const fx = s * 1.24; for (let k = 0; k < 8; k++) { const a = k / 8 * PI * 2; put(c, GEO.sph, K.m(s < 0 ? '#FFFDF9' : '#F3CF73'), [fx + Math.cos(a) * 0.17, 2.98 + Math.sin(a) * 0.17, 0.24], [0.1, 0.1, 0.04]); }
-        put(c, GEO.sph, K.m(s < 0 ? '#F3CF73' : '#C2405B'), [fx, 2.98, 0.27], [0.1, 0.1, 0.06]); });
+      [-1, 1].forEach(s => { const fx = s * 1.24; for (let k = 0; k < 8; k++) { const a = k / 8 * PI * 2; put(c, GEO.sphLo || GEO.sph, K.m(s < 0 ? '#FFFDF9' : '#F3CF73'), [fx + Math.cos(a) * 0.17, 2.98 + Math.sin(a) * 0.17, 0.24], [0.1, 0.1, 0.04]); }
+        put(c, GEO.sphLo || GEO.sph, K.m(s < 0 ? '#F3CF73' : '#C2405B'), [fx, 2.98, 0.27], [0.1, 0.1, 0.06]); });
       // круглая табличка-«флажок» к дороге: букет и «цветы»
       const [bv, bx] = cnv(256, 256);
       bx.fillStyle = '#FFF6EE'; bx.beginPath(); bx.arc(128, 128, 122, 0, 7); bx.fill(); bx.lineWidth = 10; bx.strokeStyle = '#C2405B'; bx.stroke();
@@ -92,7 +94,8 @@
     H.mergeChunk(g, { cast: true });
     /* --- пчёлка Жу у прилавка бутика (живая): летает вдоль витрины под навесом --- */
     shop.updateMatrixWorld(true);
-    const beeBase = shop.localToWorld(new T.Vector3(0.35, 1.72, 0.95)), beeAxis = new T.Vector3(1, 0, 0).applyQuaternion(shop.quaternion);
+    // база — сбоку от точки «Букет» (локально x 0,75): не над головой героини у прилавка
+    const beeBase = shop.localToWorld(new T.Vector3(0.75, 1.72, 0.95)), beeAxis = new T.Vector3(1, 0, 0).applyQuaternion(shop.quaternion);
     const bee = new T.Group(); bee.position.copy(beeBase); scene.add(bee);
     { const yel = toon('#FFD45E'), ink = toon('#3A2E3F'), wingM = keep(new T.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.7, depthWrite: false }));
       const body = new T.Group(); bee.add(body);
