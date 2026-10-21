@@ -871,8 +871,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     /* ---------- машина ---------- */
     const wantSedan = () => { try { if (refs.carKind) return refs.carKind === 'sedan'; if (WORLD.carChoice) return WORLD.carChoice() === 'sedan'; } catch (e) { /* ниже */ } return false; };
     // кабриолет — быстрая машина (желание автора): на серпантине 21 м/с вместо 18, разгон 9,5 м/с², тормоз 12,5; седан — как был.
+    // «чуть быстрее»: кабриолет 23 м/с, разгон 10, тормоз 13 (седан — 20 м/с в CFG drive.js)
     // Руль от скорости у drive.js свой (steerMax → steerHi к vmax) — растягивается сам
-    const CAB_DRIVE = { vmax: 21, acc: 9.5, brake: 12.5, vCap: 23 };
+    const CAB_DRIVE = { vmax: 23, acc: 10, brake: 13, vCap: 25 };
     const driveCfgOf = c => Object.assign({}, c.driveCfg, c.kind === 'sedan' || wantSedan() ? null : CAB_DRIVE);
     function ensureCar() {
       if (car) return car;
@@ -930,7 +931,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         // волна 6 (VILLAGE-ROADS): по селу тоже ездим — тот же drive.js, «дорога» — сеть проездов села (h.drive.road);
         // машина стоит на h.carSpawn (парковка; из отеля — наверху дороги к школе, и тогда героиня уже за рулём)
         scene.add(cr);
-        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign(driveCfgOf(c), h.drive.cfg) });   // по селу — тише (h.drive.cfg: vmax 10)
+        drv = V.drive.create({ THREE: T, car: c, ground: h.drive.ground || h.ground, colliders: h.drive.colliders, road: h.drive.road, start: h.carSpawn, blob: true, dynamic: h.drive.dynamic || h.dynamic, collide: h.collide, season, cfg: Object.assign(driveCfgOf(c), h.drive.cfg) });   // по селу — тише (h.drive.cfg: vmax 13)
         chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
         S.dir = 'village'; S.exitArmed = {};
         if (h.drive.heroInCar && hero) {
@@ -955,9 +956,29 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       return on;
     }
     function ckBtn(sitLike) { if (ui && ui.ck) show(ui.ck, S.mode === 'drive' && !sitLike && !S.busy && !!(S.ck && car && car.cockpit && drv)); }
+    // волна 7: внешние дороги села уходят за пешую сетку — там ей не пройти. Выйти можно, если проходимы точка выхода (drv.exitSpot —
+    // туда она встанет) и хотя бы две из четырёх точек вокруг (0,7 м); иначе — подсказка тостом (не реплика: не в озвучку)
+    const OUT_NO = 'Здесь не выйти — доедь до смотровой, развилки или конца дороги';
+    function outBlocked() {
+      const h = S.h; if (S.rid !== 'kubachi' || !h || !h.walkable || !drv) return false;
+      const p = drv.exitSpot ? drv.exitSpot() : drv.doorPoint ? drv.doorPoint(1) : null; if (!p) return false;
+      if (!h.walkable(p.x, p.z)) return true;
+      if (h.reachable && !h.reachable(p.x, p.z)) return true;   // и не «остров»: оттуда пешком до площади
+      let n = 0; for (let i = 0; i < 4; i++) { const a = drv.S.ry + i * PI / 2; if (h.walkable(p.x + Math.sin(a) * 0.7, p.z + Math.cos(a) * 0.7)) n++; }
+      return n < 2;
+    }
+    // волна 7: по дорогам села можно ездить — подсказка один раз за сессию, когда она пришла пешком (после обычной подсказки)
+    // (при каз «auto» её тост «Снять каз…» идёт до ≈ 7 с после шторки — подсказка про езду после него, не поверх; «один раз» —
+    // только если и правда показали)
+    function driveTip() {
+      if (S.driveTip || S.rid !== 'kubachi' || S.mode !== 'walk' || !drv || !(S.h && S.h.drive)) return;
+      const kazToast = KAZ_MODE() === 'auto' && kazOk() && !kazWorn();
+      later(kazToast ? 7600 : 3700, () => { if (!S.driveTip && S.rid === 'kubachi' && S.mode === 'walk') { S.driveTip = true; hint('Здесь можно ездить по дорогам: садись за руль 🚗', 3500); } });
+    }
     // «Выйти» где угодно (машина сама дотормаживает), «Сесть за руль» у стоящей машины
     async function getOut() {
       if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
+      if (outBlocked()) { toast(OUT_NO, 2800, { replace: true }); haptic('light'); return false; }   // кнопка остаётся: тап — подсказка
       ckSet(false); S.busy = true; let r = null;
       try { r = await drv.heroOut(hero, scene, {}); } catch (e) { console.warn('region heroOut', e); }
       S.busy = false;
@@ -1372,7 +1393,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (pr && isFinite(pr.s)) await fade((q.label || 'Дорога') + '…', async () => { drv.teleport(clamp(pr.s - 8, 2, h.road.len - 2)); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; if (chase) chase.snap(); }, 'облака расступаются');
         return true;
       }
-      if (S.mode === 'drive') { await getOut(); if (S.mode !== 'walk') return false; }
+      if (S.mode === 'drive') { await getOut(); if (S.mode !== 'walk') return false; }   // волна 7: за пешей сеткой села getOut сам скажет тостом, почему нет
       iaStop(); standUp();
       await fade((q.label || '') + '…', async () => {
         let x = q.x, z = q.z, ok = !h.walkable || h.walkable(x, z);
@@ -2036,7 +2057,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (!S.active || S.rid !== 'hotel' || S.zip !== ride) return r;   // ушли посреди поездки
       const K = REG('kubachi'), vt = K && K.title ? K.title(named) : '';   // название — из модуля села (named / нейтральное)
       await fade(vt ? 'Финиш! Добро пожаловать в ' + vt + '…' : 'Финиш!', () => { S.zip = null; S.mode = 'walk'; load('kubachi', 'zipline'); });
-      S.trip.village = true;
+      S.trip.village = true; driveTip();
       if (IA && IA.pocketed && IA.pocketed()) later(700, () => { try { IA.play('unpocket'); } catch (e) { /* ok */ } });
       return r;
     }
@@ -2997,12 +3018,12 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         try { load(id, from || 'city'); } catch (e) { console.error('region load', e); const r = end(); if (tripRes) { const f = tripRes; tripRes = null; f(Object.assign(r, { error: String(e && e.message || e) })); } return; }
         renderOnce(); await raf2();
         await curtain(false);
-        if (S.mode === 'drive') hint(HINT.drive());
+        if (S.mode === 'drive') hint(HINT.drive()); else if (id === 'kubachi') driveTip();
         return;
       }
       const prev = S.rid;
       await fade(enterLabel(id, prev), () => load(id, from || prev), 'облака расступаются');
-      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? HINT.drive() : HINT.walk()); }   // волна 6: из отеля — за рулём
+      if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? HINT.drive() : HINT.walk()); driveTip(); }   // волна 6: из отеля — за рулём; пешком — подсказка про езду
       if (id === 'hotel') { S.trip.hotel = true; hint('Бассейн, мини-гольф, костёр — а с башни зиплайн', 3500); }
       if (id === 'serpentine' && S.dir === 'down') hint(HINT.drive());
     }
@@ -3071,7 +3092,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         go: id => { if (!id) { setView(null); return true; } setView(id, false); return !!S.view; },
         stand: () => standUp(),
         drive: () => (drv ? Object.assign(drv.info(), { door: drv.doorPoint ? (q => ({ x: +q.x.toFixed(2), z: +q.z.toFixed(2) }))(drv.doorPoint(1)) : null, dir: S.dir, len: S.h.road ? +S.h.road.len.toFixed(1) : null, trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +cam.fov.toFixed(1), mode: drv.mode, canExit: drv.canExit(), heroInCar: !!(hero && car && isChildOf(hero.root, car.body)) }) : null),
-        teleportS: (s, rev) => { if (!drv || !S.h.road) return null; const q = S.h.road.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); S.dir = rev ? 'down' : 'up'; S.exitArmed = {}; if (chase) chase.snap(); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; setHud(); return drv.info(); },
+        // волна 7: по селу — h.drive.road (s закодировано: 1000·(ri+1)+s), S.dir там всегда 'village'
+        teleportS: (s, rev) => { const rd = S.h && (S.h.road || (S.h.drive && S.h.drive.road)); if (!drv || !rd) return null; const q = rd.sample(s); drv.teleport(rev ? { x: q.x, z: q.z, ry: q.th + PI } : s); if (S.rid !== 'kubachi') S.dir = rev ? 'down' : 'up'; S.exitArmed = {}; if (chase) chase.snap(); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; setHud(); return drv.info(); },
+        teleportCar: (x, z, ry) => { if (!drv) return null; drv.teleport({ x, z, ry: ry || 0 }); S.exitArmed = {}; if (chase) chase.snap(); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; setHud(); return drv.info(); },   // машина — в точку (x, z), курс ry
+        roads: () => (S.rid === 'kubachi' && S.h && S.h.drive && S.h.drive.roads ? S.h.drive.roads.map(r => ({ id: r.id, len: r.len, pts: r.pts })) : null),   // дороги села (QA)
         auto: (thr, road) => { S.auto = thr || 0; S.autoRoad = road || null; return S.auto; },
         sitRoad: () => { const sp = S.h && S.h.spots[0]; if (sp) sitRoad(sp); return !!S.view; },
         // быстрая езда без рендера (физика 60 Гц, выходы срабатывают как в игре; петля кадров машину в это время не трогает)

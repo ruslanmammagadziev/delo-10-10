@@ -1075,20 +1075,24 @@
      БОЛЬШАЯ КАРТА, волна 4B: вкладки «Кубачи» (село / отель / дорога) и «Обзор»
      ===================================================================== */
   // просмотрщик: холст с рисунком (один раз), живой слой поверх, жесты — перетащить, щипок, двойной тап, колесо, кнопки
-  // V: { bounds() → {x0,x1,z0,z1}, paintBase(c, s, ox, oz, W, H), live(c, toS, vs, hits, view), onTap(hit|null), height(bw, fw, fh), zoom0, maxZoom, focus() → {x,z}|null }
+  // V: { bounds() → {x0,x1,z0,z1}, core?() → {x0,x1,z0,z1} (начальный кадр; без него — вся карта), paintBase(c, s, ox, oz, W, H), live(c, toS, vs, hits, view),
+  //      onTap(hit|null), height(bw, fw, fh), zoom0, maxZoom, focus() → {x,z}|null }
   function mapViewer(box, cv, V) {
-    let bw = 0, bh = 0, fit = 1, vs = 0, vx = 0, vz = 0, D = DPR(), base = null, hits = [], raf = 0, dead = false;
+    let bw = 0, bh = 0, fit = 1, fc = 1, vs = 0, vx = 0, vz = 0, D = DPR(), base = null, hits = [], raf = 0, dead = false;
     const B = () => V.bounds();
     function layout(keep) {
       const b = B(), fw = b.x1 - b.x0, fh = b.z1 - b.z0;
+      // волна 7: у села карта шире ядра (внешние дороги) — высота окна, первый кадр и шаги зума — по ядру (как было), отдалить можно до всей
+      // карты; основа карты крупнее по площади, поэтому при наибольшем приближении чуть мягче (≈ 4,7 px/м против 8,6: предел памяти)
+      const cr = (V.core && V.core()) || b, cw = cr.x1 - cr.x0, ch = cr.z1 - cr.z0;
       const cardW = (box.closest('.wm-card') || {}).clientWidth || 360;
       bw = Math.max(200, cardW - 20);
-      bh = Math.round(V.height ? V.height(bw, fw, fh) : clamp(bw * fh / fw + 4, 200, 400));
+      bh = Math.round(V.height ? V.height(bw, cw, ch) : clamp(bw * ch / cw + 4, 200, 400));
       box.style.height = bh + 'px';
       D = DPR(); cv.width = Math.round(bw * D); cv.height = Math.round(bh * D);
-      fit = Math.min(bw / fw, bh / fh);
+      fit = Math.min(bw / fw, bh / fh); fc = Math.max(fit, Math.min(bw / cw, bh / ch));
       if (!keep || !vs) {
-        vs = fit * (V.zoom0 || 1); vx = (b.x0 + b.x1) / 2; vz = (b.z0 + b.z1) / 2;
+        vs = fc * (V.zoom0 || 1); vx = (cr.x0 + cr.x1) / 2; vz = (cr.z0 + cr.z1) / 2;
         const f = V.focus ? V.focus() : null; if (f && vs > fit * 1.01) { vx = f.x; vz = f.z; }
       }
       const bs = clamp(fit * D * (V.baseK || 2.4), 0.5, 1700 / Math.max(fw, fh));
@@ -1097,7 +1101,7 @@
       base = { cv: bc, s: bs, b };
       clampView();
     }
-    const maxZ = () => fit * (V.maxZoom || 6);
+    const maxZ = () => fc * (V.maxZoom || 6);
     function clampView() {
       const b = B(), fw = b.x1 - b.x0, fh = b.z1 - b.z0;
       vs = clamp(vs, fit, maxZ());
@@ -1155,14 +1159,14 @@
     if (tools) tools.addEventListener('click', e => {
       const b = e.target.closest('[data-z]'); if (!b) return; e.stopPropagation(); haptic('select');
       if (b.dataset.z === 'in') zoomAt(bw / 2, bh / 2, 1.6); else if (b.dataset.z === 'out') zoomAt(bw / 2, bh / 2, 1 / 1.6);
-      else { const f = V.focus ? V.focus() : null; if (f) { vs = Math.max(vs, fit * 2.2); vx = f.x; vz = f.z; clampView(); req(); } }
+      else { const f = V.focus ? V.focus() : null; if (f) { vs = Math.max(vs, fc * 2.2); vx = f.x; vz = f.z; clampView(); req(); } }
     });
     const onResize = () => { if (!dead) { layout(true); req(); } };
     window.addEventListener('resize', onResize);
     return {
       layout, draw, req,
       rebase() { layout(false); draw(); },
-      center(x, z, zoom) { if (zoom) vs = Math.max(vs, fit * zoom); vx = x; vz = z; clampView(); req(); },
+      center(x, z, zoom) { if (zoom) vs = Math.max(vs, fc * zoom); vx = x; vz = z; clampView(); req(); },
       ensureIn(x, z) { const [sx, sy] = toS(x, z); if (sx < 30 || sy < 30 || sx > bw - 30 || sy > bh - 30) { vx = x; vz = z; clampView(); req(); } },
       screenOf(x, z) { const r = cv.getBoundingClientRect(), [sx, sy] = toS(x, z); return { x: r.left + sx, y: r.top + sy, inside: sx >= 0 && sy >= 0 && sx <= bw && sy <= bh }; },
       view: () => ({ vx, vz, vs, fit, bw, bh }),
@@ -1258,7 +1262,7 @@
     const heroOf = r => (here && here.rid === r ? here.get() : null);
     const findP = (r, id) => poisOf(r).find(p => p.id === id);
     const V = mapViewer(box, cv, {
-      bounds: () => model(sub).bounds,
+      bounds: () => model(sub).bounds, core: () => model(sub).core,
       paintBase: (c, s, ox, oz, W, H) => model(sub).paint(c, s, ox, oz, W, H, {}),
       height: (bw, fw, fh) => clamp(bw * fh / fw, 230, Math.min(((ctx.m.clientHeight || 700) * 0.4), 380)),
       zoom0: sub === 'serpentine' ? 1 : 1.15, maxZoom: 7, baseK: 2.4,
@@ -1619,7 +1623,11 @@
   const RTITLE = { serpentine: 'Дорога', kubachi: 'Мастера', hotel: 'Отель' };
   const rTitle = (r, named) => (r === 'kubachi' && named ? villageTitle(true) : RTITLE[r]);
   // границы карт регионов (с запасом вокруг ходьбы; отель — в своих осях)
-  const MB = { kubachi: { x0: -84, x1: 92, z0: -112, z1: 86 }, hotel: { x0: -104, x1: 92, z0: -118, z1: 40 }, serpentine: { x0: -403, x1: 342, z0: -2, z1: 470 } };
+  // волна 7: у села — с внешними дорогами (серпантин на западе до x −185, кольцо на востоке до 155, z −125…105); ядро (MB_CORE,
+  // прежние границы) — первый кадр большой карты. Основа радара: 355 × 245 м × 4,4 px/м ≈ 1562 × 1078 px (≈ 6,7 МБ); растр земли
+  // 0,6 м — ≈ 240 тыс. groundInfo кусками в простое
+  const MB_CORE = { kubachi: { x0: -84, x1: 92, z0: -112, z1: 86 } };
+  const MB = { kubachi: { x0: -195, x1: 160, z0: -135, z1: 110 }, hotel: { x0: -104, x1: 92, z0: -118, z1: 40 }, serpentine: { x0: -403, x1: 342, z0: -2, z1: 470 } };
   // точки, если регион ещё не загружали (замер ручек волны 4A/4B; при загрузке берутся живые)
   const STATIC_POIS = {
     kubachi: [['tower', 'tower', -6.7, -14.2], ['square', 'square', 12.3, -6.3], ['bakery', 'bakery', 2.4, -7.3], ['spring', 'spring', 5.5, 62], ['spring_lid', 'spring', 5.1, 66.4],
@@ -1683,7 +1691,7 @@
   // модель карты региона: h — ручка (или null — статичные данные)
   function mtnModel(rid, h, named) {
     const V = V_() || {}, B = MB[rid];
-    const M = { rid, h: h || null, named, bounds: B, space: rid === 'hotel' ? 'hotel' : 'macro', ver: 0 };
+    const M = { rid, h: h || null, named, bounds: B, core: MB_CORE[rid] || B, space: rid === 'hotel' ? 'hotel' : 'macro', ver: 0 };
     // высота для рельефа (тени склонов)
     const HD = (V.regions.hotel && V.regions.hotel.data) || {};
     M.height = h && typeof h.ground === 'function' ? (x, z) => h.ground(x, z)

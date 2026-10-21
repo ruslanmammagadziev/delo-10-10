@@ -38,7 +38,7 @@
        model.paint / outline / trim / glass — сетки; model.skeleton, model.bones, model.boneIndex; model.stats { tris, verts, calls, … }
        model.setColor(hex), model.setDoor(id, k 0..1), model.pose(S), model.wheelLift, model.setWheelLift(k, lift), model.dispose()
      VEHICLES.sedan.makeCar(H | THREE, o) → car — машина с ездой, СОВМЕСТИМА с WORLD.makeCar (car.js волны 3):
-       o = { x, z, ry, color, can(x,z), vmax (13,5; W6 — было 9), edge {x,z,r}, layout, kit, lite | quality:'low', autoBrake (false),
+       o = { x, z, ry, color, can(x,z), vmax (16; W6 — было 9, потом 13,5), edge {x,z,r}, layout, kit, lite | quality:'low', autoBrake (false),
              turnSlow (false), coast (3.2 м/с² — накат без газа), autoLights (true), outlineDist (30) }
        Поля как у городской машинки: root, body, S {x,z,ry,v,steer,spin,squash,sq,pitch,roll,…}, update(dt, ctl),
          place(), reset(path), setColor, VMAX, edgeOf(), driveInput(), seatDriver, heroSeat, seatPass (кот, сзади справа),
@@ -1029,8 +1029,9 @@
     const root = md.root, body = md.body;
     const S = { x: o.x || 0, z: o.z || 0, ry: o.ry || 0, v: 0, steer: 0, spin: 0, squash: 0, sq: 0, pitch: 0, roll: 0, bumpT: 0, stuckT: 0, lastBump: -1, edgeIn: false, slideT: 0, braking: false };
     // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): 13,5 м/с (было 9), разгон 7,8 (было 5,2), тормоз 11
-    const VMAX = o.vmax || 13.5, VREV = 4, WB = md.dims.wheelBase, SM = STEER_MAX;
-    const cfg = { autoBrake: !!o.autoBrake, turnSlow: !!o.turnSlow, coast: o.coast || 3.2, brake: 11, acc: 7.8 };
+    // «чуть быстрее, особенно в городе»: 16 м/с, разгон 8,5, тормоз 12
+    const VMAX = o.vmax || 16, VREV = 4, WB = md.dims.wheelBase, SM = STEER_MAX;
+    const cfg = { autoBrake: !!o.autoBrake, turnSlow: !!o.turnSlow, coast: o.coast || 3.2, brake: 12, acc: 8.5 };
     const ev = {};
     const emit = (n, d) => (ev[n] || []).slice().forEach(f => { try { f(d); } catch (e) { console.warn('sedan ' + n, e); } });
     // двери и фонари: tick(dt) — явно; иначе сами по реальному времени (из place() и перед отрисовкой)
@@ -1113,8 +1114,8 @@
       if (Math.abs(S.v) < 0.03 && Math.abs(target) < 0.05) S.v = 0;
       S.braking = braking;
       S.steer += (delta - S.steer) * Math.min(1, dt * 7);
-      // W6: предел рыскания от скорости — 1,5 рад/с до 9 м/с, 1,15 рад/с на 13,5 м/с
-      const wLim = 1.5 - 0.35 * clamp((Math.abs(S.v) - 9) / 4.5, 0, 1);
+      // W6: предел рыскания от скорости — 1,5 рад/с до 9 м/с, 1,15 рад/с на полном ходу (VMAX)
+      const wLim = 1.5 - 0.35 * clamp((Math.abs(S.v) - 9) / Math.max(1, VMAX - 9), 0, 1);
       let w = S.v / WB * Math.tan(S.steer); w = clamp(w, -wLim, wLim);
       const nry = S.ry + w * dt, nx = S.x + Math.sin(nry) * S.v * dt, nz = S.z + Math.cos(nry) * S.v * dt;
       let bumped = false;

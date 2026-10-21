@@ -51,10 +51,11 @@
 
   // W6 (желание автора: «машина едет медленно — хочу в 1,5 раза быстрее»): 18 м/с (65 км/ч) на прямой (было 12), разгон 7,8 м/с²
   // (было 5,2), тормоз 11 (было 9,5). Руль: до 0,6 рад на месте, 0,36 рад на полном ходу (обычная «острота руля от скорости»,
-  // без подруливания); рыскание не больше 1,6 рад/с до 9 м/с и 1,15 рад/с на 18 м/с (wMaxHi) — на скорости машина не
-  // «вертится», крутые повороты (R ≈ 15 м) — с лёгким торможением.
+  // без подруливания); рыскание не больше 1,6 рад/с до 9 м/с и 1,15 рад/с на полном ходу (cfg.vmax, wMaxHi) — на скорости
+  // машина не «вертится», крутые повороты (R ≈ 15 м) — с лёгким торможением.
+  // волна 7 («чуть быстрее»): 20 м/с на прямой (vCap 22 — под горку)
   const CFG = {
-    vmax: 18, vrev: 3.5, acc: 7.8, brake: 11, roll: 1.5, gravK: 0.3, vCap: 20,
+    vmax: 20, vrev: 3.5, acc: 7.8, brake: 11, roll: 1.5, gravK: 0.3, vCap: 22,
     wb: 2.17, track: 0.72, wf: 1.05, wr: -1.12, steerMax: 0.6, steerHi: 0.36, steerRate: 7, wMax: 1.6, wMaxHi: 1.15, wMaxV0: 9,
     halfW: 0.86, halfL: 1.9, wheelR: 0.31, edgePad: 0.06, creep: 0.7, exitV: 3.0,
     susK: 230, susZ: 0.42, tiltK: 190, tiltZ: 0.45, lift: 0.12,
@@ -537,6 +538,9 @@
           if (!wq) break;
           const sg = Math.sign(wq.e); nx -= wq.lx * sg * worst; nz -= wq.lz * sg * worst; edge = true; S.edgeT = 0;
         }
+        // волна 7: упёрлась в край (тупик площадки, угол) — скорость сходит к той, с которой машина на самом деле едет вперёд
+        // (иначе стоит на месте «на полном ходу»: спидометр, мотор, «Выйти» недоступно); скольжение вдоль края — как было
+        if (edge && dt > 0) { const fwd = ((nx - S.x) * Math.sin(ry) + (nz - S.z) * Math.cos(ry)) / dt, vf = Math.sign(S.v) * Math.max(0, fwd * Math.sign(S.v)); if (Math.abs(vf) < Math.abs(S.v) * 0.6) S.v += (vf - S.v) * Math.min(1, damp(9, dt)); }
         // концы дорог: дальше — облако (выходы региона); конец ветки к отелю — тоже
         const Pm = road.project(nx, nz, S.s);
         if (Pm.s <= 0.02 && S.v * Math.cos(angDiff(ry, Pm.th)) < 0) { S.v = 0; const q0 = road.sample(0.03); nx = q0.x + q0.lx * Pm.e; nz = q0.z + q0.lz * Pm.e; }
@@ -681,7 +685,7 @@
     function update(dt, d, opt) {
       opt = opt || {};
       const S = d.S, cf = d.cfg || CFG, vmax = cf.vmax || CFG.vmax, sp = Math.min(1, Math.abs(S.v) / vmax);
-      const k = d.road ? d.road.kmax(S.s, 12) : 0, kN = clamp(k * 7, 0, 1);
+      const k = d.road ? (S.along < 0 ? d.road.kmax(Math.max(0, S.s - 12), 12) : d.road.kmax(S.s, 12)) : 0, kN = clamp(k * 7, 0, 1);   // волна 7: поворот впереди и при езде против s (вверх по серпантину села)
       const y = S.yb != null ? S.yb : S.y;   // ровная высота — камера не трясётся на ямах
       if (!st.init) st.yaw = S.ry;
       st.bias += ((opt.yawBias || 0) - st.bias) * damp(0.8, dt);
