@@ -1126,8 +1126,9 @@
     }
 
     /* ---------- размещение ---------- */
-    // стартовая точка серии и прогулки (spawn 'start'): у бордюра Октябрьской, лицом на восток; pitch — взгляд чуть выше
-    const START = { x: -0.8, z: 1.9, pitch: 0.16, face: 1.36 };
+    // стартовая точка серии и прогулки (spawn 'start'): у бордюра Октябрьской, лицом на восток; pitch — взгляд чуть выше.
+    // x −8,2 и камера чуть левее востока (yaw): в первом кадре слева — бутик Жу и кинотеатр с меткой, впереди указатель, село
+    const START = { x: -8.2, z: 1.9, pitch: 0.16, face: 1.42, yaw: PI / 2 + 0.1 };
     function placeAt(x, z, ang, yaw) {
       s.px = x; s.pz = z; s.vx = s.vz = 0; s.ang = ang; s.faceT = ang; s.yaw = yaw; s.tx = x; s.tz = z; s.camInit = false; s.manualT = 0;
       s.catX = x - Math.sin(ang) * 0.9 + Math.cos(ang) * 0.6; s.catZ = z - Math.cos(ang) * 0.9 - Math.sin(ang) * 0.6;
@@ -1147,7 +1148,7 @@
       // старт (желание автора): героиня у дороги, смотрит вдоль Октябрьской на восток — впереди указатель выезда,
       // за домами на горизонте хребты и село (дальний вид). Камера держит кадр, взгляд чуть выше обычного, пока игрок
       // не пошёл или не повёл камеру сам (updCamera: s.introCam); кинотеатр — за спиной слева, к нему ведёт шеврон
-      placeAt(START.x, START.z, PI / 2, PI / 2);
+      placeAt(START.x, START.z, PI / 2, START.yaw);
       s.introCam = true; s.manualT = 1e9; s.pitch = START.pitch; s.pitchT = 0;
       s.faceLock = START.face; s.faceLockT = 1e9;   // стоя героиня обычно смотрит в камеру — на старте смотрит на дорогу и указатель
     }
@@ -2244,7 +2245,9 @@
       }
       const sp = drv ? Math.abs(car.S.v) / car.VMAX : rd ? w.bike.speed / 5.5 * 0.6 : 0, hd = drv ? car.S.ry : rd ? w.bike.ry : 0;
       let dist = drv ? 11 + sp * 1.5 : rd ? 8.5 + sp : s.dist, hgt = drv ? 5 : rd ? 4.6 : 5.4;
-      const f0 = Math.sin(s.yaw), f1 = Math.cos(s.yaw), ahead = drv ? 3 * sp * Math.sign(car.S.v || 1) : rd ? 3 * sp : 0;
+      // за рулём взгляд всегда чуть впереди машины (3,5 м + до 3,5 м на скорости): машина — ниже середины кадра, над кнопками,
+      // впереди видно больше дороги (раньше стоя машина висела посреди экрана, а низ кадра закрывали кнопки)
+      const f0 = Math.sin(s.yaw), f1 = Math.cos(s.yaw), ahead = drv ? (3.5 + 3.5 * sp) * Math.sign(car.S.v || 1) : rd ? 3 * sp : 0;
       lookAt.set(s.tx + Math.sin(hd) * ahead, (drv ? 1.0 : rd ? 1.2 : 1.35) + (s.ty || 0), s.tz + Math.cos(hd) * ahead);
       // W7 (желание 3): взгляд вверх-вниз пальцем — камера по дуге вокруг точки взгляда: вниз — выше, вверх — ниже и ближе
       // (героиня или машина внизу кадра, выше — небо); у земли камера не ниже 0,45 м (за рулём 0,7) — дальше поднимается сам

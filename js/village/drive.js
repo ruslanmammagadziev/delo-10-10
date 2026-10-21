@@ -895,11 +895,21 @@
       // приборов высокие — камера не ниже глаз героини (+4 см, иначе дороги за панелью не видно) и не выше крыши, руль — на 68 %
       const fovT = cam.aspect < 0.8 ? 66 : 50, tf = Math.tan(fovT * PI / 360), aH = Math.atan(0.38 * tf);
       const sedan = car.kind === 'sedan', roof = sedan && car.dims && car.dims.height ? car.dims.height - 0.14 : 9;
-      const y0 = c[1] + 0.66 * Math.tan(Math.atan(0.32 * tf) + aH), ly = Math.min(Math.max(y0, sedan && C.eye ? C.eye[1] + 0.04 : -9), roof);
-      const aW = Math.atan((ly > y0 + 0.01 ? 0.36 : 0.32) * tf);
-      st.lp.set(c[0], ly, c[2] - 0.66);
-      const wa = Math.atan2(c[1] - st.lp.y, c[2] - st.lp.z);
-      const yaw = clamp(opt.yaw || 0, -1.3, 1.3), pt = clamp(wa + aW + (opt.pitch || 0), -0.9, 0.6), cp = Math.cos(pt);
+      let pt0;
+      if (!sedan && C.eye) {
+        // открытая машина (кабриолет): рамка стекла (1,32) ниже глаз героини (1,73), а камера «руль на 66 %» вставала ниже рамки —
+        // её перекладина резала дорогу по горизонту, руль с руками закрывали пол-экрана. Теперь камера почти в глазах (−8 см,
+        // на 28 см позади), взгляд поверх стекла: горизонт — на ~33 % высоты, рамка стекла — у нижней четверти, верх руля и
+        // руки — у самого низа над кнопками; дорога — на пол-экрана
+        st.lp.set(c[0], C.eye[1] - 0.08, C.eye[2] - 0.28);
+        pt0 = -Math.atan(0.33 * tf);
+      } else {
+        const y0 = c[1] + 0.66 * Math.tan(Math.atan(0.32 * tf) + aH), ly = Math.min(Math.max(y0, sedan && C.eye ? C.eye[1] + 0.04 : -9), roof);
+        const aW = Math.atan((ly > y0 + 0.01 ? 0.36 : 0.32) * tf);
+        st.lp.set(c[0], ly, c[2] - 0.66);
+        pt0 = Math.atan2(c[1] - st.lp.y, c[2] - st.lp.z) + aW;
+      }
+      const yaw = clamp(opt.yaw || 0, -1.3, 1.3), pt = clamp(pt0 + (opt.pitch || 0), -0.9, 0.6), cp = Math.cos(pt);
       st.lt.set(st.lp.x + Math.sin(yaw) * cp * 4, st.lp.y + Math.sin(pt) * 4, st.lp.z + Math.cos(yaw) * cp * 4);
       st.wp.copy(st.lp).applyMatrix4(body.matrixWorld); st.wt.copy(st.lt).applyMatrix4(body.matrixWorld);
       st.k = Math.min(1, st.k + dt / 0.45);
