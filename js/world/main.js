@@ -87,7 +87,7 @@
     cup: 'Допила. Теперь можно думать о важных вещах. Например, о втором какао.', cocoa: 'Допила. Теперь можно думать о важных вещах. Например, о втором какао.',
     popcorn: 'Попкорн исчез. Пирожок клянётся, что ничего не трогал.', pretzel: 'Крендель съеден. На пальто — капелька сахарной пудры.', bread: 'Вкусно! Ни крошки не осталось.',
   };
-  const CART = { x: -3.2, z: -1.05 };   // тележка Жу (toys.js): букет — с её прилавка
+  const CART = { x: -3.2, z: -1.05 };   // прежняя тележка Жу — запасной прилавок, если в раскладке нет L.flowerShop (бутик Жу)
 
   const supported = (() => { let ok = null, maxTex = 0; return () => {
     if (ok !== null) return { ok, maxTex };
@@ -142,7 +142,7 @@
     w.L = MAP.L;
     w.doors = WORLD.makeDoors(MAP);
     await step('игрушки улицы');
-    w.toys = WORLD.makeToys(H, scene);
+    w.toys = WORLD.makeToys(H, scene, w.L);
     w.markers = WORLD.makeMarkers(H, scene);
     // земля, кроны и «ковры» листьев — тоже в общем настроении (серый → тёплый)
     { const seen = new Set(); scene.traverse(m => { if (!m.isMesh || !m.material || seen.has(m.material)) return; const kd = m.userData.kind; if (m.userData.ground || kd === 'crown' || kd === 'poplar' || kd === 'carpet') { seen.add(m.material); H.moodPatch(m.material, 'g' + seen.size); m.material.needsUpdate = true; } }); }
@@ -707,7 +707,9 @@
     }
 
     /* ---------- точки и находки ---------- */
-    const spots = (o.spots || []).filter(sp => sp && sp.id !== 'endL' && sp.id !== 'endR').map(sp => Object.assign({ autoDone: false, used: false }, sp));
+    // точка «Букет» (сюжет и прогулка присылают координаты прежней тележки): в городе — у прилавка бутика Жу (L.flowerShop)
+    const FSH = w.L && w.L.flowerShop;
+    const spots = (o.spots || []).filter(sp => sp && sp.id !== 'endL' && sp.id !== 'endR').map(sp => Object.assign({ autoDone: false, used: false }, sp, sp.id === 'flowers' && FSH ? FSH.spot : null));
     const spotMarks = [];
     spots.forEach(sp => {
       if (w.toys.anchors[sp.id]) return;
@@ -1741,12 +1743,13 @@
       return { x: (tmpV.x + 1) / 2 * rr.width + rr.left - appR.left, y: (1 - tmpV.y) / 2 * rr.height + rr.top - appR.top };
     }
     const spawnCat = () => { s.catOn = true; s.catSit = null; cat.root.visible = true; w.catBlob.visible = true; s.catX = s.px - 2.4; s.catZ = s.pz + 0.4; };
-    // букет с тележки Жу (волна 4): героиня берёт его с прилавка настоящей рукой, потом — прежний букет «у груди»
+    // букет из бутика Жу (волна 4): героиня берёт его с прилавка настоящей рукой, потом — прежний букет «у груди»
+    const counterPt = () => (FSH && FSH.counter) || { x: CART.x + 0.28, y: 0.9, z: CART.z + 0.34 };
     function takeBouquet(data) {
       const g = heldModel(w.H, 'bouquet', data), wrap = new T.Group(); wrap.add(g); wrap.name = 'bouquet';
       g.traverse(m => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = false; } });
       Interact.items.wrap(wrap, { up: -0.02, rot: [0.2, 0, -0.3] });
-      wrap.position.set(CART.x + 0.28, 0.9, CART.z + 0.34); scene.add(wrap);
+      const cp = counterPt(); wrap.position.set(cp.x, cp.y, cp.z); scene.add(wrap);
       s.held = 'bouquet'; s.heldData = data;
       return IA.play('take', { item: wrap, dist: 0.42 }).then(() => {
         if (IA.holding('L') === wrap) IA.drop('L');
@@ -1758,7 +1761,7 @@
       setHeld: (kind, data) => {
         if (s.finished) return;
         s.heldData = data;
-        if (kind === 'bouquet' && IA && window.Interact && s.held !== 'bouquet' && s.mode === 'walk' && !s.sitting && !iaBusy() && Math.hypot(s.px - CART.x, s.pz - CART.z) < 2.8) { takeBouquet(data); return; }
+        if (kind === 'bouquet' && IA && window.Interact && s.held !== 'bouquet' && s.mode === 'walk' && !s.sitting && !iaBusy() && Math.hypot(s.px - counterPt().x, s.pz - counterPt().z) < 2.8) { takeBouquet(data); return; }
         setHeld(kind, data);
       },
       celebrate: () => {

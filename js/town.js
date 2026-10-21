@@ -844,7 +844,7 @@
     }).filter(Boolean);
   }
   const STREET_SPOTS = [
-    { id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'тележка Жу' },
+    { id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'цветы от Жу' },
     { id: 'weather', x: 3.1, z: -0.6, act: 'Прогноз', bubble: 'табло прогноза' },
     { id: 'bench1', x: 4.4, z: -0.55, act: 'Присесть', bubble: 'лавочка' },
     { id: 'kiosk', x: 9.6, z: -0.3, act: 'Газета', bubble: 'свежий номер' },

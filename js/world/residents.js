@@ -239,7 +239,7 @@
     { id: 'dog_dachshund', kind: 'dachshund', beh: 'dog', move: 'area', home: 'dogpark', speed: 1.0, r: 0.24, headY: 0.36, pet: 'dog', dogpark: true },
     { id: 'dog_corgi', kind: 'corgi', beh: 'dog', move: 'area', home: 'dogpark', speed: 0.9, r: 0.24, headY: 0.42, pet: 'dog', dogpark: true, lazy: true },
     { id: 'cat_ginger', kind: 'cat_ginger', beh: 'cat', move: 'area', home: { x: 11, z: 24.3 }, roam: 9, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', perch: 'rim' },
-    { id: 'cat_tabby', kind: 'cat_tabby', beh: 'cat', move: 'path', home: { x: 8, z: 1.4 }, roam: 22, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', window: true },
+    { id: 'cat_tabby', kind: 'cat_tabby', beh: 'cat', move: 'path', home: { x: 8.9, z: 1.6 }, roam: 22, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', window: true },
     { id: 'cat_tux', kind: 'cat_tux', beh: 'cat', move: 'path', home: { x: 26, z: 62.6 }, roam: 18, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', perch: 'rail' },
     { id: 'capybara', kind: 'capybara', beh: 'capy', move: 'area', home: { x: 9, z: 65.0 }, area: { x0: 6.5, x1: 12, z0: 61.8, z1: 65.4 }, speed: 0.35, r: 0.36, headY: 0.55, pet: 'capy' },
     { id: 'ducks', kind: 'ducks', beh: 'ducks', move: 'swim', home: { x: 10, z: 67.7 }, speed: 0.38, r: 0.3, headY: 0.32, small: true },
@@ -267,8 +267,8 @@
     const addTo = (x0, x1, z0, z1, it) => { for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) { const k = key(i, j); if (!cells.has(k)) cells.set(k, { c: [], b: [] }); cells.get(k)[it.r !== undefined ? 'c' : 'b'].push(it); } };
     COL.circles.forEach(c => addTo(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c));
     COL.boxes.forEach(b => { if (b.noWalk === false) return; if ((b.x1 - b.x0) * (b.z1 - b.z0) > 900) big.push(b); else addTo(b.x0, b.x1, b.z0, b.z1, b); });
-    // предметы улицы без коллайдера (тележка Жу, табло, почтовый ящик): тоже обходить
-    (o.extraCircles || [{ x: -3.2, z: -1.05, r: 0.85 }, { x: 3.1, z: -1.25, r: 0.45 }, { x: 13.6, z: -1.3, r: 0.35 }]).forEach(c => addTo(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c));
+    // предметы улицы без коллайдера (табло, почтовый ящик): тоже обходить; у бутика Жу — свои коллайдеры в map.js
+    (o.extraCircles || [{ x: 3.1, z: -1.25, r: 0.45 }, { x: 13.6, z: -1.3, r: 0.35 }]).forEach(c => addTo(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c));
     function forNear(x, z, r, fc, fb) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
         const c = cells.get(key(i, j)); if (!c) continue; if (fc) c.c.forEach(fc); if (fb) c.b.forEach(fb);
