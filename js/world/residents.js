@@ -239,7 +239,7 @@
     { id: 'dog_dachshund', kind: 'dachshund', beh: 'dog', move: 'area', home: 'dogpark', speed: 1.0, r: 0.24, headY: 0.36, pet: 'dog', dogpark: true },
     { id: 'dog_corgi', kind: 'corgi', beh: 'dog', move: 'area', home: 'dogpark', speed: 0.9, r: 0.24, headY: 0.42, pet: 'dog', dogpark: true, lazy: true },
     { id: 'cat_ginger', kind: 'cat_ginger', beh: 'cat', move: 'area', home: { x: 11, z: 24.3 }, roam: 9, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', perch: 'rim' },
-    { id: 'cat_tabby', kind: 'cat_tabby', beh: 'cat', move: 'path', home: { x: 8.9, z: 1.6 }, roam: 22, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', window: true },
+    { id: 'cat_tabby', kind: 'cat_tabby', beh: 'cat', move: 'path', home: { x: 8, z: 1.4 }, roam: 22, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', window: true },
     { id: 'cat_tux', kind: 'cat_tux', beh: 'cat', move: 'path', home: { x: 26, z: 62.6 }, roam: 18, speed: 0.6, r: 0.2, headY: 0.4, pet: 'cat', perch: 'rail' },
     { id: 'capybara', kind: 'capybara', beh: 'capy', move: 'area', home: { x: 9, z: 65.0 }, area: { x0: 6.5, x1: 12, z0: 61.8, z1: 65.4 }, speed: 0.35, r: 0.36, headY: 0.55, pet: 'capy' },
     { id: 'ducks', kind: 'ducks', beh: 'ducks', move: 'swim', home: { x: 10, z: 67.7 }, speed: 0.38, r: 0.3, headY: 0.32, small: true },
@@ -267,7 +267,7 @@
     const addTo = (x0, x1, z0, z1, it) => { for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) { const k = key(i, j); if (!cells.has(k)) cells.set(k, { c: [], b: [] }); cells.get(k)[it.r !== undefined ? 'c' : 'b'].push(it); } };
     COL.circles.forEach(c => addTo(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c));
     COL.boxes.forEach(b => { if (b.noWalk === false) return; if ((b.x1 - b.x0) * (b.z1 - b.z0) > 900) big.push(b); else addTo(b.x0, b.x1, b.z0, b.z1, b); });
-    // предметы улицы без коллайдера (табло, почтовый ящик): тоже обходить; у бутика Жу — свои коллайдеры в map.js
+    // предметы улицы без коллайдера (табло, почтовый ящик): тоже обходить; стойка бутика Жу — в коллайдерах map.js
     (o.extraCircles || [{ x: 3.1, z: -1.25, r: 0.45 }, { x: 13.6, z: -1.3, r: 0.35 }]).forEach(c => addTo(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c));
     function forNear(x, z, r, fc, fb) {
       for (let i = Math.floor((x - r) / CELL); i <= Math.floor((x + r) / CELL); i++) for (let j = Math.floor((z - r) / CELL); j <= Math.floor((z + r) / CELL); j++) {
@@ -309,7 +309,7 @@
     const circlePts = (cx, cz, r, n = 28) => { const o2 = []; for (let i = 0; i < n; i++) { const a = i / n * TAU; o2.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); } return o2; };
     const F = L.fountain || { x: 11, z: 31.9, r: 3.05 };
     const FALLBACK = {
-      oct: [[[-46, 1.5], [-20, 1.5], [0, 1.45], [4.4, 1.45], [5.3, 3.1], [8.5, 3.1], [9.5, 1.45], [20, 1.45], [44, 1.5], [66, 1.5]], false],   // 5,3…9,5 — в обход бутика Жу (map.js L.flowerShop) со стороны дороги, мимо фонаря (9; 3,25)
+      oct: [[[-46, 1.5], [-20, 1.5], [0, 1.45], [20, 1.45], [44, 1.5], [66, 1.5]], false],
       block: [[[-24.2, 13.6], [46.4, 13.6], [46.4, 50.3], [-24.2, 50.3]], true],
       square: [circlePts(F.x, F.z, 8.85, 32), true],
       squareIn: [circlePts(F.x, F.z, 5.2, 24), true],
