@@ -35,7 +35,8 @@
   const haptic = k => { try { const g = G_(); if (g) g.haptic(k); } catch (e) { /* нет */ } };
   const sfx = (k, o) => { try { const g = G_(); if (g) g.sfx(k, o); } catch (e) { /* нет */ } };
   const toast = (t, ms, o) => { const g = G_(); if (g && t) g.toast(t, ms, o); };
-  const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full');
+  // .lk-ov — карусель образов (☰ → «Образ», js/looks_picker.js): пока она открыта, клавиши — ей, а не героине
+  const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .lk-ov');
   const emit = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) { /* старый браузер */ } };
   // волна 3: высота пола (холм, лестница, мостик, пирс — L.heightAt из map.js; лестницу на холм открывает HEIGHT_OK)
   WORLD.HEIGHT_OK = true;
@@ -485,6 +486,19 @@
       if (lk.bow) { let br = null; try { br = window.HERO && HERO.beretOf ? HERO.beretOf(lk.bow) : null; } catch (e) { br = null; } d.bow.color.set(lk.bow); d.beret.color.set(br || '#C2405B'); }
     } catch (e) { console.warn('hero look', e); }
   }
+  // смена образа прямо в игре (☰ → «Образ», Looks.change в js/looks_picker.js): та же героиня — одежда и причёска нового
+  // образа (поза, машина, велосипед, руки и что в них — как были). В горах — через крючок поездки (WORLD.regionRelook,
+  // js/world/regions.js: каз снять, переодеть, надеть обратно под новую причёску); вид из-за руля заново собирает руки.
+  // Комнату переодевает она сама (своя героиня: api.setLook). false — города нет или образ неизвестен
+  function relook(id) {
+    const w = W;
+    if (!w || !window.HeroLooks || !HeroLooks.valid(id)) return false;
+    const run = () => heroLookSet(w, { look: id });
+    if (S && S.inTrip && WORLD.regionRelook) return WORLD.regionRelook(run) !== false;
+    run();
+    if (S && S.ck && S.ck.refresh) S.ck.refresh();
+    return true;
+  }
 
   /* ---------- машины города (волна 4): «Ретро-купе» (WORLD.makeCar + WORLD.Car) и «Красный седан» (VEHICLES.sedan) ---------- */
   const CAR_TITLE = { coupe: 'Жёлтый кабриолет', sedan: 'Красный седан' };
@@ -601,6 +615,8 @@
   function tick() {
     raf = requestAnimationFrame(tick);
     const w = W, s = S; if (!w || !s || s.finished || document.hidden || w.isLost || w.released) return;
+    // город закрыл непрозрачный экран (карусель образов, body.scene-paused): кадры не считаем и не рисуем (как комнаты, js/city3d.js)
+    if (document.body.classList.contains('scene-paused')) { last = performance.now(); return; }
     const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
     tAll += dt;
     try {
@@ -1252,8 +1268,31 @@
       if (w.dn && window.DayNight && DayNight.menuItem) {
         HUD.menu.add(Object.assign(DayNight.menuItem({ onSet: (to, line) => { haptic('light'); toast(line, 2400, { replace: true }); s.dnDirty = true; } }), { id: 'dn', order: 40, when: () => mine() && !!w.dn }));
       }
+      // образ героини (☰ → «Образ»): карусель ателье поверх города, новый образ — сразу на ней (js/looks_picker.js Looks.change);
+      // слабый телефон — ролики без автозапуска (постер и ▶): один декодер видео поверх сцены города не держим
+      if (window.Looks && Looks.menuItem && window.HeroLooks) {
+        HUD.menu.add(Looks.menuItem({ id: 'look', when: () => mine(), gone: () => !mine(), busy: lookBusy, apply: id => relook(id), at: heroAt,
+          lite: () => w.qKey === 'lite' || !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()), header: () => (s.dnLamps ? '#1E2A5E' : '#FFF4EC') }));
+      }
       // подсказка «что тут делать» — первой строкой листа «Как играть» (меню ☰ без лишней строки: на 360 × 740 оно без прокрутки)
       if (window.Town && Town.sheet) HUD.helpTop = () => (mine() && s.active && s.mode === 'walk' ? { icon: '💡', title: 'Что тут делать?', sub: 'дело дня — или машина и отдых в горах', onTap: () => { if (mine()) showGuide(false); } } : null);
+    }
+
+    // ☰ → «Образ»: когда переодеваться нельзя (Looks.change покажет тост): посадка и выход из машины, велосипед, дело, руки
+    // заняты (лёгкое «сама ест» — отменяем), прыжок, «Бум!». Пешком, сидя, за рулём и на велосипеде — можно
+    function lookBusy() {
+      if (!s.active || s.finished || s.busy || s.anim || s.benching || s.spotBusy || s.pkBusy || s.pickBusy || blocked()) return 'wait';
+      if ((w.carCtl && (w.carCtl.mode === 'enter' || w.carCtl.mode === 'exit')) || (w.bike && w.bike.busy)) return 'wait';
+      if (iaBusy() && !iaFree()) return 'hands';
+      if (w.mv && (s.air || w.mv.busy())) return 'air';
+      if (w.pf && w.pf.locked && w.pf.locked()) return 'game';
+      return '';
+    }
+    // где героиня на экране (искры смены образа); из-за руля героини не видно — искры посередине
+    function heroAt() {
+      if (s.ck && s.ck.active) return null;
+      const p = hero.root.getWorldPosition(new T.Vector3());
+      return toScreen(p.x, p.y + 1.2, p.z);
     }
 
     /* ---------- подсказка «что тут делать» (желание автора): при первом появлении города и первой строкой листа «Как играть» (меню ☰) ----------
@@ -2642,7 +2681,7 @@
     can() { const sp = supported(); return !!(sp.ok && sp.maxTex >= 4096 && WORLD.createKit && WORLD.buildMap && WORLD.makeActors && WORLD.makeDoors && WORLD.makeMarkers && WORLD.makeUI); },
     built: () => !!W,
     building: () => !!buildP && !W,
-    build, walk, release, setQuality,
+    build, walk, release, setQuality, relook,
     progress: () => progress, onProgress: f => { progressCbs.add(f); return () => progressCbs.delete(f); },
     pause() { loopStop(); },
     released: () => !!(W && W.released),

@@ -816,6 +816,17 @@
     m.customProgramCacheKey = () => 'ckArm1|' + (prevKey ? prevKey.call(src) : prev ? String(prev) : '');
     return m;
   }
+  // индекс рук — из нынешнего индекса героини (маска образа и каз — вырожденными треугольниками, как есть): A.idx — во всю длину
+  // индекса героини (без новых буферов при пересборке), видимая часть — drawRange; A.iv — версия индекса героини на момент сборки
+  function armIdx(A, g) {
+    const src = g.index.array, kw = A.kw, out = A.idx && A.idx.length === src.length ? A.idx : (A.idx = new src.constructor(src.length));
+    let c = 0;
+    for (let t = 0; t + 2 < src.length; t += 3) if (Math.max(kw[src[t]], kw[src[t + 1]], kw[src[t + 2]]) >= 0.5) { out[c++] = src[t]; out[c++] = src[t + 1]; out[c++] = src[t + 2]; }
+    A.iv = g.index.version; A.n = c;
+    return c;
+  }
+  // индекс героини переписали после сборки рук (образ сменили в ателье или прямо в игре — маска одежды; каз) — руки устарели
+  const armStale = rig => { const m = rig && rig.mesh, A = m && ARMS.get(m); return !!(A && m.geometry && m.geometry.index && (A.geo !== m.geometry || A.iv !== m.geometry.index.version)); };
   function armMesh(T, rig) {
     const m = rig && rig.mesh, g = m && m.geometry, sk = m && m.skeleton;
     if (!m || !m.isSkinnedMesh || !g || !g.index || !sk || (g.groups && g.groups.length) || !g.attributes.skinIndex || !g.attributes.skinWeight || !m.material || Array.isArray(m.material)) return null;
@@ -824,21 +835,26 @@
     if (A) {
       // материал героини сменился или его перепатчили (день-ночь) — свой материал рук заново
       if (A.mesh && (A.mat0 !== m.material || A.obc !== m.material.onBeforeCompile)) { A.mesh.material.dispose(); A.mesh.material = armMat(T, m.material); A.mat0 = m.material; A.obc = m.material.onBeforeCompile; }
+      // Bug B: новый образ переписал индекс героини (рукава, открытые руки) — свой индекс рук заново, в тот же буфер
+      if (A.mesh && A.iv !== g.index.version) {
+        const ga = A.mesh.geometry; armIdx(A, g);
+        if (ga.index.array !== A.idx) ga.setIndex(new T.BufferAttribute(A.idx, 1)); else ga.index.needsUpdate = true;
+        ga.setDrawRange(0, A.n);
+      }
       return A.mesh;
     }
-    A = { mesh: null, geo: g, nb: sk.bones.length, mat0: m.material, obc: m.material.onBeforeCompile };
+    A = { mesh: null, geo: g, nb: sk.bones.length, mat0: m.material, obc: m.material.onBeforeCompile, kw: null, idx: null, iv: -1, n: 0 };
     ARMS.set(m, A);
     const keep = sk.bones.map(bn => (ARM.test(bn.name) ? 1 : 0)), kk = i => keep[i] || 0;
-    const SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, n = SI.count, kw = new Float32Array(n);
+    const SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, n = SI.count, kw = A.kw = new Float32Array(n);
     for (let i = 0; i < n; i++) kw[i] = kk(SI.getX(i)) * SW.getX(i) + kk(SI.getY(i)) * SW.getY(i) + kk(SI.getZ(i)) * SW.getZ(i) + kk(SI.getW(i)) * SW.getW(i);
-    const src = g.index.array, out = new src.constructor(src.length);
-    let c = 0;
-    for (let t = 0; t + 2 < src.length; t += 3) if (Math.max(kw[src[t]], kw[src[t + 1]], kw[src[t + 2]]) >= 0.5) { out[c++] = src[t]; out[c++] = src[t + 1]; out[c++] = src[t + 2]; }
-    if (c < 300) return null;
+    const c = armIdx(A, g);
+    if (c < 300) { ARMS.delete(m); return null; }
     const ga = new T.BufferGeometry();
     for (const k in g.attributes) ga.setAttribute(k, g.attributes[k]);
     ga.setAttribute('ckArm', new T.BufferAttribute(kw, 1));
-    ga.setIndex(new T.BufferAttribute(out.slice(0, c), 1));
+    ga.setIndex(new T.BufferAttribute(A.idx, 1));
+    ga.setDrawRange(0, c);
     if (g.boundingSphere) ga.boundingSphere = g.boundingSphere.clone();
     const am = new T.SkinnedMesh(ga, armMat(T, m.material));
     am.name = 'hero:arms'; am.frustumCulled = false; am.castShadow = false; am.receiveShadow = false; am.raycast = () => {};
@@ -918,14 +934,15 @@
       st.wp.copy(st.lp).applyMatrix4(body.matrixWorld); st.wt.copy(st.lt).applyMatrix4(body.matrixWorld);
       st.k = Math.min(1, st.k + dt / 0.45);
       const e = st.k * st.k * (3 - 2 * st.k);
-      if (e > 0.55 && hero && (st.hero !== hero || kidsOf(hero) !== st.kids)) hideOn(hero, car);
+      if (e > 0.55 && hero && (st.hero !== hero || kidsOf(hero) !== st.kids || armStale(hero.rig))) hideOn(hero, car);
       st.cur.lerpVectors(st.from, st.wp, e); st.curL.lerpVectors(st.fromL, st.wt, e);
       cam.position.copy(st.cur); cam.lookAt(st.curL);
       const nearT = 0.05;
       if (Math.abs(cam.fov - fovT) > 0.05 || cam.near !== nearT) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 6 + (e >= 1 ? 0.2 : 0)); cam.near = nearT; cam.updateProjectionMatrix(); }
       return true;
     }
-    return { on, update, get active() { return st.on; }, get blend() { return st.k; }, st, dispose() { on(false); } };
+    // refresh() — героиню переодели (образ прямо в игре): следующий кадр вида заново прячет героиню и собирает руки
+    return { on, update, refresh() { st.hero = null; }, get active() { return st.on; }, get blend() { return st.k; }, st, dispose() { on(false); } };
   }
 
   V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true, cockpit: true } };
