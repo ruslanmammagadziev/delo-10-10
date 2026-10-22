@@ -72,7 +72,9 @@
   const G_ = () => window.G || null;
   const V_ = () => window.VILLAGE || null;
   // .lk-ov — карусель образов (☰ → «Образ», js/looks_picker.js): пока она открыта, клавиши — ей, а не героине
-  const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .wr-sheet, .lk-ov');
+  // в кадре (tick) — один запрос на кадр (blkTick; раньше — 5+ раз: ходьба, кнопки, «Бум!», анимация), вне кадра — живой
+  let blkTick = null;
+  const blocked = () => (blkTick !== null ? blkTick : !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .wr-sheet, .lk-ov'));
   const HUD_ = () => (window.HUD && window.HUD.v ? window.HUD : null);   // HUD v2 (js/world/hud.js); без него — прежний интерфейс
   const emitWin = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) { /* старый браузер */ } };
 
@@ -3060,6 +3062,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
       fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
       try {
+        blkTick = null; blkTick = blocked();
         // джойстик раз в кадр (сила и курс → joy.x/y, lx/ly) и бег — палец за краем кружка (только пешком: не в машине, не на
         // лестнице, не в полёте и не в игре)
         joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive());
@@ -3131,7 +3134,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (radar && radar.update) { try { radar.update(dt); } catch (e) { if (!S.radarErr) { S.radarErr = true; console.warn('region radar', e); } } }
         placeBubbles();
         fpsWatch(dt);
-      } catch (e) { console.error('region tick', e); }
+      } catch (e) { console.error('region tick', e); } finally { blkTick = null; }
     }
     // слабый телефон: медиана кадра за 8 с ниже 12 кадров/с — дорисовать поездку карточками (не в swiftshader и не в тестах)
     function fpsWatch(dt) {
