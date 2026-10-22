@@ -8,8 +8,8 @@
 
    API
      Волна 4B / W8: дорога наверх → село: площадь, базарная площадь с лавками, пекарня, мастерская, свадьба во дворе (ряженые —
-     пальтары, только при named), башня → из села наверх, «Отель на вершине», и зиплайн назад, к селу (если отель открыт:
-     CONFIG.UNLOCK.hotel) → вниз. W8: развилки на серпантине больше нет — в отель только через село.
+     пальтары, только при named), башня → из села вторым серпантином на гору, «Отель на вершине», и зиплайн с вершины назад,
+     к селу (если отель открыт: CONFIG.UNLOCK.hotel) → вниз. W8: развилки на серпантине больше нет — в отель только через село.
      WORLD.Trip2D.run(o) → Promise<{ done: true, seen: [id…], talked: [speaker…] }>
        o = { named (CONFIG.VILLAGE_NAMED, по умолчанию true), season ('autumn'|'winter'; по умолчанию как WORLD.Regions),
              from: 'city' (вся поездка) | 'up' | 'village' | 'hotel' | 'down' — откуда продолжить (3D бросил посреди пути),
@@ -110,14 +110,14 @@
       <g fill="#FFF3B0">${[[100, 90], [300, 96], [250, 80]].map(([x, y]) => `<path d="M${x} ${y - 8} L${x + 2} ${y - 2} L${x + 8} ${y} L${x + 2} ${y + 2} L${x} ${y + 8} L${x - 2} ${y + 2} L${x - 8} ${y} L${x - 2} ${y - 2} Z"/>`).join('')}</g>`),
     tower: P => svgWrap(P, `${cloud(80, 210, 2.6)}${cloud(250, 220, 3)}${cloud(380, 205, 2.2)}<rect x="0" y="215" width="400" height="45" fill="#fff"/>${towerSvg(P, 200, 210, 2.6)}
       <g transform="translate(110 70)"><path d="M0 0 q-22 -8 -40 4 q18 -2 26 6 q-6 6 -4 12 q10 -10 18 -10 q8 0 18 10 q2 -6 -4 -12 q8 -8 26 -6 q-18 -12 -40 -4 Z" fill="#7A5A44"/><circle cx="0" cy="-3" r="3.5" fill="#F3E5C8"/></g>`),
-    // волна 4B: отель на холме, зиплайн через долину, базарная площадь, свадьба во дворе
+    // волна 4B / вершина: отель на горе над селом, зиплайн с вершины к домам, базарная площадь, свадьба во дворе
     hotel: P => svgWrap(P, `<path d="M0 138 Q90 100 200 116 T400 104 L400 260 L0 260 Z" fill="${P.far}"/><path d="M0 192 Q140 152 260 170 T400 160 L400 260 L0 260 Z" fill="${P.hill}"/>
       <rect x="146" y="122" width="178" height="8" rx="3" fill="${P.roof}"/><rect x="150" y="128" width="170" height="46" rx="6" fill="#F3EFE6"/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${160 + i * 19}" y="138" width="11" height="13" rx="2" fill="#9CC7E0"/>`).join('')}
       <rect x="226" y="156" width="18" height="18" rx="2" fill="#8A6A5A"/>${towerSvg(P, 122, 174, 1.05)}<path d="M122 122 L122 104 L136 109 L122 114" fill="#C2405B" stroke="#8A6A5A" stroke-width="1.2"/>
       <rect x="252" y="176" width="72" height="22" rx="4" fill="#CFEAF5" stroke="#8FB8CC" stroke-width="2"/><path d="M256 190 q8 -4 16 0 t16 0 t16 0 t16 0" stroke="#4A90D8" stroke-width="2" fill="none"/>
       <ellipse cx="80" cy="216" rx="50" ry="14" fill="${P.W ? '#E6EEF4' : '#8FCB6B'}"/><rect x="104" y="192" width="1.8" height="24" fill="#6E6272"/><path d="M106 192 l10 4 l-10 4 Z" fill="#F2B84B"/><circle cx="96" cy="214" r="2.6" fill="#fff"/>
       <g transform="translate(340 222)"><rect x="-12" y="2" width="24" height="5" rx="2" fill="#8A6A5A" transform="rotate(-12)"/><rect x="-12" y="2" width="24" height="5" rx="2" fill="#7A5A4A" transform="rotate(14)"/><path d="M-7 2 Q-6 -12 0 -18 Q5 -10 7 2 Z" fill="#F2B84B"/><path d="M-3 2 Q-2 -6 1 -10 Q3 -5 4 2 Z" fill="#FFE7A8"/></g>
-      <rect x="34" y="152" width="3" height="22" fill="#6E5A4A"/><rect x="18" y="140" width="40" height="15" rx="3" fill="#7A5236"/><text x="38" y="151.5" font-size="10" font-weight="800" fill="#FFF6E8" text-anchor="middle" font-family="sans-serif">Отель</text>
+      ${(d => `<path d="${d}" fill="none" stroke="#B9A7C6" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#E6DEEC" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round"/>`)('M2 258 L31 247 L6 236 L32 225 L8 214 L34 203 L12 192 L64 183 L118 176')}
       ${cloud(300, 52, 0.9)}${cloud(80, 66, 0.7, 0.9)}`),
     zipline: P => svgWrap(P, `${cloud(300, 46, 0.8, 0.9)}<path d="M0 118 Q60 98 120 106 L150 260 L0 260 Z" fill="${P.hill}"/><path d="M230 204 Q320 172 400 182 L400 260 L210 260 Z" fill="${P.hill2}"/>
       ${houses(P, 262, 226, 2, 21)}<g transform="translate(78 120) scale(.7)"><path d="M-15 0 L-14 -47 L14 -47 L15 0 Z" fill="#D9BC86"/><rect x="-16" y="-49" width="32" height="3" fill="#B99A63"/></g>
@@ -162,12 +162,13 @@
       { id: 'hairpins', stage: 'up', title: 'Серпантин', text: ['Плечо, поворот, снова плечо. Шесть крутых шпилек — руль, газ и тормоз у тебя: машинка сама не сбавляет ход.', 'Можно остановиться, выйти и посидеть на лавочке над долиной.'], who: [] },
       { id: 'clouds', stage: 'up', title: 'Над облаками', text: ['Ещё поворот — и облака остаются внизу. Через долину видна круглая башня.', 'На камне у смотровой стоит тур.'], who: ['tur'] },
     ];
-    // волна 4B / W8: отель выше села (дорога мимо школы наверх) и зиплайн назад, к селу — если отель открыт (CONFIG.UNLOCK.hotel).
+    // волна 4B / W8 / вершина: отель на горе над селом (от школы — вторым серпантином) и зиплайн с вершины назад, к домам —
+    // если отель открыт (CONFIG.UNLOCK.hotel).
     // В 2D у отеля одна игра — мини-гольф (act 'golf'): падел и мини-футбол здесь не обещаем
     const hotelOpen = o.hotel !== false && !!(V.regions && V.regions.hotel) && (() => { try { return !WORLD.Regions || !WORLD.Regions.hotelLock || WORLD.Regions.hotelLock().ok; } catch (e) { return true; } })();
     const hotel = hotelOpen ? [
-      { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['От площади дорога мимо школы поднимается ещё выше — к отелю.', 'Во дворе башня, бассейн под крышей, мини-гольф, купели с паром и костровой круг. Внизу видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
-      { id: 'zipline', stage: 'hotel', title: 'Зиплайн вниз', text: ['С башни во дворе вниз, к домам, натянут трос.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
+      { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['Дорога мимо школы — и выше, серпантином на гору, к отелю на вершине.', 'Во дворе башня, бассейн под крышей, мини-гольф, купели с паром и костровой круг. Внизу видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
+      { id: 'zipline', stage: 'hotel', title: 'Зиплайн вниз', text: ['С башни во дворе натянут трос — с вершины прямо к домам.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
     ] : [];
     // волна 5B: параплан с башни — если открыт (CONFIG.UNLOCK.paraglider, вместе с поездкой)
     const flyOpen = (() => { try { return !WORLD.Regions || !WORLD.Regions.flyLock || WORLD.Regions.flyLock().ok; } catch (e) { return true; } })();
@@ -291,7 +292,7 @@
           btns(['🪂 Держись крепче — поехали!'], (j, b) => {
             b.disabled = true; voiceIt(ready);
             const r = card.querySelector('.t2d-rider'); if (r) r.style.transform = 'translate(196px, 66px)';
-            note.textContent = 'Вжу-у-ух! Через всю долину — и мягко на настил «Финиш».';
+            note.textContent = 'Вжу-у-ух! С вершины — вниз, к домам, и мягко на настил «Финиш».';
           });
         }
         if (c.act === 'shop') {
