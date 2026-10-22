@@ -727,7 +727,7 @@
       if (n && d.reply) later(2400, () => { bubble(npcHead(n), d.reply.text, d.reply.name || n.name, 3000); n.faceHero = 3; });
     }
 
-    /* ---------- W4A: зиплайн (VILLAGE.zipline.ride) — со старта на башне отеля через долину к селу; как tests/w4/hotel.html ---------- */
+    /* ---------- W4A: зиплайн (VILLAGE.zipline.ride) — со старта на башне отеля на вершине вниз, к селу; как tests/w4/hotel.html ---------- */
     async function startZip(d) {
       const h = S.region;
       if (!V.zipline || !V.zipline.ride || !hero) { toast(d.text || 'Зиплайн'); return; }
@@ -886,8 +886,27 @@
     }
 
     /* ---------- машина: выйти и сесть за руль (drive.js волны 4) ---------- */
+    // как в игре (js/world/regions.js outBlocked): за пешей сеткой села, где ей не пройти или не дойти до площади, — тост;
+    // дорога к отелю (вершина) проходима пешком вся — выйти там можно где угодно
+    const OUT_NO = 'Здесь не выйти — доедь до развилки, смотровой или конца дороги. А на дороге к отелю — выходи где хочешь';
+    function outBlocked() {
+      const h = S.region; if (S.rid !== 'kubachi' || !h || !h.walkable || !drv) return false;
+      const p = drv.exitSpot ? drv.exitSpot() : drv.doorPoint ? drv.doorPoint(1) : null; if (!p) return false;
+      if (!h.walkable(p.x, p.z)) return true;
+      if (h.reachable && !h.reachable(p.x, p.z)) return true;
+      let n = 0; for (let i = 0; i < 4; i++) { const a = drv.S.ry + i * PI / 2; if (h.walkable(p.x + Math.sin(a) * 0.7, p.z + Math.cos(a) * 0.7)) n++; }
+      return n < 2;
+    }
+    // вершина: где она на дороге к отелю (как пилюля игры: осталось по дороге и вверх) — для проверок стенда
+    function summitAt() {
+      const SM = V.SUMMIT; if (!SM || !SM.roadNear || S.rid !== 'kubachi') return null;
+      const x = S.mode === 'drive' && drv ? drv.S.x : S.px, z = S.mode === 'drive' && drv ? drv.S.z : S.pz, q = SM.roadNear(x, z); if (!q) return null;
+      const A = SM.axis(), i = Math.min(q.i, A.n - 2), s = A.s[i] + (A.s[i + 1] - A.s[i]) * q.t, top = SM.roadPads.top.y;
+      return { s: +s.toFixed(1), d: +q.d.toFixed(2), y: +q.y.toFixed(2), rem: +Math.max(0, A.len - 2 - s).toFixed(1), up: +Math.max(0, top - q.y).toFixed(1), on: q.d < 12 && s > 12 };
+    }
     async function getOut() {
       if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
+      if (outBlocked()) { toast(OUT_NO, 3800); return false; }
       S.busy = true; const r = await drv.heroOut(hero, scene, {}); S.busy = false;
       if (!r) return false;
       S.mode = 'walk'; S.px = r.x; S.pz = r.z; S.py = S.region.ground(r.x, r.z); S.ang = r.ry; S.yaw = drv.S.ry; S.camInit = false; if (hero.rig) hero.rig.prev = null;
@@ -1400,12 +1419,13 @@
       // свадебный двор (модуль VILLAGE.wedding, если есть)
       wedding: () => { const h = S.region; return h && h.places && h.places.wedding ? { module: !!h.wedding, gate: h.places.wedding.gate, npcs: h.npcs.filter(n => n.ext).length } : null; },
       // машина: выйти / сесть (drive.js волны 4)
-      getOut: () => getOut(), getIn: () => getIn(),
+      getOut: () => getOut(), getIn: () => getIn(), outBlocked: () => outBlocked(), summitAt: () => summitAt(),
       // волна 6: езда по селу — маршруты, QA-пилот, машина к точке стоянки, «сесть за руль» рядом с машиной
       routes: () => { const r = villageRoutes(); const o = {}; Object.keys(r).forEach(k => { o[k] = r[k].length; }); return o; },
       route: name => villageRoutes()[name] || null,
       simRoute: (name, o) => simRoute(name, o),
       carAt: name => { const h = S.region; if (!drv || !h || !h.drive) return null; const c = h.drive.carSpawns[name]; if (!c) return null; drv.teleport({ x: c.x, z: c.z, ry: c.ry }); if (chase) chase.snap(); if (S.mode === 'drive') { S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; } return drv.info(); },
+      carTo: (x, z, ry) => { if (!drv) return null; drv.teleport({ x, z, ry: ry || 0 }); if (chase) chase.snap(); if (S.mode === 'drive') { S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; } return drv.info(); },   // машина в точку (x, z) по дороге
       heroToCar: () => { if (!drv) return false; const p = drv.doorPoint(1); S.mode = 'walk'; S.px = p.x; S.pz = p.z; S.py = S.region.ground(p.x, p.z); S.camInit = false; return drv.canEnter(S.px, S.pz); },
       drivable: (x, z) => { const h = S.region; return !!(h && h.drive && h.drive.drivable(x, z)); },
       teleportCar: (x, z, ry, sit) => { if (!drv) return null; drv.teleport({ x, z, ry: ry || 0 }); if (sit !== false && S.mode !== 'drive' && drv.heroIn && hero) { drv.heroIn(hero, { instant: true }); S.mode = 'drive'; document.body.classList.toggle('drive', true); } if (chase) chase.snap(); S.view = null; S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; return drv.info(); },

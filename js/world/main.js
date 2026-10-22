@@ -291,16 +291,16 @@
           onTravelRegion: (rid, poiId, poi) => {
             if (rid === 'city' || !(S && S.regionTrip && S.tripOpen && S.tripOpen())) return false;
             const at = poi && isFinite(poi.x) ? { x: poi.x, z: poi.z, label: poi.label } : null;
-            // W8 (желание автора): в отель — только через село, дорогой мимо школы наверх. Пока отеля не было (st.world.hotel),
-            // метка «📍» — у дороги к отелю в селе; дальше — как обычно (в первый раз — серпантин, потом — сразу в село:
-            // туда загрузчик ведёт сам, R.trip с to 'hotel' и refs.hotelSeen)
+            // W8 (желание автора): в отель — только через село, от школы серпантином на гору. Пока отеля не было (st.world.hotel),
+            // метка «📍» — у начала дороги к отелю (площадка jHotel за школой, Minimap.hotelWay); дальше — как обычно (в первый
+            // раз — серпантин, потом — сразу в село: туда загрузчик ведёт сам, R.trip с to 'hotel' и refs.hotelSeen)
             const way = rid === 'hotel' && !wState().hotel && WORLD.Minimap.hotelWay ? WORLD.Minimap.hotelWay() : null;
             // волна 4 (интегратор): в первый раз — по серпантину самой, за рулём (желание автора); метка «📍» ведёт к точке.
             // Когда дорога наверх уже пройдена (st.world.road), «Поехать сюда» везёт сразу к точке.
             if (!wState().road && rid !== 'serpentine') {
               const wp = way || (at ? { rid, id: poiId, x: at.x, z: at.z, label: at.label, kind: poi.kind } : null);
               if (wp) { try { WORLD.Minimap.setWaypoint(wp); } catch (e) { /* без метки */ } }
-              return S.regionTrip(null, { note: way ? 'Первый раз — по серпантину, за рулём! Отель — ещё выше по горе: метка 📍 у дороги к нему.' : at && at.label ? `Первый раз — по серпантину, за рулём! Метка 📍 приведёт: «${at.label}».` : 'Первый раз — по серпантину, за рулём!' });
+              return S.regionTrip(null, { note: way ? 'Первый раз — по серпантину, за рулём! Отель — на вершине: метка 📍 — у начала дороги к нему.' : at && at.label ? `Первый раз — по серпантину, за рулём! Метка 📍 приведёт: «${at.label}».` : 'Первый раз — по серпантину, за рулём!' });
             }
             return S.regionTrip(null, { to: rid, poi: poiId, at });
           },

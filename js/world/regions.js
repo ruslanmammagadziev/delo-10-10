@@ -3,10 +3,13 @@
    Поездка из города наверх и назад: серпантин (героиня за рулём, без помощников; «Выйти» где угодно, пройтись,
    сесть на лавочку, «Сесть за руль») → ворота села → в село (каз по приезде, базарная площадь и лавки, пекарня — хлеб
    из лап зайки, родник с крышкой — вода из ладошек, свадьба с пальтарами, лестница в башне, коровья тропа) → из села
-   дорогой мимо школы наверх, к «Отелю на вершине» (двор, бассейн за стеклом, мини-гольф, падел и мини-футбол, купели,
-   костёр, смотровая); оттуда зиплайн или машина — назад, в село → вниз по серпантину → город.
+   от школы вторым серпантином на гору, к «Отелю на вершине» (двор, бассейн за стеклом, мини-гольф, падел и мини-футбол,
+   купели, костёр, смотровая); оттуда зиплайн или машина — назад, в село → вниз по серпантину → город.
    W8 (желание автора: «не надо развилки — в отель через село, выше по горе»): развилки на серпантине больше нет; в отель —
    только из села. С большой карты города — тоже через село, пока отеля не было в сохранении (refs.hotelSeen, st.world.hotel).
+   Вершина (VILLAGE.SUMMIT): дорога к отелю — внешняя дорога села `summit` (1,16 км, +101 м) от площадки jHotel за школой
+   до ворот отеля; пилюля в селе ведёт к jHotel, на дороге — «ещё N м · ↑M м», после отеля носом вниз — «<имя> ↓»;
+   выйти на ней можно где угодно; метка 📍 «к отелю» — у jHotel; точки на дороге с карты — в первый раз своим ходом.
    Регионы строит js/village/** (VILLAGE.regions.<id>.build → handle, см. js/village/README.md); здесь — всё, что
    нужно игре: облачная шторка, своя петля кадров на том же рендерере, героиня и машина города, ходьба/езда, камера,
    руки (js/interact.js), день и ночь (js/daynight.js), жители (G.say + голоса), места, выходы между регионами.
@@ -507,6 +510,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     // пилюля цели в горах: куда ведёт дорога (серпантин — в село; в селе — к отелю, W8), кувшин бабушке-ежихе (село), удары старого гольфа
     const fmtDist = d => (d == null ? null : d < 1000 ? Math.round(d) : (d / 1000).toFixed(1).replace('.', ',') + ' км');
+    const fmtM = d => (d < 995 ? Math.round(d) + ' м' : (d / 1000).toFixed(1).replace('.', ',') + ' км');   // вершина: «640 м» / «1,1 км» в строке
     function routeGoal() {
       const h = S.h; if (!h || S.sport || S.zip || S.dance || S.look || S.inShop) return null;
       if (S.golf) { const g = S.golf.G; return { icon: '⛳', text: 'Удары: ' + (g.maxTries - g.tries) + ' из ' + g.maxTries, title: 'Мини-гольф', full: 'Потяни назад и отпусти — как рогатку. «Встать» — закончить.', d: null }; }
@@ -518,28 +522,63 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (ex.s != null && h.road && h.road.project) { try { const pr = h.road.project(px, pz); if (pr && isFinite(pr.s)) d = Math.abs(ex.s - pr.s); } catch (e) { /* по прямой */ } }
         const name = id === 'toCity' ? 'Город' : (titleOf() || ex.label || '');
         return { icon: id === 'toCity' ? '🏙' : '⛰️', text: name, title: down ? 'Дорога вниз' : 'Дорога наверх', d,
-          full: (down ? 'Вниз по серпантину — в город.' : 'Вверх по серпантину, за облака. Отель — ещё выше, дорогой мимо школы.') + (touchUi() ? ' Газ и тормоз — справа, кружок внизу — руль.' : '') };
+          full: (down ? 'Вниз по серпантину — в город.' : 'Вверх по серпантину, за облака. Отель — ещё выше: от школы серпантином на гору.') + (touchUi() ? ' Газ и тормоз — справа, кружок внизу — руль.' : '') };
       }
       if (S.rid === 'kubachi' && S.flags.jug && !S.flags.granny) {
         const n = npcBy('granny_hedgehog');
         if (n) return { icon: '🫙', text: n.name || 'Бабушка-ежиха', title: 'Кувшин с водой', full: 'Отнеси воду бабушке-ежихе на площади.', d: Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz) };
       }
-      // W8: в отель — только через село: дорога мимо школы наверх (выход toHotel). Пилюля — пока в этой поездке отеля не было
-      if (S.rid === 'kubachi' && !S.trip.hotel && REG('hotel') && hotelLock().ok) {
-        const ex = h.exits.find(e => e.id === 'toHotel');
-        if (ex) {
-          const inCar = S.mode === 'drive' && drv, px = inCar ? drv.S.x : S.px, pz = inCar ? drv.S.z : S.pz;
-          return { icon: '🏨', text: 'К отелю ↑', title: 'Отель на вершине', d: Math.hypot(ex.x - px, ex.z - pz), full: 'Дорога мимо школы — наверх, к отелю. Можно за рулём, можно пешком.' };
+      if (S.rid === 'kubachi' && REG('hotel') && hotelLock().ok) {
+        const inCar = S.mode === 'drive' && drv, px = inCar ? drv.S.x : S.px, pz = inCar ? drv.S.z : S.pz;
+        // вершина: на дороге к отелю — сколько ещё по дороге и в гору (и с площадки jHotel внизу — а не «ты на месте»); после
+        // отеля носом вниз — к селу (по дороге и вниз)
+        const q = summitAt(px, pz);
+        if (q && q.d < 12 && (q.s > 12 || !S.trip.hotel)) {
+          if (!S.trip.hotel || summitUp(q, inCar ? drv.S.ry : S.ang)) {
+            const rem = Math.max(0, q.len - 2 - q.s), dy = Math.max(0, q.top - q.y);
+            return { icon: '🏨', text: 'К отелю ↑', title: 'Дорога к отелю', d: rem, dTxt: rem < 6 ? 'ты на месте' : fmtM(rem) + ' · ↑' + Math.round(dy) + ' м',
+              full: 'Серпантин на гору, к отелю на вершине: сколько ещё по дороге и сколько вверх. По пути — скамейки и смотровая.' };
+          }
+          const dy = Math.max(0, q.y - q.y0);
+          return { icon: '⛰️', text: (titleOf() || 'Вниз') + ' ↓', title: 'Дорога вниз', d: q.s, dTxt: fmtM(q.s) + ' · ↓' + Math.round(dy) + ' м',
+            full: 'Серпантином вниз — к школе, оттуда до площади рукой подать.' };
+        }
+        // W8 / вершина: в отель — только через село: от школы серпантином на гору. Пилюля ведёт к началу дороги (площадка jHotel
+        // за школой) — пока в этой поездке отеля не было
+        if (!S.trip.hotel) {
+          const j = hotelStart();
+          if (j) return { icon: '🏨', text: 'К отелю ↑', title: 'Отель на вершине', d: Math.hypot(j.x - px, j.z - pz), full: 'Отель — на вершине: от школы серпантином на гору. Можно за рулём, можно пешком.' };
         }
       }
       return null;
+    }
+    // вершина: где она на дороге к отелю — { s, d, y, len, top, y0 } по оси VILLAGE.SUMMIT (та же ось, что у дороги села) или null
+    function summitAt(x, z) {
+      const SM = V_() && V_().SUMMIT; if (!SM || !SM.roadNear || !SM.axis || !isFinite(x)) return null;
+      const q = SM.roadNear(x, z); if (!q) return null;
+      const A = SM.axis(), i = Math.min(q.i, A.n - 2), P = SM.roadPads || {};
+      return { s: A.s[i] + (A.s[i + 1] - A.s[i]) * q.t, d: q.d, y: q.y, len: A.len, i, top: P.top ? P.top.y : A.y[A.n - 1], y0: P.start ? P.start.y : A.y[0] };
+    }
+    // смотрит ли она (или машина) в гору — по касательной оси; с запасом, чтобы пилюля не мигала поперёк дороги
+    function summitUp(q, ry) {
+      const A = V_().SUMMIT.axis(), tx = A.x[q.i + 1] - A.x[q.i], tz = A.z[q.i + 1] - A.z[q.i], L = Math.hypot(tx, tz) || 1, dot = (Math.sin(ry) * tx + Math.cos(ry) * tz) / L;
+      if (dot > 0.35) S.sumUp = true; else if (dot < -0.35) S.sumUp = false;
+      return !!S.sumUp;
+    }
+    // начало дороги к отелю: площадка jHotel за школой (живая — из ручки, иначе — из VILLAGE.SUMMIT); без вершины — выход toHotel
+    function hotelStart() {
+      const h = S.h, P = (h && h.places) || {}, SM = V_() && V_().SUMMIT;
+      const j = (P.outerPads || []).find(d => d.id === 'jHotel') || (SM && SM.roadPads ? SM.roadPads.start : null);
+      if (j) return { x: j.x, z: j.z };
+      const ex = h && h.exits.find(e => e.id === 'toHotel'); return ex ? { x: ex.x, z: ex.z } : null;
     }
     function hudObjective(force) {
       const H = HUD_(); if (!H || !H.objective || !ui) return;
       const now = performance.now(); if (!force && (S.busy || now - (S.hudObjT || 0) < 500)) return; S.hudObjT = now;   // пока шторка или посадка — пилюля как была
       const o = routeGoal(), key = o ? o.icon + '|' + o.text + '|' + o.title : '';
-      if (key !== S.hudObj) { S.hudObj = key; H.objective.set(o ? { icon: o.icon, text: o.text, title: o.title, full: o.full, dist: fmtDist(o.d), expand: false } : null); }
-      else if (o) H.objective.dist(fmtDist(o.d));
+      const dist = o ? (o.dTxt != null ? o.dTxt : fmtDist(o.d)) : null;   // вершина: своя строка — «640 м · ↑72 м»
+      if (key !== S.hudObj) { S.hudObj = key; H.objective.set(o ? { icon: o.icon, text: o.text, title: o.title, full: o.full, dist, expand: false } : null); }
+      else if (o) H.objective.dist(dist);
     }
 
     /* ---------- шторка ---------- */
@@ -970,8 +1009,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     function ckBtn(sitLike) { if (ui && ui.ck) show(ui.ck, S.mode === 'drive' && !sitLike && !S.busy && !!(S.ck && car && car.cockpit && drv)); }
     // волна 7: внешние дороги села уходят за пешую сетку — там ей не пройти. Выйти можно, если проходимы точка выхода (drv.exitSpot —
-    // туда она встанет) и хотя бы две из четырёх точек вокруг (0,7 м); иначе — подсказка тостом (не реплика: не в озвучку)
-    const OUT_NO = 'Здесь не выйти — доедь до смотровой, развилки или конца дороги';
+    // туда она встанет) и хотя бы две из четырёх точек вокруг (0,7 м); иначе — подсказка тостом (не реплика: не в озвучку).
+    // Вершина: дорога к отелю проходима пешком вся (полотно и трава у обочины) — выйти там можно где угодно, тост это говорит
+    const OUT_NO = 'Здесь не выйти — доедь до развилки, смотровой или конца дороги. А на дороге к отелю — выходи где хочешь';
     function outBlocked() {
       const h = S.h; if (S.rid !== 'kubachi' || !h || !h.walkable || !drv) return false;
       const p = drv.exitSpot ? drv.exitSpot() : drv.doorPoint ? drv.doorPoint(1) : null; if (!p) return false;
@@ -991,7 +1031,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // «Выйти» где угодно (машина сама дотормаживает), «Сесть за руль» у стоящей машины
     async function getOut() {
       if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
-      if (outBlocked()) { toast(OUT_NO, 2800, { replace: true }); haptic('light'); return false; }   // кнопка остаётся: тап — подсказка
+      if (outBlocked()) { toast(OUT_NO, 3800, { replace: true }); haptic('light'); return false; }   // кнопка остаётся: тап — подсказка
       ckSet(false); S.busy = true; let r = null;
       try { r = await drv.heroOut(hero, scene, {}); } catch (e) { console.warn('region heroOut', e); }
       S.busy = false;
@@ -1368,7 +1408,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (P.school) put('school', 'place', P.school.x, P.school.z, 'Школа');
         if (P.schoolYard) put('schoolYard', 'sport', P.schoolYard.x, P.schoolYard.z, 'Школьный двор');
         if (P.towerPark) put('towerPark', 'view', P.towerPark.x, P.towerPark.z, 'Разворот у башни');
-        { const eh = h.exits.find(e => e.id === 'toHotel'); if (eh) put('toHotel', 'hotel', eh.x, eh.z, 'Дорога к отелю'); }
+        // вершина: начало дороги к отелю (площадка jHotel за школой), места передохнуть по пути и верх дороги — ворота отеля (выход toHotel)
+        { const jh = ((P.outerPads || []).find(d => d.id === 'jHotel')) || (V.SUMMIT && V.SUMMIT.roadPads && V.SUMMIT.roadPads.start); if (jh) put('jHotel', 'hairpin', jh.x, jh.z, 'Дорога к отелю'); }
+        h.spots.filter(s => /^summit_/.test(s.id)).forEach(s => put(s.id, s.kind === 'view' || /view/.test(s.id) ? 'view' : 'bench', s.x, s.z, s.label));
+        { const eh = h.exits.find(e => e.id === 'toHotel'); if (eh) put('toHotel', 'hotel', eh.x, eh.z, 'Ворота отеля'); }
         if (V.ZIP_GEO && V.ZIP_GEO.frame) put('hotel', 'hotel', V.ZIP_GEO.frame.x, V.ZIP_GEO.frame.z, 'Отель на вершине', { far: true });
       } else if (S.rid === 'hotel') {
         const P = h.places || {}, c = b => (b && b.x0 !== undefined ? [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2] : b ? [b.x, b.z] : null);
@@ -1422,6 +1465,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (!S.active || !S.h) return false;
       const h = S.h, q = p && isFinite(p.x) ? p : regionPois().find(t => t.id === id);
       if (!q) return true;
+      if (summitWalkFirst(Object.assign({ id }, q))) return true;
       if (S.rid === 'serpentine' && S.mode === 'drive' && drv && h.road && h.road.project) {
         const pr = h.road.project(q.x, q.z);
         if (pr && isFinite(pr.s)) await fade((q.label || 'Дорога') + '…', async () => { drv.teleport(clamp(pr.s - 8, 2, h.road.len - 2)); S.px = drv.S.x; S.pz = drv.S.z; S.py = drv.S.y; if (chase) chase.snap(); }, 'облака расступаются');
@@ -1444,14 +1488,24 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
 
     // W8: в отель — только через село. Пока отеля не было (ни в сохранении, ни в этой поездке), «Поехать сюда» к точке отеля
-    // ведёт в село (с серпантина — шторкой к воротам, как по дороге), а метка 📍 — к дороге наверх (выход toHotel)
+    // ведёт в село (с серпантина — шторкой к воротам, как по дороге), а метка 📍 — к началу дороги на гору (площадка jHotel
+    // за школой; отель — на вершине, выход toHotel — наверху этой дороги)
     function hotelSeen() { if (S.trip.hotel) return true; try { return !!(refs.hotelSeen && refs.hotelSeen()); } catch (e) { return false; } }
+    function setWay(wp) { if (!wp) return; try { if (radar && radar.setWaypoint) radar.setWaypoint(wp); else if (WORLD.Minimap && WORLD.Minimap.setWaypoint) WORLD.Minimap.setWaypoint(wp); } catch (e) { /* без метки */ } }
     async function hotelViaVillage() {
       if (S.rid !== 'kubachi') await enter('kubachi', S.rid);
       if (!S.active || S.rid !== 'kubachi' || !S.h) return false;
-      const ex = S.h.exits.find(e => e.id === 'toHotel'), wp = ex ? { rid: 'kubachi', id: 'toHotel', x: ex.x, z: ex.z, label: 'Дорога к отелю', kind: 'hotel' } : null;
-      if (wp) { try { if (radar && radar.setWaypoint) radar.setWaypoint(wp); else if (WORLD.Minimap && WORLD.Minimap.setWaypoint) WORLD.Minimap.setWaypoint(wp); } catch (e) { /* без метки */ } }
-      afterCurtain(900, () => toast('Отель — выше по горе: дорога мимо школы, наверх. Метка 📍 — у дороги.', 4200));
+      const j = hotelStart();
+      setWay(j ? { rid: 'kubachi', id: 'jHotel', x: j.x, z: j.z, label: 'Дорога к отелю', kind: 'hairpin' } : null);
+      afterCurtain(900, () => toast('Отель — на вершине: от школы серпантином на гору. Метка 📍 — у начала дороги.', 4600));
+      return true;
+    }
+    // вершина: точки на дороге к отелю (верх у ворот, скамейки, смотровая) — в первый раз своим ходом, как и сам отель:
+    // «Поехать сюда» ставит метку 📍 на точку и говорит, откуда дорога (после отеля — переносит, как к любой точке села)
+    function summitWalkFirst(q) {
+      if (S.rid !== 'kubachi' || hotelSeen() || !q || !(q.id === 'toHotel' || /^summit_/.test(q.id))) return false;
+      setWay({ rid: 'kubachi', id: q.id, x: q.x, z: q.z, label: q.label || 'Дорога к отелю', kind: q.kind || 'hotel' });
+      toast('Первый раз — своим ходом: от школы серпантином на гору. Метка 📍 — на месте.', 4200);
       return true;
     }
 
@@ -2038,7 +2092,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (n && d.reply) later(2400, () => { bubble(npcHead(n), d.reply.text, d.reply.name || n.name, 3000); voiceBubble(d.reply.who || n.speaker || n.id, d.reply.text); n.faceHero = 3; });
     }
 
-    /* ---------- W4A: зиплайн — со старта на башне отеля через долину к селу ----------
+    /* ---------- W4A: зиплайн — со старта на башне отеля на вершине вниз, к селу ----------
        W5 «держись крепче» (желание автора): на скольжении палец (или кнопка мыши, пробел) держит ручку — большая кнопка
        «✊ Держись!» внизу и любое касание экрана. Отпустила < 3 с — героиня только качнётся («Ой! Держись!»); дольше 3 с —
        разжимает руки и мультяшно «парит» вниз («Ой-ой!»), шторка «Плюх — прямо в мягкое сено!», под ней — стог сена у башни
@@ -2213,7 +2267,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (cam) camPos.copy(cam.position); S.camInit = true; S.camY = S.py;   // камера плавно продолжит оттуда, где её оставил полёт
       if (ui) ui.root.classList.remove('fly');
       mvPlace(); updKazBtn();
-      // зверята: снова за ней; далеко (полёт через всю долину) — прибегают «за кадром», чтобы не бежать через дома
+      // зверята: снова за ней; далеко (полёт с вершины к домам) — прибегают «за кадром», чтобы не бежать через дома
       pets.forEach((p, i) => {
         if (p.state === 'car') return;
         p.state = 'follow';
@@ -2402,7 +2456,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       hotel_raccoon: [{ who: 'hotel_raccoon', text: 'Привет, {name}! Сыграем?' }, { who: 'hotel_raccoon', text: 'Привет! Мячик ждёт!' }],
       hotel_otter: [{ who: 'hotel_otter', text: 'Привет, {name}! Водичка тёплая!' }, { who: 'hotel_otter', text: 'Привет-привет! Плюх!' }],
       hotel_bear: [{ who: 'hotel_bear', text: 'Привет, {name}. Иди греться к огню.' }, { who: 'hotel_bear', text: 'Привет! Тут тепло.' }],
-      hotel_marmot: [{ who: 'hotel_marmot', text: 'Привет, {name}! Прокатимся?' }, { who: 'hotel_marmot', text: 'Привет! Вжу-у-ух — и через долину!' }],
+      hotel_marmot: [{ who: 'hotel_marmot', text: 'Привет, {name}! Прокатимся?' }, { who: 'hotel_marmot', text: 'Привет! Вжу-у-ух — с вершины прямо к домам!' }],
       tur: [{ who: 'tur', text: 'Привет, {name}. Киваю рогами.' }, { who: 'tur', text: 'И тебе привет. Неторопливо.' }],
     };
     const R_WAVE_ANY = [{ text: 'Привет, {name}!' }, { text: 'Привет-привет!' }];
@@ -3154,7 +3208,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         // HUD v2: подписи кнопок — полные (aria-label), слоты; каз и время суток — строки меню ☰
         buttons: () => (ui ? { act: btnLabel(ui.act), act2: btnLabel(ui.act2), actSlot: ui.act.dataset.hudSlot || null, act2Slot: ui.act2.dataset.hudSlot || null, kaz: kazRowOn() ? '🧣 ' + kazRowLabel() : null, tap: !ui.tap.classList.contains('hidden'), skip: !ui.skip.classList.contains('hidden'), dn: dnRowText(), mode: S.hudMode || null } : null),
         menu: () => { const H = HUD_(); return H && H.menu ? H.menu.list() : null; },
-        hudStatus: () => S.hudStatus, hudObj: () => { const H = HUD_(); const o = H && H.objective ? H.objective.get() : null; return o ? { icon: o.icon, text: o.text, title: o.title } : null; },
+        hudStatus: () => S.hudStatus, hudObj: () => { const H = HUD_(); const o = H && H.objective ? H.objective.get() : null; const em = o && H.objective.el && H.objective.el() ? H.objective.el().querySelector('em') : null; return o ? { icon: o.icon, text: o.text, title: o.title, dist: em ? em.textContent : null, full: o.full } : null; },
+        summitAt: () => summitAt(S.mode === 'drive' && drv ? drv.S.x : S.px, S.mode === 'drive' && drv ? drv.S.z : S.pz),   // вершина: где она на дороге к отелю
         go: id => { if (!id) { setView(null); return true; } setView(id, false); return !!S.view; },
         stand: () => standUp(),
         drive: () => (drv ? Object.assign(drv.info(), { door: drv.doorPoint ? (q => ({ x: +q.x.toFixed(2), z: +q.z.toFixed(2) }))(drv.doorPoint(1)) : null, dir: S.dir, len: S.h.road ? +S.h.road.len.toFixed(1) : null, trip: Object.assign({}, S.trip), busy: S.busy, near: S.near && S.near.label, near2: S.near2 && S.near2.label, view: S.view && S.view.id, fov: +cam.fov.toFixed(1), mode: drv.mode, canExit: drv.canExit(), heroInCar: !!(hero && car && isChildOf(hero.root, car.body)) }) : null),

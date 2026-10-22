@@ -138,7 +138,7 @@
     edge: 'Дорога из города.', mission: 'Дом из дела.', car: 'Машинка стоит здесь.', bike: 'Велосипед ждёт здесь.',
     tower: 'Старая круглая башня. Внутри — лестница наверх.', bakery: 'Тёплый хлеб из лап зайки.', spring: 'Холодная вода — из ладошек.',
     wedding: 'Музыка, танцы и ряженые-шутники.', kaz: 'Примерить праздничную накидку с узором.', workshop: 'Мастера чеканят узоры по металлу.',
-    museum: 'Узоры мастеров на стенах.', roof: 'Плоская крыша, с неё видно вершины.', zip: 'Трос через долину.', parking: 'Машинка ждёт здесь.',
+    museum: 'Узоры мастеров на стенах.', roof: 'Плоская крыша, с неё видно вершины.', zip: 'Трос с вершины — к домам.', parking: 'Машинка ждёт здесь.',
     hotel: 'Белый корпус, двор и вид на вершины.', pool: 'Тёплая вода за стеклом.', golf: 'Три лунки с флажками.', fire: 'Скамейки вокруг огонька.',
     spa: 'Купели с паром — только посмотреть.', sport: 'Мячик выдают бесплатно.', bench: 'Присесть и посмотреть на долину.',
     gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
@@ -186,7 +186,7 @@
 .wm-ovgo button{flex:1 1 40%;min-height:52px;padding:6px 10px;border:0;border-radius:16px;background:#F8EEF1;color:#9E2F47;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
 .wm-pin2{margin-top:10px;width:100%;min-height:50px;border:0;border-radius:25px;background:#FFF4D9;color:#8A6412;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
 .wm-pin2.on{background:#F8EEF1;color:#6E6272}
-.wm-ovbox .wm-tools{left:auto;right:8px;top:8px;bottom:auto}
+.wm-ovbox .wm-tools{left:auto;right:8px;top:auto;bottom:8px}
 .wm-ovbox .wm-north{right:auto;left:9px;top:12px;bottom:auto}
 .modal.wm-sheet{position:absolute;inset:0;z-index:76;display:flex;align-items:stretch;justify-content:center;padding:calc(62px + var(--safe-top,0px)) 8px calc(8px + var(--safe-bottom,0px));background:rgba(58,46,63,.38);animation:wmFade .22s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif)}
 .modal.wm-sheet.out{animation:wmOut .2s ease both}
@@ -1074,9 +1074,11 @@
      ===================================================================== */
   // просмотрщик: холст с рисунком (один раз), живой слой поверх, жесты — перетащить, щипок, двойной тап, колесо, кнопки
   // V: { bounds() → {x0,x1,z0,z1}, core?() → {x0,x1,z0,z1} (начальный кадр; без него — вся карта), paintBase(c, s, ox, oz, W, H), live(c, toS, vs, hits, view),
-  //      onTap(hit|null), height(bw, fw, fh), zoom0, maxZoom, focus() → {x,z}|null }
+  //      onTap(hit|null), height(bw, fw, fh), zoom0, maxZoom, focus() → {x,z}|null,
+  //      baseB?() → рамка основы, если она меньше всей карты (вершина: основа села — прежней чёткости),
+  //      far?() → { b, paint(c, s, ox, oz, W, H) } — грубый слой под основой (≤ 1100 px по длинной стороне) }
   function mapViewer(box, cv, V) {
-    let bw = 0, bh = 0, fit = 1, fc = 1, vs = 0, vx = 0, vz = 0, D = DPR(), base = null, hits = [], raf = 0, dead = false;
+    let bw = 0, bh = 0, fit = 1, fc = 1, vs = 0, vx = 0, vz = 0, D = DPR(), base = null, far = null, farT = 0, hits = [], raf = 0, dead = false;
     const B = () => V.bounds();
     function layout(keep) {
       const b = B(), fw = b.x1 - b.x0, fh = b.z1 - b.z0;
@@ -1090,13 +1092,23 @@
       D = DPR(); cv.width = Math.round(bw * D); cv.height = Math.round(bh * D);
       fit = Math.min(bw / fw, bh / fh); fc = Math.max(fit, Math.min(bw / cw, bh / ch));
       if (!keep || !vs) {
-        vs = fc * (V.zoom0 || 1); vx = (cr.x0 + cr.x1) / 2; vz = (cr.z0 + cr.z1) / 2;
+        vs = Math.max(fit, fc * ((typeof V.zoom0 === 'function' ? V.zoom0() : V.zoom0) || 1)); vx = (cr.x0 + cr.x1) / 2; vz = (cr.z0 + cr.z1) / 2;
         const f = V.focus ? V.focus() : null; if (f && vs > fit * 1.01) { vx = f.x; vz = f.z; }
       }
-      const bs = clamp(fit * D * (V.baseK || 2.4), 0.5, 1700 / Math.max(fw, fh));
-      const bc = cnv(fw * bs, fh * bs);
-      V.paintBase(bc.getContext('2d'), bs, b.x0, b.z0, bc.width, bc.height);
-      base = { cv: bc, s: bs, b };
+      // основа — по своей рамке (у карты с вершиной — без неё: та же чёткость, что раньше), под ней — грубый слой
+      const bb = (V.baseB && V.baseB()) || b, bfw = bb.x1 - bb.x0, bfh = bb.z1 - bb.z0, bfit = Math.min(bw / bfw, bh / bfh);
+      const bs = clamp(bfit * D * (V.baseK || 2.4), 0.5, 1700 / Math.max(bfw, bfh));
+      const bc = cnv(bfw * bs, bfh * bs);
+      V.paintBase(bc.getContext('2d'), bs, bb.x0, bb.z0, bc.width, bc.height);
+      base = { cv: bc, s: bs, b: bb };
+      // грубый слой — следующей задачей: первый кадр карты — как без него (на телефоне не удлиняет открытие)
+      const fl = V.far ? V.far() : null; far = null; clearTimeout(farT); farT = 0;
+      if (fl && fl.b) farT = setTimeout(() => {
+        farT = 0; if (dead) return;
+        const fb = fl.b, ffw = fb.x1 - fb.x0, ffh = fb.z1 - fb.z0, fs = clamp(fit * D * 1.6, 0.5, 1100 / Math.max(ffw, ffh)), fcv = cnv(ffw * fs, ffh * fs);
+        fl.paint(fcv.getContext('2d'), fs, fb.x0, fb.z0, fcv.width, fcv.height);
+        far = { cv: fcv, s: fs, b: fb }; req();
+      }, 40);
       clampView();
     }
     const maxZ = () => fc * (V.maxZoom || 6);
@@ -1115,8 +1127,10 @@
       const c = cv.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0);
       c.fillStyle = COL.paper; c.fillRect(0, 0, cv.width, cv.height);
       c.setTransform(D, 0, 0, D, 0, 0);
+      c.imageSmoothingEnabled = true;
+      if (far) { const fb = far.b, [fx, fy] = toS(fb.x0, fb.z0); c.drawImage(far.cv, fx, fy, (fb.x1 - fb.x0) * vs, (fb.z1 - fb.z0) * vs); }
       const b = base.b, [bx, by] = toS(b.x0, b.z0);
-      c.imageSmoothingEnabled = true; c.drawImage(base.cv, bx, by, (b.x1 - b.x0) * vs, (b.z1 - b.z0) * vs);
+      c.drawImage(base.cv, bx, by, (b.x1 - b.x0) * vs, (b.z1 - b.z0) * vs);
       hits = [];
       if (V.live) V.live(c, toS, vs, hits, { bw, bh, fit, toW });
     }
@@ -1168,7 +1182,8 @@
       ensureIn(x, z) { const [sx, sy] = toS(x, z); if (sx < 30 || sy < 30 || sx > bw - 30 || sy > bh - 30) { vx = x; vz = z; clampView(); req(); } },
       screenOf(x, z) { const r = cv.getBoundingClientRect(), [sx, sy] = toS(x, z); return { x: r.left + sx, y: r.top + sy, inside: sx >= 0 && sy >= 0 && sx <= bw && sy <= bh }; },
       view: () => ({ vx, vz, vs, fit, bw, bh }),
-      destroy() { dead = true; if (raf) cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); base = null; },
+      destroy() { dead = true; if (raf) cancelAnimationFrame(raf); clearTimeout(farT); window.removeEventListener('resize', onResize); base = null; far = null; },
+      layers: () => ({ base: base ? { w: base.cv.width, h: base.cv.height, s: +base.s.toFixed(2) } : null, far: far ? { w: far.cv.width, h: far.cv.height, s: +far.s.toFixed(2) } : null }),
     };
   }
   // подпись на карте: белый ореол
@@ -1223,7 +1238,7 @@
   function mtnCard(ctx, p, here, onX) {
     const card = ctx.card;
     if (!p) { card.classList.add('hidden'); delete card.dataset.mtn; return; }
-    const h = here && here.rid === p.rid ? here.get() : null, d = h ? Math.hypot(p.x - h.x, p.z - h.z) : null;
+    const h = here && here.rid === p.rid ? here.get() : null, d = mtnDist(p, h);
     const inf = regionTravelInfo(ctx, p), atHere = d != null && d < 4;
     const w = WAYPOINT, wpOn = w && w.rid === p.rid && Math.hypot(w.x - p.x, w.z - p.z) < 0.5;
     let action = '';
@@ -1260,13 +1275,22 @@
     const heroOf = r => (here && here.rid === r ? here.get() : null);
     const findP = (r, id) => poisOf(r).find(p => p.id === id);
     const V = mapViewer(box, cv, {
-      bounds: () => model(sub).bounds, core: () => model(sub).core,
+      // вершина: у села вся карта — с дорогой к отелю (model.view), основа — прежняя (model.bounds), гора — грубым слоем
+      bounds: () => model(sub).view || model(sub).bounds, baseB: () => model(sub).bounds, core: () => model(sub).core,
       paintBase: (c, s, ox, oz, W, H) => model(sub).paint(c, s, ox, oz, W, H, {}),
+      far: () => { const M = model(sub); return M.far ? { b: M.view, paint: (c, s, ox, oz, W, H) => M.paintFar(c, s, ox, oz, W, H) } : null; },   // на всю карту: без пустого угла
       height: (bw, fw, fh) => clamp(bw * fh / fw, 230, Math.min(((ctx.m.clientHeight || 700) * 0.4), 380)),
-      zoom0: sub === 'serpentine' ? 1 : 1.15, maxZoom: 7, baseK: 2.4,
+      // вершина: она на дороге к отелю (за основой) — первый кадр шире: дорога видна ногами, грубый слой не растянут
+      zoom0: () => { if (sub === 'serpentine') return 1; const h = heroOf(sub), B = model(sub).bounds; return h && (h.x > B.x1 || h.z < B.z0) ? 0.55 : 1.15; }, maxZoom: 7, baseK: 2.4,
       focus: () => { const h = heroOf(sub); return h ? { x: h.x, z: h.z } : null; },
       live(c, toS, vs, hits, vw) {
         const r = clamp(8.5 + (vs - vw.fit) * 0.5, 8.5, 12.5);
+        // вершина: дорога к отелю за основой — линией поверх грубого слоя (чёткая при любом приближении)
+        const SL = sub === 'kubachi' && model(sub).far ? summitLine() : null;
+        if (SL) {
+          const pts = SL.pts.slice(SL.from), line = (w, col) => { c.beginPath(); pts.forEach((q, i) => { const [sx, sy] = toS(q[0], q[1]); if (i) c.lineTo(sx, sy); else c.moveTo(sx, sy); }); c.lineWidth = Math.max(1.2, w * vs); c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(); };
+          line(SL.w + 1.2, 'rgb(196,184,206)'); line(SL.w, 'rgb(214,205,222)');
+        }
         // шпильки (без строки в списке)
         if (sub === 'serpentine') model(sub).hairpins.forEach(p => { const [sx, sy] = toS(p.x, p.z); pin(c, 'hairpin', sx, sy, r * 0.75, { shadow: false }); });
         const ps = poisOf(sub).map(p => ({ p, s: toS(p.x, p.z) })).sort((a, b) => (a.p.id === sel) - (b.p.id === sel) || a.s[1] - b.s[1]);
@@ -1315,9 +1339,10 @@
       const head = { kubachi: named ? 'В ' + villageTitle(true) : 'В селе', hotel: 'Отель на вершине', serpentine: 'Дорога' };
       list.innerHTML = order.map(r => {
         const h = heroOf(r), ps = poisOf(r).slice();
-        if (h) ps.sort((a, b) => Math.hypot(a.x - h.x, a.z - h.z) - Math.hypot(b.x - h.x, b.z - h.z));
+        const dd = new Map(ps.map(p => [p, mtnDist(p, h)]));   // вершина: точки на дороге к отелю — по дороге
+        if (h) ps.sort((a, b) => dd.get(a) - dd.get(b));
         return `<div class="wm-group">${esc(head[r])}</div>` + ps.map(p => {
-          const inf = regionTravelInfo(ctx, p), d = h ? Math.hypot(p.x - h.x, p.z - h.z) : null;
+          const inf = regionTravelInfo(ctx, p), d = dd.get(p);
           const sub2 = !inf.ok && !inf.none && inf.text ? inf.text : p.line;
           return `<button type="button" class="wm-row${!inf.ok && !inf.none ? ' lock' : ''}" data-id="${esc(r + ':' + p.id)}"><img alt="" src="${iconURL(p.kind, { dim: !inf.ok && !inf.none })}"><span class="n">${esc(p.label)}${sub2 ? `<small>${esc(sub2)}</small>` : ''}</span><span class="d">${d != null ? esc(d < 4 ? 'ты здесь' : (d < 60 ? Math.round(d) : Math.round(d / 5) * 5) + ' м') : ''}</span></button>`;
         }).join('');
@@ -1361,7 +1386,7 @@
     c.save();
     c.fillStyle = '#EEF1E6'; c.fillRect(0, 0, W, H);
     // рельеф склонов (тот же, что у дороги и села), мягко
-    const gm = V.regions.serpentine.groundMacro, gy = (x, z) => { const y = gm(x, z); return isFinite(y) ? clamp(y, -160, 60) : 0; };
+    const gm = V.regions.serpentine.groundMacro, gy = (x, z) => { const y = gm(x, z); return isFinite(y) ? clamp(y, -160, 125) : 0; };   // вершина: гора до 110 м — без среза
     hillshade(c, { bounds: OV_B, height: gy }, s, ox, oz, W, H, 8, [[232, 238, 240], [222, 236, 214], [232, 238, 210], [242, 238, 220], [248, 244, 234]], 0.1, 0.9, 1.06);
     // море облаков над долиной: мягкая маска там, где рельеф ниже облаков (−90 м)
     {
@@ -1378,9 +1403,9 @@
       c.imageSmoothingEnabled = true; c.drawImage(fc, X(OV_B.x0 - st / 2), Y(OV_B.z0 - st / 2), nx * st * s, nz * st * s);
       c.restore();
     }
-    // горный хребет по верхнему краю (над селом)
+    // горный хребет по верхнему краю (вершина: край обзора теперь севернее отеля на горе — хребет у края, а не поперёк дороги к отелю)
     let sd = 17; const rn = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
-    [['#DDD3EA', -62, 46], ['#D1D9EA', -78, 38]].forEach(([col, base, amp], layer) => {
+    [['#DDD3EA', OV_B.z0 + 70, 46], ['#D1D9EA', OV_B.z0 + 54, 38]].forEach(([col, base, amp], layer) => {
       const pts = []; for (let x = OV_B.x0 - 10; x <= OV_B.x1 + 40; x += 34 + rn() * 26) pts.push([x, base - amp * (0.45 + rn() * 0.55) - (layer ? 0 : 6)]);
       c.fillStyle = col; c.beginPath(); c.moveTo(X(OV_B.x0 - 10), Y(base + 6));
       pts.forEach((q, i) => { c.lineTo(X(q[0]), Y(q[1])); if (i < pts.length - 1) c.lineTo(X((q[0] + pts[i + 1][0]) / 2), Y(base - amp * 0.18)); });
@@ -1413,6 +1438,9 @@
     (HD.PADS || []).forEach(p => quad(p, { yard: '#F8EEE4', park: '#E4DDE8', sport: '#C9E3BE', relax: '#D6EBCF', deck: '#E2CBB1' }[p.kind] || '#EDE6DA'));
     quad(STATIC_HOTEL.main, '#FFFFFF'); quad(STATIC_HOTEL.pool, '#BFE0F2');
     // W8: нижняя дорога отеля на обзоре не рисуется — она вела к ветке серпантина, а ветки нет (в отель — через село)
+    // вершина: дорога к отелю — от школы серпантином на гору, до ворот парковки (та же ось, что в селе)
+    const SL = summitLine();
+    if (SL) { polyline(c, SL.pts, s, ox, oz, 7, 'rgb(196,184,206)'); polyline(c, SL.pts, s, ox, oz, 5.4, 'rgb(220,212,228)'); }
     // зиплайн
     try { const r = V.zipline.route('macro'); c.strokeStyle = 'rgba(78,74,82,.75)'; c.lineWidth = Math.max(1.2, 0.9 * s); c.beginPath(); c.moveTo(X(r.from.x), Y(r.from.z)); c.lineTo(X(r.to.x), Y(r.to.z)); c.stroke(); } catch (e) { /* без зиплайна */ }
     c.restore();
@@ -1433,6 +1461,8 @@
     const locks = mtnLocks(ctx), RD = ovRoads(L), P = path0();
     const zr = (() => { try { return V.zipline.route('macro'); } catch (e) { return null; } })();
     const F = (V.ZIP_GEO && V.ZIP_GEO.frame) || { x: 490, z: 500 };
+    // вершина: подпись серпантина к отелю — под серединой его ног (средняя точка оси, чуть южнее)
+    const SLc = (() => { const SL = summitLine(); if (!SL) return null; let x = 0, z = 0; SL.pts.forEach(q => { x += q[0]; z += q[1]; }); return [x / SL.pts.length, z / SL.pts.length + 26]; })();
     const cityC = [(OV_CITY.x0 + OV_CITY.x1) / 2, (OV_CITY.z0 + OV_CITY.z1) / 2 - 6];
     const kd = V.regions.kubachi.data || {}, SQ = kd.SQUARE || { x: 12.3, z: -6.3 };
     // узлы обзора (тап → карточка)
@@ -1442,7 +1472,7 @@
       { id: 'kubachi', rid: 'kubachi', kind: 'tower', x: 4, z: 10, label: villageTitle(named), line: 'Башня, базарная площадь, пекарня и родник.', poi: 'square', lock: 'trip' },
       { id: 'hotel', rid: 'hotel', kind: 'hotel', x: F.x, z: F.z, label: 'Отель на вершине', line: 'Двор, бассейн, мини-гольф, падел, костёр и вид на вершины.', poi: 'courtyard', lock: 'hotel' },
     ];
-    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'С башни отеля — через долину, к площадке у села.', poi: 'tower', lock: 'zip', small: true });
+    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'С башни отеля на вершине — по тросу вниз, к домам.', poi: 'tower', lock: 'zip', small: true });
     const lockOf = n => (n.lock === 'trip' ? locks.trip : n.lock === 'hotel' ? locks.trip || locks.hotel : n.lock === 'zip' ? locks.trip || locks.zip : null);
     let sel = null, showRoute = true;
     const here = () => ovHere(ctx);
@@ -1474,16 +1504,26 @@
         }
         // подписи мест
         const lab = (t, x, z, o2) => { const [sx, sy] = toS(x, z); if (sx < -40 || sx > vw.bw + 40 || sy < -20 || sy > vw.bh + 20) return; mapLabel(c, t, sx, sy, o2); };
-        const labC = (t, sx, sy, o2) => { c.font = `${(o2 && o2.weight) || 700} ${(o2 && o2.size) || 12}px 'Comfortaa', 'Nunito', sans-serif`; const tw = c.measureText(t).width; mapLabel(c, t, clamp(sx, tw / 2 + 5, vw.bw - tw / 2 - 5), clamp(sy, 10, vw.bh - 10), o2); };
         lab('море облаков', 150, 200, { size: 11, weight: 700, col: '#8FA6BC', font: "'Nunito', sans-serif" });
+        if (SLc) lab('серпантин к отелю', SLc[0], SLc[1], { size: 11, weight: 800, col: '#7E6A8E', font: "'Nunito', sans-serif" });
         if (zr) { const [ax, ay] = toS(zr.from.x, zr.from.z), [bx, by] = toS(zr.to.x, zr.to.z); let a = Math.atan2(by - ay, bx - ax); if (a > PI / 2) a -= PI; if (a < -PI / 2) a += PI; const L2 = Math.hypot(bx - ax, by - ay) || 1, nx2 = -(by - ay) / L2, ny2 = (bx - ax) / L2, sg = ny2 < 0 ? 1 : -1; mapLabel(c, 'зиплайн', ax + (bx - ax) * 0.7 + nx2 * 9 * sg, ay + (by - ay) * 0.7 + ny2 * 9 * sg, { size: 11, rot: a, col: '#5E7F94', font: "'Nunito', sans-serif", weight: 800 }); }
-        // узлы
+        // узлы: сначала значки, потом подписи — под значком; занято (вершина: на всей карте город и серпантин рядом) — над ним,
+        // справа или слева
+        const placed = [], free = (x, y, w, h) => !placed.some(q => Math.abs(q.x - x) * 2 < q.w + w && Math.abs(q.y - y) * 2 < q.h + h);
         nodes.forEach(n => {
           const [sx, sy] = toS(n.x, n.z), r = n.small ? 8 : 11, lk = lockOf(n);
           pin(c, n.kind, sx, sy, r, { dim: !!lk });
-          hits.push({ id: n.id, x: sx, y: sy, r: r + 10 });
-          if (!n.small) labC(n.label, sx, sy + r + 11 > vw.bh - 12 ? sy - r - 11 : sy + r + 11, { size: 13, col: n.id === 'city' ? '#9E2F47' : '#5E4660' });
+          hits.push({ id: n.id, x: sx, y: sy, r: r + 10 }); placed.push({ x: sx, y: sy, w: 2 * r, h: 2 * r });
           if (n.id === sel) { c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke(); }
+        });
+        nodes.forEach(n => {
+          if (n.small) return;
+          const [sx, sy] = toS(n.x, n.z), r = 11; c.font = "700 13px 'Comfortaa', 'Nunito', sans-serif"; const tw = c.measureText(n.label).width + 8, th = 17;
+          const at = (x, y) => [clamp(x, tw / 2 + 5, vw.bw - tw / 2 - 5), clamp(y, 10, vw.bh - 10)];
+          const cands = [at(sx, sy + r + 11), at(sx, sy - r - 11), at(sx + r + 6 + tw / 2, sy), at(sx - r - 6 - tw / 2, sy)];
+          const q = cands.find(([x, y]) => free(x, y, tw, th)) || cands[sy + r + 11 > vw.bh - 12 ? 1 : 0];
+          placed.push({ x: q[0], y: q[1], w: tw, h: th });
+          mapLabel(c, n.label, q[0], q[1], { size: 13, col: n.id === 'city' ? '#9E2F47' : '#5E4660' });
         });
         // замки с датой
         if (locks.trip) { const [sx, sy] = toS(P[0].x + 30, P[0].z - 26); lockBadge(c, sx, sy, locks.trip.when ? 'с ' + locks.trip.when : 'скоро'); }
@@ -1552,16 +1592,16 @@
           + st(2, 'Выезд из города — под аркой на севере', (L && L.edge && L.edge.label ? 'Табличка «' + L.edge.label.replace(/\s*↑\s*$/, '') + ' ↑».' : 'Табличка со стрелкой вверх.'), !!lk)
           + st(3, 'Серпантин наверх', 'Газ и тормоз — справа, руль — пальцем слева. Можно выйти и посидеть на лавочке.', !!lk)
           + st(4, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', !!lk)
-          + `<div class="wm-step${lk || locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От площади — дорогой мимо школы, наверх. Оттуда — зиплайн через долину.')}</small></div></div>`;
+          + `<div class="wm-step${lk || locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От школы — серпантином на гору, к отелю. Назад — зиплайном, прямо к домам.')}</small></div></div>`;
       } else if (h.rid === 'serpentine') {
         html += st(1, 'Вверх по горной дороге', 'Справа скала, слева обрыв. Лавочки над долиной — по пути.', false) + st(2, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', false)
-          + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От площади — дорогой мимо школы, наверх. Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
+          + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От школы — серпантином на гору. Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
       } else if (h.rid === 'hotel') {
-        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Башня во дворе — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн через долину, к площадке у села.')}</small></div></div>`
-          + st(2, 'Или — вниз, в село', 'У нижних ворот — в машину или пешком: дорогой мимо школы, прямо к площади.', false);
+        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Башня во дворе — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн с вершины вниз, к домам.')}</small></div></div>`
+          + st(2, 'Или — вниз, в село', 'У ворот — в машину или пешком: серпантином вниз, мимо школы — к площади.', false);
       } else {
         html += st('·', 'Пекарня, родник, башня и базарная площадь', 'Все места — во вкладке «' + mtnTab(named) + '».', false)
-          + (locks.hotel ? '' : st('·', 'Отель на вершине — выше', 'Дорога мимо школы — наверх, к отелю. За рулём или пешком.', false))
+          + (locks.hotel ? '' : st('·', 'Отель на вершине — выше', 'От школы — серпантином на гору, к отелю. За рулём или пешком.', false))
           + st('·', 'Дорога вниз — от парковки', 'Серпантин ведёт в город.', false);
       }
       // кнопки
@@ -1626,14 +1666,22 @@
   // 0,6 м — ≈ 240 тыс. groundInfo кусками в простое
   const MB_CORE = { kubachi: { x0: -84, x1: 92, z0: -112, z1: 86 } };
   const MB = { kubachi: { x0: -195, x1: 160, z0: -135, z1: 110 }, hotel: { x0: -104, x1: 92, z0: -118, z1: 40 }, serpentine: { x0: -403, x1: 342, z0: -2, z1: 470 } };
+  // вершина (DESIGN §4.5): дорога к отелю (VILLAGE.SUMMIT, x 79…566, z −338…−100) и площадки отеля — за основой села. Основа
+  // 4,4 px/м на всю дорогу — ≈ 29 МБ, поэтому под основой — второй, грубый слой MB_FAR (≈ 1,6 px/м, ≈ 2 МБ): рельеф вершины
+  // (groundMacro, сетка 4 м), дорога, площадки и корпуса отеля, трос. Основа села, растр и ядро — прежние
+  const MB_FAR = { kubachi: { x0: 40, x1: 630, z0: -400, z1: -60 } };
+  const FCACHE = {};   // высоты грубого слоя (на сессию; сетка — на всю карту с вершиной, M.view): rid → { ys, nx, nz, step, x0, z0 }
   // точки, если регион ещё не загружали (замер ручек волны 4A/4B; при загрузке берутся живые)
   const STATIC_POIS = {
     kubachi: [['tower', 'tower', -6.7, -14.2], ['square', 'square', 12.3, -6.3], ['bakery', 'bakery', 2.4, -7.3], ['spring', 'spring', 5.5, 62], ['spring_lid', 'spring', 5.1, 66.4],
       ['wedding', 'wedding', 26.3, -20.5], ['shop_craft', 'shop', 6.3, -11.1, 'Лавка мастера'], ['shop_food', 'shop', 23.9, -8.6, 'Фрукты с нижних склонов'], ['shop_cloth', 'shop', 10.3, 0, 'Платочки'],
       ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 14.9, -9.7], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
-      // волна 6: дороги села — школа, школьный двор, разворот у башни, дорога к отелю
-      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 18.65, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'], ['toHotel', 'hotel', 76.9, -99.7]],
+      // волна 6: дороги села — школа, школьный двор, разворот у башни
+      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 18.65, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
+      // вершина: начало дороги к отелю (площадка jHotel за школой) и верх дороги — ворота парковки отеля (выход toHotel);
+      // места передохнуть по пути — из VILLAGE.SUMMIT.rest (summitRest)
+      ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9]],
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', -5, -36.9], ['tower', 'zip', -26, -24], ['park', 'parking', -50, 13]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
@@ -1649,18 +1697,21 @@
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',
       school: 'Школа', schoolYard: 'Школьный двор', towerPark: 'Разворот у башни',   // волна 6
-      toCity: 'Город', road_view: 'Смотровая с лавочкой', toHotel: 'Дорога к отелю', toVillage: 'Ворота села', hotel: 'Отель на вершине',
+      toCity: 'Город', road_view: 'Смотровая с лавочкой', toHotel: 'Ворота отеля', jHotel: 'Дорога к отелю', toVillage: 'Ворота села', hotel: 'Отель на вершине',
     };
     if (/^road_bench/.test(id)) return 'Лавочка над долиной';
+    if (/^summit_/.test(id)) { const r = summitRest().find(q => q.id === id); if (r) return r.label; }
     return L[id] || (KINDS[kind] && KINDS[kind].name) || id;
   }
   function mtnLine(p, named) {
     if (p.id === 'toVillage') return 'Ещё чуть-чуть — и ворота.';
-    if (p.id === 'toHotel') return 'Мимо школы — наверх, к отелю на вершине.';
-    if (p.id === 'zipLanding') return 'Сюда прилетают с троса от отеля.';
-    if (p.id === 'tower' && p.rid === 'hotel') return 'Наверх — и вжух через долину.';
+    if (p.id === 'jHotel') return 'Серпантин на гору, к отелю.';
+    if (p.id === 'toHotel') return 'Конец серпантина — въезд к отелю.';
+    if (/^summit_/.test(p.id)) return p.kind === 'view' ? 'Подзорная труба — крыши внизу как на ладони.' : 'Передохнуть и посмотреть вниз, на крыши.';
+    if (p.id === 'zipLanding') return 'Сюда прилетают по тросу с вершины.';
+    if (p.id === 'tower' && p.rid === 'hotel') return 'Наверх — и вжух с вершины к домам.';
     if (p.id === 'square' || p.id === 'courtyard') return p.rid === 'hotel' ? 'Белые стены и фонтан.' : 'Лавки, лотки и годекан.';
-    if (p.id === 'view' && p.rid === 'hotel') return 'Скамья и вид через долину.';
+    if (p.id === 'view' && p.rid === 'hotel') return 'Скамья и вид с вершины.';
     if (p.kind === 'square') return 'Площадь.';
     if (p.id === 'knoll') return 'Видно все дома и крыши.';
     if (p.id === 'road_view') return 'Лавочка и вид над облаками.';
@@ -1701,6 +1752,7 @@
     // отель ещё не загружали: футбол и падел — места игры на кортах (VILLAGE.sports.HOTEL.spots, poi — id точки), гольф — грин
     M.staticPois = () => {
       const list = (STATIC_POIS[rid] || []).map(a => mtnPoi({ id: a[0], kind: a[1], x: a[2], z: a[3], label: a[4] }, rid, named));
+      if (rid === 'kubachi') summitRest().forEach(r => list.push(mtnPoi(r, rid, named)));
       if (rid !== 'hotel') return list;
       ((V.sports && V.sports.HOTEL && V.sports.HOTEL.spots) || []).forEach(s => { if (!s.poi) return; const q = list.find(p => p.id === s.poi); if (q) { q.x = s.x; q.z = s.z; } else list.push(mtnPoi({ id: s.poi, kind: 'sport', x: s.x, z: s.z }, rid, named)); });
       return list.some(q => q.id === 'padel' || q.id === 'football') ? list.filter(q => q.id !== 'sports_look') : list;   // как живой радар отеля
@@ -1770,10 +1822,73 @@
       };
       job = setTimeout(step, 400);
     };
-    M.stop = () => { M.dead = true; clearTimeout(job); };
+    // вершина: грубый слой за основой (MB_FAR) и рамка карты вместе с ним (большая карта отдаляется до отеля); высоты слоя —
+    // groundMacro (серпантин: та же гора, что в селе) сеткой 4 м на всю рамку M.view (радар рисует из неё кусок MB_FAR, большая
+    // карта — всю), в простое кусками по 5 мс (на сессию — FCACHE)
+    M.far = MB_FAR[rid] && V.SUMMIT && V.regions.serpentine && V.regions.serpentine.groundMacro ? MB_FAR[rid] : null;
+    M.view = M.far ? { x0: Math.min(B.x0, M.far.x0), x1: Math.max(B.x1, M.far.x1), z0: Math.min(B.z0, M.far.z0), z1: Math.max(B.z1, M.far.z1) } : B;
+    let fjob = 0;
+    M.startFar = onDone => {
+      const F = M.view; if (!M.far) return;
+      if (FCACHE[rid]) { if (onDone) fjob = setTimeout(() => { fjob = 0; if (!M.dead) safe(onDone); }, 60); return; }
+      const st = 4, nx = Math.ceil((F.x1 - F.x0) / st) + 1, nz = Math.ceil((F.z1 - F.z0) / st) + 1, ys = new Float32Array(nx * nz), gm = V.regions.serpentine.groundMacro; let j = 0;
+      const step = () => {
+        fjob = 0; if (M.dead) return;
+        const t0 = now();
+        while (j < nz) {
+          for (let i = 0; i < nx; i++) { let y = 0; try { y = gm(F.x0 + i * st, F.z0 + j * st); } catch (e) { y = 0; } ys[j * nx + i] = isFinite(y) ? y : 0; }
+          j++;
+          if (now() - t0 > 5) { fjob = setTimeout(step, 30); return; }
+        }
+        FCACHE[rid] = { ys, nx, nz, step: st, x0: F.x0, z0: F.z0 };
+        if (onDone) safe(onDone);
+      };
+      fjob = setTimeout(step, 700);
+    };
+    M.paintFar = (c, s, ox, oz, W, H) => paintFar(c, M, s, ox, oz, W, H);
+    M.stop = () => { M.dead = true; clearTimeout(job); clearTimeout(fjob); };
     // рисунок региона: c — 2D-контекст, s — пикселей на метр, (ox, oz) — мир в (0, 0) холста
     M.paint = (c, s, ox, oz, W, H, o = {}) => paintMtn(c, M, s, ox, oz, W, H, o);
     return M;
+  }
+  // вершина: места передохнуть по пути наверх (VILLAGE.SUMMIT.rest, s — по оси) — у обочины со стороны башни, как их ставит
+  // kubachi.js summitRestGeo (полотно, обочина и ещё 1,3 м ≈ 4,8 м от оси)
+  function summitRest() {
+    const V = V_(), SM = V && V.SUMMIT; if (!SM || !SM.rest || !SM.axis) return [];
+    const A = SM.axis(), kd = (V.regions && V.regions.kubachi && V.regions.kubachi.data) || {}, TW = kd.TOWER || { x: -6.7, z: -14.2 };
+    return SM.rest.map(r => {
+      let i = 1; while (i < A.n - 2 && A.s[i] < r.s) i++;
+      const tx = A.x[i + 1] - A.x[i - 1], tz = A.z[i + 1] - A.z[i - 1], L = Math.hypot(tx, tz) || 1, nx = tz / L, nz = -tx / L, sd = (TW.x - A.x[i]) * nx + (TW.z - A.z[i]) * nz > 0 ? 1 : -1;
+      return { id: r.id, kind: r.kind === 'view' ? 'view' : 'bench', x: A.x[i] + nx * sd * 4.8, z: A.z[i] + nz * sd * 4.8, label: r.label };
+    });
+  }
+  // вершина: где она на дороге к отелю — { s, d, y, len } по оси VILLAGE.SUMMIT (та же ось, что у села) или null (дальше 34 м)
+  function summitAt(x, z) {
+    const SM = V_() && V_().SUMMIT; if (!SM || !SM.roadNear || !isFinite(x)) return null;
+    const q = SM.roadNear(x, z); if (!q) return null;
+    const A = SM.axis(), i = Math.min(q.i, A.n - 2);
+    return { s: A.s[i] + (A.s[i + 1] - A.s[i]) * q.t, d: q.d, y: q.y, len: A.len };
+  }
+  // расстояние до точки гор: по прямой; в селе с вершиной — по дороге к отелю, если точка или она на ней (по прямой через склон
+  // скамейка под отелем — «470 м», а по серпантину — вдвое дальше): от площадки jHotel по оси и от неё до точки
+  function mtnDist(p, h) {
+    if (!h) return null;
+    const d0 = Math.hypot(p.x - h.x, p.z - h.z), SM = p.rid === 'kubachi' && V_() && V_().SUMMIT, j = SM && SM.roadPads && SM.roadPads.start; if (!j) return d0;
+    const on = (x, z) => { const q = summitAt(x, z); return q && q.d < 14 && q.s > 12 ? q.s : null; }, sp = on(p.x, p.z), sh = on(h.x, h.z);
+    if (sp == null && sh == null) return d0;
+    if (sp != null && sh != null) return Math.max(d0, Math.abs(sp - sh));
+    return Math.max(d0, sp != null ? sp + Math.hypot(h.x - j.x, h.z - j.z) : sh + Math.hypot(p.x - j.x, p.z - j.z));
+  }
+  // ось дороги к отелю для рисования: каждая 3-я точка (≈ 3 м), с какой точки дорога уходит из основы села (from)
+  let SUMLINE = null;
+  function summitLine() {
+    if (SUMLINE) return SUMLINE;
+    const SM = V_() && V_().SUMMIT; if (!SM || !SM.axis) return null;
+    const A = SM.axis(), B = MB.kubachi, pts = []; let from = 0;
+    for (let i = 0; i < A.n; i += 3) { if (!from && (A.x[i] > B.x1 - 4 || A.z[i] < B.z0 + 4)) from = pts.length; pts.push([A.x[i], A.z[i]]); }
+    pts.push([A.x[A.n - 1], A.z[A.n - 1]]);
+    SUMLINE = { pts, from: Math.max(0, from - 1), w: (SM.road && SM.road.w) || 5.4, pads: SM.roadPads ? [SM.roadPads.start, SM.roadPads.top] : [] };
+    return SUMLINE;
   }
   let PATH0 = null;
   const path0 = () => PATH0 || (PATH0 = V_().regions.serpentine.path());
@@ -1783,13 +1898,18 @@
     hotel: { relax: [212, 233, 204], slope: [219, 231, 202], road: [214, 205, 222], park: [227, 221, 231], stairs: [233, 215, 197], yard: [247, 238, 228], tower: [222, 197, 162], deck: [223, 201, 177], sport: [197, 225, 187] },
   };
   const ROOF_COL = { yard: '#EADBC8', silver: '#D6DAD4', silverRust: '#D9BFAB', rust: '#DDA080', slate: '#A9AEBA', red: '#D9928A' };
+  const HS_RAMP = [[220, 233, 206], [230, 238, 210], [242, 240, 220]];   // рампа рельефа села и отеля
   // рельеф (тень склонов) — сетка step м, мягко растянутая; база для всех трёх регионов
-  function hillshade(c, M, s, ox, oz, W, H, step, ramp, sk = 0.16, slo = 0.78, shi = 1.1) {
+  // fix — { lo, hi } рампы цвета вместо своих (вершина: основа села и грубый слой под ней красятся одной рампой — без шва);
+  // пустой {} — запомнить в него свои, если рисуется вся рамка (тогда отдельный проход высот hsFix не нужен)
+  function hillshade(c, M, s, ox, oz, W, H, step, ramp, sk = 0.16, slo = 0.78, shi = 1.1, fix = null) {
     const B = M.bounds, x0 = Math.max(B.x0, ox), z0 = Math.max(B.z0, oz), x1 = Math.min(B.x1, ox + W / s), z1 = Math.min(B.z1, oz + H / s);
     if (x1 <= x0 || z1 <= z0) return;
     const nx = Math.max(2, Math.ceil((x1 - x0) / step) + 1), nz = Math.max(2, Math.ceil((z1 - z0) / step) + 1);
     const ys = new Float32Array(nx * nz); let lo = 1e9, hi = -1e9;
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { let y = 0; try { y = M.height(x0 + i * step, z0 + j * step); } catch (e) { y = 0; } if (!isFinite(y)) y = 0; ys[j * nx + i] = y; if (y < lo) lo = y; if (y > hi) hi = y; }
+    if (fix && fix.lo != null) { lo = fix.lo; hi = fix.hi; }
+    else if (fix && x0 <= B.x0 + step && z0 <= B.z0 + step && x1 >= B.x1 - step && z1 >= B.z1 - step) { hi = Math.max(hi, lo + 1); fix.lo = lo; fix.hi = hi; }
     const cv = cnv(nx, nz), cx = cv.getContext('2d'), img = cx.createImageData(nx, nz), d = img.data;
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const q = j * nx + i, y = ys[q], t = hi > lo ? clamp((y - lo) / (hi - lo), 0, 1) : 0.5;   // ys — Float32: без clamp округление даёт t < 0
@@ -1820,8 +1940,8 @@
     const V = V_() || {}, rid = M.rid, h = M.h, X = x => (x - ox) * s, Y = z => (z - oz) * s;
     c.save();
     c.fillStyle = rid === 'serpentine' ? '#E6EEDF' : '#EBF0DF'; c.fillRect(0, 0, W, H);
-    // рельеф
-    hillshade(c, M, s, ox, oz, W, H, rid === 'serpentine' ? 3 : 2, rid === 'serpentine' ? [[220, 230, 234], [216, 233, 206], [228, 237, 204], [243, 238, 214]] : [[220, 233, 206], [230, 238, 210], [242, 240, 220]], rid === 'serpentine' ? 0.06 : 0.1, rid === 'serpentine' ? 0.95 : 0.88, 1.05);
+    // рельеф (у села с вершиной — рампа по всей основе, ту же продолжает грубый слой)
+    hillshade(c, M, s, ox, oz, W, H, rid === 'serpentine' ? 3 : 2, rid === 'serpentine' ? [[220, 230, 234], [216, 233, 206], [228, 237, 204], [243, 238, 214]] : HS_RAMP, rid === 'serpentine' ? 0.06 : 0.1, rid === 'serpentine' ? 0.95 : 0.88, 1.05, M.far ? M.hsFix || (M.hsFix = {}) : null);
     // растр земли (виды покрытия)
     const R = M.raster;
     if (R && R.cv) { c.imageSmoothingEnabled = true; c.drawImage(R.cv, X(R.x0), Y(R.z0), R.nx * R.cell * s, R.nz * R.cell * s); }
@@ -1931,6 +2051,84 @@
       c.save(); c.setLineDash([Math.max(1.5, 1.4 * s), Math.max(2, 2.6 * s)]); polyline(c, P, s, ox, oz, 0.35, 'rgba(255,253,249,.8)', 'butt'); c.restore();
     }
   }
+  // вершина: рампа цвета основы села (основа и грубый слой красятся одной рампой). Обычно рампу запоминает рисунок основы
+  // (hillshade, вся рамка); слой раньше основы — свой проход сеткой 8 м (телефон: h.ground ×1,4 тыс. ≈ 25 мс вместо 100)
+  function hsFix(M) {
+    if (M.hsFix && M.hsFix.lo != null) return M.hsFix;
+    const B = M.bounds; let lo = 1e9, hi = -1e9;
+    for (let z = B.z0; z <= B.z1; z += 8) for (let x = B.x0; x <= B.x1; x += 8) { let y = 0; try { y = M.height(x, z); } catch (e) { y = 0; } if (!isFinite(y)) y = 0; if (y < lo) lo = y; if (y > hi) hi = y; }
+    M.hsFix = Object.assign(M.hsFix || {}, { lo, hi: Math.max(hi, lo + 1) });
+    return M.hsFix;
+  }
+  // грубый слой вершины (MB_FAR): высоты — FCACHE (нет — считаем сразу: большая карта из города), цвет — продолжение основы:
+  // с растром села (в игре) — бежевый склон, как растр за селом («crest»), выше — светлее; без растра — рампа основы и выше неё
+  // светлая «вершинная»; тень склона и горизонтали через 10 м у края основы гаснут (у шва основа плоская), дальше — в полную силу
+  const FAR_BEIGE = [[229, 219, 196], [232, 223, 202], [237, 230, 212], [242, 238, 225]], FAR_UP = [[242, 240, 220], [237, 238, 231]];
+  function farGrid(M) {
+    const F = M.view; if (!M.far) return null;
+    if (FCACHE[M.rid]) return FCACHE[M.rid];
+    const gm = V_().regions.serpentine.groundMacro, st = 4, nx = Math.ceil((F.x1 - F.x0) / st) + 1, nz = Math.ceil((F.z1 - F.z0) / st) + 1, ys = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { let y = 0; try { y = gm(F.x0 + i * st, F.z0 + j * st); } catch (e) { y = 0; } ys[j * nx + i] = isFinite(y) ? y : 0; }
+    return (FCACHE[M.rid] = { ys, nx, nz, step: st, x0: F.x0, z0: F.z0 });
+  }
+  const rampAt = (R, t) => { const k = clamp(Math.floor(t * (R.length - 1)), 0, R.length - 2), f = t * (R.length - 1) - k, a = R[k], b = R[k + 1]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
+  function paintFar(c, M, s, ox, oz, W, H) {
+    const V = V_(), G = farGrid(M); if (!G) return;
+    const X = x => (x - ox) * s, Y = z => (z - oz) * s, B = M.bounds, beige = !!M.raster, fx = beige ? null : hsFix(M), TOP = 115;
+    const { ys, nx, nz, step } = G, cv = cnv(nx, nz), cx = cv.getContext('2d'), img = cx.createImageData(nx, nz), d = img.data;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const q = j * nx + i, y = ys[q], x = G.x0 + i * step, z = G.z0 + j * step;
+      const ex = Math.max(B.x0 - x, 0, x - B.x1), ez = Math.max(B.z0 - z, 0, z - B.z1), f = clamp(Math.hypot(ex, ez) / 30, 0, 1), fade = f * f * (3 - 2 * f);
+      const yl = ys[i > 0 ? q - 1 : q], yr = ys[i < nx - 1 ? q + 1 : q], yu = ys[j > 0 ? q - nx : q], yd = ys[j < nz - 1 ? q + nx : q];
+      const sh = clamp(1 + ((yl - yr) * 0.7 + (yu - yd)) / step * 0.15 * fade, 0.84, 1.08);
+      const col = beige ? rampAt(FAR_BEIGE, clamp((y - 15) / (TOP - 15), 0, 1)) : y <= fx.hi ? rampAt(HS_RAMP, clamp((y - fx.lo) / (fx.hi - fx.lo), 0, 1)) : rampAt(FAR_UP, clamp((y - fx.hi) / Math.max(1, TOP - fx.hi), 0, 1));
+      d[q * 4] = clamp(col[0] * sh, 0, 255); d[q * 4 + 1] = clamp(col[1] * sh, 0, 255); d[q * 4 + 2] = clamp(col[2] * sh, 0, 255); d[q * 4 + 3] = 255;
+    }
+    cx.putImageData(img, 0, 0);
+    c.save();
+    c.fillStyle = beige ? 'rgb(229,219,196)' : '#EBF0DF'; c.fillRect(0, 0, W, H);
+    c.imageSmoothingEnabled = true; c.drawImage(cv, X(G.x0 - step / 2), Y(G.z0 - step / 2), nx * step * s, nz * step * s);
+    // горизонтали через 10 м — линиями (квадраты сетки высот, «marching squares»): гора читается и на радаре; у основы — нет
+    {
+      const x0 = ox - 8, x1 = ox + W / s + 8, z0 = oz - 8, z1 = oz + H / s + 8, near = (x, z) => x > B.x0 - 25 && x < B.x1 + 25 && z > B.z0 - 25 && z < B.z1 + 25;
+      const P = new Path2D(), cut = (ya, yb, L) => (L - ya) / (yb - ya || 1e-6);
+      for (let j = 0; j < nz - 1; j++) {
+        const zA = G.z0 + j * step; if (zA > z1 || zA + step < z0) continue;
+        for (let i = 0; i < nx - 1; i++) {
+          const xA = G.x0 + i * step; if (xA > x1 || xA + step < x0 || near(xA + step / 2, zA + step / 2)) continue;
+          const a = ys[j * nx + i], b2 = ys[j * nx + i + 1], c2 = ys[(j + 1) * nx + i + 1], d2 = ys[(j + 1) * nx + i];
+          const lo = Math.min(a, b2, c2, d2), hi = Math.max(a, b2, c2, d2);
+          for (let Lv = Math.ceil(lo / 10) * 10; Lv <= hi && Lv < 120; Lv += 10) {
+            if (Lv === lo || Lv < -60) continue;
+            const pts = [];
+            if ((a < Lv) !== (b2 < Lv)) pts.push([xA + cut(a, b2, Lv) * step, zA]);
+            if ((b2 < Lv) !== (c2 < Lv)) pts.push([xA + step, zA + cut(b2, c2, Lv) * step]);
+            if ((d2 < Lv) !== (c2 < Lv)) pts.push([xA + cut(d2, c2, Lv) * step, zA + step]);
+            if ((a < Lv) !== (d2 < Lv)) pts.push([xA, zA + cut(a, d2, Lv) * step]);
+            for (let k = 0; k + 1 < pts.length; k += 2) { P.moveTo(X(pts[k][0]), Y(pts[k][1])); P.lineTo(X(pts[k + 1][0]), Y(pts[k + 1][1])); }
+          }
+        }
+      }
+      c.strokeStyle = beige ? 'rgba(140,116,90,.2)' : 'rgba(110,130,100,.2)'; c.lineWidth = Math.max(0.8, 0.7 * s); c.lineCap = 'round'; c.stroke(P);
+    }
+    // отель на вершине: площадки, корпус, бассейн, башня (рамка — toMacro, как на обзоре)
+    const SM = V.SUMMIT, HD = (V.regions.hotel && V.regions.hotel.data) || {};
+    const tm = (x, z) => { try { const q = (HD.toMacro || SM.toMacro)(x, 0, z); return [q.x, q.z]; } catch (e) { return [x, z]; } };
+    const quad = (q, col, stroke) => { const pts = [tm(q.x0, q.z0), tm(q.x1, q.z0), tm(q.x1, q.z1), tm(q.x0, q.z1)]; c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1])))); c.closePath(); c.fillStyle = col; c.fill(); if (stroke) { c.strokeStyle = stroke; c.lineWidth = Math.max(1, 0.35 * s); c.stroke(); } };
+    const PADS = HD.PADS || (SM.pads || []).map(p => ({ x0: p[0], x1: p[1], z0: p[2], z1: p[3], kind: 'relax' }));
+    PADS.forEach(p => quad(p, { yard: '#F8EEE4', park: '#E4DDE8', sport: '#C9E3BE', relax: '#D6EBCF', deck: '#E2CBB1' }[p.kind] || '#EDE6DA'));
+    quad(STATIC_HOTEL.pool, '#BFE0F2'); quad(STATIC_HOTEL.spa, '#F1DDE6'); quad(STATIC_HOTEL.main, '#FFFFFF', 'rgba(111,155,201,.7)');
+    { const t = tm(STATIC_HOTEL.tower.x, STATIC_HOTEL.tower.z), r = Math.max(1.5, 1.8 * s); c.fillStyle = '#D9B98C'; c.beginPath(); c.arc(X(t[0]), Y(t[1]), r, 0, TAU); c.fill(); }
+    // трос зиплайна — целиком, пунктиром (у села его начало рисует основа)
+    try { const r = V.zipline.route('macro'); c.strokeStyle = 'rgba(78,74,82,.6)'; c.lineWidth = Math.max(1, 0.25 * s); c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(r.to.x), Y(r.to.z)); c.lineTo(X(r.from.x), Y(r.from.z)); c.stroke(); c.setLineDash([]); } catch (e) { /* без троса */ }
+    // дорога к отелю: бордюр и полотно (как проезды села), площадки на концах
+    const SL = summitLine();
+    if (SL) {
+      polyline(c, SL.pts, s, ox, oz, SL.w + 1.2, 'rgb(196,184,206)'); polyline(c, SL.pts, s, ox, oz, SL.w, 'rgb(214,205,222)');
+      SL.pads.forEach(p => { c.fillStyle = 'rgb(214,205,222)'; c.beginPath(); c.arc(X(p.x), Y(p.z), Math.max(1.5, p.r * s), 0, TAU); c.fill(); });
+    }
+    c.restore();
+  }
 
   /* =====================================================================
      РАДАР (волна 4B): общий круг для города и гор — «как в GTA», слева снизу над джойстиком
@@ -1938,10 +2136,11 @@
   const MAP_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z" fill="#FBE1E7" stroke="#C2405B" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4v13.5M15.5 6.5V20" stroke="#C2405B" stroke-width="2"/></svg>';
   // метка-путеводитель «📍» (одна на игру): { rid: 'city' | 'serpentine' | 'kubachi' | 'hotel', id, x, z, label, kind }
   let WAYPOINT = null;
+  // вершина: метка «к отелю» — у начала дороги к нему (площадка jHotel за школой), а не наверху, у ворот отеля
   function hotelWay() {
-    const lv = (LIVE_POIS.kubachi || []).find(p => p.id === 'toHotel'), st = (STATIC_POIS.kubachi || []).find(a => a[0] === 'toHotel');
-    const q = lv || (st ? { x: st[2], z: st[3] } : null);
-    return q ? { rid: 'kubachi', id: 'toHotel', x: q.x, z: q.z, label: 'Дорога к отелю', kind: 'hotel' } : null;
+    const SM = V_() && V_().SUMMIT, lv = (LIVE_POIS.kubachi || []).find(p => p.id === 'jHotel'), st = (STATIC_POIS.kubachi || []).find(a => a[0] === 'jHotel');
+    const q = lv || (SM && SM.roadPads ? SM.roadPads.start : null) || (st ? { x: st[2], z: st[3] } : null);
+    return q ? { rid: 'kubachi', id: 'jHotel', x: q.x, z: q.z, label: 'Дорога к отелю', kind: 'hairpin' } : null;
   }
   function setWaypoint(w) { WAYPOINT = w && isFinite(w.x) && isFinite(w.z) ? Object.assign({ rid: 'city' }, w) : null; return WAYPOINT; }
   // куда вести стрелку, если метка в другом регионе: выход текущего региона
@@ -2009,13 +2208,15 @@
       // круг обрезает CSS (border-radius + overflow) — без clip() на холсте: так дешевле
       c.setTransform(1, 0, 0, 1, 0, 0);
       c.fillStyle = cfg.paper || COL.paper; c.fillRect(0, 0, S, S);
-      if (b && b.cv) {
-        c.save(); c.translate(Rr, Rr); c.rotate(th); const sc = k / b.s; c.scale(sc, sc);
-        const half = rad * 1.5 * b.s, hx = (h.x - b.ox) * b.s, hy = (h.z - b.oz) * b.s;
-        const cx0 = Math.max(0, hx - half), cy0 = Math.max(0, hy - half), cx1 = Math.min(b.cv.width, hx + half), cy1 = Math.min(b.cv.height, hy + half);
-        if (cx1 > cx0 && cy1 > cy0) { c.imageSmoothingEnabled = true; c.drawImage(b.cv, cx0, cy0, cx1 - cx0, cy1 - cy0, cx0 - hx, cy0 - hy, cx1 - cx0, cy1 - cy0); }
+      // основа (или слои снизу вверх: грубый слой вершины, основа села) — только кусок вокруг неё
+      (Array.isArray(b) ? b : [b]).forEach(L => {
+        if (!L || !L.cv) return;
+        c.save(); c.translate(Rr, Rr); c.rotate(th); const sc = k / L.s; c.scale(sc, sc);
+        const half = rad * 1.5 * L.s, hx = (h.x - L.ox) * L.s, hy = (h.z - L.oz) * L.s;
+        const cx0 = Math.max(0, hx - half), cy0 = Math.max(0, hy - half), cx1 = Math.min(L.cv.width, hx + half), cy1 = Math.min(L.cv.height, hy + half);
+        if (cx1 > cx0 && cy1 > cy0) { c.imageSmoothingEnabled = true; c.drawImage(L.cv, cx0, cy0, cx1 - cx0, cy1 - cy0, cx0 - hx, cy0 - hy, cx1 - cx0, cy1 - cy0); }
         c.restore();
-      }
+      });
       const toS = (x, z) => { const dx = (x - h.x) * k, dz = (z - h.z) * k; return [Rr + dx * cos - dz * sin, Rr + dx * sin + dz * cos]; };
       const scr = a => { const fx = Math.sin(a), fz = Math.cos(a); return Math.atan2(fx * sin + fz * cos, fx * cos - fz * sin); };
       dbg.icons = [];
@@ -2108,8 +2309,9 @@
   }
   // прибытие к метке: снять и сказать
   function wpArrive(h, rid) {
-    const w = WAYPOINT; if (!w || w.rid !== rid || !h) return false;
-    if (Math.hypot(h.x - w.x, h.z - w.z) > 4) return false;
+    const w = WAYPOINT; if (!w || !h) return false;
+    if (w.id === 'jHotel' && rid === 'hotel') { setWaypoint(null); return false; }   // вершина: метка «к отелю» — у начала дороги; в отеле — снять молча
+    if (w.rid !== rid || Math.hypot(h.x - w.x, h.z - w.z) > (w.id === 'jHotel' ? 9 : 4)) return false;   // jHotel — площадка на въезде: шире
     setWaypoint(null); haptic('success');
     try { const g = G_(); if (g && g.toast) g.toast('📍 На месте: ' + (w.label || 'метка'), 1800); } catch (e) { /* без тоста */ }
     return true;
@@ -2281,9 +2483,33 @@
       base = { D, ver: M.ver, cv: c, s, ox: B.x0, oz: B.z0 };
       return base;
     }
-    M.startRaster(() => { if (!disposed) Rd.redraw(); });
+    // вершина: грубый слой (MB_FAR) — в простое: высоты кусками (M.startFar), потом рисунок ≈ 1,6 px/м на D 2 (≈ 2 МБ); цвет —
+    // по основе: пока растра нет — рампа рельефа, с растром (M.ver) — ещё раз, бежевым склоном; пока слоя нет — за основой бумага
+    let far = null, farT = 0, farMs = 0;
+    const buildFar = () => {
+      farT = 0; if (disposed || !M.far || !FCACHE[rid]) return;
+      const t0 = now(), F = M.far, D = Rd.D, s = clamp(0.8 * D, 1, 1.6), c = cnv((F.x1 - F.x0) * s, (F.z1 - F.z0) * s);
+      M.paintFar(c.getContext('2d'), s, F.x0, F.z0, c.width, c.height);
+      far = { D, ver: M.ver, cv: c, s, ox: F.x0, oz: F.z0 }; farMs = now() - t0;
+      Rd.redraw();
+    };
+    // сразу, как готовы высоты (телефон считает растр основы и 30 с — дорога к отелю на радаре нужна раньше), и после растра
+    const farLater = () => { if (!farT && M.far && FCACHE[rid]) farT = setTimeout(buildFar, 120); };
+    const baseOf = D => {
+      const b = ensureBase(D);
+      if (!far) return b;
+      if (far.D !== D || far.ver !== M.ver) farLater();
+      return [far, b];
+    };
     const inCar = () => !!(info && info.car && info.car.inCar);
     const exitPos = id => { const e = info && info.exits && info.exits.find(q => q.id === id); return e ? e : (STATIC_POIS[rid] || []).filter(a => a[0] === id).map(a => ({ x: a[2], z: a[3] }))[0] || null; };
+    // метка в отеле, а она в селе: стрелка — к выходу toHotel наверху дороги, если она уже на дороге к отелю; иначе — к
+    // началу (jHotel за школой): от площади прямо на ворота отеля — через склон, а не по дороге
+    const wayExit = w => {
+      let id = EXIT_TO[rid] && EXIT_TO[rid][w.rid]; if (!id) return null;
+      if (rid === 'kubachi' && id === 'toHotel') { const hh = hero(), q = hh && summitAt(hh.x, hh.z); if (!q || q.d > 14 || q.s < 12) { const j = pois.find(p => p.id === 'jHotel'); if (j) return j; } }
+      return exitPos(id);
+    };
     function items(X) {
       const { c, D } = X;
       // шпильки серпантина
@@ -2309,7 +2535,7 @@
       const w = WAYPOINT;
       if (w) {
         if (w.rid === rid) rimDrop(X, w.x, w.z, KINDS.waypoint.col, 'pin', '@waypoint', 'waypoint');
-        else { const ex = EXIT_TO[rid] && EXIT_TO[rid][w.rid] && exitPos(EXIT_TO[rid][w.rid]); if (ex) rimDrop(X, ex.x, ex.z, KINDS.waypoint.col, 'pin', '@waypoint', 'waypoint'); }
+        else { const ex = wayExit(w); if (ex) rimDrop(X, ex.x, ex.z, KINDS.waypoint.col, 'pin', '@waypoint', 'waypoint'); }
       }
     }
     const hero = () => {
@@ -2322,7 +2548,7 @@
     const Rd = makeRadar({
       root: host, label: 'Карта: ' + (rid === 'kubachi' ? villageTitle(named) : rid === 'hotel' ? 'отель на вершине' : 'дорога наверх'), size: o.size, hz: o.hz || 10, maxDpr: o.maxDpr,
       hero, yaw: () => safe(o.getCamYaw), busy: () => !!safe(o.isBusy),
-      base: D => ensureBase(D), items,
+      base: D => baseOf(D), items,
       key: () => {
         info = safe(o.info) || info;
         const t = now(); if (t - poisT > 1500) { poisT = t; refreshPois(); }
@@ -2336,6 +2562,8 @@
       sheetOpen: () => { if (sheet) { if (!sheet.el || !sheet.el.isConnected) { sheet = null; return false; } return true; } return false; },
     });
     info = safe(o.info); refreshPois();
+    M.startRaster(() => { if (!disposed) { Rd.redraw(); farLater(); } });
+    M.startFar(() => { if (!disposed) farLater(); });
     // радар города (та же .w-root, город на паузе) прячем, пока в горах свой радар; вернём при выгрузке региона
     const hidden = [];
     try { const top = (o.host && (o.host.closest('.w-root') || o.host.parentNode)) || document; top.querySelectorAll('.wmm-wrap').forEach(e => { if (e !== Rd.el && !e.classList.contains('wmm-off')) { e.classList.add('wmm-off'); hidden.push(e); } }); } catch (e) { /* без города */ }
@@ -2367,9 +2595,9 @@
       setWaypoint: w => { setWaypoint(w); Rd.redraw(); return WAYPOINT; },
       pois: () => pois.slice(),
       stats: () => Rd.stats(), resetStats: () => Rd.resetStats(),
-      debug: () => Object.assign(Rd.debug(), { rid, raster: !!M.raster, pois: pois.length }),
+      debug: () => Object.assign(Rd.debug(), { rid, raster: !!M.raster, pois: pois.length, far: far ? { w: far.cv.width, h: far.cv.height, s: far.s, mb: +(far.cv.width * far.cv.height * 4 / 1048576).toFixed(2), ms: +farMs.toFixed(1) } : null, base: base ? { w: Math.round(base.cv.width), h: Math.round(base.cv.height), s: +base.s.toFixed(2), mb: +(base.cv.width * base.cv.height * 4 / 1048576).toFixed(2) } : null }),
       setVisible: b => Rd.setVisible(b), collapse: b => Rd.collapse(b), isCollapsed: () => Rd.isCollapsed(),
-      dispose() { if (disposed) return; disposed = true; M.stop(); if (sheet) sheet.close(true); Rd.dispose(); base = null; hidden.forEach(e => e.classList.remove('wmm-off')); hidden.length = 0; },
+      dispose() { if (disposed) return; disposed = true; M.stop(); clearTimeout(farT); if (sheet) sheet.close(true); Rd.dispose(); base = null; far = null; hidden.forEach(e => e.classList.remove('wmm-off')); hidden.length = 0; },
     };
     if (/debug=1/.test(location.search)) window.__radar = api;
     return api;
@@ -2390,12 +2618,13 @@
     // метка-путеводитель «📍» (одна на игру; радар города и гор показывают метку стрелкой)
     waypoint: () => (WAYPOINT ? Object.assign({}, WAYPOINT) : null),
     setWaypoint: w => setWaypoint(w), clearWaypoint: () => setWaypoint(null),
-    // W8: метка «к отелю» — у дороги наверх в селе (выход toHotel; живая точка, если село уже загружали, иначе — по умолчанию)
+    // W8 / вершина: метка «к отелю» — у начала дороги к нему (jHotel за школой; живая точка, если село уже загружали)
     hotelWay: () => hotelWay(),
+    summitAt: (x, z) => summitAt(x, z),
     analyze: (L, C, doors, o) => analyze(L || WORLD.LAYOUT, C, doorListOf(doors), o),
     travelDefault: defaultTravel,   // перенос через живой город — чтобы обернуть своим onTravel (звук, событие, задержка)
     paint, pin, KINDS,
     // для проверок: модель карты региона и точки по умолчанию
-    _mtn: { model: (rid, h, named) => mtnModel(rid, h || null, named !== false), STATIC_POIS, LIVE_POIS, RCACHE, OV_B },
+    _mtn: { model: (rid, h, named) => mtnModel(rid, h || null, named !== false), STATIC_POIS, LIVE_POIS, RCACHE, OV_B, MB_FAR, FCACHE, summitRest: () => summitRest(), summitLine: () => summitLine() },
   };
 })();
