@@ -3942,7 +3942,10 @@
     // вершина: гору с площадками отеля рисует фон села (bgY + SUMMIT.mount) — у отеля вдали без холма, стены с цоколем
     let ZL = null, HOTD = null;
     if (!FAR && opts.hotelDistant !== false && V.regions && V.regions.hotel && typeof V.regions.hotel.distant === 'function') {
-      try { HOTD = V.regions.hotel.distant(T, season, SUMMIT ? { hill: false, foot: 2.5 } : {}); HOTD.traverse(m => { if (m.isMesh || m.isLine) { m.userData.noRay = true; m.castShadow = false; m.receiveShadow = false; } }); root.add(HOTD); } catch (e) { console.warn('village: hotel distant', e); HOTD = null; }
+      try { HOTD = V.regions.hotel.distant(T, season, SUMMIT ? { hill: false, foot: 2.5, gate: true } : {}); HOTD.traverse(m => { if (m.isMesh || m.isLine) { m.userData.noRay = true; m.castShadow = false; m.receiveShadow = false; } }); root.add(HOTD); } catch (e) { console.warn('village: hotel distant', e); HOTD = null; }
+      // вершина: въезд у ворот парковки (асфальт, столбы, щит «Отель», берёзы) — только ближе 250 м от середины парковки (снизу,
+      // со склона, площадку закрывает бровка горы — включение не видно)
+      if (HOTD && HOTD.userData.near) HOTD.userData.near.forEach(n => DISTLOD.push({ m: n.m, x: n.x, z: n.z, r: 0, max: 250 }));
     }
     if (!FAR && opts.zipLanding !== false && V.zipline && typeof V.zipline.buildLanding === 'function') {
       try {

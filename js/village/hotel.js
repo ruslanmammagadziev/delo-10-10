@@ -2301,8 +2301,48 @@
       for (let k = 0; k < 6; k++) { const t = (k + 0.5) / 6 * TAU, c = Math.cos(t); L.push([POND.x + c * (POND.rx + 2.2), -8 + 2.12, POND.z + Math.sin(t) * (POND.rz * (1 - POND.lens * c * c) + 2.2)]); }
       const dc = WIN ? rgb('#CDD4DA') : rgb('#8EA071'), r = 0.6;
       L.forEach(([x, y, z, c]) => { const dx = vt.x - x, dz = vt.z - z, l = Math.hypot(dx, dz) || 1, ux = -dz / l * r, uz = dx / l * r; Ld.quad([x - ux, y, z - uz], [x, y + r, z], [x + ux, y, z + uz], [x, y - r, z], c || dc); }); }
+    // бок корпуса к парковке (как в mainBuilding, фото h2): две стеклянные двери, колонка окон с балконом, ромб-узел — от ворот
+    // парковки виден именно этот бок (раньше — глухая стена); двери и окна — в сетке Ld (ночью теплеют, как в отеле)
+    { const xw = M.x0 - 0.05, zf = M.z0, rel = WIN ? rgb('#E2E4E6') : rgb('#D9D3C8'), q = (B, u0, u1, v0, v1, c) => B.quad([xw, v0, zf + u0], [xw, v0, zf + u1], [xw, v1, zf + u1], [xw, v1, zf + u0], c);
+      q(Ld, 5.8, 8.2, 0.15, 3.3, winL); q(Ld, 14.6, 16.6, 0.15, 3.3, winL); q(Ld, 9.5, 11.1, 4.0, 6.9, winL); q(Ld, 9.5, 11.1, 7.9, 10.3, winL);
+      Bd.box(xw - 1.2, xw, 3.65, 3.8, zf + 9.4, zf + 13.0, balC); Bd.quad([xw - 1.2, 3.8, zf + 9.4], [xw - 1.2, 3.8, zf + 13.0], [xw - 1.2, 4.95, zf + 13.0], [xw - 1.2, 4.95, zf + 9.4], VK.mul(balC, 1.3));
+      const dm = r => [[4.8, 9.25 + r], [4.8 + r, 9.25], [4.8, 9.25 - r], [4.8 - r, 9.25]], A = dm(1.5), Bq = dm(1.17);
+      for (let i = 0; i < 4; i++) { const a = A[i], b = A[(i + 1) % 4], c = Bq[(i + 1) % 4], d = Bq[i]; Bd.quad([xw, a[1], zf + a[0]], [xw, b[1], zf + b[0]], [xw, c[1], zf + c[0]], [xw, d[1], zf + d[0]], rel); } }
+    // вершина, у ворот парковки (o.gate — село): ближний вид въезда, чтобы до шторки было то же, что после неё. Асфальт парковки
+    // с разметкой (как в parking() и на площадке park), под ним — каменная подпорная кромка до склона (фон села здесь грубый —
+    // на 0,5–3 м ниже площадки; въезд с дороги — без кромки), каменные столбы ворот со светлыми шапками (фонари — в ночной сетке
+    // Ld: ночью теплеют, видны и издалека), щит «Отель» на двух стойках лицом к дороге, берёзы вдоль парковки (зимой — ели).
+    // Своя сетка и щит рисуются только вблизи (userData.near → DISTLOD в селе): 344 треуг., +2 вызова
+    let Gt = null, gG = null, sign = null;
+    if (o.gate) {
+      Gt = mk(); const P0 = PADS.find(p => p.id === 'park'), ya = 0.05, yb = -5, asph = WIN ? rgb('#D9DEE4') : rgb('#6E6C70'), lineC = rgb('#F2F2EE'), rub = rgb('#B8A684'), wallC = WIN ? rgb('#C9C6C0') : rgb('#AFA28C');
+      Gt.quad([P0.x0, ya, P0.z0], [P0.x0, ya, P0.z1], [P0.x1, ya, P0.z1], [P0.x1, ya, P0.z0], asph);
+      for (let i = 0; i < 6; i++) { const z = i * 4.6; [[-60, -54], [-46, -40]].forEach(([a, b]) => Gt.quad([a, ya + 0.02, z - 0.06], [a, ya + 0.02, z + 0.06], [b, ya + 0.02, z + 0.06], [b, ya + 0.02, z - 0.06], lineC)); }
+      [[P0.x0, P0.z0, P0.x0, 13.5], [P0.x0, 24.5, P0.x0, P0.z1], [P0.x0, P0.z0, P0.x1, P0.z0], [P0.x0, P0.z1, P0.x1, P0.z1]].forEach(([x0, z0, x1, z1]) => Gt.quad([x0, ya, z0], [x1, ya, z1], [x1, yb, z1], [x0, yb, z0], wallC));
+      [[-67, 1.5], [-67, 22.5]].forEach(([x, z]) => { Gt.box(x - 0.5, x + 0.5, -0.4, 2.6, z - 0.5, z + 0.5, rub, rub); Gt.box(x - 0.6, x + 0.6, 2.6, 2.72, z - 0.6, z + 0.6, WIN ? rgb('#F4F7FA') : rgb('#D8D2C6')); Ld.box(x - 0.17, x + 0.17, 2.75, 3.15, z - 0.17, z + 0.17, rgb('#FFE2A8')); });
+      Gt.box(-66.97, -66.83, 1.35, 2.45, 10.7, 13.3, rgb('#6E4A36')); [10.2, 13.8].forEach(z => Gt.box(-66.95, -66.85, -0.3, 1.4, z - 0.05, z + 0.05, rgb('#5A3E2E')));
+      for (let i = 0; i < 7; i++) { const x = -36 - i * 4.5, z = 28.5;
+        Gt.box(x - 0.08, x + 0.08, -0.2, WIN ? 1.0 : 1.8, z - 0.08, z + 0.08, WIN ? rgb('#5A4636') : rgb('#E8E4DA'));
+        const cc = WIN ? rgb('#3E5E40') : rgb(['#E0B040', '#D9C050', '#C8A040'][i % 3]), yc = 1.6, yt = WIN ? 4.6 : 3.7, ym = WIN ? 0.9 : 2.6, r = WIN ? 1.3 : 1.05, Q6 = [0, 1, 2, 3, 4, 5].map(k => [x + Math.cos(k * PI / 3 + i) * r, ym, z + Math.sin(k * PI / 3 + i) * r]);
+        for (let k = 0; k < 6; k++) { const a = Q6[k], b = Q6[(k + 1) % 6]; Gt.tri(a, b, [x, yt, z], cc); if (!WIN) Gt.tri(a, b, [x, yc, z], VK.mul(cc, 0.82)); } }
+      gG = Gt.geo();
+      const cv = VK.signCanvas('Отель', { bg: '#6E4A36', fg: '#FFF6E6', border: '#B58B62', size: 56, pad: 24 }), h = 0.7, w = h * cv.width / cv.height, tx = new T.CanvasTexture(cv), p = toMacro(-67.0, 1.9, 12);
+      sign = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshLambertMaterial({ map: tx })); sign.name = 'hotelDistantSign'; sign.position.set(p.x, p.y, p.z); sign.rotation.y = Math.atan2(-FC, FS);   // лицом к −x рамки (к дороге)
+    }
     Bd.box(POOL.x0, POOL.x1, -F0, POOL.h, POOL.z0, POOL.z1, WIN ? rgb('#D6E6EE') : rgb('#9CC8DC'), WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
-    Bd.box(SPA.x0, SPA.x1, -8 - F0, -8 + SPA.h, SPA.z0, SPA.z1, W, WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'));
+    // баня (как relax(): низ — бут, выше — штукатурка, деревянный карниз с плоской кровлей, тёмные большие окна к купелям на юг и
+    // восток, купол хамама, бревенчатая сауна с двускатной кровлей у западного торца) — от ворот она не глухая коробка-постамент
+    { const P = SPA, yh = -8 + P.h, rub = rgb('#C2B496'), roofG = WIN ? rgb('#F4F7FA') : rgb('#8E9A5A'), cz = (P.z0 + P.z1) / 2;
+      Bd.box(P.x0, P.x1, -8 - F0, -6.5, P.z0, P.z1, rub, rub); Bd.box(P.x0, P.x1, -6.5, yh, P.z0, P.z1, W, W);
+      Bd.box(P.x0 - 0.45, P.x1 + 0.45, yh, yh + 0.32, P.z0 - 0.45, P.z1 + 0.45, rgb('#A86C43'), roofG);
+      for (let i = 0; i < 5; i++) { const x = P.x0 + 2.6 + i * 4.7, z = P.z0 - 0.05; Bd.quad([x + 1.6, -6.35, z], [x - 1.6, -6.35, z], [x - 1.6, -4.25, z], [x + 1.6, -4.25, z], winC); }
+      for (let i = 0; i < 2; i++) { const z = P.z0 + 3.6 + i * 6.8, x = P.x1 + 0.05; Bd.quad([x, -6.35, z - 1.6], [x, -6.35, z + 1.6], [x, -4.25, z + 1.6], [x, -4.25, z - 1.6], winC); }
+      { const dx = (P.x0 + P.x1) / 2 + 5.5, dz = cz + 0.5, y0 = yh + 0.32, n = 8, dc = WIN ? rgb('#F4F7FA') : rgb('#F4E8D2'), R = (r, y) => [...Array(n)].map((_, i) => [dx + Math.cos(i / n * TAU) * r, y, dz + Math.sin(i / n * TAU) * r]);
+        const r0 = R(3.2, y0), r1 = R(3.2, y0 + 0.5), r2 = R(2.3, y0 + 1.9), ap = [dx, y0 + 2.8, dz];
+        for (let i = 0; i < n; i++) { const j = (i + 1) % n; Bd.quad(r0[i], r0[j], r1[j], r1[i], VK.mul(dc, 0.94)); Bd.quad(r1[i], r1[j], r2[j], r2[i], dc); Bd.tri(r2[i], r2[j], ap, dc); } }
+      { const x0 = P.x0 - 5.2, x1 = P.x0 - 0.2, z0 = P.z0 + 2.5, z1 = P.z1 - 2.5, zm = (z0 + z1) / 2, ye = -5, yr = -3.4, o = 0.45, lg = rgb('#B07A4E'), rf = WIN ? rgb('#F4F7FA') : rgb('#A8744A');
+        Bd.box(x0, x1, -8 - F0, ye, z0, z1, lg, lg); [x0, x1].forEach(x => Bd.tri([x, ye, z0], [x, ye, z1], [x, yr, zm], lg));
+        [z0 - o, z1 + o].forEach(z => Bd.quad([x0 - 0.3, ye - 0.15, z], [x1 + 0.3, ye - 0.15, z], [x1 + 0.3, yr, zm], [x0 - 0.3, yr, zm], rf)); } }
     COTT.forEach(([x, z]) => { Bd.box(x - 4, x + 4, -8 - F0, -3.6, z - 4.5, z + 4.5, WIN ? rgb('#E9E2DA') : rgb('#B07A4E'), rgb('#5E4A44')); Bd.prismZ(x - 4.5, x + 4.5, z - 5, z + 5, -3.6, 0.4, WIN ? rgb('#F4F7FA') : rgb('#5E4A44'), rgb('#9FC0D6')); });
     // пруд под холмом (тёмная вода; зимой лёд) и светлая лестница по склону
     { const yy = -8 + 0.12, c = WIN ? rgb('#E2EAF2') : rgb('#4E657A'), n = 12; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; const P2 = t => [POND.x + Math.cos(t) * POND.rx, yy, POND.z + Math.sin(t) * POND.rz * (1 - POND.lens * Math.cos(t) * Math.cos(t))]; Bd.tri([POND.x, yy, POND.z], P2(b), P2(a), c); } }
@@ -2338,9 +2378,11 @@
     // без тумана: ночью золотой контур и окна доходят до села тёплыми, а не персиковой дымкой
     const matL = new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, fog: false }); matL.userData.dn = 'window';
     const meshL = new T.Mesh(gL, matL); meshL.name = 'hotelDistantLed'; grp.add(meshL);
+    // у ворот (o.gate): сетка въезда и щит — в userData.near (село рисует их только вблизи: { m, x, z } — середина парковки, макро)
+    const near = []; if (gG) { const mG = new T.Mesh(gG, matB); mG.name = 'hotelDistantGate'; grp.add(mG); grp.add(sign); const c = toMacro(-51, 0, 13); near.push({ m: mG, x: c.x, z: c.z }, { m: sign, x: c.x, z: c.z }); }
     // трос — линия до площадки у села
     let cm = null; if (V.zipline && V.zipline.route) { const R = V.zipline.route('macro'); cm = V.zipline.cableMesh(T, V.zipline.cable(R.from, R.to, R.sag), { color: '#4E4A52' }); grp.add(cm); }
-    grp.userData = { tris: (H.I.length + Bd.I.length + Ld.I.length) / 3, dispose() { gH.dispose(); gB.dispose(); gL.dispose(); matH.dispose(); matB.dispose(); matL.dispose(); if (cm && cm.userData.dispose) cm.userData.dispose(); } };
+    grp.userData = { tris: (H.I.length + Bd.I.length + Ld.I.length + (Gt ? Gt.I.length : 0)) / 3 + (sign ? 2 : 0), near, dispose() { gH.dispose(); gB.dispose(); gL.dispose(); matH.dispose(); matB.dispose(); matL.dispose(); if (gG) { gG.dispose(); sign.geometry.dispose(); sign.material.map.dispose(); sign.material.dispose(); } if (cm && cm.userData.dispose) cm.userData.dispose(); } };
     return grp;
   }
 
