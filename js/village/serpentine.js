@@ -1952,6 +1952,13 @@ void main() {
     // setVillageDetail(false) — силуэт для совсем слабых устройств
     vlod = buildVillageLOD(); root.add(vlod); tryReal();
     let villageFull = true;
+    // вершина: отель на горе к востоку-северо-востоку от села (VILLAGE.regions.hotel.distant) — гору с площадками рисует свой
+    // рельеф (natY с горой), поэтому без холма, стены с цоколем; корпус, башня, стартовая вышка с флажком и трос в село
+    // (≈ 1,4 тыс. тр., 4 вызова; виден над облаками, как село)
+    let hotelFar = null;
+    if (V.regions.hotel && typeof V.regions.hotel.distant === 'function') {
+      try { hotelFar = V.regions.hotel.distant(T, season, { hill: false, foot: 2.5 }); hotelFar.traverse(m => { m.castShadow = false; m.receiveShadow = false; }); root.add(hotelFar); } catch (e) { console.warn('serpentine: hotel distant', e); hotelFar = null; }
+    }
 
     /* ---------- облака: море облаков (2–3 слоя) и облачные клубы у склона ---------- */
     // W6+ (скрин автора с телефона): плоская пелена на CLOUD_TOP, когда дорога ныряет в облако, резала кадр ровной белой
@@ -2207,7 +2214,7 @@ void main() {
       skyU.top.value.copy(cur.top); skyU.hor.value.copy(cur.hor); skyU.bot.value.copy(cur.fog); skyU.sunK.value = t2;
       const above = camY > -99;
       ridges.forEach(r => { r.m.visible = above; r.m.material.color.copy(r.base).lerp(cur.fog, r.f); if (WIN) r.m.material.color.lerp(r.snow, 0.35); });
-      const full = !!realDistant && villageFull; if (vlod) vlod.visible = above && !full; if (realDistant) realDistant.visible = above && full;
+      const full = !!realDistant && villageFull; if (vlod) vlod.visible = above && !full; if (realDistant) realDistant.visible = above && full; if (hotelFar) hotelFar.visible = above;
       if (skyPuffs && !WIN) { skyPuffs.visible = t2 > 0.02; skyPuffs.material.opacity = 0.95 * t2; }
       return { t1, t2, kG };
     }
@@ -2392,12 +2399,13 @@ void main() {
       if (root.parent) root.parent.remove(root);
       if (scene && scene.fog === fog) scene.fog = prevFog;
       if (scene && prevBg !== undefined && scene.background !== prevBg) scene.background = prevBg;
-      const skip = new Set(); if (tur && tur.root) tur.root.traverse(o => skip.add(o)); if (realDistant) realDistant.traverse(o => skip.add(o));
+      const skip = new Set(); if (tur && tur.root) tur.root.traverse(o => skip.add(o)); if (realDistant) realDistant.traverse(o => skip.add(o)); if (hotelFar) hotelFar.traverse(o => skip.add(o));
       root.traverse(o => { if (skip.has(o)) return; if (o.isMesh || o.isPoints) { if (o.geometry && own.indexOf(o.geometry) < 0) o.geometry.dispose(); const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m && own.indexOf(m) < 0) m.dispose(); }); } });
       if (lastCam && prevFar !== null) { lastCam.far = prevFar; lastCam.near = prevNear; lastCam.updateProjectionMatrix(); }
       own.forEach(x => { try { x.dispose && x.dispose(); } catch (e) { /* уже */ } });
       if (ownKit && ownKit.dispose) ownKit.dispose();
       if (realDistant && realDistant.userData && typeof realDistant.userData.dispose === 'function') realDistant.userData.dispose();
+      if (hotelFar && hotelFar.userData && typeof hotelFar.userData.dispose === 'function') hotelFar.userData.dispose();
     }
 
     /* ---------- волна 4: ходьба по дороге (героиня вышла из машины) — столкновения, проходимость, земля, луч камеры ----------
