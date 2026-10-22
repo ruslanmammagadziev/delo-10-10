@@ -220,14 +220,16 @@
   // родник с крышкой: яма в мощёной площадке перед нишей родника (P(31,2; 0,17)), проём 1,1 × 1,5 м; ow/od — проём, ax/az — площадка
   const PIT = (() => { const [x, z] = [31.2 * Math.sin(0.17), 96 - 31.2 * Math.cos(0.17)]; return { x, z, ry: -0.17, ow: 1.1, od: 1.5, ax: 1.15, az: 3.0 }; })();
   const pitSkip = (x, z) => { const [lx, lz] = padLocal(PIT, x, z); return Math.abs(lx) < PIT.ow / 2 + 0.2 && Math.abs(lz) < PIT.od / 2 + 1.15; };
-  const padLocal = (p, x, z) => { const c = Math.cos(p.ry || 0), s = Math.sin(p.ry || 0), dx = x - p.x, dz = z - p.z; return [dx * c - dz * s, dx * s + dz * c]; };
+  // поворот площадки — cos/sin помним у неё (пока ry тот же): модель земли зовёт padAt на каждую точку (сетка ходьбы — ≈ 0,6 млн)
+  const padCS = p => { const ry = p.ry || 0; if (p._csR !== ry) { p._csR = ry; p._csC = Math.cos(ry); p._csS = Math.sin(ry); } return p; };
+  const padLocal = (p, x, z) => { padCS(p); const c = p._csC, s = p._csS, dx = x - p.x, dz = z - p.z; return [dx * c - dz * s, dx * s + dz * c]; };
   // 0 — вне, 1 — внутри; между — плавный край ширины m; и сама площадка. Сначала «внутри» любой площадки, потом ближайший
   // край: площадки школы (корпус и двор) стыкуются внахлёст — край одной не перебивает соседнюю
   function padAt(x, z) {
-    for (let i = 0; i < PADS.length; i++) { const p = PADS[i], [lx, lz] = padLocal(p, x, z); if (Math.abs(lx) <= p.w / 2 && Math.abs(lz) <= p.d / 2) return { p, k: 1 }; }
+    for (let i = 0; i < PADS.length; i++) { const p = padCS(PADS[i]), dx = x - p.x, dz = z - p.z, lx = dx * p._csC - dz * p._csS, lz = dx * p._csS + dz * p._csC; if (Math.abs(lx) <= p.w / 2 && Math.abs(lz) <= p.d / 2) return { p, k: 1 }; }
     let best = null;
     for (let i = 0; i < PADS.length; i++) {
-      const p = PADS[i], [lx, lz] = padLocal(p, x, z), ox = Math.max(0, Math.abs(lx) - p.w / 2), oz = Math.max(0, Math.abs(lz) - p.d / 2);
+      const p = PADS[i], dx = x - p.x, dz = z - p.z, lx = dx * p._csC - dz * p._csS, lz = dx * p._csS + dz * p._csC, ox = Math.max(0, Math.abs(lx) - p.w / 2), oz = Math.max(0, Math.abs(lz) - p.d / 2);
       const d = Math.hypot(ox, oz); if (d < p.m) { const k = 1 - sst(0, p.m, d); if (!best || k > best.k) best = { p, k }; }
     }
     return best;
@@ -261,7 +263,7 @@
      build), профиль — по видимому рельефу (уклон ≤ grade), на площадках — ровно; полотно, трава-обочина SHOULDER (шире
      ячейки сетки: земля не выглядывает поверх полотна), откос OBANK к рельефу. Прежние проезды и их ключи — без изменений
      ===================================================================== */
-  const SHOULDER = 2.3, OBANK = 5.0;
+  const SHOULDER = 2.3, OBANK = 5.0, BANKH = 0.8;   // BANKH — вершина: выемка выше 0,8 м — откос землёй (вдали — лента roadsGeo)
   // оси (поверено по видимому рельефу, шпильки R 7,5–8 с уклоном ≈ 4 % на дуге — fix, ноги серпантина в 16 м друг от друга;
   // plan2: %TEMP%/lf/vroads/geo/routes_v2.json): на запад — по гребню и плато к смотровой и вокруг носа к уступу; серпантин —
   // со смотровой четырьмя ногами по юго-западному склону вниз, к нижнему лугу; на север — за школой к дороге в отель;
@@ -623,15 +625,15 @@
       return best;
     }
     const segInfo = (x, z, a, b) => { const vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz, t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / l2, 0, 1); return { t, d: Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t) }; };
-    function roadInfo(x, z) {
-      let best = null;
-      for (let i = 0; i < ROAD.length - 1; i++) { const s = segInfo(x, z, ROAD[i], ROAD[i + 1]); if (!best || s.d < best.d) best = { d: s.d, i, t: s.t }; }
-      return best;
+    function roadInfo(x, z) {   // как segInfo по отрезкам, без объекта на отрезок (зовут на каждую точку модели)
+      let bd = Infinity, bi = 0, bt = 0;
+      for (let i = 0; i < ROAD.length - 1; i++) { const a = ROAD[i], b = ROAD[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz, t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / l2, 0, 1), d = Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t); if (i === 0 || d < bd) { bd = d; bi = i; bt = t; } }
+      return ROAD.length > 1 ? { d: bd, i: bi, t: bt } : null;
     }
     const roadLevel = (i, t) => { const x = lerp(ROAD[i][0], ROAD[i + 1][0], t); return x < 62 ? 0 : -(x - 62) * 0.07; };
     // крыша-терраса (h001): плоская крыша на +2,4 и лестница вдоль задней стены с гребневой тропы
     const RT = houses.find(h => h.tag === 'roof_terrace');
-    const rtLocal = (x, z) => { const c = Math.cos(RT.ry), s = Math.sin(RT.ry), dx = x - RT.x, dz = z - RT.z; return [dx * c - dz * s, dx * s + dz * c]; };
+    const RTC = Math.cos(RT.ry), RTS = Math.sin(RT.ry), rtLocal = (x, z) => { const dx = x - RT.x, dz = z - RT.z; return [dx * RTC - dz * RTS, dx * RTS + dz * RTC]; };
 
     // главная функция высоты: { y, kind } — с ровными площадками волны 4 (PADS: свадебный двор, школа) и проездами волны 6
     function base(x, z, pd) {
@@ -1012,6 +1014,44 @@
     }
     const OUTR = FAR ? null : outerRoads();
     const keepG = (x, z) => (FAR ? 0 : OUTR.zone(x, z) ? 1 : keepGin(x, z));
+    // глубина внутри ядра села или плато (там видна их земля, фон под ней), снаружи — −1 (заливка фона у внешних дорог и дальний план заливки)
+    const rfDepth = (x, z) => { if (inUPL(x, z)) return Math.min(uplOuter(x, z), uplInner(x, z)); const [r, ph] = polar(x, z); return r > 20.5 && r < 136 && Math.abs(ph) < 1 ? Math.min(r - 20.5, 136 - r, (1 - Math.abs(ph)) * r) : -1; };
+    // вершина: откос выемки дороги наверх у точки оси i со стороны sg (склон за травой обочины выше полотна на ≥ BANKH) — n точек
+    // [x, z] поперёк, от травы обочины до верха откоса; null — выемки нет или откос заходит на другую ногу (внутри шпильки, на
+    // крутом изгибе: ряды сходятся и перехлёстываются). Одни и те же точки — у ленты откоса вдали (roadsGeo) и у опускания грубой заливки под неё
+    // высота модели G без полного расчёта (он дорог, а точек ленты и откосов — десятки тысяч), точно как model.setOuter: вне ядра
+    // и плато у внешней дороги на полотне, обочине и траве — уровень дороги, на откосе — врезка к нарисованному фону; у площадок модели,
+    // прежних проездов и у башни (скалы, тропа — KEEPK) — G
+    const FQ = {}, FRQ = {}, gFast = (x, z) => { if (rfDepth(x, z) >= 0 || padAt(x, z)) return G(x, z); const q = OUTR.near(x, z, FQ); if (!q) return G(x, z);
+      const r = model.RN.near(x, z, true, FRQ); if (r && r.d < r.hw + VERGE + BANK) return G(x, z);
+      return q.d <= q.hw + VERGE + SHOULDER ? q.y : Math.hypot(x - TOWER.x, z - TOWER.z) > 150 ? OUTR.carveAt(x, z, q, BGL.vis(x, z)) : G(x, z); };
+    const BQ = {}, bankPts = (R, i, sg, n) => { const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L * sg, lz = -dx / L * sg, fl = R.hw + VERGE + SHOULDER;
+      if (gFast(R.x[i] + lx * (fl + OBANK), R.z[i] + lz * (fl + OBANK)) - R.y[i] < BANKH) return null;
+      const out = []; for (let k = 0; k < n; k++) { const d = fl + OBANK * k / (n - 1), x = R.x[i] + lx * d, z = R.z[i] + lz * d, q = OUTR.near(x, z, BQ); if (q && q.d < d - 0.5) return null; out.push([x, z]); }
+      return out; };
+    // вершина: дальний план заливки фона и ленты внешних дорог (bgRefill, roadsGeo) — кусками по 80 м вне ядра и плато: у куска
+    // подробные сетки и грубые; грубо — пока камера дальше D от края куска (update из modGuard). Сетки склеены по 30° азимута
+    // вокруг башни (group: заливка — вместе с всегда подробной частью заливки, лента — своя): в индексе — всегда подробное и куски в нужном
+    // состоянии и в кадре (вызовов — как раньше, по сектору). Только вид. force — 'near' | 'far' (проверки: все куски, без кадра)
+    const RF_LOD = { D: 200, Dh: 140, map: new Map(), groups: [], force: null, FR: new T.Frustum(), PM: new T.Matrix4(),
+      key: (x, z) => Math.floor(x / 80) + ',' + Math.floor(z / 80),
+      sec: k => { const [a, b] = k.split(',').map(Number); return Math.floor((Math.atan2((a + 0.5) * 80 - OPP.TX, (b + 0.5) * 80 - OPP.TZ) / D2R + 360) / 30) % 12; },
+      // m — склеенная сетка, ranges — [кусок, начало, длина, вид] в индексе сетки: вид 0 — всегда (кусок null), 1 — вблизи, 2 — вдали
+      group(m, ranges) { const g = m.geometry, p = g.attributes.position.array, full = Uint32Array.from(g.index.array), F = { m, full, ranges, dirty: true };
+        g.setIndex(new T.BufferAttribute(g.attributes.position.count > 65535 ? new Uint32Array(full.length) : new Uint16Array(full.length), 1));
+        ranges.forEach(([k, s0, c, v]) => { if (!v) return; let L = this.map.get(k); if (!L) this.map.set(k, L = { gs: new Set(), bb: [1e9, -1e9, 1e9, -1e9, 1e9, -1e9], isFar: false, inV: true }); L.gs.add(F);
+          for (let q = s0; q < s0 + c; q++) { const w = full[q] * 3; for (let d = 0; d < 3; d++) { L.bb[d * 2] = Math.min(L.bb[d * 2], p[w + d]); L.bb[d * 2 + 1] = Math.max(L.bb[d * 2 + 1], p[w + d]); } } });
+        this.groups.push(F); this.fill(F); },
+      fill(F) { const a = F.m.geometry.index.array; let n = 0;
+        F.ranges.forEach(([k, s0, c, v]) => { const L = v && this.map.get(k); if (!v || (L.inV && L.isFar === (v === 2))) { a.set(F.full.subarray(s0, s0 + c), n); n += c; } });
+        F.m.geometry.setDrawRange(0, n); F.m.geometry.index.needsUpdate = true; F.m.visible = n > 0; F.dirty = false; },
+      update(c, cam) {
+        let fr = null; if (!this.force && cam && cam.projectionMatrix) { cam.updateMatrixWorld(); fr = this.FR.setFromProjectionMatrix(this.PM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); }
+        for (const L of this.map.values()) {
+          if (!L.sph) { const b = L.bb; L.sph = new T.Sphere(new T.Vector3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2), Math.hypot(b[1] - b[0], b[3] - b[2], b[5] - b[4]) / 2 + 2); }
+          const far = this.force ? this.force === 'far' : c.distanceTo(L.sph.center) - L.sph.radius > (VFAR.on ? this.Dh : this.D), inV = !fr || fr.intersectsSphere(L.sph);
+          if (L.isFar !== far || L.inV !== inV) { L.isFar = far; L.inV = inV; L.gs.forEach(F => { F.dirty = true; }); } }
+        for (const F of this.groups) if (F.dirty) this.fill(F); } };
     // решётка фона: кольца rhos (как в backdrop) × NA азимутов; vy(i, j) — высота вершины (та же формула, что рисует фон),
     // tri(x, z) — треугольник и веса, vis(x, z) — высота нарисованного фона в точке
     function bgLattice() {
@@ -1019,7 +1059,10 @@
       // силуэт горы с села ровнее; остальное — как было
       const RMAX = 1210, rhos = [], band = r => SUMMIT && r > 220 && r < 640; { let r = 0, st = 3; while (r < RMAX) { rhos.push(r); r += band(r) ? Math.min(st, 24) : st; st = Math.min(HI ? 55 : 70, st * (HI ? 1.075 : 1.1) + 0.15); } rhos.push(RMAX); }
       const NA = HI ? 160 : 112, W = NA + 1, Y = new Float32Array(rhos.length * W).fill(NaN), TX = OPP.TX, TZ = OPP.TZ;
-      const vx = (i, j) => TX + Math.sin(j / NA * TAU) * rhos[i], vz = (i, j) => TZ + Math.cos(j / NA * TAU) * rhos[i];
+      // вершины решётки — заранее (те же формулы; их зовут миллионы раз: модель у внешних дорог, заливка, ходьба)
+      const VX = new Float64Array(rhos.length * W), VZ = new Float64Array(rhos.length * W);
+      for (let i = 0; i < rhos.length; i++) for (let j = 0; j < W; j++) { VX[i * W + j] = TX + Math.sin(j / NA * TAU) * rhos[i]; VZ[i * W + j] = TZ + Math.cos(j / NA * TAU) * rhos[i]; }
+      const vx = (i, j) => (j >= 0 && j < W ? VX[i * W + j] : TX + Math.sin(j / NA * TAU) * rhos[i]), vz = (i, j) => (j >= 0 && j < W ? VZ[i * W + j] : TZ + Math.cos(j / NA * TAU) * rhos[i]);
       function vy(i, j) {
         const q = i * W + j; if (Y[q] === Y[q]) return Y[q];
         const a = j / NA * TAU, rho = rhos[i], x = TX + Math.sin(a) * rho, z = TZ + Math.cos(a) * rho;
@@ -1027,26 +1070,31 @@
         if (inUPL(x, z)) { const pd = padAt(x, z); if (pd) y = Math.min(y, Math.min(model.yIn(x, z), pd.p.y) - 0.1); }   // под площадками школы фон ниже земли (по прежней модели)
         return (Y[q] = y);
       }
-      function cell(x, z) {
+      // клетка одним числом i·NA + j, без массива (вершина: разметка выреза у дорог зовёт cellQ ≈ 0,6 млн раз)
+      function cellQ(x, z) {
         const dx = x - TX, dz = z - TZ, rho = Math.hypot(dx, dz); let a = Math.atan2(dx, dz); if (a < 0) a += TAU;
         let lo = 0, hi = rhos.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (rhos[m] <= rho) lo = m; else hi = m - 1; }
-        return [lo, Math.min(NA - 1, Math.floor(a / TAU * NA))];
+        return lo * NA + Math.min(NA - 1, Math.floor(a / TAU * NA));
       }
-      const bary = (x, z, ax, az, bx, bz, cx, cz) => { const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz), u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d; return [u, v, 1 - u - v]; };
-      // клетка (i, j) — треугольники (i,j)(i+1,j)(i,j+1) и (i,j+1)(i+1,j)(i+1,j+1), как в backdrop; у хорды кольца точка бывает в соседней
-      function tri(x, z) {
-        const [i0, j0] = cell(x, z); let best = null, bm = -1e9;
-        for (const [di, dj] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
-          const i = i0 + di, j = (j0 + dj + NA) % NA; if (i < 0 || i >= rhos.length - 1) continue;
-          for (const Tq of [[[i, j], [i + 1, j], [i, j + 1]], [[i, j + 1], [i + 1, j], [i + 1, j + 1]]]) {
-            const w = bary(x, z, vx(Tq[0][0], Tq[0][1]), vz(Tq[0][0], Tq[0][1]), vx(Tq[1][0], Tq[1][1]), vz(Tq[1][0], Tq[1][1]), vx(Tq[2][0], Tq[2][1]), vz(Tq[2][0], Tq[2][1])), m = Math.min(w[0], w[1], w[2]);
-            if (m > bm) { bm = m; best = [Tq, w]; } if (m >= -1e-9) return best;
+      function cell(x, z) { const q = cellQ(x, z); return [Math.floor(q / NA), q % NA]; }
+      // клетка (i, j) — треугольники (i,j)(i+1,j)(i,j+1) и (i,j+1)(i+1,j)(i+1,j+1), как в backdrop; у хорды кольца точка бывает в соседней.
+      // triS — без массивов на кандидата (порядок кандидатов и формулы весов — прежние): итог в TS = [ia, ja, ib, jb, ic, jc] и TW
+      const NB5 = [0, 0, -1, 0, 1, 0, 0, -1, 0, 1], TS = new Int32Array(6), TW = new Float64Array(3);
+      function triS(x, z) {
+        const q0 = cellQ(x, z), i0 = Math.floor(q0 / NA), j0 = q0 % NA; let bm = -1e9;
+        for (let n = 0; n < 10; n += 2) {
+          const i = i0 + NB5[n], j = (j0 + NB5[n + 1] + NA) % NA; if (i < 0 || i >= rhos.length - 1) continue;
+          for (let k = 0; k < 2; k++) {
+            const ia = i, ja = k ? j + 1 : j, ib = i + 1, jb = j, ic = k ? i + 1 : i, jc = j + 1;
+            const ax = VX[ia * W + ja], az = VZ[ia * W + ja], bx = VX[ib * W + jb], bz = VZ[ib * W + jb], cx = VX[ic * W + jc], cz = VZ[ic * W + jc];
+            const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz), u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d, w = 1 - u - v, m = Math.min(u, v, w);
+            if (m > bm) { bm = m; TS[0] = ia; TS[1] = ja; TS[2] = ib; TS[3] = jb; TS[4] = ic; TS[5] = jc; TW[0] = u; TW[1] = v; TW[2] = w; } if (m >= -1e-9) return;
           }
         }
-        return best;
       }
-      const vis = (x, z) => { const [Tq, w] = tri(x, z); return vy(Tq[0][0], Tq[0][1]) * w[0] + vy(Tq[1][0], Tq[1][1]) * w[1] + vy(Tq[2][0], Tq[2][1]) * w[2]; };
-      return { rhos, NA, vx, vz, vy, cell, tri, vis };
+      function tri(x, z) { triS(x, z); return [[[TS[0], TS[1]], [TS[2], TS[3]], [TS[4], TS[5]]], [TW[0], TW[1], TW[2]]]; }
+      const vis = (x, z) => { triS(x, z); return vy(TS[0], TS[1]) * TW[0] + vy(TS[2], TS[3]) * TW[1] + vy(TS[4], TS[5]) * TW[2]; };
+      return { rhos, NA, vx, vz, vy, cell, cellQ, tri, vis };
     }
     // сеть внешних дорог и врезка: zone(x, z) — в зоне дороги; near — ближайшая ось/площадка; carveY(q, v) — высота у дороги
     function outerRoads() {
@@ -2127,45 +2175,69 @@
     // полотно всех проездов одной сеткой (1 вызов): 7 вершин поперёк (кромка — земля, переходящая в траву: мягкий край без
     // бордюров и ограждений), разворот и карман — кругами. Высота — по модели земли (+6 см, кромка +10 см)
     function roadsGeo() {
-      const grassT = WIN ? C('snowGround') : mix(C('grass'), C('grass2'), 0.4);
+      const grassT = WIN ? C('snowGround') : mix(C('grass'), C('grass2'), 0.4), BANKC = WIN ? rgb('#D3DAE0') : rgb('#B8966E');
       const tint = k => (k === 'earth' ? (WIN ? [0.97, 0.97, 0.98] : rgb('#E2CDAA')) : [1, 1, 1]);   // грунтовка теплее и темнее мощения
       const colAt = (tn, k, x, z) => (k === 'edge' ? mix(mul(tn, 0.84), grassT, 0.6) : mul(tn, (k === 'side' ? 0.9 : 0.97) + 0.05 * VK.vnoise(x * 0.4, z * 0.4)));
       // волна 7: и внешние дороги — своей сеткой (у неё сдвиг глубины меньше: на стыке с прежним полотном и разворотом сверху
       // прежнее, без ряби); на чужом полотне или площадке кромка — не трава (цвет полотна), ряды внутри площадки — не рисуем,
       // площадки внешних — на 2 см выше их дорог; на изломах профиля (шпилька, край площадки) ряд — каждый метр
       const under = (x, z, self, o) => { const q = model.roadNear(x, z); return !!(q && q.id !== self && q.o < o); };
-      const mesh = (roads, disks, units, name) => {
-        const Pp = [], Nn = [], Uu = [], Cc = [], Ii = []; let nv = 0;
-        const vert = (x, y, z, c) => { Pp.push(x, y, z); Nn.push(0, 1, 0); Uu.push(x / 2.6, z / 2.6); Cc.push(c[0], c[1], c[2]); return nv++; };
+      // вершина: откос выемки у дороги наверх — землёй: снизу, из села, полотна на полке не видно — видны выемки, по ним серпантин
+      // и читается на склоне горы. Лента откоса — только у дальней ленты (вблизи откос красит сама заливка фона, bgRefill: вершины
+      // заливки и лента не совпадают — лента рвалась бы зубцами); столбцы — по откосу (рельеф G, bankPts)
+      const bankRow = (R, i, sg, up) => { const P = bankPts(R, i, sg, 5); if (!P) return null;   // точки — те же, что у опускания заливки; в ленте — через одну
+        const out = [P[0], P[2], P[4]].map(([x, z], k) => [x, gFast(x, z) + up, z, mix(mul(BANKC, 0.9 + 0.14 * VK.vnoise(x * 0.3, z * 0.3)), grassT, k === 2 ? 0.45 : 0)]);
+        return sg > 0 ? out : out.reverse(); };
+      // вершина: внешние дороги вне ядра и плато — кусками по 80 м (RF_LOD, как дальний план заливки фона): у куска лента подробная
+      // (как раньше) и дальняя — без кромок-травы (полотно ±hw), ряд через ~4 м на изгибах и ~8 м на прямых (lod)
+      const mesh = (roads, disks, units, name, lod) => {
+        const po = { map, vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: units }, mat = K.BAKED ? K.keep(new T.MeshBasicMaterial(po)) : K.toon('#FFFFFF', po);
+        const bufs = new Map(), buf = k => { let B = bufs.get(k); if (!B) bufs.set(k, B = { Pp: [], Nn: [], Uu: [], Cc: [], Ii: [], nv: 0 }); return B; };
+        const vert = (B, x, y, z, c) => { B.Pp.push(x, y, z); B.Nn.push(0, 1, 0); B.Uu.push(x / 2.6, z / 2.6); B.Cc.push(c[0], c[1], c[2]); return B.nv++; };
+        // полоса по рядам (ряд — точки поперёк [x, y, z, цвет] или null): отрезок между рядами — в кусок keys[r] (null — не рисуем), вершины — свои у куска
+        const strip = (rows, keys) => { let pB = null, pr = -1, pid = null;
+          for (let r = 0; r < rows.length - 1; r++) { const A = rows[r], Bn = rows[r + 1]; if (!A || !Bn || keys[r] === null) continue; const B = buf(keys[r]);
+            const ia = B === pB && pr === r ? pid : A.map(p => vert(B, p[0], p[1], p[2], p[3])), ib = Bn.map(p => vert(B, p[0], p[1], p[2], p[3]));
+            for (let k = 0; k < A.length - 1; k++) B.Ii.push(ia[k], ib[k], ia[k + 1], ia[k + 1], ib[k], ib[k + 1]);
+            pB = B; pr = r + 1; pid = ib; } };
         roads.forEach(R => {
-          const tn = tint(R.kind), rows = [], offs = [-(R.hw + 0.45), -R.hw, 0, R.hw, R.hw + 0.45];   // полотно ровное поперёк: середина — одна линия
+          const tn = tint(R.kind), offs = [-(R.hw + 0.45), -R.hw, 0, R.hw, R.hw + 0.45];   // полотно ровное поперёк: середина — одна линия
           // ряды через ~2 м (точки сети — через ~1 м): на изгибах хорда отходит от оси на считанные сантиметры
           // вершина: у дальней дороги (> 600 м) на прямых ногах — ряд через ~4 м (повороты и изломы профиля — через 1–2 м)
           const far = R.len > 600, bend = i => { const a = Math.max(0, i - 2), b = Math.min(R.n - 1, i + 2), t1 = Math.atan2(R.x[i] - R.x[a], R.z[i] - R.z[a]), t2 = Math.atan2(R.x[b] - R.x[i], R.z[b] - R.z[i]); return Math.abs(Math.atan2(Math.sin(t2 - t1), Math.cos(t2 - t1))) > 0.04; };
-          const keep = []; for (let i = 0; i < R.n; i++) if (i % (far && !bend(i) ? 4 : 2) === 0 || i === R.n - 1 || (R.outer && Math.abs(R.y[i - 1] - 2 * R.y[i] + R.y[i + 1]) > 0.02)) keep.push(i);
-          for (const i of keep) {
-            if (R.outer && under(R.x[i], R.z[i], R.id, -1.0)) { rows.push(null); continue; }
+          const brk = i => R.outer && i > 0 && i < R.n - 1 && Math.abs(R.y[i - 1] - 2 * R.y[i] + R.y[i + 1]) > 0.02;
+          const row = (i, ks) => { if (R.outer && under(R.x[i], R.z[i], R.id, -1.0)) return null;
             const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L;
-            rows.push(offs.map((e, k) => { const x = R.x[i] + lx * e, z = R.z[i] + lz * e; let kk = k === 0 || k === 4 ? 'edge' : k === 1 || k === 3 ? 'side' : 'mid'; if (kk === 'edge' && OUTR && under(x, z, R.id, 0)) kk = 'side'; return vert(x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06), z, colAt(tn, kk, x, z)); }));
-          }
-          for (let i = 0; i < rows.length - 1; i++) if (rows[i] && rows[i + 1]) for (let k = 0; k < 4; k++) { const a = rows[i][k], b = rows[i][k + 1], c2 = rows[i + 1][k + 1], d = rows[i + 1][k]; Ii.push(a, d, b, b, d, c2); }
+            return ks.map(k => { const e = offs[k], x = R.x[i] + lx * e, z = R.z[i] + lz * e; let kk = k === 0 || k === 4 ? 'edge' : k === 1 || k === 3 ? 'side' : 'mid'; if (kk === 'edge' && OUTR && under(x, z, R.id, 0)) kk = 'side'; return [x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06), z, colAt(tn, kk, x, z)]; }); };
+          const keep = []; for (let i = 0; i < R.n; i++) if (i % (far && !bend(i) ? 4 : 2) === 0 || i === R.n - 1 || brk(i)) keep.push(i);
+          const keys = keep.map(i => (lod && rfDepth(R.x[i], R.z[i]) < 0 ? RF_LOD.key(R.x[i], R.z[i]) : '')), lodOn = keys.some(k => k);
+          const rowsN = keep.map(i => row(i, [0, 1, 2, 3, 4])); strip(rowsN, keys);
+          // дальняя: ряды — из подробных (на стыке кусков — общий ряд), отрезок — в дальний кусок 'F' + ключ; вне кусков — нет (там подробная всегда)
+          const fr = [], fkeys = []; if (lodOn) keep.forEach((i, r) => { if (r === 0 || r === keep.length - 1 || keys[r] !== keys[r - 1] || i % (bend(i) ? 4 : 8) === 0 || brk(i)) { fr.push(r); fkeys.push(keys[r] ? 'F' + keys[r] : null); } });
+          if (lodOn) strip(fr.map(r => rowsN[r] && rowsN[r].slice(1, 4)), fkeys);   // точки — те же, что у подробной
+          if (R.id === 'summit' && lodOn) [-1, 1].forEach(sg => strip(fr.map(r => bankRow(R, keep[r], sg, 0.12)), fkeys));
         });
+        const D0 = buf('');
         disks.forEach(D => {
-          const tn = tint(D.kind), seg = 22, rings = [D.r * 0.5, D.r, D.r + 0.45], up = D.outer ? 0.02 : 0, c0 = vert(D.x, G(D.x, D.z) + 0.06 + up, D.z, colAt(tn, 'mid', D.x, D.z)), ids = [];
-          rings.forEach((rr, ri) => { const row = []; for (let s = 0; s < seg; s++) { const a = s / seg * TAU, x = D.x + Math.sin(a) * rr, z = D.z + Math.cos(a) * rr; let kk = ri === 2 ? 'edge' : ri === 1 ? 'side' : 'mid'; if (kk === 'edge' && OUTR && under(x, z, D.id, 0)) kk = 'side'; row.push(vert(x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06) + up, z, colAt(tn, kk, x, z))); } ids.push(row); });
-          for (let s = 0; s < seg; s++) Ii.push(c0, ids[0][s], ids[0][(s + 1) % seg]);
-          for (let ri = 0; ri < ids.length - 1; ri++) for (let s = 0; s < seg; s++) { const s1 = (s + 1) % seg, a = ids[ri][s], b = ids[ri][s1], c2 = ids[ri + 1][s1], d = ids[ri + 1][s]; Ii.push(a, d, b, b, d, c2); }
+          const tn = tint(D.kind), seg = 22, rings = [D.r * 0.5, D.r, D.r + 0.45], up = D.outer ? 0.02 : 0, c0 = vert(D0, D.x, G(D.x, D.z) + 0.06 + up, D.z, colAt(tn, 'mid', D.x, D.z)), ids = [];
+          rings.forEach((rr, ri) => { const row = []; for (let s = 0; s < seg; s++) { const a = s / seg * TAU, x = D.x + Math.sin(a) * rr, z = D.z + Math.cos(a) * rr; let kk = ri === 2 ? 'edge' : ri === 1 ? 'side' : 'mid'; if (kk === 'edge' && OUTR && under(x, z, D.id, 0)) kk = 'side'; row.push(vert(D0, x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06) + up, z, colAt(tn, kk, x, z))); } ids.push(row); });
+          for (let s = 0; s < seg; s++) D0.Ii.push(c0, ids[0][s], ids[0][(s + 1) % seg]);
+          for (let ri = 0; ri < ids.length - 1; ri++) for (let s = 0; s < seg; s++) { const s1 = (s + 1) % seg, a = ids[ri][s], b = ids[ri][s1], c2 = ids[ri + 1][s1], d = ids[ri + 1][s]; D0.Ii.push(a, d, b, b, d, c2); }
         });
-        if (!Ii.length) return null;
-        const g = new T.BufferGeometry();
-        g.setAttribute('position', new T.Float32BufferAttribute(Pp, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(Nn, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(Uu, 2)); g.setAttribute('color', new T.Float32BufferAttribute(Cc, 3));
-        g.setIndex(Ii); g.computeBoundingSphere();
-        const po = { map, vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: units };
-        const m = new T.Mesh(K.keep(g), K.BAKED ? K.keep(new T.MeshBasicMaterial(po)) : K.toon('#FFFFFF', po)); m.name = name; m.renderOrder = 1; return m;
+        const mk = B => { if (!B.Ii.length) return null; const g = new T.BufferGeometry();
+          g.setAttribute('position', new T.Float32BufferAttribute(B.Pp, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(B.Nn, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(B.Uu, 2)); g.setAttribute('color', new T.Float32BufferAttribute(B.Cc, 3));
+          g.setIndex(B.Ii); g.computeBoundingSphere(); const m = new T.Mesh(K.keep(g), mat); m.name = name; m.renderOrder = 1; return m; };
+        const m0 = mk(D0); if (!lod) return m0;
+        const by = new Map(); bufs.forEach((B, k) => { if (!k) return; const f = k[0] === 'F', ck = f ? k.slice(1) : k, sc = RF_LOD.sec(ck); if (!by.has(sc)) by.set(sc, []); by.get(sc).push([ck, B, f ? 2 : 1]); });   // ленты кусков — по 30° (подробная и дальняя — одной сеткой)
+        const groups = [...by.values()].map(L => { const M = { Pp: [], Nn: [], Uu: [], Cc: [], Ii: [], nv: 0 }, ranges = [];
+          L.forEach(([k, B, v]) => { const o = M.nv; ranges.push([k, M.Ii.length, B.Ii.length, v]); for (let q = 0; q < B.Pp.length; q++) { M.Pp.push(B.Pp[q]); M.Nn.push(B.Nn[q]); M.Cc.push(B.Cc[q]); } for (let q = 0; q < B.Uu.length; q++) M.Uu.push(B.Uu[q]); for (let q = 0; q < B.Ii.length; q++) M.Ii.push(B.Ii[q] + o); M.nv += B.nv; });
+          return { m: mk(M), ranges }; });
+        return { m: m0, groups };
       };
       const map = roadTex();
       W6.roadMesh = mesh(RNET.roads, RNET.disks, -2, 'roads');
-      W6.roadMeshOuter = OUTR ? mesh(OUTR.net.roads, OUTR.net.disks, -1, 'roadsOuter') : null;
+      const RO = OUTR ? mesh(OUTR.net.roads, OUTR.net.disks, -1, 'roadsOuter', true) : null;
+      W6.roadMeshOuter = RO ? RO.m : null; W6.roadLod = RO;   // вершина: куски ленты дальнего плана (RF_LOD)
     }
     // верхнее плато: своя сетка 2 м по модели земли (атлас, 1 вызов вместе со школой); у проездов клетки делятся на 4 (1 м —
     // земля не выглядывает поверх полотна в выемках); у внешнего края цвет сходит к фону, юбка — только у стыка с ядром села
@@ -2611,22 +2683,22 @@
       if (OUTR) {
         const arrow = (D, x, z, to) => { const f = Math.atan2(x - D.x, z - D.z), t = Math.atan2(to[0] - D.x, to[1] - D.z), rel = Math.atan2(Math.sin(t - f), Math.cos(t - f)), a = Math.abs(rel);
           return a < 0.87 ? '↑' : a > 2.27 ? '↓' : rel < 0 ? '→' : '←'; };
-        const post = (id, items) => { const D = OUTR.net.disks.find(q => q.id === id); if (!D) return;
-          for (let k = 0; k < 24; k++) { const a = k / 24 * TAU, x = D.x + Math.sin(a) * (D.r + 1.6), z = D.z + Math.cos(a) * (D.r + 1.6), q = model.roadNear(x, z);
+        const post = (id, items, a0 = 0) => { const D = OUTR.net.disks.find(q => q.id === id); if (!D) return;   // a0 — с какого направления искать место
+          for (let k = 0; k < 24; k++) { const a = a0 + k / 24 * TAU, x = D.x + Math.sin(a) * (D.r + 1.6), z = D.z + Math.cos(a) * (D.r + 1.6), q = model.roadNear(x, z);
             if ((q && q.o < 1.2) || Math.abs(G(x, z) - D.y) > 0.5) continue;
             signPost(x, z, items.map(([text, to]) => { const ar = arrow(D, x, z, to); return { text: ar === '→' ? text + ' →' : ar + ' ' + text, ry: Math.atan2(D.x - x, D.z - z) }; })); return; } };
         post('jWest', [['Уступ, серпантин', [-30, -38.3]], ['Северная дорога', [-22, -46]], ['Башня', [-13.4, -31]]]);
         post('plaza', [['Серпантин, к лугу', [-98, 36.12]], ['Уступ', [-85.44, 32.31]], ['Башня', [-91, 16.5]]]);
         post('jUp', [['Восточное кольцо', [56.5, -80]], ['Северная дорога', [50.5, -90]]]);
         post('meadow', [['К роднику — пешком', [5, 64]]]);
-        post('jHotel', [['Отель на вершине', [100, -110]], ['Школа, село', [72, -98]]]);
+        post('jHotel', [['Отель на вершине', [100, -110]], ['Школа, село', [72, -98]]], 150 * D2R);   // вершина: справа у выезда наверх, лицом к едущему от школы («↑ Отель на вершине»)
       }
     }
     // вершина: где передохнуть по пути наверх (SUMMIT.rest) — скамейка или смотровая (столбик с подзорной трубой) на траве у
     // обочины со стороны села, лицом к нему; места — в spots (sit/view), виды summit_rest_* — со спины на село
     function summitRestGeo() {
       const Sr = OUTR && OUTR.net.roads.find(R => R.id === 'summit'); if (!Sr || !SUMMIT.rest) return;
-      const db = W6.detB, wd = C('wood'), iron = rgb('#4A4E52'); W6.summitRest = [];
+      W6.sumB = new K.Baker('vc'); const db = W6.sumB, wd = C('wood'), iron = rgb('#4A4E52'); W6.summitRest = [];   // своя сетка (мелочь двора школы прячется вдали — эта нет)
       SUMMIT.rest.forEach(r => {
         let i = 0; while (i < Sr.n - 2 && Sr.s[i] < r.s) i++;
         const th = Math.atan2(Sr.x[i + 1] - Sr.x[i - 1], Sr.z[i + 1] - Sr.z[i - 1]), lx = Math.cos(th), lz = -Math.sin(th), side = ((TOWER.x - Sr.x[i]) * lx + (TOWER.z - Sr.z[i]) * lz) > 0 ? 1 : -1;
@@ -2644,6 +2716,12 @@
         const seat = r.kind === 'bench' ? BF.p(0, 0.45, 0.02) : null, cam = r.kind === 'bench' ? BF.p(0, 1.6, -2.6) : BF.p(0, 1.75, 0.55), at = r.kind === 'bench' ? BF.p(0, 0, 0.7) : BF.p(-1.3, 0, -0.2);
         W6.summitRest.push({ id: r.id, kind: r.kind, label: r.label, x, y, z, ry, seat, view: 'summit_rest_' + r.id, cam, at, s: r.s });
       });
+      // житель по пути пешком: у смотровой (чуть выше по дороге) на траве обочины по другую сторону пасётся овечка, лицом к селу
+      // (residents; реплики — lines.js summit_sheep)
+      const sv = W6.summitRest.find(q => q.kind === 'view');
+      if (sv) { let i = 0; while (i < Sr.n - 2 && Sr.s[i] < sv.s + 7) i++;
+        const th = Math.atan2(Sr.x[i + 1] - Sr.x[i - 1], Sr.z[i + 1] - Sr.z[i - 1]), lx = Math.cos(th), lz = -Math.sin(th), side = ((TOWER.x - Sr.x[i]) * lx + (TOWER.z - Sr.z[i]) * lz) > 0 ? -1 : 1;
+        const off = Sr.hw + VERGE + 1.1, x = Sr.x[i] + lx * side * off, z = Sr.z[i] + lz * side * off; W6.summitSheep = { x, z, ry: Math.atan2(TOWER.x - x, TOWER.z - z) }; }
     }
     /* ============== 5.9 ФОН: макро-рельеф вокруг села, лента серпантина, хребты, руины, небо, облака ============== */
     const BG = {};
@@ -2697,104 +2775,179 @@
     function bgRefill(pos, col, idx) {
       const n0 = (() => { const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); const a = Float32Array.from(g.attributes.normal.array); g.dispose(); return a; })();
       const rhos = BGL.rhos, NA = BGL.NA, W = NA + 1, QA = {}, QB = {}, reach = VERGE + SHOULDER + OBANK + 2.5, cut = new Set();
-      const mark = (x, z, rr) => { for (let dz = -rr; dz <= rr; dz += 1.5) for (let dx = -rr; dx <= rr; dx += 1.5) if (dx * dx + dz * dz <= rr * rr) { const c = BGL.cell(x + dx, z + dz); cut.add(c[0] * NA + c[1]); } };
+      const mark = (x, z, rr) => { let last = -1; for (let dz = -rr; dz <= rr; dz += 1.5) for (let dx = -rr; dx <= rr; dx += 1.5) if (dx * dx + dz * dz <= rr * rr) { const q = BGL.cellQ(x + dx, z + dz); if (q !== last) { cut.add(q); last = q; } } };
       OUTR.net.roads.forEach(R => { for (let i = 0; i < R.n; i++) mark(R.x[i], R.z[i], R.hw + reach); });
       OUTR.net.disks.forEach(D => mark(D.x, D.z, D.r + reach));
-      // глубина внутри ядра или плато (там видна их земля, фон под ней), снаружи — −1
-      const depthIn = (x, z) => { if (inUPL(x, z)) return Math.min(uplOuter(x, z), uplInner(x, z)); const [r, ph] = polar(x, z); return r > 20.5 && r < 136 && Math.abs(ph) < 1 ? Math.min(r - 20.5, 136 - r, (1 - Math.abs(ph)) * r) : -1; };
       // высота заливки: на фоне — врезка (= модель G); под ядром и плато (их земля сверху, = G): у их края (4 м) — чуть ниже G
       // (треугольник через край не проседает: насыпь дороги над прежним фоном), глубже — фон не выше их земли
-      const hAt = (x, z) => { const v = BGL.vis(x, z), q = OUTR.near(x, z, QA); if (!q) return v; const din = depthIn(x, z); if (din < 0) return OUTR.carveAt(x, z, q, v); const gq = G(x, z);
+      const hAt = (x, z) => { const v = BGL.vis(x, z), q = OUTR.near(x, z, QA); if (!q) return v; const din = rfDepth(x, z); if (din < 0) return OUTR.carveAt(x, z, q, v); const gq = G(x, z);
         return din < 4 ? gq - 0.15 * sst(0, 1, din) : Math.min(v, gq - 0.15 - 1.0 * sst(4, 6.5, din)); };
       const KA = HI ? 2 : 3, mOf = i => clamp(Math.ceil((rhos[i + 1] - rhos[i]) / (rhos[i] > 240 ? 5.0 : 3.0)), 1, 40);   // вершина: дальше 240 м от башни — по радиусу через ~5 м (дорога наверх — далеко от села)
-      const at = (i, a, j, b) => { const u = a / mOf(i), v = b / KA, j1 = j + 1;
+      // точка клетки (i, j) по долям u (радиус) и v (азимут) — билинейно по углам клетки (рёбра прямые)
+      const atU = (i, u, j, v) => { const j1 = j + 1;
         const ax = BGL.vx(i, j), az = BGL.vz(i, j), bx = BGL.vx(i + 1, j), bz = BGL.vz(i + 1, j), cx = BGL.vx(i, j1), cz = BGL.vz(i, j1), dx = BGL.vx(i + 1, j1), dz = BGL.vz(i + 1, j1);
         return [ax + (bx - ax) * u + (cx - ax) * v + (ax - bx - cx + dx) * u * v, az + (bz - az) * u + (cz - az) * v + (az - bz - cz + dz) * u * v]; };
+      const at = (i, a, j, b) => atU(i, a / mOf(i), j, b / KA);
       // клетки целиком под ядром/плато (не ближе 4 м к их краю: край кривой, между вершинами он ближе), где фон и так ниже их
       // земли (на 0,3 м), не трогаем
       [...cut].forEach(qi => { const i = Math.floor(qi / NA), j = qi % NA, m = mOf(i); let need = false;
-        for (let a = 0; a <= m && !need; a++) for (let b = 0; b <= KA && !need; b++) { const [x, z] = at(i, a, j, b); if (depthIn(x, z) < 4 || BGL.vis(x, z) > G(x, z) - 0.3) need = true; }
+        for (let a = 0; a <= m && !need; a++) for (let b = 0; b <= KA && !need; b++) { const [x, z] = at(i, a, j, b); if (rfDepth(x, z) < 4 || BGL.vis(x, z) > G(x, z) - 0.3) need = true; }
         if (!need) cut.delete(qi); });
       const out = []; for (let qi = 0, nq = (rhos.length - 1) * NA; qi < idx.length / 6 && qi < nq; qi++) if (!cut.has(qi)) for (let k = 0; k < 6; k++) out.push(idx[qi * 6 + k]);
       for (let k = (rhos.length - 1) * NA * 6; k < idx.length; k++) out.push(idx[k]);   // заплатка серпантина и юбки — как были
-      const base = pos.length / 3, vids = new Map(), earth = WIN ? null : rgb('#A99272'), NB = [], WC = [];
-      const canon = (i, a, j, b) => { if (a >= mOf(i)) { i++; a = 0; } if (b >= KA) { j++; b = 0; } if (j >= NA) j -= NA; return i * 4096 * 64 + a * 4096 + j * 8 + b; };
-      // цвет и нормаль: фон в этой точке (барицентрика его треугольника); у дороги — земля на откосе, нормаль — после (по сетке)
-      const vert = (key, x, z, y) => {
+      // вершина: дальний план (LOD). Клетки целиком вне ядра и плато (там их земля сверху) — кусками по 80 м (RF_LOD); у куска две
+      // сетки: подробная (как раньше) и грубая (по радиусу ~12 м, по азимуту 2, без мелких подклеток; вершины на рёбрах фона — те
+      // же); грубая — пока камера дальше 200 м от края куска (modGuard). Только вид: модель земли, ходьба, езда — прежние
+      const unit = new Map();   // клетка → кусок ('' — всегда подробно, по секторам 30°, как раньше)
+      cut.forEach(qi => { const i = Math.floor(qi / NA), j = qi % NA, m = mOf(i); let ok = true;
+        for (let a = 0; a <= m && ok; a++) for (let b = 0; b <= KA && ok; b++) { const [x, z] = at(i, a, j, b); if (rfDepth(x, z) >= 0) ok = false; }
+        const [xc, zc] = at(i, m / 2, j, KA / 2); unit.set(qi, ok ? RF_LOD.key(xc, zc) : ''); });
+      const base = pos.length / 3, earth = WIN ? null : rgb('#A99272'), earthB = rgb('#9C6B45'), NB = [], WC = [], LK = [];   // LK — вершина закреплена (на ребре фона): не опускаем
+      // цвет и нормаль: фон в этой точке (барицентрика его треугольника); у дороги — земля на откосе, нормаль — после (по сетке).
+      // Вершина: у дороги наверх в подробной сетке (bankK) откос выемки — землёй гуще (по глубине выемки, от края травы обочины;
+      // верх откоса сходит в траву): так серпантин читается на склоне горы и вблизи; вдали откос рисует лента (roadsGeo)
+      let bankK = false;
+      const vert = (V, key, x, z, y, lk) => {
         const [Tq, w] = BGL.tri(x, z); let r = 0, gg = 0, bb = 0, nx = 0, ny = 0, nz = 0, wc = 0;
         for (let k = 0; k < 3; k++) { const vi = Tq[k][0] * W + Tq[k][1]; r += col[vi * 3] * w[k]; gg += col[vi * 3 + 1] * w[k]; bb += col[vi * 3 + 2] * w[k]; nx += n0[vi * 3] * w[k]; ny += n0[vi * 3 + 1] * w[k]; nz += n0[vi * 3 + 2] * w[k]; }
-        const qn = depthIn(x, z) < 0 ? OUTR.near(x, z, QB) : null;
+        const qn = rfDepth(x, z) < 0 ? OUTR.near(x, z, QB) : null;
         if (qn) { const flat = qn.hw + VERGE + SHOULDER; wc = qn.d <= flat ? 1 : 1 - sst(0, 1, (qn.d - flat) / OBANK);
-          const cutH = wc > 0 ? Math.abs(y - BGL.vis(x, z)) : 0; if (earth && cutH > 0.4) { const k = clamp((cutH - 0.4) / 3, 0, 0.5) * wc; r = lerp(r, earth[0], k); gg = lerp(gg, earth[1], k); bb = lerp(bb, earth[2], k); } }
-        const q = base + vids.size; vids.set(key, q); pos.push(x, y, z); col.push(r, gg, bb); NB.push(nx, ny, nz); WC.push(wc); return q;
+          const dv = BGL.vis(x, z) - y, cutH = wc > 0 ? Math.abs(dv) : 0, k = earth && cutH > 0.4 ? clamp((cutH - 0.4) / 3, 0, 0.5) * wc : 0;
+          const kb = earth && bankK && qn.id === 'summit' && dv > 0.3 ? clamp((dv - 0.3) / 0.9, 0, 0.85) * sst(flat - 0.8, flat + 0.2, qn.d) : 0;
+          if (k > 0) { r = lerp(r, earth[0], k); gg = lerp(gg, earth[1], k); bb = lerp(bb, earth[2], k); }
+          if (kb > 0) { r = lerp(r, earthB[0], kb); gg = lerp(gg, earthB[1], kb); bb = lerp(bb, earthB[2], kb); } }
+        const q = pos.length / 3; V.set(key, q); pos.push(x, y, z); col.push(r, gg, bb); NB.push(nx, ny, nz); WC.push(wc); LK.push(lk ? 1 : 0); return q;
       };
       // клетка решётки (ii, jj) не вырезана — её прямые рёбра рисует фон
       const kept = (ii, jj) => ii >= 0 && ii < rhos.length - 1 && !cut.has(ii * NA + ((jj % NA) + NA) % NA);
-      // вершина на краю выреза (у неё есть невырезанная соседняя клетка) — ровно на ребре фона (без щели, и у края ядра/плато тоже)
-      const onBorder = (i, a, j, b) => { const m = mOf(i), AI = a === 0 ? [i - 1, i] : a === m ? [i, i + 1] : [i], BJ = b === 0 ? [j - 1, j] : b === KA ? [j, j + 1] : [j];
-        for (const ii of AI) for (const jj of BJ) if (kept(ii, jj)) return true; return false; };
-      const P = (i, a, j, b) => { const key = canon(i, a, j, b) * 4, q = vids.get(key); if (q !== undefined) return q; const [x, z] = at(i, a, j, b); return vert(key, x, z, onBorder(i, a, j, b) ? BGL.vis(x, z) : hAt(x, z)); };   // ключ: ×4 + 0 — вершина, 1/2 — середины рёбер, 3 — центр
-      const hOf = q => pos[q * 3 + 1];
-      // подклетка мелкая: у полотна (и под ним — изломы профиля) и откоса на фоне, если земля в ней не плоская (врезка)
-      const fine = new Set(), subs = [];
-      cut.forEach(qi => { const i = Math.floor(qi / NA), j = qi % NA, m = mOf(i); for (let a = 0; a < m; a++) for (let b = 0; b < KA; b++) subs.push([i, a, j, b]); });
-      subs.forEach(([i, a, j, b]) => {
-        const [xc, zc] = at(i, a + 0.5, j, b + 0.5); if (depthIn(xc, zc) >= 0) return;
-        const q = OUTR.near(xc, zc, QA); if (!q) return; const flat = q.hw + VERGE + SHOULDER; if (q.d > flat + OBANK + 1.5) return;
-        const c0 = hOf(P(i, a, j, b)), c1 = hOf(P(i, a + 1, j, b)), c2 = hOf(P(i, a, j, b + 1)), c3 = hOf(P(i, a + 1, j, b + 1));
-        const tol = rhos[i] > 240 && q.d > flat + 1 ? 3 : 1;   // вершина: у дальней дороги наверх на откосе — допуск втрое (полотно, обочина и трава — как было)
-        if (Math.abs(hAt(xc, zc) - (c0 + c1 + c2 + c3) / 4) > 0.04 * tol || Math.abs(c0 + c3 - c1 - c2) > 0.08 * tol) fine.add(canon(i, a, j, b));
-      });
-      const isF = (i, a, j, b) => { if (a < 0) { i--; if (i < 0) return false; a = mOf(i) - 1; } if (b < 0) { j = (j + NA - 1) % NA; b = KA - 1; } const k = canon(i, a, j, b); return fine.has(k); };
-      const I = [], quad = (p00, p10, p01, p11) => I.push(p00, p10, p01, p01, p10, p11);
-      const midKey = (tag, i, a, j, b) => tag + canon(i, a, j, b) * 4;   // 1 — середина ребра по радиусу (a → a+1 при b), 2 — по азимуту (b → b+1 при a)
-      // сначала мелкие подклетки (их середины рёбер), потом крупные: у крупной с мелким соседом — веер через его середины (без Т-стыков)
-      subs.filter(s => fine.has(canon(s[0], s[1], s[2], s[3]))).concat(subs.filter(s => !fine.has(canon(s[0], s[1], s[2], s[3])))).forEach(([i, a, j, b]) => {
-        const v00 = P(i, a, j, b), v10 = P(i, a + 1, j, b), v01 = P(i, a, j, b + 1), v11 = P(i, a + 1, j, b + 1);
-        if (!fine.has(canon(i, a, j, b))) {
-          const mR0 = vids.get(midKey(1, i, a, j, b)), mG1 = vids.get(midKey(2, i, a + 1, j, b)), mR1 = vids.get(midKey(1, i, a, j, b + 1)), mG0 = vids.get(midKey(2, i, a, j, b));
-          if (mR0 === undefined && mG1 === undefined && mR1 === undefined && mG0 === undefined) { quad(v00, v10, v01, v11); return; }
-          const ring = [v00, mR0, v10, mG1, v11, mR1, v01, mG0].filter(v => v !== undefined);   // по кругу (как у клеток), веер от v00
-          for (let k = 1; k < ring.length - 1; k++) I.push(ring[0], ring[k], ring[k + 1]);
-          return;
-        }
-        // середина ребра: у мелкого соседа — по врезке, у крупного — по прямой (его ребро прямое)
-        const mid = (tag, nb, a0, b0, pa, pb) => { const [x, z] = at(i, a0, j, b0), key = midKey(tag, i, Math.floor(a0), j, Math.floor(b0));
-          const q = vids.get(key); if (q !== undefined) return q; const y = nb ? hAt(x, z) : (pos[pa * 3 + 1] + pos[pb * 3 + 1]) / 2; return vert(key, x, z, y); };
-        const mR0 = mid(1, isF(i, a, j, b - 1), a + 0.5, b, v00, v10), mR1 = mid(1, isF(i, a, j, b + 1), a + 0.5, b + 1, v01, v11);
-        const mG0 = mid(2, isF(i, a - 1, j, b), a, b + 0.5, v00, v01), mG1 = mid(2, isF(i, a + 1, j, b), a + 1, b + 0.5, v10, v11);
-        const [xc, zc] = at(i, a + 0.5, j, b + 0.5), c = vert(3 + canon(i, a, j, b) * 4, xc, zc, hAt(xc, zc));
-        quad(v00, mR0, mG0, c); quad(mR0, v10, c, mG1); quad(mG0, c, v01, mR1); quad(c, mG1, mR1, v11);
-      });
-      // по краю выреза — узкий скос под соседний треугольник фона (на 0,25 м ниже, 12 % подклетки наружу): точечные щели
-      // Т-стыков с фоном не просвечивают небом
-      const fv = (key, p, src) => { const q = vids.get(key); return q !== undefined ? q : vert(key, p[0], p[1], pos[src * 3 + 1] - 0.25); };   // общая у соседних подклеток — одна вершина
-      const flange = (pa, pb, qa, qb, aKey, bKey) => [fv('f' + aKey, qa, pa), fv('f' + bKey, qb, pb)];
-      subs.forEach(([i, a, j, b]) => {
-        const m = mOf(i), e = 0.12;
-        if (a === 0 && kept(i - 1, j)) { const v0 = P(i, 0, j, b), v1 = P(i, 0, j, b + 1), [f0, f1] = flange(v0, v1, at(i, -e, j, b), at(i, -e, j, b + 1), 'a' + canon(i, 0, j, b), 'a' + canon(i, 0, j, b + 1)); quad(f0, v0, f1, v1); }
-        if (a === m - 1 && kept(i + 1, j)) { const v0 = P(i, m, j, b), v1 = P(i, m, j, b + 1), [f0, f1] = flange(v0, v1, at(i, m + e, j, b), at(i, m + e, j, b + 1), 'A' + canon(i, m, j, b), 'A' + canon(i, m, j, b + 1)); quad(v0, f0, v1, f1); }
-        if (b === 0 && kept(i, j - 1)) { const v0 = P(i, a, j, 0), v1 = P(i, a + 1, j, 0), [f0, f1] = flange(v0, v1, at(i, a, j, -e), at(i, a + 1, j, -e), 'b' + canon(i, a, j, 0), 'b' + canon(i, a + 1, j, 0)); quad(f0, f1, v0, v1); }
-        if (b === KA - 1 && kept(i, j + 1)) { const v0 = P(i, a, j, KA), v1 = P(i, a + 1, j, KA), [f0, f1] = flange(v0, v1, at(i, a, j, KA + e), at(i, a + 1, j, KA + e), 'B' + canon(i, a, j, KA), 'B' + canon(i, a + 1, j, KA)); quad(v0, v1, f0, f1); }
-      });
+      // сетка заливки клеток cells: M(i) делений по радиусу, KB — по азимуту (одно на все — общие хорды совпадают); fineOn — у полотна
+      // и откоса подклетки, где земля не плоская, ещё делятся на 4 (подробная). Вершина на краю выреза (у неё есть невырезанная
+      // соседняя клетка) — ровно на ребре фона (без щели, и у края ядра/плато тоже)
+      function build(cells, M, KB, fineOn) {
+        const V = new Map(), I = [], TC = [];   // TC — клетка треугольника
+        bankK = fineOn;
+        const canon = (i, a, j, b) => { if (a >= M(i)) { i++; a = 0; } if (b >= KB) { j++; b = 0; } if (j >= NA) j -= NA; return i * 4096 * 64 + a * 4096 + j * 8 + b; };
+        const atB = (i, a, j, b) => atU(i, a / M(i), j, b / KB);
+        const onBorder = (i, a, j, b) => { const m = M(i), AI = a === 0 ? [i - 1, i] : a === m ? [i, i + 1] : [i], BJ = b === 0 ? [j - 1, j] : b === KB ? [j, j + 1] : [j];
+          for (const ii of AI) for (const jj of BJ) if (kept(ii, jj)) return true; return false; };
+        const P = (i, a, j, b) => { const key = canon(i, a, j, b) * 4, q = V.get(key); if (q !== undefined) return q; const [x, z] = atB(i, a, j, b), lk = onBorder(i, a, j, b); return vert(V, key, x, z, lk ? BGL.vis(x, z) : hAt(x, z), lk); };   // ключ: ×4 + 0 — вершина, 1/2 — середины рёбер, 3 — центр
+        const hOf = q => pos[q * 3 + 1];
+        const fine = new Set(), subs = [];
+        cells.forEach(qi => { const i = Math.floor(qi / NA), j = qi % NA, m = M(i); for (let a = 0; a < m; a++) for (let b = 0; b < KB; b++) subs.push([i, a, j, b]); });
+        if (fineOn) subs.forEach(([i, a, j, b]) => {
+          const [xc, zc] = atB(i, a + 0.5, j, b + 0.5); if (rfDepth(xc, zc) >= 0) return;
+          const q = OUTR.near(xc, zc, QA); if (!q) return; const flat = q.hw + VERGE + SHOULDER; if (q.d > flat + OBANK + 1.5) return;
+          const c0 = hOf(P(i, a, j, b)), c1 = hOf(P(i, a + 1, j, b)), c2 = hOf(P(i, a, j, b + 1)), c3 = hOf(P(i, a + 1, j, b + 1));
+          const tol = rhos[i] > 240 && q.d > flat + 1 ? 3 : 1;   // вершина: у дальней дороги наверх на откосе — допуск втрое (полотно, обочина и трава — как было)
+          if (Math.abs(hAt(xc, zc) - (c0 + c1 + c2 + c3) / 4) > 0.04 * tol || Math.abs(c0 + c3 - c1 - c2) > 0.08 * tol) fine.add(canon(i, a, j, b));
+        });
+        // и там, где плоская подклетка выше полотна в точках ленты (край ленты на дуге шпильки) — тоже мелкая
+        if (fineOn) for (let s = 0; s < SMP.length; s += 3) { const x = SMP[s], z = SMP[s + 1], tg = SMP[s + 2] + 0.04, [i, j] = BGL.cell(x, z), m = M(i), dx = x - OPP.TX, dz = z - OPP.TZ;
+          let az = Math.atan2(dx, dz); if (az < 0) az += TAU; const a = clamp(Math.floor((Math.hypot(dx, dz) - rhos[i]) / (rhos[i + 1] - rhos[i]) * m), 0, m - 1), b = clamp(Math.floor((az / TAU * NA - j) * KB), 0, KB - 1);
+          if (!cells.has(i * NA + j) || fine.has(canon(i, a, j, b))) continue;
+          const p = [P(i, a, j, b), P(i, a + 1, j, b), P(i, a, j, b + 1), P(i, a + 1, j, b + 1)];
+          for (const [q0, q1, q2] of [[p[0], p[1], p[2]], [p[2], p[1], p[3]]]) { const ax = pos[q0 * 3], az0 = pos[q0 * 3 + 2], bx = pos[q1 * 3], bz = pos[q1 * 3 + 2], cx = pos[q2 * 3], cz = pos[q2 * 3 + 2], d = (bz - cz) * (ax - cx) + (cx - bx) * (az0 - cz); if (Math.abs(d) < 1e-9) continue;
+            const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, v = ((cz - az0) * (x - cx) + (ax - cx) * (z - cz)) / d; if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) continue;
+            if (u * pos[q0 * 3 + 1] + v * pos[q1 * 3 + 1] + (1 - u - v) * pos[q2 * 3 + 1] > tg) fine.add(canon(i, a, j, b)); break; } }
+        const isF = (i, a, j, b) => { if (a < 0) { i--; if (i < 0) return false; a = M(i) - 1; } if (b < 0) { j = (j + NA - 1) % NA; b = KB - 1; } return fine.has(canon(i, a, j, b)); };
+        const tri = (qi, a, b, c) => { I.push(a, b, c); TC.push(qi); }, quad = (qi, p00, p10, p01, p11) => { tri(qi, p00, p10, p01); tri(qi, p01, p10, p11); };
+        const midKey = (tag, i, a, j, b) => tag + canon(i, a, j, b) * 4;   // 1 — середина ребра по радиусу (a → a+1 при b), 2 — по азимуту (b → b+1 при a)
+        // сначала мелкие подклетки (их середины рёбер), потом крупные: у крупной с мелким соседом — веер через его середины (без Т-стыков)
+        subs.filter(s => fine.has(canon(s[0], s[1], s[2], s[3]))).concat(subs.filter(s => !fine.has(canon(s[0], s[1], s[2], s[3])))).forEach(([i, a, j, b]) => {
+          const qi = i * NA + j, v00 = P(i, a, j, b), v10 = P(i, a + 1, j, b), v01 = P(i, a, j, b + 1), v11 = P(i, a + 1, j, b + 1);
+          if (!fine.has(canon(i, a, j, b))) {
+            const mR0 = V.get(midKey(1, i, a, j, b)), mG1 = V.get(midKey(2, i, a + 1, j, b)), mR1 = V.get(midKey(1, i, a, j, b + 1)), mG0 = V.get(midKey(2, i, a, j, b));
+            if (mR0 === undefined && mG1 === undefined && mR1 === undefined && mG0 === undefined) { quad(qi, v00, v10, v01, v11); return; }
+            const ring = [v00, mR0, v10, mG1, v11, mR1, v01, mG0].filter(v => v !== undefined);   // по кругу (как у клеток), веер от v00
+            for (let k = 1; k < ring.length - 1; k++) tri(qi, ring[0], ring[k], ring[k + 1]);
+            return;
+          }
+          // середина ребра: у мелкого соседа — по врезке, у крупного — по прямой (его ребро прямое; на краю выреза — закреплена)
+          const mid = (tag, nb, a0, b0, pa, pb) => { const [x, z] = atB(i, a0, j, b0), key = midKey(tag, i, Math.floor(a0), j, Math.floor(b0));
+            const q = V.get(key); if (q !== undefined) return q; return nb ? vert(V, key, x, z, hAt(x, z), false) : vert(V, key, x, z, (pos[pa * 3 + 1] + pos[pb * 3 + 1]) / 2, LK[pa - base] && LK[pb - base]); };
+          const mR0 = mid(1, isF(i, a, j, b - 1), a + 0.5, b, v00, v10), mR1 = mid(1, isF(i, a, j, b + 1), a + 0.5, b + 1, v01, v11);
+          const mG0 = mid(2, isF(i, a - 1, j, b), a, b + 0.5, v00, v01), mG1 = mid(2, isF(i, a + 1, j, b), a + 1, b + 0.5, v10, v11);
+          const [xc, zc] = atB(i, a + 0.5, j, b + 0.5), c = vert(V, 3 + canon(i, a, j, b) * 4, xc, zc, hAt(xc, zc), false);
+          quad(qi, v00, mR0, mG0, c); quad(qi, mR0, v10, c, mG1); quad(qi, mG0, c, v01, mR1); quad(qi, c, mG1, mR1, v11);
+        });
+        // по краю выреза — узкий скос под соседний треугольник фона (на 0,25 м ниже, 12 % подклетки наружу): точечные щели
+        // Т-стыков с фоном не просвечивают небом
+        const fv = (key, p, src) => { const q = V.get(key); return q !== undefined ? q : vert(V, key, p[0], p[1], pos[src * 3 + 1] - 0.25, true); };   // общая у соседних подклеток — одна вершина
+        const flange = (pa, pb, qa, qb, aKey, bKey) => [fv('f' + aKey, qa, pa), fv('f' + bKey, qb, pb)];
+        subs.forEach(([i, a, j, b]) => {
+          const qi = i * NA + j, m = M(i), e = 0.12;
+          if (a === 0 && kept(i - 1, j)) { const v0 = P(i, 0, j, b), v1 = P(i, 0, j, b + 1), [f0, f1] = flange(v0, v1, atB(i, -e, j, b), atB(i, -e, j, b + 1), 'a' + canon(i, 0, j, b), 'a' + canon(i, 0, j, b + 1)); quad(qi, f0, v0, f1, v1); }
+          if (a === m - 1 && kept(i + 1, j)) { const v0 = P(i, m, j, b), v1 = P(i, m, j, b + 1), [f0, f1] = flange(v0, v1, atB(i, m + e, j, b), atB(i, m + e, j, b + 1), 'A' + canon(i, m, j, b), 'A' + canon(i, m, j, b + 1)); quad(qi, v0, f0, v1, f1); }
+          if (b === 0 && kept(i, j - 1)) { const v0 = P(i, a, j, 0), v1 = P(i, a + 1, j, 0), [f0, f1] = flange(v0, v1, atB(i, a, j, -e), atB(i, a + 1, j, -e), 'b' + canon(i, a, j, 0), 'b' + canon(i, a + 1, j, 0)); quad(qi, f0, f1, v0, v1); }
+          if (b === KB - 1 && kept(i, j + 1)) { const v0 = P(i, a, j, KB), v1 = P(i, a + 1, j, KB), [f0, f1] = flange(v0, v1, atB(i, a, j, KB + e), atB(i, a + 1, j, KB + e), 'B' + canon(i, a, j, KB), 'B' + canon(i, a + 1, j, KB)); quad(qi, v0, v1, f0, f1); }
+        });
+        return { V, I, TC, M, KB, canon, fine: fine.size, subs: subs.length };
+      }
+      // опускание (только вниз — дыр не бывает): точки ленты внешних дорог (ось, ±1, ±2 м, края полотна и ленты, ±0,35 м за ней;
+      // площадки — кольцами; SMPB — откос выемки дороги наверх под «землёй» ленты, только для грубой), где поверхность заливки выше
+      // G + dy, — незакреплённые вершины треугольника опускаются ровно настолько (подробная — не больше чем на 0,25 м за точку)
+      const SMP = [], SMPB = []; { let into = SMP; const add = (x, z) => { if (cut.has(BGL.cellQ(x, z)) && rfDepth(x, z) < 0) into.push(x, z, gFast(x, z)); };
+        OUTR.net.roads.forEach(R => { const offs = [1, 2, R.hw, R.hw + 0.45, R.hw + 0.8]; for (let i = 0; i < R.n; i++) { const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L;
+          add(R.x[i], R.z[i]); offs.forEach(e => { add(R.x[i] + lx * e, R.z[i] + lz * e); add(R.x[i] - lx * e, R.z[i] - lz * e); });
+          if (R.id === 'summit' && i % 2 === 0) { into = SMPB; [-1, 1].forEach(sg => { const B = bankPts(R, i, sg, 5); if (B) B.forEach(([x, z]) => add(x, z)); }); into = SMP; } } });   // и откос выемки дороги наверх (там вдали лента «земли» с рядами через 4–8 м, roadsGeo) — через точку
+        OUTR.net.disks.forEach(D => { add(D.x, D.z); [D.r * 0.5, D.r, D.r + 0.45].forEach(rr => { for (let k = 0; k < 16; k++) add(D.x + Math.sin(k / 16 * TAU) * rr, D.z + Math.cos(k / 16 * TAU) * rr); }); }); }
+      // strict (подробная): опускаем только вершины за травой обочины (откос), полотно и обочина — на месте (иначе — ямка у края
+      // ленты); нет таких — любые незакреплённые
+      function sink(B, dy, strict, S) {
+        const I = B.I, GS = 4, gm = new Map(); let moved = 0;
+        for (let t = 0; t < I.length; t += 3) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let k = 0; k < 3; k++) { const v = I[t + k] * 3; x0 = Math.min(x0, pos[v]); x1 = Math.max(x1, pos[v]); z0 = Math.min(z0, pos[v + 2]); z1 = Math.max(z1, pos[v + 2]); }
+          for (let gx = Math.floor(x0 / GS); gx <= Math.floor(x1 / GS); gx++) for (let gz = Math.floor(z0 / GS); gz <= Math.floor(z1 / GS); gz++) { const kk = gx * 65536 + gz; let L = gm.get(kk); if (!L) gm.set(kk, L = []); L.push(t); } }
+        for (let s = 0; s < S.length; s += 3) { const x = S[s], z = S[s + 1], tg = S[s + 2] + dy, L = gm.get(Math.floor(x / GS) * 65536 + Math.floor(z / GS)); if (!L) continue;
+          for (const t of L) { const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3, d = (pos[b + 2] - pos[c + 2]) * (pos[a] - pos[c]) + (pos[c] - pos[b]) * (pos[a + 2] - pos[c + 2]); if (Math.abs(d) < 1e-9) continue;
+            const u = ((pos[b + 2] - pos[c + 2]) * (x - pos[c]) + (pos[c] - pos[b]) * (z - pos[c + 2])) / d, v = ((pos[c + 2] - pos[a + 2]) * (x - pos[c]) + (pos[a] - pos[c]) * (z - pos[c + 2])) / d, w = [u, v, 1 - u - v];
+            if (w[0] < -1e-6 || w[1] < -1e-6 || w[2] < -1e-6) continue;
+            const vs = [I[t], I[t + 1], I[t + 2]]; let h = 0; for (let k = 0; k < 3; k++) h += w[k] * pos[vs[k] * 3 + 1];
+            if (h > tg) { let ok = k => !LK[vs[k] - base] && w[k] > 1e-6 && (!strict || WC[vs[k] - base] < 0.999), su = 0; for (let k = 0; k < 3; k++) if (ok(k)) su += w[k];
+              if (su < 0.02) { ok = k => !LK[vs[k] - base] && w[k] > 1e-6; su = 0; for (let k = 0; k < 3; k++) if (ok(k)) su += w[k]; }
+              if (su > 0.02) { const dd = Math.min((h - tg) / su, strict ? 0.25 : 1e9); for (let k = 0; k < 3; k++) if (ok(k)) pos[vs[k] * 3 + 1] -= dd; moved++; } }
+            break; } }
+        return moved;
+      }
+      const BD = build(cut, mOf, KA, true), sunkD = sink(BD, 0.04, false, SMP);   // подробная: трава не выглядывает над лентой (≤ 0,04 м над полотном, шпильки)
+      const lodCells = new Set([...cut].filter(qi => unit.get(qi)));
+      const BC = build(lodCells, i => clamp(Math.ceil((rhos[i + 1] - rhos[i]) / 12), 1, 40), 2, false), sunkC = sink(BC, -0.06, false, SMP) + sink(BC, -0.06, false, SMPB);   // грубая: под всей лентой (вдали лента не тонет в склоне)
+      // швы кусков (и с всегда подробной заливкой): у каждой стороны каждой сетки — юбка вниз до общего низа шва (на 0,25 м ниже
+      // обеих сторон): соседи в разной подробности — щель между ними не просвечивает
+      const seams = new Map();
+      [BD, BC].forEach(B => { const cells = new Set(B.TC);
+        cells.forEach(qi => { const i = Math.floor(qi / NA), j = qi % NA, m = B.M(i), KB = B.KB, u = unit.get(qi), c = atU(i, 0.5, j, 0.5);
+          const E = [[i - 1, j, 'R' + i + ',' + j, KB, k => [0, k], 2], [i + 1, j, 'R' + (i + 1) + ',' + j, KB, k => [m, k], 2], [i, j - 1, 'A' + i + ',' + j, m, k => [k, 0], 1], [i, j + 1, 'A' + i + ',' + ((j + 1) % NA), m, k => [k, KB], 1]];
+          E.forEach(([ni, nj, id, n, ab, tag]) => { if (ni < 0 || ni >= rhos.length - 1) return; const nq = ni * NA + ((nj % NA) + NA) % NA; if (!cut.has(nq) || unit.get(nq) === u) return;
+            const poly = []; for (let k = 0; k <= n; k++) { const [a, b] = ab(k), q = B.V.get(B.canon(i, a, j, b) * 4); if (q !== undefined) poly.push(q); if (k < n) { const mq = B.V.get(tag + B.canon(i, a, j, b) * 4); if (mq !== undefined) poly.push(mq); } }
+            let S = seams.get(id); if (!S) seams.set(id, S = { lo: 1e9, sides: [] }); poly.forEach(q => { S.lo = Math.min(S.lo, pos[q * 3 + 1]); }); S.sides.push({ B, qi, u, poly, cx: c[0], cz: c[1] }); }); }); });
+      const SK = [];   // [треугольник a, b, c, кусок-ключ]
+      seams.forEach((S, id) => S.sides.forEach(sd => { if (sd.B === BD && sd.u) return; const lo = S.lo - 0.25, k = sd.B === BC ? 'f' + sd.u : null;
+        for (let e = 0; e < sd.poly.length - 1; e++) { const p = sd.poly[e], q = sd.poly[e + 1], pb = sd.B.V.get('S' + p) !== undefined ? sd.B.V.get('S' + p) : vert(sd.B.V, 'S' + p, pos[p * 3], pos[p * 3 + 2], lo, true), qb = sd.B.V.get('S' + q) !== undefined ? sd.B.V.get('S' + q) : vert(sd.B.V, 'S' + q, pos[q * 3], pos[q * 3 + 2], lo, true);
+          const ex = pos[q * 3] - pos[p * 3], ez = pos[q * 3 + 2] - pos[p * 3 + 2], out = (ez * (sd.cx - pos[p * 3]) - ex * (sd.cz - pos[p * 3 + 2])) > 0;   // наружу от клетки
+          if (out) SK.push(p, pb, q, q, pb, qb, k); else SK.push(p, q, pb, q, qb, pb, k); } }));
       // нормали заливки: у дороги — по самой сетке врезки (сумма граней), дальше — как у фона (барицентрика), между — смесь
-      const nv = vids.size, FN = new Float32Array(nv * 3), NR = new Float32Array(nv * 3);
-      for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2];
+      const nv = pos.length / 3 - base, FN = new Float32Array(nv * 3), NR = new Float32Array(nv * 3);
+      [BD.I, BC.I].forEach(I => { for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2];
         const ax = pos[a * 3], ay = pos[a * 3 + 1], az = pos[a * 3 + 2], cbx = pos[c * 3] - pos[b * 3], cby = pos[c * 3 + 1] - pos[b * 3 + 1], cbz = pos[c * 3 + 2] - pos[b * 3 + 2], abx = ax - pos[b * 3], aby = ay - pos[b * 3 + 1], abz = az - pos[b * 3 + 2];
         let nx = cby * abz - cbz * aby, ny = cbz * abx - cbx * abz, nz = cbx * aby - cby * abx; if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
-        for (const v of [a, b, c]) { const o = (v - base) * 3; FN[o] += nx; FN[o + 1] += ny; FN[o + 2] += nz; } }
-      for (let v = 0; v < nv; v++) { const o = v * 3, fl = Math.hypot(FN[o], FN[o + 1], FN[o + 2]) || 1, w = WC[v];
-        const nx = lerp(NB[o], FN[o] / fl, w), ny = lerp(NB[o + 1], FN[o + 1] / fl, w), nz = lerp(NB[o + 2], FN[o + 2] / fl, w), nl = Math.hypot(nx, ny, nz) || 1;
+        for (const v of [a, b, c]) { const o = (v - base) * 3; FN[o] += nx; FN[o + 1] += ny; FN[o + 2] += nz; } } });
+      for (let v = 0; v < nv; v++) { const o = v * 3, fl = Math.hypot(FN[o], FN[o + 1], FN[o + 2]), w = fl ? WC[v] : 0;
+        const nx = lerp(NB[o], FN[o] / (fl || 1), w), ny = lerp(NB[o + 1], FN[o + 1] / (fl || 1), w), nz = lerp(NB[o + 2], FN[o + 2] / (fl || 1), w), nl = Math.hypot(nx, ny, nz) || 1;
         NR[o] = nx / nl; NR[o + 1] = ny / nl; NR[o + 2] = nz / nl; }
       const norOf = v => (v >= base ? NR.subarray((v - base) * 3, (v - base) * 3 + 3) : n0.subarray(v * 3, v * 3 + 3));
-      // заливка — своими сетками по 30° азимута вокруг башни (вне кадра не рисуются): вершины заливки — только свои
-      const sect = new Map();
-      for (let t = 0; t < I.length; t += 3) { const cx = pos[I[t] * 3], cz = pos[I[t] * 3 + 2], k = Math.floor((Math.atan2(cx - OPP.TX, cz - OPP.TZ) / D2R + 360) / 30) % 12; if (!sect.has(k)) sect.set(k, []); sect.get(k).push(I[t], I[t + 1], I[t + 2]); }
-      const parts = [...sect.values()].map(L => { const re = new Map(), P = [], Cc = [], N = [], Ix = [];
+      // заливка — своими сетками: всегда подробная — по 30° азимута вокруг башни (вне кадра не рисуются), куски дальнего плана —
+      // 'n' + кусок (подробно) и 'f' + кусок (грубо); вершины заливки — только свои
+      const sect = new Map(), put = (k, a, b, c) => { let L = sect.get(k); if (!L) sect.set(k, L = []); L.push(a, b, c); };
+      const secK = v => 's' + Math.floor((Math.atan2(pos[v * 3] - OPP.TX, pos[v * 3 + 2] - OPP.TZ) / D2R + 360) / 30) % 12;
+      for (let t = 0; t < BD.I.length; t += 3) { const u = unit.get(BD.TC[t / 3]); put(u ? 'n' + u : secK(BD.I[t]), BD.I[t], BD.I[t + 1], BD.I[t + 2]); }
+      for (let t = 0; t < BC.I.length; t += 3) put('f' + unit.get(BC.TC[t / 3]), BC.I[t], BC.I[t + 1], BC.I[t + 2]);
+      for (let t = 0; t < SK.length; t += 7) put(SK[t + 6] || secK(SK[t]), SK[t], SK[t + 1], SK[t + 2]), put(SK[t + 6] || secK(SK[t]), SK[t + 3], SK[t + 4], SK[t + 5]);
+      const parts = [...sect].map(([key, L]) => { const re = new Map(), P = [], Cc = [], N = [], Ix = [];
         L.forEach(v => { let q = re.get(v); if (q === undefined) { q = re.size; re.set(v, q); P.push(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]); Cc.push(col[v * 3], col[v * 3 + 1], col[v * 3 + 2]); const n = norOf(v); N.push(n[0], n[1], n[2]); } Ix.push(q); });
-        return { P, C: Cc, N, I: Ix }; });
+        return { key, P, C: Cc, N, I: Ix }; });
       pos.length = base * 3; col.length = base * 3;   // в общей сетке фона — только прежние вершины
-      return { idx: out, nor: n0, parts, cut, stats: { cut: cut.size, sub: subs.length, fine: fine.size, verts: vids.size, tris: I.length / 3, parts: parts.length } };
+      const lodTris = k => parts.filter(p => p.key[0] === k).reduce((s, p) => s + p.I.length / 3, 0);
+      return { idx: out, nor: n0, parts, cut, stats: { cut: cut.size, sub: BD.subs, fine: BD.fine, verts: nv, tris: BD.I.length / 3, parts: parts.length, lod: { cells: lodCells.size, near: lodTris('n'), far: lodTris('f'), always: lodTris('s'), seams: seams.size, skirt: SK.length / 7 * 2, sunk: [sunkD, sunkC] } } };
     }
     function backdrop(farMax) {
       // farMax: для вида издалека — только чаша под селом (ρ < farMax) с юбкой по краю, без неба, хребтов и облаков.
@@ -2843,9 +2996,17 @@
       BG.stripes = VK.terraceStripes(BG.terrain.material, { THREE: T, step: TGRID.step, phase: TGRID.phase, far: farMax ? 900 : 1150, dark: WIN ? [0.55, 0.57, 0.58] : [0.6, 0.7, 0.5], shrub: WIN ? 0.25 : 0.55 });   // волна 6: ступени террас на всех склонах фона (шейдер)
       BG.terrain.renderOrder = 6; BG.terrain.receiveShadow = false; root.add(BG.terrain);
       // волна 7: заливка выреза у внешних дорог — тем же материалом (ступени-шейдер, свет), кусками по секторам
-      BG.refillMeshes = RF ? RF.parts.map(pt => { const g2 = new T.BufferGeometry(); g2.setAttribute('position', new T.Float32BufferAttribute(pt.P, 3)); g2.setAttribute('color', new T.Float32BufferAttribute(pt.C.slice(), 3)); g2.setAttribute('normal', new T.Float32BufferAttribute(pt.N, 3));
+      // вершина: заливка по 30° азимута — всегда подробная и куски дальнего плана (подробно и грубо) одной сеткой (RF_LOD.group)
+      const mkRF = (pt, name) => { const g2 = new T.BufferGeometry(); g2.setAttribute('position', new T.Float32BufferAttribute(pt.P, 3)); g2.setAttribute('color', new T.Float32BufferAttribute(pt.C.slice(), 3)); g2.setAttribute('normal', new T.Float32BufferAttribute(pt.N, 3));
         const uv = new Float32Array(pt.P.length / 3 * 2); for (let i = 0; i < pt.P.length / 3; i++) { uv[i * 2] = pt.P[i * 3] / 70; uv[i * 2 + 1] = pt.P[i * 3 + 2] / 70; } g2.setAttribute('uv', new T.BufferAttribute(uv, 2));
-        g2.setIndex(pt.I); g2.computeBoundingSphere(); const m = new T.Mesh(K.keep(g2), BG.terrain.material); m.name = 'bgRefill'; m.renderOrder = 6; m.receiveShadow = false; root.add(m); return { mesh: m, base: Float32Array.from(pt.C) }; }) : [];
+        g2.setIndex(pt.I); g2.computeBoundingSphere(); const m = new T.Mesh(K.keep(g2), BG.terrain.material); m.name = name; m.renderOrder = 6; m.receiveShadow = false; root.add(m); BG.refillMeshes.push({ mesh: m, base: Float32Array.from(pt.C) }); return m; };
+      BG.refillMeshes = [];
+      if (RF) { const by = new Map();
+        RF.parts.forEach(pt => { const k = pt.key.slice(1), sc = pt.key[0] === 's' ? +k : RF_LOD.sec(k); if (!by.has(sc)) by.set(sc, []); by.get(sc).push(pt); });
+        by.forEach(L => { if (L.length === 1 && L[0].key[0] === 's') { mkRF(L[0], 'bgRefill'); return; }
+          const M = { P: [], C: [], N: [], I: [] }, ranges = [];
+          L.forEach(pt => { const o = M.P.length / 3, t = pt.key[0]; ranges.push([t === 's' ? null : pt.key.slice(1), M.I.length, pt.I.length, t === 's' ? 0 : t === 'n' ? 1 : 2]); for (let q = 0; q < pt.P.length; q++) { M.P.push(pt.P[q]); M.C.push(pt.C[q]); M.N.push(pt.N[q]); } for (let q = 0; q < pt.I.length; q++) M.I.push(pt.I[q] + o); });
+          RF_LOD.group(mkRF(M, 'bgRefill'), ranges); }); }
       if (farMax) return;
       // лента серпантина: светлая тонкая линия с шпильками на склоне напротив (видна с крыши, как на p5)
       if (SERP && SERP.distant) {
@@ -3211,6 +3372,7 @@
       place('roof_cat', 9.84, 26.19, face2(9.84, 26.19, 6.0, 20.0), { y: G(9.84, 26.19) + 0.0, headY: 0.55 });
       { const p = place('pony', -18, 56, 0, { headY: 1.45 }); p.path = [[-18, 56], [-24.5, 52.5], [-27, 58.5], [-20.5, 61.5]]; p.seg = 0; p.wait = 3; }
       place('mtn_sheep', -28, 46, 2.2, { headY: 0.95 });
+      if (W6.summitSheep) { const q = W6.summitSheep; place('mtn_sheep', q.x, q.z, q.ry, { uid: 'summit_sheep', headY: 0.95 }); }   // вершина: овечка у смотровой на дороге к отелю
       // волна 4: две коровы — одна ходит по коровьей тропе по часам (утром на луг, вечером обратно, ночью спит у сарая), вторая пасётся
       { const c = place('cow', COW_LANE[0][0], COW_LANE[0][1], 2.5, { headY: 1.3, talkR: 2.4 }); c.lane = COW_LANE; c.cowMode = ''; c.u = 0; }
       { const c = place('cow', -31.6, 52.6, 1.2, { uid: 'cow2', lines: 'cow', headY: 1.3, talkR: 2.4 }); c.wander = [-31.6, 52.6, 2.2]; c.graze = 1; c.wait = 2; }
@@ -3552,6 +3714,23 @@
     };
     const CROWNLOD = [];   // W4A: { m1 гладкие, m0 20-гранные, x, z, r } — переключение по камере в modGuard
     const DISTLOD = [];   // 4B: { m, x, z, r, max } — кусок не рисуется, когда камера дальше max от его края
+    // вершина: у ворот наверху село целиком за бровкой горы — тогда не рисуем и его дома, плато, стволы (VOCC; только пока VFAR):
+    // лучи от камеры к верху каждой сетки села (центр и углы рамки, +2 м) по рельефу фона (решётка, у внешних дорог — врезка);
+    // спрятано, только если закрыты все. Раз в 6 кадров, в ядре и на плато рельеф не проверяется (там сами дома)
+    const VOCC = { on: false, n: 0, list: [], T: null, names: /^(chunk|roofSheets|bareTrees|trunks|roads|upland)$/ };
+    function coreHidden(c) {
+      if (!VOCC.T) { VOCC.T = []; VOCC.list.forEach(e => { const g = e.o.geometry; if (!g || !g.attributes.position) return; if (!g.boundingBox) g.computeBoundingBox(); const b = g.boundingBox, y = b.max.y + 2;
+        VOCC.T.push([(b.min.x + b.max.x) / 2, y, (b.min.z + b.max.z) / 2]); if (b.max.x - b.min.x > 30 || b.max.z - b.min.z > 30) VOCC.T.push([b.min.x, y, b.min.z], [b.max.x, y, b.min.z], [b.min.x, y, b.max.z], [b.max.x, y, b.max.z]); }); }
+      for (const [tx, ty, tz] of VOCC.T) { const dx = tx - c.x, dy = ty - c.y, dz = tz - c.z, L = Math.hypot(dx, dz); let hid = false;
+        for (let d = 6; d < L - 20 && !hid; d += 6) { const f = d / L, x = c.x + dx * f, z = c.z + dz * f; if (rfDepth(x, z) >= 0) continue; let h = BGL.vis(x, z); if (OUTR.zone(x, z)) h = Math.min(h, G(x, z)); if (c.y + dy * f < h - 0.3) hid = true; }
+        if (!hid) return false; }
+      return true;
+    }
+    // вершина: с горы (камера выше 20 м и дальше r от башни: скамейки, смотровая и ворота на дороге к отелю) мелочь села меньше
+    // пикселя — не рисуем: реквизит, мелочь у троп и двора, фонари, окна домов села (окна школы — своей сеткой, остаются), трубы,
+    // кроны у троп, свадьба, базар, куски ближних террас дальше 200 м (ступени на склонах остаются — шейдер фона). Выключается
+    // слой камеры (layers), своя видимость модулей (свадьба, базар) не трогается; list — в конце сборки
+    const VFAR = { r: 250, on: false, list: [], names: /^(props|trailDetail|schoolDetail|yardBall|lanterns|glazing|pipes|crownsNear|crownsNearLo|springLid|wedding:.*|bazaar:.*)$/, dist: [] };   // dist — куски ближних террас: прячутся, только если и они дальше 200 м (на горе свои остаются)
     function modGuard(hx, hz, cam) {
       if (!cam || !cam.position) return;
       const c = cam.position, dW = Math.hypot(c.x - WED.x, c.z - WED.z), inYard = Math.abs(hx - WED.x) < WED.w / 2 + WED.gal + 3 && Math.abs(hz - WED.z) < WED.d / 2 + 4;
@@ -3563,6 +3742,11 @@
       const yardSeen = (Math.abs(cwx) < WED.w / 2 + WED.gal + 1.5 && Math.abs(cwz) < WED.d / 2 + 1.5) || (cwz > 0 && Math.abs(cwx) < 7 && cwz < WED.d / 2 + 12) || c.y > WED.y + 7.5;
       for (const L of CROWNLOD) { const near = Math.hypot(c.x - L.x, c.z - L.z) - L.r < 30; if (L.m1.visible !== near) { L.m1.visible = near; L.m0.visible = !near; } }
       for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < L.max; if (L.m.visible !== on) L.m.visible = on; }
+      // вершина: дальний план заливки фона и ленты внешних дорог — кусок грубый, пока камера дальше RF_LOD.D от его края
+      RF_LOD.update(c, cam);
+      { const d = Math.hypot(c.x - TOWER.x, c.y, c.z - TOWER.z), vf = c.y > 20 && d > VFAR.r + (VFAR.on ? -15 : 15); if (vf !== VFAR.on) { VFAR.on = vf; VFAR.list.forEach(e => { e.o.layers.mask = vf ? 0 : e.mask; }); }
+        for (const e of VFAR.dist) { const hid = VFAR.on && Math.hypot(c.x - e.x, c.z - e.z) - e.r > 200; if (hid !== e.hid) { e.hid = hid; e.o.layers.mask = hid ? 0 : e.mask; } }
+        const oc = VFAR.on && (VOCC.n++ % 6 ? VOCC.on : coreHidden(c)); if (oc !== VOCC.on) { VOCC.on = oc; VOCC.list.forEach(e => { e.o.layers.mask = oc ? 0 : e.mask; }); } }
       // волна 6: с плато (школьный двор, за домом-усадьбой) двор свадьбы закрыт глухим домом в 3 этажа — меш модуля не рисуем,
       // если отрезки от камеры ко всем 8 углам его рамки проходят сквозь дом (−29 тыс. треуг. в кадре со двора школы на юг)
       const behindH = c.z < WHB.z0 && c.y < WHB.y1 + 12;
@@ -3622,7 +3806,7 @@
     towerGeo(); squareGeo(); museumGeo(); bakeryGeo();
     courtyardGeo(houses.find(h => h.tag === 'badger_house'), houses.find(h => h.id === 'h036'));
     if (!FAR) { springGeo(); westKnollGeo(); meadowGeo(); } lodGeo(); if (!FAR) roadGeo();
-    if (!FAR) { W6.detB = new K.Baker('vc'); uplandGeo(); schoolGeo(); yardGeo(); turnGeo(); villageSigns(); summitRestGeo(); roadsGeo(); }   // волна 6: дороги села, плато, школа
+    if (!FAR) { W6.detB = new K.Baker('vc'); uplandGeo(); { const g0 = glaz.length; schoolGeo(); W6.glazS = [g0, glaz.length]; } yardGeo(); turnGeo(); villageSigns(); summitRestGeo(); roadsGeo(); }   // волна 6: дороги села, плато, школа
     // резной олень над дверью сокровищницы (пасхалка 3b)
     const TH = houses.find(h => h.tag === 'treasure_house');
     if (TH && TH.door) props.carved.push({ id: 'deer', p: [TH.door[0], TH.y0 + 2.25, TH.door[2] - 0.28 * Math.cos(TH.ry)].map((v, i) => i === 0 ? v - 0.28 * Math.sin(TH.ry) : v), ry: TH.ry, tile: 1, size: 0.42 });
@@ -3681,24 +3865,29 @@
     if (W6.upB) { snowify(W6.upB); yardSnow(W6.upB); const m = add(litMesh(W6.upB.mesh(K.atlasMat)), { cast: true }); if (m) m.name = 'upland'; W6.upMesh = m; }   // волна 6: плато, школа, ограда двора
     if (W6.roadMesh) add(litMesh(W6.roadMesh), { receive: true });
     if (W6.roadMeshOuter) add(litMesh(W6.roadMeshOuter), { receive: true });   // волна 7: внешние дороги (своя сетка — под прежним полотном на стыках)
-    if (!FAR) { snowify(detail); add(litMesh(detail.mesh(K.atlasMatD)), { cast: false }); }
+    if (W6.roadLod) W6.roadLod.groups.forEach(L => { add(litMesh(L.m), { receive: true }); RF_LOD.group(L.m, L.ranges); });   // вершина: куски ленты дальнего плана
+    if (!FAR) { snowify(detail); const m = add(litMesh(detail.mesh(K.atlasMatD)), { cast: false }); if (m) m.name = 'trailDetail'; }
     snowify(pb); { const m = add(litMesh(pb.mesh(K.vcMat)), { cast: true }); if (m) m.name = 'props'; }
     // волна 6: мелочь двора школы и разворота (прутья ограды, сетки ворот, скамьи, цветы) — отдельной сеткой: дальше ~130 м
     // от камеры она меньше пикселя и прячется (update), как зверята в дальних кадрах
     if (W6.detB) { snowify(W6.detB); const m = add(litMesh(W6.detB.mesh(K.vcMat)), { cast: true }); if (m) { m.name = 'schoolDetail'; m.geometry.computeBoundingSphere(); W6.detMesh = m; } }
     // мяч двора — дочка мелочи двора (прячется вместе с ней вдали; +1 вызов только вблизи)
     if (W6.ballB && W6.detMesh) { snowify(W6.ballB); const m = litMesh(W6.ballB.mesh(K.vcMat)); if (m) { m.name = 'yardBall'; m.castShadow = W6.detMesh.castShadow; m.receiveShadow = W6.detMesh.receiveShadow; W6.detMesh.add(m); W6.ballMesh = m; } }
+    if (W6.sumB) { snowify(W6.sumB); const m = add(litMesh(W6.sumB.mesh(K.vcMat)), { cast: true }); if (m) m.name = 'summitRest'; }   // вершина: скамейки и смотровая на дороге к отелю
     add(glowB.mesh(K.keep(new T.MeshBasicMaterial({ vertexColors: true }))));
     if (!FAR) { add(carvedMesh()); add(signsMesh()); add(waterMesh(), { order: 3, receive: false }); }
     // повторяющиеся детали (окна, листы кровли, трубы, кроны, стволы, камни): одной обычной сеткой на вид (K.merged) —
     // на программном рендере и слабых телефонах инстансы с атрибутами дороже (замер: окна ≈ 30–37 % кадра села)
     const planeG = K.keep(new T.PlaneGeometry(1, 1));
-    const glazM = glaz.length ? add(litMesh(K.merged(planeG, K.glazMatV, glaz, { tiles: true }))) : null;
+    // вершина: окна школы — своей сеткой: с горы фасад школы крупный и ближе села (окна села оттуда меньше пикселя — их прячет VFAR)
+    const gS = W6.glazS || [0, 0], glazS = glaz.slice(gS[0], gS[1]), glazV = gS[1] > gS[0] ? glaz.slice(0, gS[0]).concat(glaz.slice(gS[1])) : glaz;
+    const glazM = glazV.length ? add(litMesh(K.merged(planeG, K.glazMatV, glazV, { tiles: true }))) : null; if (glazM) glazM.name = 'glazing';
+    if (glazS.length) { const m = add(litMesh(K.merged(planeG, K.glazMatV, glazS, { tiles: true }))); if (m) m.name = 'glazingSchool'; }
     const boxW = (() => { const g = new T.BoxGeometry(1, 1, 1), n = g.attributes.position.count, c = new Float32Array(n * 3).fill(1); g.setAttribute('color', new T.BufferAttribute(c, 3)); return K.keep(g); })();
     const sheetG = (() => { const g = new T.PlaneGeometry(1, 1); g.rotateX(-PI / 2); const n = g.attributes.position.count; g.setAttribute('color', new T.BufferAttribute(new Float32Array(n * 3).fill(1), 3)); return K.keep(g); })();
-    const sheetM = add(litMesh(K.merged(sheetG, K.instMat, sheets)));
+    const sheetM = add(litMesh(K.merged(sheetG, K.instMat, sheets))); if (sheetM) sheetM.name = 'roofSheets';
     const pipeG = (() => { const bk = new K.Baker('vc'); bk.cyl(0, 0, 0, 0.06, 0.06, 0.8, { seg: 6, col: rgb('#8E918C'), cap: false }); bk.cyl(0, 0.8, 0, 0.13, 0.0, 0.16, { seg: 6, col: rgb('#6E716D') }); return bk.build(); })();
-    if (!FAR) litMesh(add(K.merged(pipeG, K.instMat, pipes)));
+    if (!FAR) { const m = litMesh(add(K.merged(pipeG, K.instMat, pipes))); if (m) m.name = 'pipes'; }
     // кроны: у троп — гладкие (detail 1), вдали — проще (detail 0)
     // «у троп» — там, где ходит героиня (± 8 м): гладкие кроны; остальное (плечи, луг внизу, отрог) — 20-гранники
     const nearTrail = c => { const [r, ph] = polar(c.p[0], c.p[2]); if (r > 128 || r < 24 || ph < -0.8 || ph > 0.72) return false; for (let a = 0; a < 6; a++) { const x = c.p[0] + Math.sin(a) * 6, z = c.p[2] + Math.cos(a) * 6; if (allowedAt(x, z, model.info(x, z))) return true; } return false; };
@@ -3714,7 +3903,7 @@
     { const m = litMesh(add(K.merged(crownGeo(0), K.instMat, farC), { cast: false })); if (m) m.name = 'crownsFar'; }
     // 4B: стволы — кусками по 48 м; дальше ~90 м от камеры кусок не рисуется (под кронами стволов издалека не видно)
     if (!FAR) { const tm = K.merged(trunkGeo(), K.instMat, trunks); if (tm) K.split(tm.geometry, (x, z) => Math.floor(x / 48) + ',' + Math.floor(z / 48)).forEach(gg => { const m = litMesh(add(new T.Mesh(gg, K.instMat))); m.name = 'trunks'; const bs = gg.boundingSphere; DISTLOD.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius, max: 90 }); }); }
-    if (bare.length) litMesh(add(K.merged(bareGeo(), K.instMat, bare)));
+    if (bare.length) { const m = litMesh(add(K.merged(bareGeo(), K.instMat, bare))); if (m) m.name = 'bareTrees'; }
     const rockG = (() => { const g = new T.DodecahedronGeometry(1, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setY(i, y < 0 ? y * 0.4 : y); } g.computeVertexNormals(); const n = p.count, c = new Float32Array(n * 3); const rc = C('rock'); for (let i = 0; i < n; i++) c.set(mul(rc, 0.9 + 0.2 * (p.getY(i) > 0 ? 1 : 0)), i * 3); g.setAttribute('color', new T.BufferAttribute(c, 3)); return K.keep(g); })();
     litMesh(add(K.merged(rockG, K.instMat, rocks.map(r => ({ p: [r.x, (r.y !== undefined ? r.y : G(r.x, r.z)) - 0.2, r.z], r: [0, r.x * 3.1, 0], s: [r.r, r.h, r.r * 0.8], c: WIN ? [1.1, 1.12, 1.15] : [1, 1, 1] })))));
     if (WIN && !FAR) makeSnow();
@@ -3923,6 +4112,9 @@
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
     if (ZL && ZL.view) views.zip_hotel = ZL.view;   // W4A: с настила финиша — на отель и трос
+
+    if (!FAR) root.traverse(o => { if (!(o.isMesh || o.isPoints || o.isSprite || o.isLine)) return; for (let p = o; p && p !== root; p = p.parent) { if (VFAR.names.test(p.name || '')) { VFAR.list.push({ o, mask: o.layers.mask }); return; }
+      if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
 
     /* ============== 5.15 ОБНОВЛЕНИЕ КАДРА ============== */
     let tAll = 0, catFollow = 0;
@@ -4135,6 +4327,7 @@
       terraces: { bands: TERR.bands, stacks: TERR.stacks, trees: TERR.trees, cows: TERR.cows, shrubs: TERR.nShrubs || 0 },   // волна 6: + кусты вдоль откосов
       stats: () => ({ chunks: chunks.size, chunkTris, colliders: allColliders.length, autoEdges: walk.auto.length, glazing: glaz.length, trees: crowns.length + bare.length, npcs: npcs.length, buildMs, school: W6.cnt || null, refill: BG.refill || null }),
       // волна 7: для проверок внешних дорог (стенд, тесты): врезка, решётка фона, вырез
+      _lod: (mode) => { RF_LOD.force = mode === 'near' || mode === 'far' ? mode : null; if (mode === 'far?') return { vfar: VFAR.on, vocc: VOCC.on, nf: VFAR.list.length, no: VOCC.list.length, nt: VOCC.T ? VOCC.T.length : 0 }; return [...RF_LOD.map.entries()].map(([k, L]) => ({ k, far: L.isFar, inV: L.inV, s: L.sph ? [L.sph.center.x, L.sph.center.y, L.sph.center.z, L.sph.radius].map(v => +v.toFixed(1)) : null, g: L.gs.size })); },   // вершина: дальний план — 'near' | 'far' | авто
       _outer: OUTR ? { near: (x, z) => OUTR.near(x, z, {}), vis: (x, z) => BGL.vis(x, z), cell: (x, z) => BGL.cell(x, z), cutAt: (x, z) => { const Tq = BGL.tri(x, z)[0]; return !!(BG.rfCut && BG.rfCut.has((Tq[1][0] - 1) * BGL.NA + Tq[1][1])); }, gIn: (x, z) => model.yIn(x, z), bgY: (x, z) => bgY(x, z), rhos: BGL.rhos, NA: BGL.NA } : null,   // cutAt — по нарисованному треугольнику ((i+1, j) — у обоих в клетке (i, j))
       dispose() {
         if (disposed) return; disposed = true;
