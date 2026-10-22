@@ -32,7 +32,9 @@
      Места: hotel_view (sit — скамья на смотровой: вид на село), fire_pit (sit, вечер, медвежонок), golf_putt (kind 'golf'),
        pool_look (view — бассейн через стекло), hotel_tower → наверх (teleport, level 'top'), zipline_start (level 'top',
        kind 'zipline'), tower_down, spa_look (view — купели с паром, внутрь не заходим), pond_look (view 'pond' — пруд под лестницей).
-     Выходы: toRoad (к машине → серпантин, конец ветки к отелю), zipline { id:'zipline', to:'kubachi', spawn:'zipline_landing' }.
+     Выходы (W8: развилки серпантина больше нет — отсюда только вниз, в село): toVillage (у машины → село, from 'hotel': за рулём
+       наверху дороги мимо школы), toVillageWalk (walk: у ворот → село пешком, рядом с машиной), zipline { id:'zipline', to:'kubachi',
+       spawn:'zipline_landing' }.
      golf: { start() → {stand, view, ball, hole}, stance(angle) → {x,y,z,ry}, aim(angle, power), shoot(angle, power) → Promise
        <{holed, tries, left, text, who}>, stop(), heroPose(anim, dt) (стойка и замах — после anim.update), state, tries, maxTries }.
      VILLAGE.regions.hotel.distant(THREE, season) → группа в макро-осях (холм; корпус, пруд, лестница, башня — отдельной сеткой без
@@ -177,9 +179,10 @@
     const rho = Math.hypot(X + 11.2, Z + 15.4); return rho < 300 ? -45 - Math.max(0, rho - 90) * 0.5 : rho < 330 ? -150 : rho < 480 ? -150 + (rho - 330) * 0.8 : -30 + (rho - 480) * 0.09;
   }
   const natLocal = (x, z) => { const m = toMacro(x, 0, z); return natMacro(m.x, m.z) - FR.y; };
-  // дорога к отелю: от ворот парковки вниз по западному склону двумя шпильками к концу ветки серпантина
+  // дорога к отелю: от ворот парковки вниз по западному склону двумя шпильками — в облако (прежде — к концу ветки серпантина;
+  // W8: ветки нет, по этой дороге — вниз, в село; сама лента — прежняя, до новой дороги к отелю над селом)
   const ROAD = (() => {
-    const E = toLocal(342.1, -14.1, 435.7);   // конец ветки серпантина (выход toHotel) — низ нашей дороги
+    const E = toLocal(342.1, -14.1, 435.7);   // низ нашей дороги (там, где была ветка серпантина)
     const W = [[-68, 0.0, 12], [-80, -0.6, 13], [-96, -2.2, 9], [-106, -4.5, -6], [-110, -9.5, -42], [-114, -13.2, -62], [-124, -15.6, -72], [-133, -17.4, -66], [-134, -21.5, -40], [-136, -26, -12], [-144, -28.2, -2], [-153, -30, -8], [-154, -34, -30], [-146, -40.5, -78], [-128, -46.5, -112], [-100, -50.5, -134], [E.x, E.y, E.z]];
     // Catmull-Rom → шаг 1 м
     const raw = [];
@@ -601,11 +604,11 @@
       nBands = res.bands; nShrubs += res.shrubs;
     }
     // террасы на дальних склонах (макро, по горизонталям вокруг башни села, как поля села): склон с серпантином под отелем,
-    // склоны слева и справа; полосы обходят дорогу серпантина и ветку к отелю, холм отеля и ядро села
+    // склоны слева и справа; полосы обходят дорогу серпантина (W8: ветки к отелю больше нет), холм отеля и ядро села
     const FB = new K.Baker('vc'); let nFar = 0;
     function farFields() {
       const SP = V.regions.serpentine, TXo = -11.2, TZo = -15.4;
-      const pts = SP ? (typeof SP.path === 'function' ? SP.path() : []).concat(typeof SP.hotelRoad === 'function' ? (SP.hotelRoad().points || []) : []) : [];
+      const pts = SP && typeof SP.path === 'function' ? SP.path() : [];
       const RQ = new Map(), RC = 16; pts.forEach(q => { const k = Math.floor(q.x / RC) + ',' + Math.floor(q.z / RC); if (!RQ.has(k)) RQ.set(k, []); RQ.get(k).push(q); });
       const nearRoad = (x, z, m) => { const kx = Math.floor(x / RC), kz = Math.floor(z / RC); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = RQ.get((kx + a) + ',' + (kz + b)); if (l) for (const q of l) if (Math.abs(q.x - x) < m && Math.abs(q.z - z) < m && Math.hypot(q.x - x, q.z - z) < m) return true; } return false; };
       const surfM = (X, Z) => { const rho = Math.hypot(X - TXo, Z - TZo), be = Math.atan2(X - TXo, Z - TZo) / D2R, w = SP && SP.groundCut ? sst(282, 300, rho) * sst(552, 534, rho) * sst(-9, 1, be) * sst(67, 57, be) : 0; return w > 0 ? lerp(natMacro(X, Z), SP.groundCut(X, Z), w) : natMacro(X, Z); };
@@ -1832,17 +1835,13 @@
         zipline_start: () => { npcHop('hotel_marmot'); return { kind: 'zipline', route: ZR, exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, npc: 'hotel_marmot', line: ev('zipReady'), text: 'Держись крепче — и вжу-у-ух, через всю долину!', hero: HERO.zip }; },
       };
       spots.forEach(s => { s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (() => ({ kind: 'toast', text: s.label })))(s, ctx)); });
-      // волна 6: нижняя дорога у ворот — вниз, в село (регион kubachi, from: 'hotel' — наверху дороги мимо школы, за рулём).
-      // Приехала из села — у двери машины «вниз, в село» (откуда приехала), «на серпантин» — у кормы; с серпантина — как раньше:
-      // у машины на парковке «на дорогу», «Вниз, в село» — у ворот с указателем
-      if (opts.from === 'kubachi') {
-        const cs = FROM_VILLAGE.car;
-        exits.push({ id: 'toRoad', to: 'serpentine', x: cs.x - 1.6, y: 0, z: cs.z - 2.9, r: 1.4, label: 'Сесть в машину — на серпантин', icon: '🚗' });
-        exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: cs.x + 1.6, y: 0, z: cs.z - 2.9, r: 1.4, label: 'Сесть в машину — вниз, в село', icon: '🚗' });
-      } else {
-        exits.push({ id: 'toRoad', to: 'serpentine', x: PARKING.x + 1.6, y: 0, z: PARKING.z - 2.9, r: 1.8, label: 'Сесть в машину — на дорогу', icon: '🚗' });
-        exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: FROM_VILLAGE.exit.x, y: 0, z: FROM_VILLAGE.exit.z, r: FROM_VILLAGE.exit.r, label: 'Вниз, в село', icon: '🚗' });
-      }
+      // волна 6: нижняя дорога у ворот — вниз, в село (регион kubachi, from: 'hotel' — наверху дороги мимо школы).
+      // W8 (желание автора: «в отель — только через село»): на серпантин отсюда дороги нет — обе дороги вниз, в село.
+      // «Сесть в машину» — у двери машины (приехала из села — у ворот, иначе — на парковке): в селе — за рулём;
+      // пешком — у ворот с указателем (walk): в селе — пешком, рядом с машиной
+      const cs = opts.from === 'kubachi' ? FROM_VILLAGE.car : PARKING, cr = opts.from === 'kubachi' ? 1.4 : 1.8;
+      exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: cs.x + 1.6, y: 0, z: cs.z - 2.9, r: cr, label: 'Сесть в машину — вниз, в село', icon: '🚗' });
+      exits.push({ id: 'toVillageWalk', to: 'kubachi', via: 'hotel', walk: true, x: FROM_VILLAGE.exit.x, y: 0, z: FROM_VILLAGE.exit.z, r: FROM_VILLAGE.exit.r, label: 'Пешком — вниз, в село', icon: '🚶' });
       exits.push({ id: 'zipline', to: 'kubachi', spawn: 'zipline_landing', via: 'zipline', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, level: 'top', label: 'Зиплайн — в село', icon: '🪂' });
     }
     const vT = viewDir;

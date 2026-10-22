@@ -7,11 +7,12 @@
    иначе — «Горное село мастеров» и нейтральные реплики (VILLAGE.linesFor(false)).
 
    API
-     Волна 4B: дорога наверх → «Отель на вершине» и зиплайн в село (если отель открыт: CONFIG.UNLOCK.hotel) → село: площадь,
-     базарная площадь с лавками, пекарня, мастерская, свадьба во дворе (ряженые — пальтары, только при named), башня → вниз.
+     Волна 4B / W8: дорога наверх → село: площадь, базарная площадь с лавками, пекарня, мастерская, свадьба во дворе (ряженые —
+     пальтары, только при named), башня → из села наверх, «Отель на вершине», и зиплайн назад, к селу (если отель открыт:
+     CONFIG.UNLOCK.hotel) → вниз. W8: развилки на серпантине больше нет — в отель только через село.
      WORLD.Trip2D.run(o) → Promise<{ done: true, seen: [id…], talked: [speaker…] }>
        o = { named (CONFIG.VILLAGE_NAMED, по умолчанию true), season ('autumn'|'winter'; по умолчанию как WORLD.Regions),
-             from: 'city' (вся поездка) | 'up' | 'hotel' | 'village' | 'down' — откуда продолжить (3D бросил посреди пути),
+             from: 'city' (вся поездка) | 'up' | 'village' | 'hotel' | 'down' — откуда продолжить (3D бросил посреди пути),
              hotel: false — без отеля и зиплайна,
              host (куда положить; по умолчанию G.layer), say (G.say), voice (G.voiceLine), onCard(i, card) }
      WORLD.Trip2D.cards(o) → [{ id, title, text[], who[], art, act? }] — то же содержимое без показа (для тестов)
@@ -161,11 +162,12 @@
       { id: 'hairpins', stage: 'up', title: 'Серпантин', text: ['Плечо, поворот, снова плечо. Шесть крутых шпилек — руль, газ и тормоз у тебя: машинка сама не сбавляет ход.', 'Можно остановиться, выйти и посидеть на лавочке над долиной.'], who: [] },
       { id: 'clouds', stage: 'up', title: 'Над облаками', text: ['Ещё поворот — и облака остаются внизу. Через долину видна круглая башня.', 'На камне у смотровой стоит тур.'], who: ['tur'] },
     ];
-    // волна 4B: отель на холме (развилка серпантина) и зиплайн в село — если отель открыт (CONFIG.UNLOCK.hotel)
+    // волна 4B / W8: отель выше села (дорога мимо школы наверх) и зиплайн назад, к селу — если отель открыт (CONFIG.UNLOCK.hotel).
+    // В 2D у отеля одна игра — мини-гольф (act 'golf'): падел и мини-футбол здесь не обещаем
     const hotelOpen = o.hotel !== false && !!(V.regions && V.regions.hotel) && (() => { try { return !WORLD.Regions || !WORLD.Regions.hotelLock || WORLD.Regions.hotelLock().ok; } catch (e) { return true; } })();
     const hotel = hotelOpen ? [
-      { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['У развилки щит «Отель» — ветка ведёт на бровку холма.', 'Во дворе башня, бассейн под крышей, мини-гольф, падел и мини-футбол, купели с паром и костровой круг. Через долину видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
-      { id: 'zipline', stage: 'hotel', title: 'Зиплайн через долину', text: ['С башни во дворе через всю долину натянут трос.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
+      { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['От площади дорога мимо школы поднимается ещё выше — к отелю.', 'Во дворе башня, бассейн под крышей, мини-гольф, купели с паром и костровой круг. Внизу видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
+      { id: 'zipline', stage: 'hotel', title: 'Зиплайн вниз', text: ['С башни во дворе вниз, к домам, натянут трос.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
     ] : [];
     // волна 5B: параплан с башни — если открыт (CONFIG.UNLOCK.paraglider, вместе с поездкой)
     const flyOpen = (() => { try { return !WORLD.Regions || !WORLD.Regions.flyLock || WORLD.Regions.flyLock().ok; } catch (e) { return true; } })();
@@ -177,9 +179,11 @@
       { id: 'wedding', stage: 'village', title: 'Свадьба во дворе', text: named ? ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Высокие пальтары в кольчугах и войлочных масках пляшут, хлопают и веселят гостей.'] : ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Высокие ряженые в кольчугах и масках пляшут, хлопают и веселят гостей.'], who: ['wed_bride', 'wed_groom', 'wed_zurna', 'wed_drum', 'wed_aunt', 'paltar'], act: 'dance' },
       { id: 'tower', stage: 'village', title: (A.tower && A.tower.title) || 'Башня', text: ((A.tower_top && A.tower_top.text) || ['Внизу — море облаков и крыши ступеньками.']).slice(0, 2).concat(flyOpen ? ['С площадки башни можно полететь на параплане — над крышами и обратно на землю.'] : []), who: ['eagle', 'owl_keeper', 'spring_hedgehog'] },
     ];
-    const down = [{ id: 'down', stage: 'down', title: 'Вниз, к городу', text: ['Шпилька за шпилькой — и вот уже знакомые улицы и фонари.'], who: [], last: true }];
+    // W8: после отеля — назад через площадь, к машине (трос приносит к домам), и вниз
+    const down = [{ id: 'down', stage: 'down', title: 'Вниз, к городу', text: (hotel.length ? ['Трос приносит назад, к домам: через площадь — к машине на парковке.'] : []).concat(['Шпилька за шпилькой — и вот уже знакомые улицы и фонари.']), who: [], last: true }];
     const from = o.from || 'city';
-    const list = from === 'down' ? down : from === 'village' ? village.concat(down) : from === 'hotel' ? hotel.concat(village, down) : up.concat(hotel, village, down);
+    // W8: порядок — дорога наверх → село → отель (выше села) → назад через село → вниз
+    const list = from === 'down' ? down : from === 'hotel' ? hotel.concat(down) : from === 'village' ? village.concat(hotel, down) : up.concat(village, hotel, down);
     return list.map(c => Object.assign({ art: c.id }, c));
   }
   // реплики жителя: села (lines.js) или тура (serpentine.js → VILLAGE.ROAD_LINES), с учётом named

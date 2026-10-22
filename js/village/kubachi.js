@@ -3280,9 +3280,9 @@
         if (SERP) { const dx = x - TXo, dz = z - TZo, rho = Math.hypot(dx, dz), be = Math.atan2(dx, dz) / D2, w = serpW(rho, be); if (w > 0) return lerp(bgY(x, z), SERP.groundCut(x, z), w); }
         return bgMeshY(x, z);
       };
-      // дорога серпантина (и ветка к отелю): полосы её обходят (9 м от оси)
+      // дорога серпантина: полосы её обходят (9 м от оси; W8: ветки к отелю больше нет)
       const RQ = new Map(), RC = 16;
-      if (SERP && !FAR) { const pts = (typeof SERP.path === 'function' ? SERP.path() : []).concat(typeof SERP.hotelRoad === 'function' ? (SERP.hotelRoad().points || []) : []);
+      if (SERP && !FAR) { const pts = typeof SERP.path === 'function' ? SERP.path() : [];
         pts.forEach(p => { const k = Math.floor(p.x / RC) + ',' + Math.floor(p.z / RC); if (!RQ.has(k)) RQ.set(k, []); RQ.get(k).push(p); }); }
       const nearRoad = (x, z, m) => { const kx = Math.floor(x / RC), kz = Math.floor(z / RC); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = RQ.get((kx + a) + ',' + (kz + b)); if (l) for (const p of l) if (Math.abs(p.x - x) < m && Math.abs(p.z - z) < m && Math.hypot(p.x - x, p.z - z) < m) return true; } return false; };
       const busy = (x, z, m) => { for (let i = 0; i < FOOTS.length; i++) { const f = FOOTS[i]; if (Math.abs(f[0] - x) < f[2] + m && Math.abs(f[1] - z) < f[2] + m && Math.hypot(f[0] - x, f[1] - z) < f[2] + m) return true; } return false; };
