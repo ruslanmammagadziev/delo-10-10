@@ -124,7 +124,6 @@
     spa: { col: '#C88FB0', g: 'steam', name: 'Банный комплекс', group: 'Отель на вершине' },
     sport: { col: '#58A47C', g: 'ball', name: 'Спорт', group: 'Отель на вершине' },
     bench: { col: '#B48A62', g: 'bench', name: 'Лавочка', group: 'Дорога' },
-    fork: { col: '#9C7BB8', g: 'fork', name: 'Развилка', group: 'Дорога' },
     gate: { col: '#C98A4E', g: 'gate', name: 'Ворота села', group: 'Дорога' },
     city: { col: '#C2405B', g: 'city', name: 'Город', group: 'Дорога' },
     hairpin: { col: '#B9A7C6', g: 'uturn', name: 'Шпилька', group: 'Дорога' },
@@ -142,7 +141,7 @@
     museum: 'Узоры мастеров на стенах.', roof: 'Плоская крыша, с неё видно вершины.', zip: 'Трос через долину.', parking: 'Машинка ждёт здесь.',
     hotel: 'Белый корпус, двор и вид на вершины.', pool: 'Тёплая вода за стеклом.', golf: 'Три лунки с флажками.', fire: 'Скамейки вокруг огонька.',
     spa: 'Купели с паром — только посмотреть.', sport: 'Мячик выдают бесплатно.', bench: 'Присесть и посмотреть на долину.',
-    fork: 'Вверх — к отелю на вершине.', gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
+    gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
   };
   const rgba = (hex, a) => { const h = String(hex || '#F2DCE2').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
   const shade = (hex, k) => { const h = String(hex || '#ccc').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); const f = v => clamp(Math.round(v * k), 0, 255); return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`; };
@@ -295,7 +294,6 @@
       case 'ball': c.beginPath(); c.arc(0, 0, 0.44 * r, 0, TAU); c.fill(); c.fillStyle = bg; c.beginPath(); for (let i = 0; i < 5; i++) { const a = -PI / 2 + i * TAU / 5; c.lineTo(Math.cos(a) * 0.17 * r, Math.sin(a) * 0.17 * r); } c.closePath(); c.fill(); break;
       case 'bench': c.fillRect(-0.44 * r, -0.08 * r, 0.88 * r, 0.14 * r); c.fillRect(-0.44 * r, -0.36 * r, 0.88 * r, 0.12 * r); c.fillRect(-0.36 * r, 0.06 * r, 0.1 * r, 0.32 * r); c.fillRect(0.26 * r, 0.06 * r, 0.1 * r, 0.32 * r); break;
       case 'city': c.fillRect(-0.46 * r, -0.06 * r, 0.3 * r, 0.5 * r); c.fillRect(-0.12 * r, -0.42 * r, 0.26 * r, 0.86 * r); c.fillRect(0.18 * r, -0.18 * r, 0.28 * r, 0.62 * r); c.fillStyle = bg; [[-0.36, 0.06], [-0.04, -0.28], [-0.04, -0.02], [0.27, -0.06], [0.27, 0.16]].forEach(([x, y]) => c.fillRect(x * r, y * r, 0.09 * r, 0.1 * r)); break;
-      case 'fork': lw(0.14); P([[0, 0.48], [0, 0.02], [-0.36, -0.42]]); c.stroke(); P([[0, 0.02], [0.36, -0.42]]); c.stroke(); break;
       case 'uturn': lw(0.13); c.beginPath(); c.moveTo(-0.24 * r, 0.44 * r); c.lineTo(-0.24 * r, -0.04 * r); c.arc(0, -0.04 * r, 0.24 * r, PI, 0); c.lineTo(0.24 * r, 0.24 * r); c.stroke(); P([[0.08, 0.14], [0.24, 0.38], [0.4, 0.14]]); c.stroke(); break;
       case 'gate': lw(0.12); c.beginPath(); c.moveTo(-0.36 * r, 0.46 * r); c.lineTo(-0.36 * r, -0.06 * r); c.arc(0, -0.06 * r, 0.36 * r, PI, 0); c.lineTo(0.36 * r, 0.46 * r); c.stroke(); break;
       case 'roof': c.beginPath(); c.arc(0, 0.12 * r, 0.26 * r, PI, 0); c.fill(); c.fillRect(-0.48 * r, 0.16 * r, 0.96 * r, 0.1 * r); lw(0.08); for (let i = 0; i < 5; i++) { const a = PI + i * PI / 4; P([[Math.cos(a) * 0.34, 0.12 + Math.sin(a) * 0.34], [Math.cos(a) * 0.46, 0.12 + Math.sin(a) * 0.46]]); c.stroke(); } break;
@@ -1399,7 +1397,7 @@
     for (let i = 0; i < 70; i++) { const x = cb.x0 + 6 + rn() * (cb.x1 - cb.x0 - 12), z = cb.z0 + 5 + rn() * (cb.z1 - cb.z0 - 22); c.fillStyle = COL.block[i % COL.block.length]; c.fillRect(X(x), Y(z), 3.4 * s, 2.6 * s); }
     c.fillStyle = 'rgb(190,221,241)'; c.fillRect(X(cb.x0), Y(cb.z1 - 9), (cb.x1 - cb.x0) * s, 9 * s);
     c.restore();
-    // дороги: из города к серпантину, серпантин с веткой, «облачный» переезд к селу
+    // дороги: из города к серпантину, серпантин, «облачный» переезд к селу (W8: ветки к отелю нет — отель только через село)
     const RD = ovRoads(L);
     polyline(c, RD.cityRoad, s, ox, oz, 9, 'rgb(196,184,206)'); polyline(c, RD.cityRoad, s, ox, oz, 7, 'rgb(220,212,228)');
     paintRoad(c, { bounds: OV_B }, s, ox, oz, W, H, {});
@@ -1414,8 +1412,7 @@
     const quad = (q, col) => { const pts = [tm(q.x0, q.z0), tm(q.x1, q.z0), tm(q.x1, q.z1), tm(q.x0, q.z1)]; c.fillStyle = col; c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1])))); c.closePath(); c.fill(); };
     (HD.PADS || []).forEach(p => quad(p, { yard: '#F8EEE4', park: '#E4DDE8', sport: '#C9E3BE', relax: '#D6EBCF', deck: '#E2CBB1' }[p.kind] || '#EDE6DA'));
     quad(STATIC_HOTEL.main, '#FFFFFF'); quad(STATIC_HOTEL.pool, '#BFE0F2');
-    let hroad = null; try { hroad = HD.road ? HD.road() : null; } catch (e) { hroad = null; }
-    if (hroad && hroad.length) { const pts = hroad.map(q => tm(q.x !== undefined ? q.x : q[0], q.z !== undefined ? q.z : q[1])); polyline(c, pts, s, ox, oz, 6.6, 'rgb(196,184,206)'); polyline(c, pts, s, ox, oz, 5.2, 'rgb(220,212,228)'); }
+    // W8: нижняя дорога отеля на обзоре не рисуется — она вела к ветке серпантина, а ветки нет (в отель — через село)
     // зиплайн
     try { const r = V.zipline.route('macro'); c.strokeStyle = 'rgba(78,74,82,.75)'; c.lineWidth = Math.max(1.2, 0.9 * s); c.beginPath(); c.moveTo(X(r.from.x), Y(r.from.z)); c.lineTo(X(r.to.x), Y(r.to.z)); c.stroke(); } catch (e) { /* без зиплайна */ }
     c.restore();
@@ -1434,7 +1431,7 @@
       <div class="wm-route"></div></div>`;
     const box = el.querySelector('.wm-mapbox'), cv = el.querySelector('canvas'), route = el.querySelector('.wm-route');
     const locks = mtnLocks(ctx), RD = ovRoads(L), P = path0();
-    const hr = hotelRoad0(), zr = (() => { try { return V.zipline.route('macro'); } catch (e) { return null; } })();
+    const zr = (() => { try { return V.zipline.route('macro'); } catch (e) { return null; } })();
     const F = (V.ZIP_GEO && V.ZIP_GEO.frame) || { x: 490, z: 500 };
     const cityC = [(OV_CITY.x0 + OV_CITY.x1) / 2, (OV_CITY.z0 + OV_CITY.z1) / 2 - 6];
     const kd = V.regions.kubachi.data || {}, SQ = kd.SQUARE || { x: 12.3, z: -6.3 };
@@ -1445,7 +1442,6 @@
       { id: 'kubachi', rid: 'kubachi', kind: 'tower', x: 4, z: 10, label: villageTitle(named), line: 'Башня, базарная площадь, пекарня и родник.', poi: 'square', lock: 'trip' },
       { id: 'hotel', rid: 'hotel', kind: 'hotel', x: F.x, z: F.z, label: 'Отель на вершине', line: 'Двор, бассейн, мини-гольф, падел, костёр и вид на вершины.', poi: 'courtyard', lock: 'hotel' },
     ];
-    if (hr && hr.fork) nodes.push({ id: 'fork', rid: 'serpentine', kind: 'fork', x: hr.fork.x, z: hr.fork.z, label: 'Развилка', line: 'Вверх — к отелю, прямо — к воротам села.', poi: 'fork', lock: 'trip', small: true });
     if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'С башни отеля — через долину, к площадке у села.', poi: 'tower', lock: 'zip', small: true });
     const lockOf = n => (n.lock === 'trip' ? locks.trip : n.lock === 'hotel' ? locks.trip || locks.hotel : n.lock === 'zip' ? locks.trip || locks.zip : null);
     let sel = null, showRoute = true;
@@ -1534,7 +1530,7 @@
       const p0 = src.find(q => q.id === n.poi) || src[0];
       const p = Object.assign({}, p0, { rid: n.rid, label: n.label, line: n.line, kind: n.kind === 'hairpin' ? 'gate' : n.kind });
       if (n.id === 'serpentine') { p.kind = 'city'; p.label = 'Серпантин'; }
-      if (n.id === 'fork' || n.id === 'zip') { p.kind = n.kind; p.label = n.label; }
+      if (n.id === 'zip') { p.kind = n.kind; p.label = n.label; }
       mtnCard(ctx, p, o.here || null, () => { sel = null; route.classList.remove('pad'); Vw.req(); });
     }
     // где машины: у старта — через дорогу от кинотеатра (обе, если вторая открыта); под чехлом — у самого кинотеатра
@@ -1556,15 +1552,17 @@
           + st(2, 'Выезд из города — под аркой на севере', (L && L.edge && L.edge.label ? 'Табличка «' + L.edge.label.replace(/\s*↑\s*$/, '') + ' ↑».' : 'Табличка со стрелкой вверх.'), !!lk)
           + st(3, 'Серпантин наверх', 'Газ и тормоз — справа, руль — пальцем слева. Можно выйти и посидеть на лавочке.', !!lk)
           + st(4, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', !!lk)
-          + `<div class="wm-step${lk || locks.hotel ? ' lock' : ''}"><b>★</b><div>Или — на развилке вверх, к отелю<small>${esc(locks.zip ? locks.zip.text : 'А оттуда — зиплайн через долину.')}</small></div></div>`;
+          + `<div class="wm-step${lk || locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От площади — дорогой мимо школы, наверх. Оттуда — зиплайн через долину.')}</small></div></div>`;
       } else if (h.rid === 'serpentine') {
         html += st(1, 'Вверх по горной дороге', 'Справа скала, слева обрыв. Лавочки над долиной — по пути.', false) + st(2, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', false)
-          + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>На развилке — вверх, к отелю<small>${esc(locks.hotel ? locks.hotel.text : 'Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
+          + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От площади — дорогой мимо школы, наверх. Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
       } else if (h.rid === 'hotel') {
         html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Башня во дворе — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн через долину, к площадке у села.')}</small></div></div>`
-          + st(2, 'Или — вниз, в село', 'От нижних ворот — по дороге мимо школы, прямо к площади.', false);
+          + st(2, 'Или — вниз, в село', 'У нижних ворот — в машину или пешком: дорогой мимо школы, прямо к площади.', false);
       } else {
-        html += st('·', 'Пекарня, родник, башня и базарная площадь', 'Все места — во вкладке «' + mtnTab(named) + '».', false) + st('·', 'Дорога вниз — от парковки', 'Серпантин ведёт в город.', false);
+        html += st('·', 'Пекарня, родник, башня и базарная площадь', 'Все места — во вкладке «' + mtnTab(named) + '».', false)
+          + (locks.hotel ? '' : st('·', 'Отель на вершине — выше', 'Дорога мимо школы — наверх, к отелю. За рулём или пешком.', false))
+          + st('·', 'Дорога вниз — от парковки', 'Серпантин ведёт в город.', false);
       }
       // кнопки
       const btns = [];
@@ -1606,7 +1604,7 @@
   /* =====================================================================
      ГОРЫ (волна 4B): модель карты региона — серпантин / село / отель
      Источники: ручка региона (если он загружен) и статичные данные модулей села — VILLAGE.regions.serpentine.path() /
-     hotelRoad() / groundMacro, VILLAGE.regions.kubachi.data (ряды, площадь, башня, дорога) и дома (_test.unpackHouses),
+     groundMacro, VILLAGE.regions.kubachi.data (ряды, площадь, башня, дорога) и дома (_test.unpackHouses),
      VILLAGE.regions.hotel.data (площадки PADS, лестницы, дорога, рамка toMacro), VILLAGE.ZIP_GEO / zipline.route('macro').
      Серпантин и село — в общих «макро»-осях (x восток, z юг), отель — в своих (на обзоре — через frame.toMacro).
      ===================================================================== */
@@ -1639,7 +1637,7 @@
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', -5, -36.9], ['tower', 'zip', -26, -24], ['park', 'parking', -50, 13]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
-      ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['fork', 'fork', 266.6, 386.8], ['toHotel', 'hotel', 325.8, 409.5], ['toVillage', 'gate', 313, 350.4]],
+      ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['toVillage', 'gate', 313, 350.4]],
   };
   const STATIC_HOTEL = { main: { x0: -21.85, x1: 17.85, z0: 15, z1: 36 }, pool: { x0: 24, x1: 48, z0: 6, z1: 30, px0: 27, px1: 45, pz0: 15, pz1: 22 }, spa: { x0: -66, x1: -42, z0: -62, z1: -48 },
     green: { x: 27, z: -56, rx: 9.5, rz: 7 }, fire: { x: -40, z: -86, r: 1.3 }, tower: { x: -26, z: -24 }, courtyard: { x: -3, z: -3 } };
@@ -1651,14 +1649,14 @@
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',
       school: 'Школа', schoolYard: 'Школьный двор', towerPark: 'Разворот у башни',   // волна 6
-      toCity: 'Город', road_view: 'Смотровая с лавочкой', fork: 'Развилка: к отелю', toHotel: 'Отель на вершине', toVillage: 'Ворота села', hotel: 'Отель на вершине',
+      toCity: 'Город', road_view: 'Смотровая с лавочкой', toHotel: 'Дорога к отелю', toVillage: 'Ворота села', hotel: 'Отель на вершине',
     };
     if (/^road_bench/.test(id)) return 'Лавочка над долиной';
     return L[id] || (KINDS[kind] && KINDS[kind].name) || id;
   }
   function mtnLine(p, named) {
     if (p.id === 'toVillage') return 'Ещё чуть-чуть — и ворота.';
-    if (p.id === 'toHotel') return 'Ветка вверх, к отелю на вершине.';
+    if (p.id === 'toHotel') return 'Мимо школы — наверх, к отелю на вершине.';
     if (p.id === 'zipLanding') return 'Сюда прилетают с троса от отеля.';
     if (p.id === 'tower' && p.rid === 'hotel') return 'Наверх — и вжух через долину.';
     if (p.id === 'square' || p.id === 'courtyard') return p.rid === 'hotel' ? 'Белые стены и фонтан.' : 'Лавки, лотки и годекан.';
@@ -1770,8 +1768,6 @@
   }
   let PATH0 = null;
   const path0 = () => PATH0 || (PATH0 = V_().regions.serpentine.path());
-  let HROAD0 = null;
-  const hotelRoad0 = () => { if (HROAD0) return HROAD0; try { HROAD0 = V_().regions.serpentine.hotelRoad(); } catch (e) { HROAD0 = null; } return HROAD0; };
   const GROUND_PAL = {
     kubachi: { crest: [229, 219, 196], field: [214, 229, 188], rock: [206, 198, 191], ledge: [201, 191, 181], roof: [238, 223, 207], strip: [243, 231, 213], stair: [233, 207, 180], lot: [234, 224, 210],
       yard: [241, 229, 215], knoll: [214, 229, 188], tower: [222, 197, 162], path: [240, 223, 200], gravel: [227, 219, 207], square: [247, 228, 214], spring: [190, 221, 241], road: [214, 205, 222] },
@@ -1894,7 +1890,7 @@
       (HD.PADS || []).forEach(p => { c.fillStyle = PADC[p.kind] || '#EDE6DA'; c.fillRect(X(p.x0), Y(p.z0), (p.x1 - p.x0) * s, (p.z1 - p.z0) * s); });
       (HD.STAIRS || []).forEach(p => { c.fillStyle = '#E8D3BC'; c.fillRect(X(p.x0), Y(p.z0), (p.x1 - p.x0) * s, (p.z1 - p.z0) * s); });
     }
-    // дорога к отелю (снизу, от развилки серпантина)
+    // нижняя дорога отеля — от ворот парковки вниз (W8: на ней — вниз, в село; развилки серпантина нет)
     let road = null; try { road = h && h.road && h.road.points ? h.road.points() : HD.road ? HD.road() : null; } catch (e) { road = null; }
     if (road && road.length) { polyline(c, road, s, ox, oz, 6.6, 'rgb(196,184,206)'); polyline(c, road, s, ox, oz, 5.4, 'rgb(214,205,222)'); }
     // бассейн, грин, купели, костёр
@@ -1919,9 +1915,7 @@
   }
   function paintRoad(c, M, s, ox, oz, W, H, o) {
     let P = null; try { P = path0(); } catch (e) { P = null; }
-    const hr = hotelRoad0();
-    // ветка к отелю, потом основная дорога: бордюр и полотно
-    if (hr && hr.points) { polyline(c, hr.points, s, ox, oz, 7.4, 'rgb(196,184,206)'); polyline(c, hr.points, s, ox, oz, 6, 'rgb(220,212,226)'); }
+    // дорога: бордюр и полотно (W8: ветки к отелю нет)
     if (P) {
       polyline(c, P, s, ox, oz, 8, 'rgb(196,184,206)'); polyline(c, P, s, ox, oz, 6.6, 'rgb(214,205,222)');
       // середина — пунктир (старая дорога)
@@ -1935,9 +1929,15 @@
   const MAP_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z" fill="#FBE1E7" stroke="#C2405B" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4v13.5M15.5 6.5V20" stroke="#C2405B" stroke-width="2"/></svg>';
   // метка-путеводитель «📍» (одна на игру): { rid: 'city' | 'serpentine' | 'kubachi' | 'hotel', id, x, z, label, kind }
   let WAYPOINT = null;
+  function hotelWay() {
+    const lv = (LIVE_POIS.kubachi || []).find(p => p.id === 'toHotel'), st = (STATIC_POIS.kubachi || []).find(a => a[0] === 'toHotel');
+    const q = lv || (st ? { x: st[2], z: st[3] } : null);
+    return q ? { rid: 'kubachi', id: 'toHotel', x: q.x, z: q.z, label: 'Дорога к отелю', kind: 'hotel' } : null;
+  }
   function setWaypoint(w) { WAYPOINT = w && isFinite(w.x) && isFinite(w.z) ? Object.assign({ rid: 'city' }, w) : null; return WAYPOINT; }
   // куда вести стрелку, если метка в другом регионе: выход текущего региона
-  const EXIT_TO = { serpentine: { kubachi: 'toVillage', hotel: 'toHotel', city: 'toCity' }, kubachi: { serpentine: 'toRoad', hotel: 'toHotel', city: 'toRoad' }, hotel: { kubachi: 'zipline', serpentine: 'toRoad', city: 'toRoad' } };
+  // куда показывать метку другого региона: выход к нему (W8: в отель — только через село, из отеля — только вниз, в село)
+  const EXIT_TO = { serpentine: { kubachi: 'toVillage', hotel: 'toVillage', city: 'toCity' }, kubachi: { serpentine: 'toRoad', hotel: 'toHotel', city: 'toRoad' }, hotel: { kubachi: 'toVillage', serpentine: 'toVillage', city: 'toVillage' } };
   const CAR_COL = { sedan: '#D23A4A', coupe: '#E8B91E' };
   const carColOf = v => (v && v.covered ? '#C9B8C2' : CAR_COL[(v && v.model) || (window.WORLD && WORLD.carChoice ? safe(WORLD.carChoice) : 'coupe')] || CAR_COL.coupe);
   // машина сверху: a — угол «вперёд» на экране
@@ -2381,6 +2381,8 @@
     // метка-путеводитель «📍» (одна на игру; радар города и гор показывают метку стрелкой)
     waypoint: () => (WAYPOINT ? Object.assign({}, WAYPOINT) : null),
     setWaypoint: w => setWaypoint(w), clearWaypoint: () => setWaypoint(null),
+    // W8: метка «к отелю» — у дороги наверх в селе (выход toHotel; живая точка, если село уже загружали, иначе — по умолчанию)
+    hotelWay: () => hotelWay(),
     analyze: (L, C, doors, o) => analyze(L || WORLD.LAYOUT, C, doorListOf(doors), o),
     travelDefault: defaultTravel,   // перенос через живой город — чтобы обернуть своим onTravel (звук, событие, задержка)
     paint, pin, KINDS,

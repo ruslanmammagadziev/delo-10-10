@@ -333,7 +333,8 @@
         S.mode = 'walk';
         const sp = (from === 'zipline' && h.places && h.places.zipLanding) || h.spawn; S.px = sp.x; S.pz = sp.z; S.py = h.ground(sp.x, sp.z); S.ang = sp.ry || 0; S.yaw = sp.ry || 0;
       }
-      setupCar(h, id, from, null, id === 'serpentine' || !!(h.drive && h.drive.heroInCar));   // волна 6: в село из отеля — за рулём
+      setupCar(h, id, from, null, id === 'serpentine' || !!(h.drive && h.drive.heroInCar && !S.onFoot));   // волна 6: в село из отеля — за рулём (W8: пешком — рядом с машиной)
+      S.onFoot = false;
       // W4A: свадьба — героиня модулю (розыгрыш с беретом), облачка пальтара; каз по приезде (KAZ_ON_ARRIVAL)
       if (h.wedding) { try { if (hero && h.wedding.setHero) h.wedding.setHero(hero, hero.rig ? hero.rig.anim : null); if (h.wedding.onPrank) h.wedding.onPrank(onPrank); } catch (e) { console.warn('village: wedding hero', e); } }
       if (kazBack) later(900, () => toast(V.kaz.line('giveBack', named), 3400));
@@ -355,8 +356,8 @@
         drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: c.driveCfg });
         chase = V.drive.chase({ THREE: T, camera, ground: h.ground });
         if (pose) { drv.teleport(pose); if (chase) chase.snap(); }
-        // из села — наверху у ворот, носом вниз; из отеля — в конце ветки; из города/старта — у щита на краю города, носом в гору
-        else if (from === 'kubachi') placeCarTop(); else if (from === 'hotel') placeCarHotel(); else placeCarStart();
+        // из села (и из отеля — W8: ветки нет) — наверху у ворот, носом вниз; из города/старта — у щита на краю города, носом в гору
+        else if (from === 'kubachi' || from === 'hotel') placeCarTop(); else placeCarStart();
         if (heroInCar) { if (drv.heroIn && hero) drv.heroIn(hero, { instant: true }); S.mode = 'drive'; }
         else { drv.S.mode = 'parked'; if (drv.update) drv.update(1 / 60, { brake: true }); }
         document.body.classList.toggle('drive', S.mode === 'drive');
@@ -378,7 +379,7 @@
       return c;
     }
 
-    // машина на серпантине: у щита на краю города (вверх), у ворот села (вниз), в конце ветки к отелю
+    // машина на серпантине: у щита на краю города (вверх), у ворот села (вниз)
     function placeCarStart() {
       const h = S.region; if (!drv || !h) return;
       drv.teleport(h.carSpawn); if (chase) chase.snap();
@@ -391,13 +392,6 @@
       const q = h.road.sample(s0); drv.teleport({ x: q.x, z: q.z, ry: q.th + PI }); if (chase) chase.snap();
       (h.moments || []).forEach(m => { m.done = true; m.t = null; });   // «вау» с L3 уже было по дороге вверх
       S.dir = 'down'; S.exitArmed = {};
-    }
-    function placeCarHotel() {
-      const h = S.region; if (!drv || !h) return;
-      const ex = h.exits.find(e => e.id === 'toHotel');
-      if (ex && h.road && h.road.branch && h.road.branch.sample) { const q = h.road.branch.sample(Math.max(0, (ex.s || h.road.branch.len) - (ex.r || 5) - 8)); drv.teleport({ x: q.x, z: q.z, ry: q.th + PI }); }
-      else placeCarStart();
-      if (chase) chase.snap(); S.dir = 'down'; S.exitArmed = {};
     }
 
     /* ---------- ввод: джойстик слева, камера справа, клавиши; в «Осмотреться» — палец крутит взгляд, два — ближе/дальше ---------- */
@@ -854,7 +848,7 @@
     const EXIT_TO = { toHotel: 'hotel', toVillage: 'kubachi', toKubachi: 'kubachi', toZip: 'kubachi', toRoad: 'serpentine' };
     async function useExit(ex) {
       if (S.rid === 'hotel' && ex.id === 'zipline') { const sp = S.region.spots.find(q => q.id === 'zipline_start'); if (sp) return useSpot(sp); }
-      const to = ex.to || (S.rid === 'hotel' ? (ex.id === 'toRoad' ? 'serpentine' : EXIT_TO[ex.id]) : null);
+      const to = ex.to || (S.rid === 'hotel' ? EXIT_TO[ex.id] : null);
       if (S.rid === 'kubachi' && ex.id === 'toHotel') {   // волна 6: наверху дороги мимо школы — к отелю
         if (haveRegion('hotel')) await fade('К отелю…', () => loadRegion('hotel', 'kubachi'));
         else toast('Отель — в следующей сборке.', 2600);
@@ -862,11 +856,9 @@
         if (haveRegion('serpentine')) await fade('Вниз по серпантину…', () => loadRegion('serpentine', 'kubachi'));
         else { await fade('Дорога вниз…', () => {}); toast('Серпантин и город — в основной игре. Возвращаемся на площадь.'); const sp = S.region.spawn; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); S.camInit = false; }
       } else if (S.rid === 'hotel') {
-        if (to && haveRegion(to)) await fade(to === 'kubachi' ? 'В село…' : 'На дорогу…', () => loadRegion(to, ex.via || 'hotel'));
+        // W8: из отеля — только вниз, в село (развилки серпантина нет): у машины — за рулём, у ворот (walk) — пешком
+        if (to && haveRegion(to)) { S.onFoot = !!ex.walk; await fade('В село…', () => loadRegion(to, ex.via || 'hotel')); S.onFoot = false; }
         else toast(ex.label || 'Выход');
-      } else if (ex.id === 'toHotel') {
-        if (haveRegion('hotel')) await fade('К отелю…', () => loadRegion('hotel', 'serpentine'));
-        else toast('Отель — в следующей сборке. Дорога дальше — к селу.', 2600);
       } else if (ex.id === 'toVillage') {
         S.trip.up = true;
         await fade('Через облака — в село…', () => { loadRegion('kubachi', 'serpentine'); S.trip.village = true; });

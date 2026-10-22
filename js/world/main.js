@@ -290,11 +290,16 @@
           onTravelRegion: (rid, poiId, poi) => {
             if (rid === 'city' || !(S && S.regionTrip && S.tripOpen && S.tripOpen())) return false;
             const at = poi && isFinite(poi.x) ? { x: poi.x, z: poi.z, label: poi.label } : null;
+            // W8 (желание автора): в отель — только через село, дорогой мимо школы наверх. Пока отеля не было (st.world.hotel),
+            // метка «📍» — у дороги к отелю в селе; дальше — как обычно (в первый раз — серпантин, потом — сразу в село:
+            // туда загрузчик ведёт сам, R.trip с to 'hotel' и refs.hotelSeen)
+            const way = rid === 'hotel' && !wState().hotel && WORLD.Minimap.hotelWay ? WORLD.Minimap.hotelWay() : null;
             // волна 4 (интегратор): в первый раз — по серпантину самой, за рулём (желание автора); метка «📍» ведёт к точке.
             // Когда дорога наверх уже пройдена (st.world.road), «Поехать сюда» везёт сразу к точке.
             if (!wState().road && rid !== 'serpentine') {
-              if (at) { try { WORLD.Minimap.setWaypoint({ rid, id: poiId, x: at.x, z: at.z, label: at.label, kind: poi.kind }); } catch (e) { /* без метки */ } }
-              return S.regionTrip(null, { note: at && at.label ? `Первый раз — по серпантину, за рулём! Метка 📍 приведёт: «${at.label}».` : 'Первый раз — по серпантину, за рулём!' });
+              const wp = way || (at ? { rid, id: poiId, x: at.x, z: at.z, label: at.label, kind: poi.kind } : null);
+              if (wp) { try { WORLD.Minimap.setWaypoint(wp); } catch (e) { /* без метки */ } }
+              return S.regionTrip(null, { note: way ? 'Первый раз — по серпантину, за рулём! Отель — ещё выше по горе: метка 📍 у дороги к нему.' : at && at.label ? `Первый раз — по серпантину, за рулём! Метка 📍 приведёт: «${at.label}».` : 'Первый раз — по серпантину, за рулём!' });
             }
             return S.regionTrip(null, { to: rid, poi: poiId, at });
           },
@@ -1660,10 +1665,14 @@
       try {
         // car — выбранная машина города (купе или седан: car.kind, у седана car.driveCfg); carKind — то же словом (WORLD.carChoice())
         const R = WORLD.Regions.create({ THREE: T, renderer: low ? null : w.renderer, host: w.root, hero, car, carKind: w.carKind, kit: w.H, layout: L, quality: w.qKey,
-          pets: { cat: s.catOn && !s.catSit ? w.cat : null, dog: w.dog || null } });   // зверята с ней: кот шагает телом и хвостом (REGION 4B)
+          pets: { cat: s.catOn && !s.catSit ? w.cat : null, dog: w.dog || null },   // зверята с ней: кот шагает телом и хвостом (REGION 4B)
+          // W8: в отель — только через село; первый приезд в отель — в сохранение сразу (st.world.hotel): дальше с карты — сразу туда
+          hotelSeen: () => { try { return !!wState().hotel; } catch (x) { return false; } },
+          onEvent: (name, d) => { if (name === 'region:enter' && d && d.id === 'hotel') { try { if (!wState().hotel) saveWorld({ hotel: 1 }); } catch (x) { /* без сохранения */ } } } });
         ret = await R.trip({ from: 'city', edge: e || null, to: go && go.to, poi: go && go.poi, at: go && go.at, note: go && go.note });
       } catch (err) { console.warn('world region trip', err); }
       if (ret && ret.trip && ret.trip.up) { try { if (!wState().road) saveWorld({ road: 1 }); } catch (x) { /* ignore */ } }   // дорога наверх пройдена за рулём
+      if (ret && ret.trip && ret.trip.hotel) { try { if (!wState().hotel) saveWorld({ hotel: 1 }); } catch (x) { /* ignore */ } }   // W8: в отеле была (через село)
       const ms = performance.now() - t0; s.sideMs += ms; s.side.push('trip'); if (env.onSide) env.onSide('trip', ms);
       s.inTrip = false;
       if (s.finished) return false;

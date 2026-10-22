@@ -27,11 +27,11 @@
      · ПОКРЫТИЕ: бледные заплатки старого асфальта, щебень, укатанная земля с травой посередине, колеи, ямы, лужи с
        грязью, бурые сырые пятна, камни на полотне и по обочинам, щебень на внутренней стороне петель; зимой — снег,
        слякоть в колеях, ледок в лужах. Всё в одной сетке полотна (те же вызовы). Подвеска машины чувствует ямы и камни:
-       road.surface(x, z) / road.surfaceSE(s, e, rid) → { kind, wet, dz, rough };
+       road.surface(x, z) / road.surfaceSE(s, e) → { kind, wet, dz, rough };
      · ЛАВОЧКИ: ещё 4 кармана с лавочкой на смотровых точках (плечи L3, L4, L5 и выезд) — места road_bench1…4
        (+ прежняя road_view), use() → { kind:'sit', seat, ry, view }, виды bench1…bench4;
-     · РАЗВИЛКА К ОТЕЛЮ: на выезде, ≈ 50 м до ворот, ветка вверх на бровку (72 м, 10 %), коричневые щиты «Отель»
-       (для едущих вверх и вниз), облачная шторка в конце и выход { id:'toHotel', rid: 1 } (регион отеля — отдельно);
+     · (W8: развилки к отелю больше нет — желание автора «в отель — только через село, выше по горе»: дорога одна, до
+       ворот села; в отель — из села, дорогой мимо школы наверх. См. README «Без развилки»);
      · ХОДЬБА: героиня может выйти из машины где угодно — handle.collide / walkable / groundInfo / rayHit / dynamic.
 
    Координаты — общие «макро» из kubachi_visual.md (метры; x восток, y вверх, z юг; y = 0 — площадь села),
@@ -42,19 +42,17 @@
      handle: { spawn, carSpawn, colliders, ground(x,z), npcs, spots, exits, camera:{views, far, near},
                road (для VILLAGE.drive), update(dt, heroPos, camera), dispose() }
      handle.road = { len, project(x,z,hintS), sample(s), kmax(s,ahead), sOfTag(tag),
-                     branch: { len, sF, side, project, sample },          // волна 4: ветка к отелю (s — по ветке)
-                     areas(x,z,hintS,hintB) → [проекция на основную, на ветку?] — для мягкого края машины и ходьбы,
-                     surface(x,z,hintS), surfaceSE(s,e,rid) }              // покрытие: яма/лужа/грязь/камень
+                     areas(x,z,hintS) → [проекция на дорогу] — для мягкого края машины и ходьбы,
+                     surface(x,z,hintS), surfaceSE(s,e) }                  // покрытие: яма/лужа/грязь/камень
      handle.moments — «вау»-момент (показать село с L3); handle.cameraBias(x,y,z,heading,s) — разворот камеры к долине.
      Волна 4 (добавлено, прежнее не тронуто): collide(x,z,r,y) → [x,z] · walkable(x,z) · groundInfo(x,z) → {y, kind}
        · rayHit(a,b) · dynamic: [] (подвижные коллайдеры: машина — drive.collider) · benches: [{id,x,y,z,ry,seat,view,s}]
-       · hotel: { fork, end, len, side } · exits + { id:'toHotel', x,y,z,r, s (по ветке), rid: 1 } · views bench1…4, fork
-       · sOf.fork, sOf.benches · stats().
+       · views bench1…4 · sOf.benches · stats(). (W8: ветка к отелю — road.branch, hotel, выход toHotel, вид fork, sOf.fork
+       и .hotelRoad() — убрана.)
    Отступление от библии: плечи наискось (+6 м по ρ, зигзаг как на фото p5), склон 0,636, подъезд с запада, выезд по бровке
    (подробно — plan2/kubachi_road.md; волна 4 — plan2/wave4_road.md).
    Дополнительно: .path() — осевая дороги в макро-координатах; .distant(THREE, season) — лента серпантина
    для вида из села (1 вызов); .groundMacro(x, z) — естественный рельеф склона (без врезки дороги), для фона села;
-   .hotelRoad() — ветка к отелю без сборки региона (развилка, конец, осевая) — для региона отеля и карты.
    ===================================================================== */
 (function () {
   'use strict';
@@ -159,7 +157,7 @@
      PLAN: азимут B0 → B1 (°), высота Y0 → Y1, радиус горизонтали R0 + (y − Y0)·RK; feat — лощины (+, м вглубь склона) и
      отроги (−, м к долине): [азимут, полуширина °, размах]; stream — номер лощины с ручьём и мостиком. */
   const PLAN = {
-    B0: -86, B1: 42, Y0: -114, Y1: -26, R0: 370, RK: 1.35, flat0: 26, flat1: 84,   // flat1: ровная площадка у развилки и ворот
+    B0: -86, B1: 42, Y0: -114, Y1: -26, R0: 370, RK: 1.35, flat0: 26, flat1: 84,   // flat1: ровная площадка на выезде, у ворот
     feat: [[-72, 5.5, 20], [-60, 7, -14], [-46, 5, 16], [-32, 8, -22], [-17, 5.5, 24], [-3, 7, -16], [11, 5, 15], [23, 6, -10]],
     stream: 0,
     // относительная крутизна по высоте: в облачном слое (−108…−88) на треть круче — короче «молоко»
@@ -212,7 +210,7 @@
     P = resample(P, DS);
     const N = P.length;
     // подписи участков (для совместимости sOfTag): 'app' — начало у края города, 'L0'…'L6' — подъём семью равными частями,
-    // 'exit' — последний участок с развилкой к отелю и воротами. Шпилек ('H…') нет.
+    // 'exit' — последний участок, к воротам. Шпилек ('H…') нет.
     const sApp = 60, sExit = (N - 1) * DS - 96;
     P.forEach((p, i) => { const s = i * DS; p.tag = s < sApp ? 'app' : s >= sExit ? 'exit' : 'L' + Math.min(6, Math.floor((s - sApp) / ((sExit - sApp) / 7))); });
     const A = { N, len: (N - 1) * DS, x: new Float32Array(N), y: new Float32Array(N), z: new Float32Array(N), th: new Float32Array(N), lx: new Float32Array(N), lz: new Float32Array(N), k: new Float32Array(N), kabs: new Float32Array(N), r: new Float32Array(N), v: new Float32Array(N), rho: new Float32Array(N), beta: new Float32Array(N), tag: P.map(p => p.tag) };
@@ -302,43 +300,6 @@
   };
   const ROAD_SPEAKERS = { tur: { name: 'Тур', icon: '🐐', voice: 'басовитый, добродушный, неторопливый' } };
   V.ROAD_LINES = ROAD_LINES;
-
-  /* ---------- волна 4: ветка к отелю — развилка на выезде у верхнего края, ≈ 50 м до ворот села; вверх на бровку ----------
-     По research (kubachi_spec2 §1.4) отель — на холме над селом, подъезд «от развилки у верхнего квартала». Здесь — начало
-     ветки (≈ 70 м, подъём ≈ 7 м, 10 %), щиты «Отель» на развилке и облачная шторка в конце (выход toHotel; сам отель —
-     отдельный регион). Ветка строится из осевой основной дороги, поэтому её место одно и то же в регионе и вне его.
-     W6: развилка — за 62 м до конца дороги, ветка уходит ВПРАВО по ходу вверх (в склон, через вырез в стенке); вход почти
-     поперёк дороги (снизу — направо на ≈ 80°, сверху — налево на ≈ 100°) с раструбом. */
-  let BRANCH = null;
-  function buildBranch() {
-    if (BRANCH) return BRANCH;
-    const R = buildPath(), iF = clamp(Math.round((R.len - 62) / DS), 0, R.N - 1);
-    const y0 = R.y[iF], th0 = R.th[iF], ux = Math.sin(th0), uz = Math.cos(th0), lx = Math.cos(th0), lz = -Math.sin(th0), sd = -1;
-    // (вдоль дороги a, вбок вправо b, подъём dy) от точки развилки
-    const AB = [[0, 0, 0], [0.6, 5, 0], [3.2, 11, 0.3], [8.2, 17, 1.0], [14.8, 23.3, 2.2], [21.5, 29, 3.4], [27, 35.5, 4.6], [31.5, 42.5, 5.7], [35, 50, 6.5], [37.5, 57.5, 7.1]];
-    const K = AB.map(([a, b, y]) => [R.x[iF] + ux * a + lx * sd * b, R.z[iF] + uz * a + lz * sd * b, y]);
-    const raw = [];
-    for (let i = 0; i < K.length - 1; i++) {
-      const p0 = K[Math.max(0, i - 1)], p1 = K[i], p2 = K[i + 1], p3 = K[Math.min(K.length - 1, i + 2)];
-      for (let j = 0; j < 20; j++) {
-        const t = j / 20, t2 = t * t, t3 = t2 * t, f = k => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3);
-        raw.push({ x: f(0), z: f(1), y: y0 + f(2) });
-      }
-    }
-    { const L = K[K.length - 1]; raw.push({ x: L[0], z: L[1], y: y0 + L[2] }); }
-    const cum = [0]; for (let i = 1; i < raw.length; i++) cum.push(cum[i - 1] + Math.hypot(raw[i].x - raw[i - 1].x, raw[i].z - raw[i - 1].z));
-    const Lb = cum[cum.length - 1], P = []; let j = 0;
-    for (let s = 0; s <= Lb + 1e-6; s += DS) { while (j < raw.length - 2 && cum[j + 1] < s) j++; const t = clamp((s - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), 0, 1), a = raw[j], b = raw[j + 1]; P.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, y: a.y + (b.y - a.y) * t }); }
-    const N = P.length, B = { N, len: (N - 1) * DS, iF, sF: iF * DS, x: new Float32Array(N), y: new Float32Array(N), z: new Float32Array(N), th: new Float32Array(N), lx: new Float32Array(N), lz: new Float32Array(N), k: new Float32Array(N), kabs: new Float32Array(N), r: new Float32Array(N), v: new Float32Array(N), tag: P.map(() => 'B') };
-    P.forEach((p, i) => { B.x[i] = p.x; B.y[i] = p.y; B.z[i] = p.z; const rv = XZ2RV(p.x, p.z); B.r[i] = rv[0]; B.v[i] = rv[1]; });
-    for (let i = 0; i < N; i++) { const a = Math.max(0, i - 1), b = Math.min(N - 1, i + 1), th = Math.atan2(B.x[b] - B.x[a], B.z[b] - B.z[a]); B.th[i] = th; B.lx[i] = Math.cos(th); B.lz[i] = -Math.sin(th); }
-    for (let i = 0; i < N; i++) { const a = Math.max(0, i - 2), b = Math.min(N - 1, i + 2); B.k[i] = angDiff(B.th[b], B.th[a]) / Math.max(DS, (b - a) * DS); }
-    for (let i = 0; i < N; i++) { let m = 0; for (let k = -4; k <= 4; k++) m = Math.max(m, Math.abs(B.k[clamp(i + k, 0, N - 1)])); B.kabs[i] = m; }
-    // сторона развилки (относительно хода вверх по основной дороге): +1 — слева, −1 — справа
-    B.side = ((B.x[8] - R.x[iF]) * R.lx[iF] + (B.z[8] - R.z[iF]) * R.lz[iF]) > 0 ? 1 : -1;
-    BRANCH = B;
-    return B;
-  }
 
   /* =====================================================================
      СБОРКА РЕГИОНА
@@ -521,22 +482,18 @@ void main() {
 
     /* --- дорога и её «полоса» --- */
     const R = buildPath(), N = R.N;
-    // волна 4: ветка к отелю — в общих массивах после основной дороги (индексы N … N+NBR−1); основная дорога — как раньше (0 … N−1)
-    const BR = buildBranch(), NBR = BR.N, NG2 = N + NBR;
-    const GX = new Float32Array(NG2), GY = new Float32Array(NG2), GZ = new Float32Array(NG2), GTH = new Float32Array(NG2), GLX = new Float32Array(NG2), GLZ = new Float32Array(NG2), GKA = new Float32Array(NG2), GK = new Float32Array(NG2);
-    for (let i = 0; i < NG2; i++) { const A = i < N ? R : BR, j = i < N ? i : i - N; GX[i] = A.x[j]; GY[i] = A.y[j]; GZ[i] = A.z[j]; GTH[i] = A.th[j]; GLX[i] = A.lx[j]; GLZ[i] = A.lz[j]; GKA[i] = A.kabs[j]; GK[i] = A.k[j]; }
-    const SEGOK = i => i < N - 1 || (i >= N && i < NG2 - 1);
-    const ridOf = i => (i < N ? 0 : 1);
-    const SWA = new Float32Array(NG2), SWL = new Float32Array(NG2), SWR = new Float32Array(NG2), BRIDGE = new Uint8Array(NG2);
+    // W8: ветки к отелю нет — одна дорога, точки 0 … N−1 (в отель — только через село)
+    const SWA = new Float32Array(N), SWL = new Float32Array(N), SWR = new Float32Array(N), BRIDGE = new Uint8Array(N);
     // W6: шпилек нет — дорога-«горизонталь»; обрыв всегда СЛЕВА по ходу вверх (e > 0), скала — справа (e < 0).
     // Нос отрога — правый поворот (внутри поворота — склон), снаружи (слева) — вид через долину на село: там карманы с лавочками.
     // Смотровая с туром (road_view) — на отроге над облаками, откуда наружу лучше всего видно башню; ещё 4 кармана — на других
-    // носах отрогов и на выходе к воротам (не ближе 55 м друг к другу и к развилке).
+    // носах отрогов и на выходе к воротам (не ближе 55 м друг к другу и к выезду).
     const RTB = roadTab();
     const sEmerge = (() => { for (let i = 0; i < N; i++) if (R.y[i] > -86) return i * DS; return R.len * 0.35; })();
     const viewScore = i => { const dx = TOWER.x - R.x[i], dz = TOWER.z - R.z[i], d = Math.hypot(dx, dz) || 1; return (R.lx[i] * dx + R.lz[i] * dz) / d; };
     const noses = [];
     for (let i = 8; i < N - 8; i++) if (R.k[i] < -0.012 && R.k[i] <= R.k[i - 1] && R.k[i] <= R.k[i + 1]) { const L = noses[noses.length - 1]; if (L !== undefined && i - L < 20) { if (R.k[i] < R.k[L]) noses[noses.length - 1] = i; } else noses.push(i); }
+    // W8: развилки нет, но карманы с лавочками считаются от прежнего места развилки (за 62 м до конца) — лавочки не сдвигаются
     const sFork0 = (R.len - 62);
     const okPk = i => R.y[i] > -87 && i * DS < sFork0 - 40 && i * DS > 40;
     let iAp6 = -1; { let best = -9; noses.forEach(i => { if (!okPk(i)) return; const sc = viewScore(i) + 0.15 * Math.min(1, -R.k[i] / 0.04); if (sc > best) { best = sc; iAp6 = i; } }); }
@@ -547,7 +504,7 @@ void main() {
     const POCKETS = [{ i: iPk, side: pocketSide, w: 4.6, a: 4, b: 12, main: true }];
     { const taken = [iPk], far = i => taken.every(j => Math.abs(i - j) * DS > 55);
       noses.filter(i => okPk(i) && far(i)).sort((a, b) => viewScore(b) - viewScore(a)).slice(0, 3).sort((a, b) => a - b).forEach(i => { taken.push(i); });
-      // последний — на выходе, перед развилкой (как прежний «выезд»): вид назад-вниз на долину
+      // последний — на выезде, за ≈ 90 м до конца дороги (как прежний «выезд»): вид назад-вниз на долину
       const iE = clamp(Math.round((sFork0 - 30) / DS), 0, N - 1); if (far(iE)) taken.push(iE);
       taken.slice(1).sort((a, b) => a - b).forEach((i, k) => POCKETS.push({ i, side: 1, w: 3.3, a: 3, b: 9, k: k + 1 })); }
     for (let i = 0; i < N; i++) {
@@ -560,22 +517,15 @@ void main() {
       // мостик: дорога над ручьём в голове лощины (ось оврага ± 6,5 м)
       if (RTB.stream) { const lat = R.rho[i] * (R.beta[i] - RTB.stream.b) * D2R; if (Math.abs(lat) < 6.5 && Math.abs(i * DS - RTB.stream.s) < 30) BRIDGE[i] = 1; }
     }
-    for (let j = 0; j < NBR; j++) {
-      let ka = 0, n = 0; for (let k = -5; k <= 5; k++) { ka += Math.abs(BR.k[clamp(j + k, 0, NBR - 1)]); n++; } ka /= n;
-      // W5: раструб у развилки — первые ≈ 10 м ветки шире (по 5 м с каждой стороны у основной дороги): скруглённые углы,
-      // машина заходит в поворот и снизу, и сверху без «скребка» о мягкий край
-      const i = N + j; SWA[i] = 1.9 + 0.7 * sm(0.03, 0.1, ka); SWL[i] = SWR[i] = SWA[i] + 0.5 + 5.0 * (1 - sm(3, 11, j * DS));
-    }
     let iBr = -1; { let best = 1e9; for (let i = 0; i < N; i++) if (BRIDGE[i]) { const d = Math.abs(R.rho[i] * (R.beta[i] - RTB.stream.b) * D2R); if (d < best) { best = d; iBr = i; } } }
 
     // в сетки стенок идёт каждая вторая точка на прямых (на кривых — каждая): меньше треугольников, вид тот же
-    const KEEP = new Uint8Array(NG2); for (let i = 0; i < NG2; i++) KEEP[i] = (i % 2 === 0 || i === N - 1 || i === N || i === NG2 - 1 || GKA[i] > 0.02 || Math.abs(SWL[i] - SWR[i]) > 0.05) ? 1 : 0;
+    const KEEP = new Uint8Array(N); for (let i = 0; i < N; i++) KEEP[i] = (i % 2 === 0 || i === N - 1 || R.kabs[i] > 0.02 || Math.abs(SWL[i] - SWR[i]) > 0.05) ? 1 : 0;
 
-    /* --- пространственный хеш отрезков (основная дорога и ветка) --- */
+    /* --- пространственный хеш отрезков дороги --- */
     const HC = 8, HR = 24, hcells = new Map(), hkey = (i, j) => (i + 4096) * 8192 + (j + 4096);
-    for (let i = 0; i < NG2 - 1; i++) {
-      if (!SEGOK(i)) continue;
-      const x0 = Math.min(GX[i], GX[i + 1]) - HR, x1 = Math.max(GX[i], GX[i + 1]) + HR, z0 = Math.min(GZ[i], GZ[i + 1]) - HR, z1 = Math.max(GZ[i], GZ[i + 1]) + HR;
+    for (let i = 0; i < N - 1; i++) {
+      const x0 = Math.min(R.x[i], R.x[i + 1]) - HR, x1 = Math.max(R.x[i], R.x[i + 1]) + HR, z0 = Math.min(R.z[i], R.z[i + 1]) - HR, z1 = Math.max(R.z[i], R.z[i + 1]) + HR;
       for (let a = Math.floor(x0 / HC); a <= Math.floor(x1 / HC); a++) for (let b = Math.floor(z0 / HC); b <= Math.floor(z1 / HC); b++) {
         const k = hkey(a, b); let l = hcells.get(k); if (!l) hcells.set(k, l = []); l.push(i);
       }
@@ -583,15 +533,14 @@ void main() {
     const hq = (x, z) => hcells.get(hkey(Math.floor(x / HC), Math.floor(z / HC))) || null;
     const SP = { t: 0, cx: 0, cz: 0, d2: 0 };
     function segP(i, x, z) {
-      const ax = GX[i], az = GZ[i], dx = GX[i + 1] - ax, dz = GZ[i + 1] - az, L2 = dx * dx + dz * dz;
+      const ax = R.x[i], az = R.z[i], dx = R.x[i + 1] - ax, dz = R.z[i + 1] - az, L2 = dx * dx + dz * dz;
       let t = ((x - ax) * dx + (z - az) * dz) / (L2 || 1); t = t < 0 ? 0 : t > 1 ? 1 : t;
       SP.t = t; SP.cx = ax + dx * t; SP.cz = az + dz * t; SP.d2 = (x - SP.cx) * (x - SP.cx) + (z - SP.cz) * (z - SP.cz);
       return SP;
     }
-    // ближайший отрезок дороги rid (0 — основная, 1 — ветка): локально около подсказки (по номеру), иначе по хешу
-    function nearestSeg(x, z, hintS, rid) {
-      rid = rid || 0;
-      const lo = rid ? N : 0, hi = rid ? NG2 - 2 : N - 2;
+    // ближайший отрезок дороги: локально около подсказки (по номеру), иначе по хешу
+    function nearestSeg(x, z, hintS) {
+      const lo = 0, hi = N - 2;
       let best = -1, bd = 1e18, bt = 0;
       if (hintS != null && isFinite(hintS)) {
         const i0 = clamp(lo + Math.round(hintS / DS), lo, hi);
@@ -607,39 +556,30 @@ void main() {
       return [best, bt, bd];
     }
     function mkProj(i, t, x, z) {
-      const a = i, b = i + 1, cx = GX[a] + (GX[b] - GX[a]) * t, cz = GZ[a] + (GZ[b] - GZ[a]) * t;
-      const dx = GX[b] - GX[a], dz = GZ[b] - GZ[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L;
-      const e = (x - cx) * lx + (z - cz) * lz, rid = ridOf(i), off = rid ? N : 0;
-      return { s: (i - off + t) * DS, i, t, x: cx, z: cz, y: GY[a] + (GY[b] - GY[a]) * t, th: Math.atan2(dx, dz), lx, lz, e,
-        wl: SWL[a] + (SWL[b] - SWL[a]) * t, wr: SWR[a] + (SWR[b] - SWR[a]) * t, wa: SWA[a] + (SWA[b] - SWA[a]) * t, rid, len: rid ? BR.len : R.len };
+      const a = i, b = i + 1, cx = R.x[a] + (R.x[b] - R.x[a]) * t, cz = R.z[a] + (R.z[b] - R.z[a]) * t;
+      const dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L;
+      const e = (x - cx) * lx + (z - cz) * lz;
+      return { s: (i + t) * DS, i, t, x: cx, z: cz, y: R.y[a] + (R.y[b] - R.y[a]) * t, th: Math.atan2(dx, dz), lx, lz, e,
+        wl: SWL[a] + (SWL[b] - SWL[a]) * t, wr: SWR[a] + (SWR[b] - SWR[a]) * t, wa: SWA[a] + (SWA[b] - SWA[a]) * t, rid: 0, len: R.len };
     }
-    const sampleG = (s, rid) => {
-      const off = rid ? N : 0, n = rid ? NBR : N, f = clamp(s / DS, 0, n - 1.0001), i = off + Math.floor(f), t = f - Math.floor(f), j = i + 1;
-      const th = GTH[i] + angDiff(GTH[j], GTH[i]) * t;
-      return { s, x: lerp(GX[i], GX[j], t), y: lerp(GY[i], GY[j], t), z: lerp(GZ[i], GZ[j], t), th, lx: Math.cos(th), lz: -Math.sin(th), k: lerp(GK[i], GK[j], t),
-        wl: lerp(SWL[i], SWL[j], t), wr: lerp(SWR[i], SWR[j], t), wa: lerp(SWA[i], SWA[j], t), tag: rid ? 'B' : R.tag[t < 0.5 ? i : j], rid: rid || 0 };
+    const sampleS = s => {
+      const f = clamp(s / DS, 0, N - 1.0001), i = Math.floor(f), t = f - Math.floor(f), j = i + 1;
+      const th = R.th[i] + angDiff(R.th[j], R.th[i]) * t;
+      return { s, x: lerp(R.x[i], R.x[j], t), y: lerp(R.y[i], R.y[j], t), z: lerp(R.z[i], R.z[j], t), th, lx: Math.cos(th), lz: -Math.sin(th), k: lerp(R.k[i], R.k[j], t),
+        wl: lerp(SWL[i], SWL[j], t), wr: lerp(SWR[i], SWR[j], t), wa: lerp(SWA[i], SWA[j], t), tag: R.tag[t < 0.5 ? i : j], rid: 0 };
     };
-    // ветка рядом? (грубо: по рамке ветки с запасом) — чтобы основная дорога не платила за проекцию на ветку
-    const BBOX = (() => { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let j = 0; j < NBR; j++) { x0 = Math.min(x0, BR.x[j]); x1 = Math.max(x1, BR.x[j]); z0 = Math.min(z0, BR.z[j]); z1 = Math.max(z1, BR.z[j]); } return { x0: x0 - 12, x1: x1 + 12, z0: z0 - 12, z1: z1 + 12 }; })();
-    const nearBranch = (x, z) => x > BBOX.x0 && x < BBOX.x1 && z > BBOX.z0 && z < BBOX.z1;
     const road = {
       len: R.len, N, DS,
-      project(x, z, hintS) { const [i, t] = nearestSeg(x, z, hintS, 0); return mkProj(i, t, x, z); },
-      sample(s) { return sampleG(s, 0); },
+      project(x, z, hintS) { const [i, t] = nearestSeg(x, z, hintS); return mkProj(i, t, x, z); },
+      sample(s) { return sampleS(s); },
       kmax(s, ahead) { const i0 = clamp(Math.floor(s / DS), 0, N - 1), i1 = clamp(Math.ceil((s + Math.max(0, ahead)) / DS), 0, N - 1); let m = 0; for (let i = i0; i <= i1; i++) if (R.kabs[i] > m) m = R.kabs[i]; return m; },
       sOfTag(tag) { const i = R.tag.indexOf(tag); return i < 0 ? null : i * DS; },
-      // волна 4: ветка к отелю и «площадь» дороги для мягкого края машины и ходьбы
-      branch: { len: BR.len, sF: BR.sF, side: BR.side, project(x, z, hintS) { const [i, t] = nearestSeg(x, z, hintS, 1); return mkProj(i, t, x, z); }, sample(s) { return sampleG(s, 1); } },
-      // все полотна рядом с точкой: [основная, ветка?] — проекции { s, e, wl, wr, th, lx, lz, rid, len }; машина и героиня
-      // остаются в объединении полотен (развилка проходима, край — мягкий)
-      areas(x, z, hintS, hintB) {
-        const a = [road.project(x, z, hintS)];
-        if (nearBranch(x, z)) a.push(road.branch.project(x, z, hintB));
-        return a;
-      },
+      // «площадь» дороги для мягкого края машины и ходьбы: [проекция { s, e, wl, wr, th, lx, lz, rid, len }] (W8: ветки нет —
+      // одно полотно; массив — тот же контракт, что у дорог села)
+      areas(x, z, hintS) { return [road.project(x, z, hintS)]; },
       // покрытие под точкой: { kind: 'asph'|'gravel'|'earth'|'mud'|'puddle'|'hole', wet 0..1, dz (м: яма −, камень +), rough 0..1 }
-      surface(x, z, hintS) { const a = road.areas(x, z, hintS); let p = a[0]; if (a[1] && Math.abs(a[1].e) - a[1].wl < Math.abs(p.e) - p.wl) p = a[1]; return surfSE(p.s, p.e, p.rid); },
-      surfaceSE(s, e, rid) { return surfSE(s, e, rid || 0); },
+      surface(x, z, hintS) { const p = road.project(x, z, hintS); return surfSE(p.s, p.e); },
+      surfaceSE(s, e) { return surfSE(s, e); },
     };
     // точка на полотне любой дороги (с отступом pad от края полотна); для ходьбы, деревьев, камней
     function onRoad(x, z, pad) {
@@ -647,89 +587,83 @@ void main() {
       for (const i of l) { segP(i, x, z); if (SP.d2 > 144) continue; const p = mkProj(i, SP.t, x, z), W = (p.e > 0 ? p.wl : p.wr) + (pad || 0); if (W > 0 && Math.abs(p.e) <= W && SP.d2 <= W * W) return true; }
       return false;
     }
-    // точка (x, z) лежит на полотне «другой» дороги (развилка: стенка и край не перегораживают въезд на ветку)
-    function inOther(i, x, z, pad) {
-      if (i < N) { if (!nearBranch(x, z)) return false; const p = road.branch.project(x, z); return p.s > 0.3 && Math.abs(p.e) < (p.e > 0 ? p.wl : p.wr) + (pad || 0); }
-      const p = road.project(x, z, BR.sF); return Math.abs(p.e) < (p.e > 0 ? p.wl : p.wr) + (pad || 0);
-    }
 
     /* --- волна 4: покрытие «старой» горной дороги — бледные заплатки асфальта, щебень, укатанная земля, ямы, лужи, грязь, камни ---
        По отчётам (spec2 §7): узко, выбоины, колеи, острые камни, щебень на внутренней стороне петель, лужи и грязь в низинах,
        редкие куски старого асфальта. SURF — вид полотна по точкам (0 асфальт, 1 щебень, 2 грунт), WET — сырость 0..1,
        FEAT — пятна в координатах дороги (s, e): ямы, лужи, грязь, камни на полотне (для подвески и брызг). */
-    const SURF = new Uint8Array(NG2), WET = new Float32Array(NG2), ROUGH = new Float32Array(NG2);
-    const FEAT = [[], []], FB = [new Map(), new Map()], FBS = 4;
+    const SURF = new Uint8Array(N), WET = new Float32Array(N), ROUGH = new Float32Array(N);
+    const FEAT = [], FB = new Map(), FBS = 4;
     {
       const rs = rng(4242 + (WIN ? 3 : 0));
-      for (let i = 0; i < NG2; i++) {
-        const rid = ridOf(i), j = rid ? i - N : i, s = j * DS, tag = rid ? 'B' : R.tag[i];
-        const n1 = vnoise(s * 0.021 + rid * 17 + 3.1, 1.7), n2 = vnoise(s * 0.07 + 9.3, rid * 5 + 4.2);
+      for (let i = 0; i < N; i++) {
+        const s = i * DS, tag = R.tag[i];
+        const n1 = vnoise(s * 0.021 + 3.1, 1.7), n2 = vnoise(s * 0.07 + 9.3, 4.2);
         let kind = n1 < 0.36 ? 0 : n1 < 0.6 ? 1 : 2;
-        if (!rid && GKA[i] > 0.045) kind = n2 < 0.3 ? 0 : 1;         // W6: крутые повороты (головы лощин, носы отрогов) подсыпают щебнем
+        if (R.kabs[i] > 0.045) kind = n2 < 0.3 ? 0 : 1;         // W6: крутые повороты (головы лощин, носы отрогов) подсыпают щебнем
         if (tag === 'app') kind = n1 < 0.28 ? 0 : 2;                 // внизу, у ручья — больше грунта
-        if (rid) kind = j < 6 ? SURF[BR.iF] : n1 < 0.5 ? 1 : 2;      // ветка: щебень и грунт (spec2 §1.4: «покрытие хуже»)
         SURF[i] = kind;
         let w = 0;
-        if (!rid && iBr >= 0) w = Math.max(w, 1 - sm(4, 30, Math.abs(i - iBr) * DS));   // у мостика сыро
+        if (iBr >= 0) w = Math.max(w, 1 - sm(4, 30, Math.abs(i - iBr) * DS));   // у мостика сыро
         if (tag === 'app') w = Math.max(w, 0.35 * sm(0.45, 0.7, n2));
-        if (!rid && GKA[i] > 0.045) w = Math.max(w, 0.3 * sm(0.55, 0.8, n2));
-        w = Math.max(w, sm(0.72, 0.86, vnoise(s * 0.05 + 21, rid * 3 + 0.5)) * 0.8);
+        if (R.kabs[i] > 0.045) w = Math.max(w, 0.3 * sm(0.55, 0.8, n2));
+        w = Math.max(w, sm(0.72, 0.86, vnoise(s * 0.05 + 21, 0.5)) * 0.8);
         WET[i] = w;
         ROUGH[i] = kind === 0 ? 0.25 : kind === 1 ? 0.75 : 0.5;
       }
       // пятна по полотну
-      const put = (rid, f) => { FEAT[rid].push(f); const a = Math.floor((f.s - f.a - 0.5) / FBS), b = Math.floor((f.s + f.a + 0.5) / FBS); for (let k = a; k <= b; k++) { let l = FB[rid].get(k); if (!l) FB[rid].set(k, l = []); l.push(f); } };
-      const ok = (rid, s, e, a, b) => FEAT[rid].every(f => Math.abs(f.s - s) > f.a + a + 0.3 || Math.abs(f.e - e) > f.b + b + 0.3);
+      const put = f => { FEAT.push(f); const a = Math.floor((f.s - f.a - 0.5) / FBS), b = Math.floor((f.s + f.a + 0.5) / FBS); for (let k = a; k <= b; k++) { let l = FB.get(k); if (!l) FB.set(k, l = []); l.push(f); } };
+      const ok = (s, e, a, b) => FEAT.every(f => Math.abs(f.s - s) > f.a + a + 0.3 || Math.abs(f.e - e) > f.b + b + 0.3);
       const pocketAt = i => POCKETS.some(p => Math.abs(i - p.i) * DS < p.b + 2);
-      [[0, N], [1, NBR]].forEach(([rid, n]) => {
-        const off = rid ? N : 0, len = (n - 1) * DS;
+      {
+        const len = (N - 1) * DS;
         // ямы: чаще на асфальте и грунте; глубина 6–9 см
         const nh = Math.round(len / (HI ? 9 : 10));
         for (let k = 0, tries = 0; k < nh && tries < nh * 8; tries++) {
-          const s = 6 + rs() * (len - 12), i = off + Math.round(s / DS); if (!rid && (BRIDGE[i] || pocketAt(i))) continue;
+          const s = 6 + rs() * (len - 12), i = Math.round(s / DS); if (BRIDGE[i] || pocketAt(i)) continue;
           if (SURF[i] === 1 && rs() < 0.5) continue;
           const wa = SWA[i], e = (rs() * 2 - 1) * (wa - 0.45), a = 0.32 + rs() * 0.38, b = 0.26 + rs() * 0.3;
-          if (!ok(rid, s, e, a, b)) continue;
-          put(rid, { kind: 'hole', s, e, a, b, rot: (rs() - 0.5) * 0.8, depth: 0.06 + rs() * 0.03 }); k++;
+          if (!ok(s, e, a, b)) continue;
+          put({ kind: 'hole', s, e, a, b, rot: (rs() - 0.5) * 0.8, depth: 0.06 + rs() * 0.03 }); k++;
         }
         // лужи: в сырых местах, часто поперёк колеи; глубина 3 см, грязь вокруг
         const np = Math.round(len / (HI ? 26 : 30));
         for (let k = 0, tries = 0; k < np && tries < np * 12; tries++) {
-          const s = 8 + rs() * (len - 16), i = off + Math.round(s / DS); if (!rid && (BRIDGE[i] || pocketAt(i))) continue;
+          const s = 8 + rs() * (len - 16), i = Math.round(s / DS); if (BRIDGE[i] || pocketAt(i)) continue;
           if (WET[i] < 0.25 && rs() < 0.75) continue;
           const wa = SWA[i], a = 0.8 + rs() * rs() * 1.5, b = 0.5 + rs() * 0.6, e = (rs() * 2 - 1) * Math.max(0, wa - b - 0.2);
-          if (!ok(rid, s, e, a + 0.4, b + 0.3)) continue;
-          put(rid, { kind: 'puddle', s, e, a, b, rot: (rs() - 0.5) * 0.5, depth: 0.035 }); k++;
+          if (!ok(s, e, a + 0.4, b + 0.3)) continue;
+          put({ kind: 'puddle', s, e, a, b, rot: (rs() - 0.5) * 0.5, depth: 0.035 }); k++;
         }
         // грязь: бурые сырые пятна (без воды), брызги из-под колёс
         const nm = Math.round(len / (HI ? 22 : 26));
         for (let k = 0, tries = 0; k < nm && tries < nm * 10; tries++) {
-          const s = 6 + rs() * (len - 12), i = off + Math.round(s / DS); if (!rid && (BRIDGE[i] || pocketAt(i))) continue;
+          const s = 6 + rs() * (len - 12), i = Math.round(s / DS); if (BRIDGE[i] || pocketAt(i)) continue;
           if (SURF[i] === 0 && rs() < 0.7) continue;
           const wa = SWA[i], a = 0.8 + rs() * 1.2, b = 0.6 + rs() * 0.6, e = (rs() * 2 - 1) * Math.max(0, wa - b);
-          if (!ok(rid, s, e, a, b)) continue;
-          put(rid, { kind: 'mud', s, e, a, b, rot: (rs() - 0.5) * 0.6, depth: 0.012 }); k++;
+          if (!ok(s, e, a, b)) continue;
+          put({ kind: 'mud', s, e, a, b, rot: (rs() - 0.5) * 0.6, depth: 0.012 }); k++;
         }
         // камни на полотне (острые, но мелкие): по ним машина подпрыгивает; в колеях реже
         const ns = Math.round(len / (HI ? 5 : 7));
         for (let k = 0, tries = 0; k < ns && tries < ns * 6; tries++) {
-          const s = 3 + rs() * (len - 6), i = off + Math.round(s / DS); if (!rid && BRIDGE[i]) continue;
+          const s = 3 + rs() * (len - 6), i = Math.round(s / DS); if (BRIDGE[i]) continue;
           const wa = SWA[i], e = (rs() * 2 - 1) * (wa - 0.15);
           if (Math.abs(Math.abs(e) - 0.75) < 0.2 && rs() < 0.6) continue;
           const r = 0.07 + rs() * rs() * 0.09;
-          if (!ok(rid, s, e, r, r)) continue;
-          put(rid, { kind: 'stone', s, e, a: r, b: r, rot: rs() * 6.28, depth: r * 0.75 }); k++;
+          if (!ok(s, e, r, r)) continue;
+          put({ kind: 'stone', s, e, a: r, b: r, rot: rs() * 6.28, depth: r * 0.75 }); k++;
         }
-      });
+      }
     }
     const SURF_NAMES = ['asph', 'gravel', 'earth'];
     const SRES = { kind: 'gravel', wet: 0, dz: 0, rough: 0.5, s: 0, e: 0, rid: 0 };
-    function surfSE(s, e, rid) {
-      const off = rid ? N : 0, n = rid ? NBR : N, i = off + clamp(Math.round(s / DS), 0, n - 1);
+    function surfSE(s, e) {
+      const i = clamp(Math.round(s / DS), 0, N - 1);
       let kind = SURF_NAMES[SURF[i]], wet = WET[i], dz = 0, rough = ROUGH[i];
       const W = e > 0 ? SWL[i] : SWR[i];
       if (Math.abs(e) > SWA[i]) { kind = 'gravel'; rough = 0.7; }     // обочина — щебень
-      const l = FB[rid ? 1 : 0].get(Math.floor(s / FBS));
+      const l = FB.get(Math.floor(s / FBS));
       if (l) for (const f of l) {
         const ds = s - f.s, de = e - f.e, c = Math.cos(f.rot), sn = Math.sin(f.rot), u = (ds * c - de * sn) / f.a, v = (ds * sn + de * c) / f.b, q = u * u + v * v;
         if (q >= 1) continue;
@@ -739,7 +673,7 @@ void main() {
         else if (f.kind === 'stone') { dz = Math.max(dz, f.depth * (1 - q)); }
       }
       if (Math.abs(e) > W + 0.05) kind = 'verge';
-      SRES.kind = kind; SRES.wet = wet; SRES.dz = dz; SRES.rough = rough; SRES.s = s; SRES.e = e; SRES.rid = rid || 0;
+      SRES.kind = kind; SRES.wet = wet; SRES.dz = dz; SRES.rough = rough; SRES.s = s; SRES.e = e;
       return SRES;
     }
 
@@ -787,14 +721,13 @@ void main() {
       }
       return best;
     }
-    // ближайший отрезок основной дороги (не по полотну, а просто ближайший): [номер, t, расстояние, e со знаком]
+    // ближайший отрезок дороги (не по полотну, а просто ближайший): [номер, t, расстояние, e со знаком]
     const NSG = [0, 0, 0, 0];
     function nearMain(x, z) {
       const l = hq(x, z); let bi = -1, bd = 1e18, bt = 0, be = 0;
       if (l) for (const i of l) {
-        if (i >= N - 1) continue;
         segP(i, x, z); if (SP.d2 >= bd) continue;
-        bd = SP.d2; bi = i; bt = SP.t; be = (x - SP.cx) * (GZ[i + 1] - GZ[i]) - (z - SP.cz) * (GX[i + 1] - GX[i]);
+        bd = SP.d2; bi = i; bt = SP.t; be = (x - SP.cx) * (R.z[i + 1] - R.z[i]) - (z - SP.cz) * (R.x[i + 1] - R.x[i]);
       }
       NSG[0] = bi; NSG[1] = bt; NSG[2] = Math.sqrt(bd); NSG[3] = be;
       return bi >= 0 ? NSG : null;
@@ -809,16 +742,16 @@ void main() {
       const nm = l ? nearMain(x, z) : null, ci = nm ? nm[0] : -1, ct = nm ? nm[1] : 0, cd = nm ? nm[2] : 1e9, ce = nm ? nm[3] : 0;
       // мостик: в пролёте арки под полотном овраг ручья (только «не выше полотна»)
       const open = ci >= 0 && BRIDGE[ci] && Math.abs((ci + ct) * DS - sBr) < BR_OPEN;
-      // полоса «не выше полотна» и обочина — по ближайшему отрезку каждой дороги (основной и ветки): по всем отрезкам
-      // в полосе на уклоне брался нижний конец (−0,5 м) — у края выходила канава
-      let d0 = 1e9, y0 = 0, w0 = 0, d1 = 1e9, y1 = 0, w1 = 0;
+      // полоса «не выше полотна» и обочина — по ближайшему отрезку дороги: по всем отрезкам в полосе на уклоне брался
+      // нижний конец (−0,5 м) — у края выходила канава
+      let d0 = 1e9, y0 = 0, w0 = 0;
       if (l) for (const i of l) {
         segP(i, x, z); const d = Math.sqrt(SP.d2); if (d > HR) continue;
-        const t = SP.t, yr = GY[i] + (GY[i + 1] - GY[i]) * t;
-        const dx = GX[i + 1] - GX[i], dz = GZ[i + 1] - GZ[i], L = Math.hypot(dx, dz) || 1, e = (x - SP.cx) * dz / L + (z - SP.cz) * -dx / L;
+        const t = SP.t, yr = R.y[i] + (R.y[i + 1] - R.y[i]) * t;
+        const dx = R.x[i + 1] - R.x[i], dz = R.z[i + 1] - R.z[i], L = Math.hypot(dx, dz) || 1, e = (x - SP.cx) * dz / L + (z - SP.cz) * -dx / L;
         const W = e > 0 ? SWL[i] + (SWL[i + 1] - SWL[i]) * t : SWR[i] + (SWR[i + 1] - SWR[i]) * t;
         if (d - W < near) near = d - W;
-        if (i < N) { if (d < d0) { d0 = d; y0 = yr; w0 = W; } } else if (d < d1) { d1 = d; y1 = yr; w1 = W; }
+        if (d < d0) { d0 = d; y0 = yr; w0 = W; }
         if (open) continue;
         // на стороне выемки — не меньше диагонали клетки: склон не налезает на обочину
         const margin = 0.15 + Q.near * 1.45 * sm(-1.0, 1.0, yn - yr);
@@ -827,9 +760,7 @@ void main() {
         else { const a = yr - SINK + CUT * ex, b = yr - SINK - WALLMAX - FILL * ex; if (a < hi) hi = a; if (b > lo) lo = b; }
       }
       if (d0 <= w0 + ROADM) top = Math.min(top, y0 - SINK);
-      if (d1 <= w1 + ROADM) top = Math.min(top, y1 - SINK);
       if (!open && d0 > w0 - 0.05 && d0 <= w0 + SHOULDER) sh = Math.max(sh, y0 - SINK - 0.38);
-      if (!open && d1 > w1 - 0.05 && d1 <= w1 + SHOULDER) sh = Math.max(sh, y1 - SINK - 0.38);
       if (out) { out.near = near; out.flat = flatY !== null; }
       let y = flatY !== null ? flatY : Math.min(Math.max(yn, lo), hi);
       if (sh > y) y = sh;
@@ -859,29 +790,23 @@ void main() {
     }
 
     {
-      // проём стенки: въезд на ветку к отелю и самые концы дороги (там облако)
-      const gapAt = i => { const W = SWR[i], eb = W + CLIFF.base, x0 = R.x[i], z0 = R.z[i], lx = -R.lx[i], lz = -R.lz[i]; return inOther(i, x0 + lx * (eb + 0.8), z0 + lz * (eb + 0.8), 2.2) || inOther(i, x0 + lx * (eb + 4), z0 + lz * (eb + 4), 2.2); };
-      const GAP = new Uint8Array(N); for (let i = 0; i < N; i++) GAP[i] = gapAt(i) ? 1 : 0;
-      // до проёма у развилки стенка плавно понижается (≈ 8 м) — край не висит «ножом» над ветвью, кант не торчит лезвием
-      const dGap = new Float32Array(N).fill(1e9);
-      { let lst = -1e9; for (let i = 0; i < N; i++) { if (GAP[i]) lst = i; dGap[i] = (i - lst) * DS; } lst = 1e9; for (let i = N - 1; i >= 0; i--) { if (GAP[i]) lst = i; dGap[i] = Math.min(dGap[i], (lst - i) * DS); } }
+      // проём стенки — только самые концы дороги (там облако); W8: проёма под ветку к отелю больше нет — стенка сплошная
       const margin = 0.15 + Q.near * 1.45;
       let last = -1;
       for (let i = 0; i < N; i++) {
         const W = SWR[i], eb = W + CLIFF.base, x0 = R.x[i], z0 = R.z[i], y0 = R.y[i], lx = -R.lx[i], lz = -R.lz[i], s = i * DS;
         // у мостика (пролёт арки и чуть дальше) — каждый ряд: подошва там идёт по дну оврага (footToGround ниже)
         const brF = BRIDGE[i] && Math.abs(s - sBr) < BR_OPEN + 1.2;
-        const keepI = i % 2 === 0 || GKA[i] > 0.03 || i === N - 1 || brF;
-        const gap = GAP[i] || s < 2 || s > R.len - 2;
+        const keepI = i % 2 === 0 || R.kabs[i] > 0.03 || i === N - 1 || brF;
+        const gap = s < 2 || s > R.len - 2;
         // верх стенки неровный
         let H = R.hc[i] * (0.86 + 0.28 * vnoise(s * 0.05 + 31, 1.7));
         if (RTB.stream) { const lat = R.rho[i] * (R.beta[i] - RTB.stream.b) * D2R; H *= 1 - 0.62 * Math.exp(-lat * lat / 30); }
-        H *= 0.14 + 0.86 * sm(0.5, 8.5, dGap[i]);
         cliffInfo[i * 3] = eb; cliffInfo[i * 3 + 1] = gap ? 0 : H; cliffInfo[i * 3 + 2] = eb + H / CLIFF.slope;
         if (gap) { last = -1; continue; }
         if (keepI) {
           // навес: изредка верхний пласт нависает над осыпью (только на ровных участках и при высокой стенке)
-          const ovK = H > 9 && GKA[i] < 0.03 ? sm(0.66, 0.8, vnoise(s * 0.035 + 11, 2.2)) : 0, o = i * CNP;
+          const ovK = H > 9 && R.kabs[i] < 0.03 ? sm(0.66, 0.8, vnoise(s * 0.035 + 11, 2.2)) : 0, o = i * CNP;
           let eTop = eb;
           for (let j = 0; j <= CNR; j++) {
             const h = j === 0 ? -0.35 : H * j / CNR, yw = y0 + h;
@@ -893,8 +818,8 @@ void main() {
             eTop = eb + Math.max(-0.2, ins);
             CPE[o + j] = eTop; CPH[o + j] = h;
           }
-          // кант сверху: травяная бровка к склону ближней сетки; дальний край — не выше рельефа за ним (у развилки
-          // рельеф срезан веткой — кант спускается к нему, а не висит лезвием)
+          // кант сверху: травяная бровка к склону ближней сетки; дальний край — не выше рельефа за ним (где рельеф ниже —
+          // кант спускается к нему, а не висит лезвием)
           const capY = ec => { const xc = x0 + lx * ec, zc = z0 + lz * ec; return shaped(xc, zc, natY(xc, zc), null, true) - y0; };
           let eCap = Math.max(eTop + 0.8, W + margin + H / 2.8 + 0.6), hCap = H + 0.3;
           if (capY(eCap) < H + 0.15) { eCap = Math.min(eCap, eTop + 2.4); const yt = capY(eCap); if (yt < H + 0.15) hCap = Math.max(-0.2, yt + 0.05); }
@@ -912,7 +837,6 @@ void main() {
     const g = Q.near;
     let rMin = 1e9, rMax = -1e9, vMin = 1e9, vMax = -1e9;
     for (let i = 0; i < N; i++) { rMin = Math.min(rMin, R.r[i]); rMax = Math.max(rMax, R.r[i]); vMin = Math.min(vMin, R.v[i]); vMax = Math.max(vMax, R.v[i]); }
-    for (let j = 0; j < NBR; j++) { rMin = Math.min(rMin, BR.r[j]); rMax = Math.max(rMax, BR.r[j]); vMin = Math.min(vMin, BR.v[j]); vMax = Math.max(vMax, BR.v[j]); }
     rMin -= HR + 2; rMax += HR + 2; vMin -= HR + 2; vMax += HR + 2;
     const NA = Math.ceil((rMax - rMin) / g) + 1, NB = Math.ceil((vMax - vMin) / g) + 1;
     const NG = { r0: rMin, v0: vMin, g, NA, NB, h: new Float32Array(NA * NB).fill(NaN), verge: new Uint8Array(NA * NB), act: new Uint8Array((NA - 1) * (NB - 1)) };
@@ -1033,9 +957,9 @@ void main() {
     // не «проваливается»), иначе NaN
     function onSegY(i, t, d2, x, z) {
       if (i < 0) return NaN;
-      const dx = GX[i + 1] - GX[i], dz = GZ[i + 1] - GZ[i], L = Math.hypot(dx, dz) || 1, e = ((x - GX[i] - dx * t) * dz - (z - GZ[i] - dz * t) * dx) / L;
+      const dx = R.x[i + 1] - R.x[i], dz = R.z[i + 1] - R.z[i], L = Math.hypot(dx, dz) || 1, e = ((x - R.x[i] - dx * t) * dz - (z - R.z[i] - dz * t) * dx) / L;
       const W = (e > 0 ? SWL[i] + (SWL[i + 1] - SWL[i]) * t : SWR[i] + (SWR[i + 1] - SWR[i]) * t) + 0.3;
-      return d2 <= W * W ? GY[i] + (GY[i + 1] - GY[i]) * t : NaN;
+      return d2 <= W * W ? R.y[i] + (R.y[i + 1] - R.y[i]) * t : NaN;
     }
     // земля: на дороге — полотно, рядом — ближняя решётка, дальше — дальняя
     function ground(x, z) {
@@ -1043,15 +967,13 @@ void main() {
       if (l) {
         // W5B: ближайший отрезок, НА ПОЛОТНЕ которого точка (раньше — просто ближайший: в кармане у шпильки ближе оказывалась
         // соседняя нога серпантина, и лавочка «висела» на 3 м над землёй, а героиня в кармане падала).
-        // W6++: шпилек нет — проверяется ближайший отрезок основной дороги и ближайший отрезок ветки (у развилки полотна
-        // накладываются). Раньше годился любой отрезок в 12 м, у которого e (у конца отрезка — лишь проекция на нормаль)
+        // W6++: шпилек нет — проверяется ближайший отрезок дороги (W8: ветки нет). Раньше годился любой отрезок в 12 м, у которого e (у конца отрезка — лишь проекция на нормаль)
         // меньше ширины: точка за краем на внешней стороне поворота, у сужения кармана или в 9 м вдоль дороги считалась
         // полотном — трава и камни там висели на высоте дороги
-        let im = -1, dm = 144, tm = 0, ib = -1, db = 144, tb = 0;
-        for (const i of l) { segP(i, x, z); if (i < N) { if (SP.d2 < dm) { dm = SP.d2; im = i; tm = SP.t; } } else if (SP.d2 < db) { db = SP.d2; ib = i; tb = SP.t; } }
-        const ym = onSegY(im, tm, dm, x, z), yb = onSegY(ib, tb, db, x, z);
-        if (ym === ym && (yb !== yb || dm <= db)) return ym;
-        if (yb === yb) return yb;
+        let im = -1, dm = 144, tm = 0;
+        for (const i of l) { segP(i, x, z); if (SP.d2 < dm) { dm = SP.d2; im = i; tm = SP.t; } }
+        const ym = onSegY(im, tm, dm, x, z);
+        if (ym === ym) return ym;
         // W6: скальная стенка справа — земля = её поверхность (камера-следилка и камушки не проходят сквозь скалу).
         // W6++: та же поверхность, что у меша стенки, по БЛИЖАЙШЕМУ отрезку дороги (раньше — максимум по всем отрезкам
         // в 12 м до их прямых: на внутренней стороне поворотов стенка выходила выше на 5–10 м — висели камни и трава)
@@ -1255,13 +1177,6 @@ void main() {
       // D: «Смотровая» (дерево) 280×100 в (720, 240)
       c.fillStyle = '#8A6A4E'; rr(724, 244, 272, 92, 16); c.fill(); c.fillStyle = 'rgba(0,0,0,.12)'; for (let i = 0; i < 4; i++) c.fillRect(730, 262 + i * 18, 260, 3);
       txt('Смотровая', 860, 292, 50, '#FFF3DC', 240);
-      // E / F (волна 4): «Отель» на развилке — коричневый туристический щит; стрелка — в сторону ветки (для едущих вверх / вниз)
-      const brSide = buildBranch().side;
-      const diag = (x, y, s, col, ang) => { c.save(); c.translate(x, y); c.rotate(ang); c.fillStyle = col; c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.8, -s * 0.15); c.lineTo(s * 0.3, -s * 0.15); c.lineTo(s * 0.3, s); c.lineTo(-s * 0.3, s); c.lineTo(-s * 0.3, -s * 0.15); c.lineTo(-s * 0.8, -s * 0.15); c.closePath(); c.fill(); c.restore(); };
-      c.fillStyle = '#7A4E2D'; rr(724, 344, 292, 116, 18); c.fill(); c.strokeStyle = '#FFF6EA'; c.lineWidth = 6; rr(733, 353, 274, 98, 12); c.stroke();
-      txt('Отель', 840, 403, 62, '#FFF6EA', 170); diag(962, 402, 34, '#FFF6EA', brSide < 0 ? PI / 4 : -PI / 4);
-      c.fillStyle = '#7A4E2D'; rr(604, 144, 292, 90, 16); c.fill(); c.strokeStyle = '#FFF6EA'; c.lineWidth = 5; rr(612, 152, 276, 74, 10); c.stroke();
-      txt('Отель', 720, 190, 50, '#FFF6EA', 150); diag(846, 189, 28, '#FFF6EA', brSide < 0 ? -PI / 2 : PI / 2);
       // K (W6): «Осторожно, камушки» — жёлтый треугольник со скругленными углами, на нём три кругленьких камушка с глазками
       // катятся со скалы (мило, не страшно), под ним белая табличка с надписью; 380×300 в (0, 466)
       {
@@ -1280,7 +1195,7 @@ void main() {
         txt('Осторожно, камушки', cx, oy + 255, 40, '#3A2E3F', 300);
       }
       const t = keep(new T.CanvasTexture(cv)); t.anisotropy = 4;
-      return { tex: t, uv: { A: [0, 0, 600, 220], B: [600, 0, 400, 140], C: [0, 240, 700, 200], D: [720, 240, 280, 100], E: [724, 344, 292, 116], F: [604, 144, 292, 90], K: [0, 466, 380, 300], W: [1004, 4, 16, 16] } };
+      return { tex: t, uv: { A: [0, 0, 600, 220], B: [600, 0, 400, 140], C: [0, 240, 700, 200], D: [720, 240, 280, 100], K: [0, 466, 380, 300], W: [1004, 4, 16, 16] } };
     })();
 
     /* ---------- накопитель треугольников (позиция, нормаль, цвет, uv) ---------- */
@@ -1309,7 +1224,7 @@ void main() {
     const boxUV = (w, h, d, tile) => (u, v, i) => { const f = Math.floor(i / 4); const fw = f < 2 ? d : w, fh = f === 2 || f === 3 ? d : h; return [u * fw / tile, v * fh / tile]; };
 
     /* ---------- 4B / W6: террасы ниже дороги (spec2 §6, фото p11): широкие зелёные ступени по горизонталям на склонах
-       долины под обрывом, мягкие травяные откосы (редко — сухая кладка); полосы обходят дорогу и ветку (≥ 11 м от оси)
+       долины под обрывом, мягкие травяные откосы (редко — сухая кладка); полосы обходят дорогу (≥ 11 м от оси)
        и не лезут на крутой обрыв у края полотна; общий построитель VILLAGE.vkit.terraces ---------- */
     let terrStats = { bands: 0 };
     if (VK.terraces) {
@@ -1363,8 +1278,8 @@ void main() {
     const roadDy = (i, e) => 0.035 - 0.01 * Math.min(Math.abs(e), 2.5) - (SURF[i] ? 0.016 * rutK(e) : 0);
     const cS = new T.Color(), cS2 = new T.Color();
     function surfColor(out, i, e) {
-      const rid = ridOf(i), s = (rid ? i - N : i) * DS, k = SURF[i], wa = SWA[i];
-      const n = vnoise(s * 0.31 + rid * 7.7, e * 0.75 + 3.3), n2 = vnoise(s * 1.3 + 11, e * 2.1 - 5);
+      const s = i * DS, k = SURF[i], wa = SWA[i];
+      const n = vnoise(s * 0.31, e * 0.75 + 3.3), n2 = vnoise(s * 1.3 + 11, e * 2.1 - 5);
       if (k === 0) { out.copy(SC.asph).lerp(SC.patch, sm(0.55, 0.75, n) * 0.85); if (n < 0.22 || Math.abs(e) > wa - 0.3 + 0.25 * n2) out.lerp(SC.gravel2, 0.75); }
       else if (k === 1) { out.copy(SC.gravel).lerp(SC.gravel2, sm(0.35, 0.75, n2)); if (n > 0.76) out.lerp(SC.asph, 0.75); }
       else { out.copy(SC.earth).lerp(SC.earth2, sm(0.3, 0.8, n2)); if (Math.abs(e) < 0.24) out.lerp(SC.grass, 0.35 * sm(0.3, 0.7, n)); if (n > 0.8) out.lerp(SC.gravel, 0.5); }
@@ -1373,7 +1288,7 @@ void main() {
       const w = WET[i] * (0.35 + 0.65 * rutK(e)) * sm(0.3, 0.65, n2 * 0.6 + 0.4 * n);
       if (w > 0) out.lerp(SC.wet, w * 0.65);
       // 4B: крупные пятна — сырая тёмная земля и светлые высохшие проплешины; у края — мелкий щебень светлее
-      const n3 = vnoise(s * 0.09 + rid * 3.3 + 40, e * 0.35 + 8.1);
+      const n3 = vnoise(s * 0.09 + 40, e * 0.35 + 8.1);
       if (k) { out.lerp(SC.damp, sm(0.62, 0.8, n3) * 0.45); out.multiplyScalar(1.0 + 0.08 * sm(0.3, 0.12, n3)); }
       if (Math.abs(e) > wa - 0.45) out.lerp(SC.gravel, 0.25 * sm(wa - 0.45, wa - 0.1, Math.abs(e)));
       return out;
@@ -1382,12 +1297,10 @@ void main() {
     {
       const bk = roadBk;
       const IN_E = [1.55, 1.05, RUT_E + RUT_W, RUT_E, RUT_E - RUT_W, 0.24, 0, -0.24, -(RUT_E - RUT_W), -RUT_E, -(RUT_E + RUT_W), -1.05, -1.55];
-      [[0, N - 1], [N, NG2 - 1]].forEach(([i0, i1]) => {
+      {
         const rows = [];
-        for (let i = i0; i <= i1; i++) {
-          const wl = SWL[i], wr = SWR[i], wa = SWA[i], y = GY[i], lx = GLX[i], lz = GLZ[i], x0 = GX[i], z0 = GZ[i];
-          // ветка у развилки — на 12 мм ниже основной дороги (там, где полотна накладываются, видна основная)
-          const yo = i >= N ? -0.012 * (1 - sm(14, 22, i - N)) : 0;
+        for (let i = 0; i < N; i++) {
+          const wl = SWL[i], wr = SWR[i], wa = SWA[i], y = R.y[i], lx = R.lx[i], lz = R.lz[i], x0 = R.x[i], z0 = R.z[i];
           const shL = wl - wa > 1.2 ? SC.pocket : SC.shoulder, shR = wr - wa > 1.2 ? SC.pocket : SC.shoulder;
           const edgeL = surfColor(cS, i, wa).clone(), edgeR = surfColor(cS, i, -wa).clone();
           const shLc = cS2.copy(shL).lerp(edgeL, 0.25).clone(), shRc = cS2.copy(shR).lerp(edgeR, 0.25).clone();
@@ -1396,60 +1309,60 @@ void main() {
           cols.push([-wa, 0.005, edgeR], [-wa, 0.005, shRc], [-wr, 0, shR], [-wr, -0.5, SC.skirt]);
           // W6++: у юбки (низ кромки, dy −0,5) uv — как у точки на 0,5 м дальше от края: щебень на отвесной грани не тянется
           // вертикальными полосами (у верха и низа было одно и то же uv)
-          rows.push(cols.map(([e, dy, c]) => { const X = x0 + lx * e, Z = z0 + lz * e, o = dy < -0.4 ? Math.sign(e) * 0.5 : 0; return bk.v(X, y + dy + 0.01 + yo, Z, 0, 1, 0, c, (X + lx * o) * UVK, (Z + lz * o) * UVK); }));
+          rows.push(cols.map(([e, dy, c]) => { const X = x0 + lx * e, Z = z0 + lz * e, o = dy < -0.4 ? Math.sign(e) * 0.5 : 0; return bk.v(X, y + dy + 0.01, Z, 0, 1, 0, c, (X + lx * o) * UVK, (Z + lz * o) * UVK); }));
         }
         const nc = rows[0].length, skip = new Set([2, nc - 4]);
         for (let q = 0; q < rows.length - 1; q++) for (let c = 0; c < nc - 1; c++) { if (skip.has(c)) continue; const a = rows[q][c], b = rows[q][c + 1], d = rows[q + 1][c], e = rows[q + 1][c + 1]; bk.I.push(a, b, d, b, e, d); }
-      });
-      // точка полотна по (s, e) дороги rid — на высоте сетки полотна (+ lift)
-      const at = (rid, s, e, lift) => { const q = sampleG(s, rid), i = (rid ? N : 0) + clamp(Math.round(s / DS), 0, (rid ? NBR : N) - 1); return [q.x + q.lx * e, q.y + roadDy(i, e) + 0.01 + lift + (rid ? -0.012 * (1 - sm(14, 22, s / DS)) : 0), q.z + q.lz * e]; };
+      }
+      // точка полотна по (s, e) — на высоте сетки полотна (+ lift)
+      const at = (s, e, lift) => { const q = sampleS(s), i = clamp(Math.round(s / DS), 0, N - 1); return [q.x + q.lx * e, q.y + roadDy(i, e) + 0.01 + lift, q.z + q.lz * e]; };
       // пятна: кольца эллипса (масштаб, цвет) — от края к центру; центр — отдельная вершина
-      const blob = (rid, f, rings, lift, wobble, B) => {
+      const blob = (f, rings, lift, wobble, B) => {
         const bk = B || roadBk;
         const M = f.kind === 'hole' ? 10 : HI ? 18 : 14, c = Math.cos(f.rot), sn = Math.sin(f.rot), base = bk.n, rr = rng(Math.floor(f.s * 131 + f.e * 977) & 0xffff);
         // мягкий неровный край: две гармоники (без «многоугольника»)
         const p1 = rr() * 6.28, p2 = rr() * 6.28, wob = []; for (let m = 0; m < M; m++) { const a = m / M * PI * 2; wob.push(1 + wobble * (0.32 * Math.sin(2 * a + p1) + 0.2 * Math.sin(3 * a + p2))); }
-        rings.forEach(([sc, col]) => { for (let m = 0; m < M; m++) { const a = m / M * PI * 2, u = Math.cos(a) * f.a * sc * wob[m], v = Math.sin(a) * f.b * sc * wob[m]; const p = at(rid, f.s + u * c + v * sn, f.e - u * sn + v * c, lift); bk.v(p[0], p[1], p[2], 0, 1, 0, col, p[0] * UVK, p[2] * UVK); } });
-        const cc = rings[rings.length - 1][2] || rings[rings.length - 1][1], pc = at(rid, f.s, f.e, lift); const ic = bk.v(pc[0], pc[1], pc[2], 0, 1, 0, cc, pc[0] * UVK, pc[2] * UVK);
+        rings.forEach(([sc, col]) => { for (let m = 0; m < M; m++) { const a = m / M * PI * 2, u = Math.cos(a) * f.a * sc * wob[m], v = Math.sin(a) * f.b * sc * wob[m]; const p = at(f.s + u * c + v * sn, f.e - u * sn + v * c, lift); bk.v(p[0], p[1], p[2], 0, 1, 0, col, p[0] * UVK, p[2] * UVK); } });
+        const cc = rings[rings.length - 1][2] || rings[rings.length - 1][1], pc = at(f.s, f.e, lift); const ic = bk.v(pc[0], pc[1], pc[2], 0, 1, 0, cc, pc[0] * UVK, pc[2] * UVK);
         // ориентация: нормаль вверх — обход против часовой при взгляде сверху (как у полотна)
-        const flip = (() => { const p0 = at(rid, f.s, f.e, 0), p1 = at(rid, f.s + 0.5, f.e, 0), p2 = at(rid, f.s, f.e + 0.5, 0); const ax = p1[0] - p0[0], az = p1[2] - p0[2], bx = p2[0] - p0[0], bz = p2[2] - p0[2]; return az * bx - ax * bz < 0; })();
+        const flip = (() => { const p0 = at(f.s, f.e, 0), p1 = at(f.s + 0.5, f.e, 0), p2 = at(f.s, f.e + 0.5, 0); const ax = p1[0] - p0[0], az = p1[2] - p0[2], bx = p2[0] - p0[0], bz = p2[2] - p0[2]; return az * bx - ax * bz < 0; })();
         const tri = (a, b, d) => { if (flip) bk.I.push(a, d, b); else bk.I.push(a, b, d); };
         for (let r = 0; r < rings.length - 1; r++) for (let m = 0; m < M; m++) { const a = base + r * M + m, b = base + r * M + (m + 1) % M, a2 = a + M, b2 = b + M; tri(a, b, a2); tri(b, b2, a2); }
         const lr = base + (rings.length - 1) * M; for (let m = 0; m < M; m++) tri(lr + m, lr + (m + 1) % M, ic);
       };
-      [0, 1].forEach(rid => FEAT[rid].forEach(f => {
+      FEAT.forEach(f => {
         // 4B: яма — светлая кромка, тёмная глубина (центр темнее), иногда с водой; лужа — грязевой ободок, вода с отражением неба (своя сетка)
-        if (f.kind === 'hole') { blob(rid, f, [[1.24, SC.holeRim], [1.0, SC.hole], [0.62, SC.holeC], [0.25, SC.holeC]], 0.014, 0.25); if ((Math.floor(f.s * 7.3) % 4) === 0 && WET[(rid ? N : 0) + clamp(Math.round(f.s / DS), 0, (rid ? NBR : N) - 1)] > 0.2) blob(rid, Object.assign({}, f, { a: f.a * 0.7, b: f.b * 0.7 }), [[1.0, SC.water], [0.5, SC.waterC, SC.waterC]], 0.02, 0.2, wetBk); }
-        else if (f.kind === 'puddle') { blob(rid, f, [[1.36, SC.mudRim], [1.14, SC.mud], [0.9, SC.mudC]], 0.016, 0.3); blob(rid, f, [[1.0, SC.water], [0.55, SC.waterC], [0.2, SC.waterC, SC.waterC]], 0.022, 0.3, wetBk); }
-        else if (f.kind === 'mud') blob(rid, f, [[1.06, SC.mudRim], [0.8, SC.mud], [0.42, SC.mudC]], 0.012, 0.45);
-      }));
+        if (f.kind === 'hole') { blob(f, [[1.24, SC.holeRim], [1.0, SC.hole], [0.62, SC.holeC], [0.25, SC.holeC]], 0.014, 0.25); if ((Math.floor(f.s * 7.3) % 4) === 0 && WET[clamp(Math.round(f.s / DS), 0, N - 1)] > 0.2) blob(Object.assign({}, f, { a: f.a * 0.7, b: f.b * 0.7 }), [[1.0, SC.water], [0.5, SC.waterC, SC.waterC]], 0.02, 0.2, wetBk); }
+        else if (f.kind === 'puddle') { blob(f, [[1.36, SC.mudRim], [1.14, SC.mud], [0.9, SC.mudC]], 0.016, 0.3); blob(f, [[1.0, SC.water], [0.55, SC.waterC], [0.2, SC.waterC, SC.waterC]], 0.022, 0.3, wetBk); }
+        else if (f.kind === 'mud') blob(f, [[1.06, SC.mudRim], [0.8, SC.mud], [0.42, SC.mudC]], 0.012, 0.45);
+      });
       // камни: на полотне (их чувствует подвеска), по обочинам и щебень на внутренней стороне петель (только вид)
       const rockG = new T.OctahedronGeometry(1, 0);   // 8 треугольников на камень (мелочь — грани не видны)
       const putStone = (x, y, z, r, sy, ry, col) => {
         bk.geo(rockG, mtx(x, y + r * sy * 0.35, z, ry, r, r * sy, r * (0.8 + 0.4 * ((ry * 7.3) % 1))), WIN ? (i, p, nn) => (nn.getY(i) > 0.45 ? SC.snow : col) : col, (u, w, i, p) => [p.getX(i) * UVK, p.getZ(i) * UVK]);
       };
       const rs2 = rng(77 + (WIN ? 1 : 0));
-      [0, 1].forEach(rid => FEAT[rid].forEach(f => { if (f.kind !== 'stone') return; const p = at(rid, f.s, f.e, -0.01); putStone(p[0], p[1], p[2], f.a, 0.6, f.rot, SC.stones[Math.floor(rs2() * SC.stones.length)]); }));
+      FEAT.forEach(f => { if (f.kind !== 'stone') return; const p = at(f.s, f.e, -0.01); putStone(p[0], p[1], p[2], f.a, 0.6, f.rot, SC.stones[Math.floor(rs2() * SC.stones.length)]); });
       const nVis = HI ? 900 : 520;   // 4B: больше щебня по краям и внутри петель
       for (let k = 0, tries = 0; k < nVis && tries < nVis * 4; tries++) {
-        const i = Math.floor(rs2() * NG2), rid = ridOf(i), j = rid ? i - N : i; if (!rid && BRIDGE[i]) continue;
-        const inner = GK[i] > 0 ? 1 : -1, hair = GKA[i] > 0.04;
+        const i = Math.floor(rs2() * N); if (BRIDGE[i]) continue;
+        const inner = R.k[i] > 0 ? 1 : -1, hair = R.kabs[i] > 0.04;
         let e;
         if (hair && rs2() < 0.6) e = inner * (SWA[i] * (0.35 + rs2() * 0.7));          // щебень внутри петли
         else { const sd = rs2() < 0.5 ? 1 : -1, W = sd > 0 ? SWL[i] : SWR[i]; e = sd * (SWA[i] - 0.1 + rs2() * (W - SWA[i] + 0.05)); }   // обочина и край
         const r = 0.04 + rs2() * rs2() * (Math.abs(e) > SWA[i] ? 0.2 : 0.07);
-        const sj = j * DS + (rs2() - 0.5); if (Math.abs(e) < SWA[i] && surfSE(sj, e, rid).kind === 'puddle') continue;   // 4B: в лужах камешков нет (торчали сквозь воду)
-        const p = at(rid, sj, e, -0.012);
+        const sj = i * DS + (rs2() - 0.5); if (Math.abs(e) < SWA[i] && surfSE(sj, e).kind === 'puddle') continue;   // 4B: в лужах камешков нет (торчали сквозь воду)
+        const p = at(sj, e, -0.012);
         putStone(p[0], p[1], p[2], r, 0.5 + rs2() * 0.4, rs2() * 6.28, SC.stones[Math.floor(rs2() * SC.stones.length)]);
         k++;
       }
       // 4B: камни в ямах и валуны по обочинам (за краем полотна — на земле склона)
-      [0, 1].forEach(rid => FEAT[rid].forEach(f => { if (f.kind !== 'hole') return; for (let k = 0; k < 2; k++) { const p = at(rid, f.s + (rs2() - 0.5) * f.a, f.e + (rs2() - 0.5) * f.b, -0.03); putStone(p[0], p[1], p[2], 0.05 + rs2() * 0.04, 0.6, rs2() * 6.28, SC.stones[Math.floor(rs2() * SC.stones.length)]); } }));
+      FEAT.forEach(f => { if (f.kind !== 'hole') return; for (let k = 0; k < 2; k++) { const p = at(f.s + (rs2() - 0.5) * f.a, f.e + (rs2() - 0.5) * f.b, -0.03); putStone(p[0], p[1], p[2], 0.05 + rs2() * 0.04, 0.6, rs2() * 6.28, SC.stones[Math.floor(rs2() * SC.stones.length)]); } });
       const icoG = new T.IcosahedronGeometry(1, 0), nRock = HI ? 320 : 200;
       for (let k = 0, tries = 0; k < nRock && tries < nRock * 5; tries++) {
-        const i = Math.floor(rs2() * NG2), rid = ridOf(i), j = rid ? i - N : i; if (!rid && BRIDGE[i]) continue;
-        const sd = rs2() < 0.5 ? 1 : -1, W = sd > 0 ? SWL[i] : SWR[i], e = sd * (W - 0.15 + rs2() * 1.5), q = sampleG(j * DS + (rs2() - 0.5) * 2, rid), x = q.x + q.lx * e, z = q.z + q.lz * e;
-        const r = 0.16 + rs2() * rs2() * 0.42, y = Math.abs(e) > W + 0.05 ? ground(x, z) : at(rid, j * DS, e, 0)[1], col = SC.rocks[Math.floor(rs2() * SC.rocks.length)];
+        const i = Math.floor(rs2() * N); if (BRIDGE[i]) continue;
+        const sd = rs2() < 0.5 ? 1 : -1, W = sd > 0 ? SWL[i] : SWR[i], e = sd * (W - 0.15 + rs2() * 1.5), q = sampleS(i * DS + (rs2() - 0.5) * 2), x = q.x + q.lx * e, z = q.z + q.lz * e;
+        const r = 0.16 + rs2() * rs2() * 0.42, y = Math.abs(e) > W + 0.05 ? ground(x, z) : at(i * DS, e, 0)[1], col = SC.rocks[Math.floor(rs2() * SC.rocks.length)];
         bk.geo(icoG, mtx(x, y + r * 0.18, z, rs2() * 6.28, r * (0.9 + rs2() * 0.5), r * (0.55 + rs2() * 0.3), r * (0.8 + rs2() * 0.4), (rs2() - 0.5) * 0.4, (rs2() - 0.5) * 0.4), WIN ? (ii, p, nn) => (nn.getY(ii) > 0.4 ? SC.snow : col) : (ii, p, nn) => mul3(col, 0.86 + 0.18 * Math.max(0, nn.getY(ii))), (u, w, ii, p) => [p.getX(ii) * UVK, p.getZ(ii) * UVK]);
         k++;
       }
@@ -1468,23 +1381,23 @@ void main() {
     const cWall = C('#FFFFFF'), cCap = WIN ? new T.Color(1.13, 1.16, 1.22) : C('#E9E1D0'), cWallLow = C('#8E8676');
     const benchI = iPk;   // лавочка смотровой — у внешнего края кармана, лицом к селу
     const kinds = { 1: [], '-1': [] };
-    [[0, N - 1], [N, NG2 - 1]].forEach(([i0, i1]) => [1, -1].forEach(sd => {
-      const K = new Int8Array(NG2), YB = new Float32Array(NG2);
+    const i0 = 0, i1 = N - 1;
+    [1, -1].forEach(sd => {
+      const K = new Int8Array(N), YB = new Float32Array(N);
       for (let i = i0; i <= i1; i++) {
-        const W = sd > 0 ? SWL[i] : SWR[i], ox = GLX[i] * sd, oz = GLZ[i] * sd;
-        const ex = GX[i] + ox * (W + 1.25), ez = GZ[i] + oz * (W + 1.25);
+        const W = sd > 0 ? SWL[i] : SWR[i], ox = R.lx[i] * sd, oz = R.lz[i] * sd;
+        const ex = R.x[i] + ox * (W + 1.25), ez = R.z[i] + oz * (W + 1.25);
         let yo = nearY(ex, ez); if (yo === null) yo = natY(ex, ez);
-        const drop = GY[i] - yo;
-        YB[i] = Math.min(yo, GY[i] - 0.3) - 0.7;
+        const drop = R.y[i] - yo;
+        YB[i] = Math.min(yo, R.y[i] - 0.3) - 0.7;
         // W6++: со стороны скальной стенки рельеф у подошвы теперь под камнем — подпорная кладка там не нужна
-        if (BRIDGE[i] || (i < N && sd < 0 && cliffInfo[i * 3 + 1] > 0)) K[i] = 0;
+        if (BRIDGE[i] || (sd < 0 && cliffInfo[i * 3 + 1] > 0)) K[i] = 0;
         else if (drop > 0.45) K[i] = 1;
         else K[i] = 0;
-        if (K[i] && (inOther(i, GX[i] + ox * (W + 0.3), GZ[i] + oz * (W + 0.3), 0.6) || inOther(i, GX[i] + ox * (W - 0.4), GZ[i] + oz * (W - 0.4), 0.6))) K[i] = 0;
       }
       // убрать мелкие обрывки
       for (let pass = 0; pass < 2; pass++) for (let i = i0 + 1; i < i1; i++) { let j = i; while (j < i1 && K[j] === K[i]) j++; if (j - i < 3 && i > i0) { for (let k = i; k < j; k++) K[k] = K[i - 1]; } i = j - 1; }
-      if (i0 === 0) kinds[sd] = K;
+      kinds[sd] = K;
       // профиль сечения кромки: (смещение наружу от края, высота над полотном) — камень вровень с дорогой и кладка вниз
       const prof = yb => [[0, -0.15], [0, 0.03], [0.32, 0.0], [0.32, yb]];
       for (let i = i0; i < i1;) {
@@ -1495,7 +1408,7 @@ void main() {
         for (let s = i; s <= j; s++) {
           if (!KEEP[s] && s !== i && s !== j) continue;
           rowS.push(s);
-          const W = sd > 0 ? SWL[s] : SWR[s], ox = GLX[s] * sd, oz = GLZ[s] * sd, ex = GX[s] + ox * W, ez = GZ[s] + oz * W, y = GY[s];
+          const W = sd > 0 ? SWL[s] : SWR[s], ox = R.lx[s] * sd, oz = R.lz[s] * sd, ex = R.x[s] + ox * W, ez = R.z[s] + oz * W, y = R.y[s];
           const pr = prof(YB[s] - y); rows.push(pr.map(([u, h]) => [ex + ox * u, y + h, ez + oz * u]));
         }
         for (let p = 0; p < nP - 1; p++) {
@@ -1517,25 +1430,22 @@ void main() {
         });
         i = j + 1;
       }
-      // коллайдеры для прогулки: тонкие коробки вдоль края полосы (героиня не уходит за край: обрыв без ограждения не страшен);
-      // у развилки — короче и с разрывом там, где начинается другая дорога
+      // коллайдеры для прогулки: тонкие коробки вдоль края полосы (героиня не уходит за край: обрыв без ограждения не страшен)
       let a0 = i0;
       while (a0 < i1) {
         let b0 = a0 + 1;
-        const nb = nearBranch(GX[a0], GZ[a0]);
         const Wa0 = sd > 0 ? SWL[a0] : SWR[a0];
-        while (b0 < i1 && b0 - a0 < (nb ? 2 : 8) && Math.abs(angDiff(GTH[b0], GTH[a0])) < 0.09 && Math.abs((sd > 0 ? SWL[b0] : SWR[b0]) - Wa0) < 0.25) b0++;   // W6: в кармане (ширина меняется) — короче
+        while (b0 < i1 && b0 - a0 < 8 && Math.abs(angDiff(R.th[b0], R.th[a0])) < 0.09 && Math.abs((sd > 0 ? SWL[b0] : SWR[b0]) - Wa0) < 0.25) b0++;   // W6: в кармане (ширина меняется) — короче
         const Wa = (sd > 0 ? SWL[a0] : SWR[a0]) + 0.25, Wb = (sd > 0 ? SWL[b0] : SWR[b0]) + 0.25;
-        const ax = GX[a0] + GLX[a0] * sd * Wa, az = GZ[a0] + GLZ[a0] * sd * Wa, bx = GX[b0] + GLX[b0] * sd * Wb, bz = GZ[b0] + GLZ[b0] * sd * Wb;
+        const ax = R.x[a0] + R.lx[a0] * sd * Wa, az = R.z[a0] + R.lz[a0] * sd * Wa, bx = R.x[b0] + R.lx[b0] * sd * Wb, bz = R.z[b0] + R.lz[b0] * sd * Wb;
         const len = Math.hypot(bx - ax, bz - az);
         const mx = (ax + bx) / 2, mz = (az + bz) / 2;
-        const blocked = nb && (inOther(a0, ax, az, 0.9) || inOther(a0, bx, bz, 0.9) || inOther(a0, mx, mz, 0.9));
-        if (!blocked) colliders.push({ type: 'box', x: mx, z: mz, w: 0.5, d: len + 0.7, ry: Math.atan2(bx - ax, bz - az), y0: Math.min(GY[a0], GY[b0]) - 1, y1: Math.max(GY[a0], GY[b0]) + 0.6, kind: 'edge', noCar: true });
+        colliders.push({ type: 'box', x: mx, z: mz, w: 0.5, d: len + 0.7, ry: Math.atan2(bx - ax, bz - az), y0: Math.min(R.y[a0], R.y[b0]) - 1, y1: Math.max(R.y[a0], R.y[b0]) + 0.6, kind: 'edge', noCar: true });
         a0 = b0;
       }
-    }));
-    // торцы дорог (дальше — облако): начало и конец основной, конец ветки
-    [[0, -1], [N - 1, 1], [NG2 - 1, 1]].forEach(([i, dir]) => { const W = Math.max(SWL[i], SWR[i]) + 0.6; colliders.push({ type: 'box', x: GX[i] + Math.sin(GTH[i]) * dir * 0.6, z: GZ[i] + Math.cos(GTH[i]) * dir * 0.6, w: W * 2, d: 0.5, ry: GTH[i], kind: 'end', noCar: true }); });
+    });
+    // торцы дороги (дальше — облако): начало и конец
+    [[0, -1], [N - 1, 1]].forEach(([i, dir]) => { const W = Math.max(SWL[i], SWR[i]) + 0.6; colliders.push({ type: 'box', x: R.x[i] + Math.sin(R.th[i]) * dir * 0.6, z: R.z[i] + Math.cos(R.th[i]) * dir * 0.6, w: W * 2, d: 0.5, ry: R.th[i], kind: 'end', noCar: true }); });
     // мостик через ручей: пролёт-арка в обеих стенках, свод снизу; без парапета (волна 4) — кромка вровень с дорогой.
     // W6++: стенки — ленты по краю полотна (точки через 0,5 м, в пролёте арки — чаще), верх идёт за полотном по уклону и
     // повороту. Раньше — прямая 13-метровая плита по касательной: на крутом повороте у ручья (R ≈ 15 м, уклон ≈ 12 %)
@@ -1560,7 +1470,7 @@ void main() {
       };
       [1, -1].forEach(sd => {
         const rows = ST.map(([u, bot]) => {
-          const q = sampleG(sBr + u, 0), W = sd > 0 ? q.wl : q.wr, ox = q.lx * sd, oz = q.lz * sd;
+          const q = sampleS(sBr + u), W = sd > 0 ? q.wl : q.wr, ox = q.lx * sd, oz = q.lz * sd;
           // W6++: со стороны скальной стенки кромка доходит до камня (наружная грань — за лицом стенки): между мостиком и
           // подошвой не остаётся щели над ручьём
           const ic = clamp(Math.round((sBr + u) / DS), 0, N - 1), ow = sd < 0 && cliffInfo[ic * 3 + 1] > 0 ? CLIFF.base + 0.3 : 0.45;
@@ -1605,7 +1515,7 @@ void main() {
     /* ---------- W6: скальная стенка СПРАВА по ходу вверх (слева — вниз): слоистая порода (полосы по мировой высоте — пласты
        горизонтальны, дорога идёт вверх сквозь них), уступы, местами навес над осыпью; подошва — в 1,3 м за краем полотна
        (там осыпь из камешков), сверху — травяной кант до склона. Своя лента вдоль дороги (рельеф ближней сетки за ней — ниже);
-       у развилки к отелю — проём, у ручья — низкая выемка-водоскат. Один материал (цвет вершин), куски по 90 м. ---------- */
+       у ручья — низкая выемка-водоскат. Один материал (цвет вершин), куски по 90 м. ---------- */
     // текстура пластов: горизонтальные слои 0,9–2,4 м (тёплый песчаник, серый известняк, охра), тёмные швы, светлая кромка
     // уступа, редкие вертикальные трещины и пятна лишайника; uv — по миру (u = s / 7 м, v = y / 14 м), пласты горизонтальны
     const strataTex = (() => {
@@ -1647,12 +1557,12 @@ void main() {
         }
         rowsAt.length = 0;
       };
-      // W6++: торцы ленты (у проёма развилки, у концов дороги) — плоская грань по профилю крайнего ряда до низа юбки канта,
+      // W6++: торцы ленты (у концов дороги) — плоская грань по профилю крайнего ряда до низа юбки канта,
       // лицом в проём: сбоку под камнем не видно пустоты (стенка — одна поверхность, за ней ничего нет)
       function endCap(row, sg) {
         const nP = CNR + 3, ids = row.slice(0, nP).concat([row[nP + 1]]), nx = row.t[0] * sg, nz = row.t[1] * sg, P = bk.P, i0 = bk.n;
         // низ торца — цвета подошвы (камень), не травы канта; оба нижних угла (у подошвы и под краем канта) — до земли под
-        // ними (у проёма развилки ветка срезает землю ниже подошвы — под углом торца был просвет 0,3–0,8 м; у высокой стенки
+        // ними (где земля ниже подошвы — под углом торца был просвет 0,3–0,8 м; у высокой стенки
         // низ юбки канта выше склона). Только у торца: лента стенки не опускается
         ids.forEach((k, n) => {
           const kc = n === nP ? row[0] : k, x = P[k * 3], z = P[k * 3 + 2], yg = n === 0 || n === nP ? nearY(x, z) : null, y = yg !== null ? Math.min(P[k * 3 + 1], yg - 0.3) : P[k * 3 + 1];
@@ -1675,8 +1585,7 @@ void main() {
         for (const de of [-0.4, 0]) { const e = CPE[o] + de, x = R.x[i] + lx * e, z = R.z[i] + lz * e, y = nearY(x, z); if (y !== null && y < mn) mn = y; }
         if (mn < Infinity) CPH[o] = Math.min(-0.35, mn - R.y[i] - 0.15);
       }
-      // ряды — из профилей (посчитаны до рельефа, см. cliffAt): стенка не перегораживает въезд на ветку к отелю и не стоит
-      // у самых концов дороги (там облако)
+      // ряды — из профилей (посчитаны до рельефа, см. cliffAt): стенка не стоит у самых концов дороги (там облако)
       for (let i = 0; i < N; i++) {
         if (cliffInfo[i * 3 + 1] <= 0) { flush(); continue; }
         if (!CROW[i]) continue;
@@ -1782,16 +1691,9 @@ void main() {
     signs.push({ x: sA.x, y: sA.y, z: sA.z, h: 1.62, id: 'B', w: 0.95, hh: 0.33, ry: R.th[startI] + PI });
     const sC = signAt(exitI - 5, -1, 0.5, 2.3, 'C', 1.7, 0.49);
     const sD = signAt(viewSignI, outSide, 0.6, 1.25, 'D', 0.9, 0.32);
-    // волна 4: развилка к отелю — коричневый (туристический) щит «Отель» со стрелкой: перед развилкой для едущих вверх
-    // и за развилкой (в «клине» между дорогами) для едущих вниз, от села
-    const sE = signAt(BR.iF - 7, BR.side, 0.65, 1.9, 'E', 1.2, 0.48);
-    const sE2 = signAt(BR.iF + 19, BR.side, 0.65, 1.9, 'F', 1.2, 0.37); signs[signs.length - 1].ry = R.th[BR.iF + 19];
-    // W5 (желание автора: «сверху, от села, сразу завернуть налево в отель»): у самой развилки, через дорогу от ветки, — двусторонний
-    // щит «Отель»: лицом к едущим вверх (стрелка — к ветке) и обратной стороной к едущим вниз (тоже стрелка к ветке)
-    const sG = signAt(BR.iF + 2, -BR.side, 1.1, 2.0, 'E', 1.2, 0.48); signs[signs.length - 1].back = 'F';
     // W6: «Осторожно, камушки» — у начала подъёма, справа (со стороны скалы), лицом к едущим вверх
     const kI = Math.round(46 / DS), sK = signAt(kI, -1, 0.75, 2.05, 'K', 1.45, 1.15);
-    [[sA, 2.7], [sC, 2.6], [sD, 1.45], [sE, 2.2], [sE2, 2.2], [sG, 2.3], [sK, 2.6]].forEach(([p, h], k) => {
+    [[sA, 2.7], [sC, 2.6], [sD, 1.45], [sK, 2.6]].forEach(([p, h], k) => {
       // W6++: столб — до земли (за краем полотна она ниже дороги: столб «висел» над склоном), щит — на прежней высоте
       const y0 = Math.min(p.y, ground(p.x, p.z) - 0.08), hh = p.y + h - y0;
       bkP.geo(GCy, mtx(p.x, y0 + hh / 2, p.z, 0, 0.05, hh, 0.05), k === 2 ? cWoodD : cPost);
@@ -2087,8 +1989,6 @@ void main() {
         else { const s0 = pr() < 0.5 ? R.len - 2 - pr() * 6 : 2 + pr() * 4, q = road.sample(s0), fwd = s0 > R.len / 2 ? 1 : -1; x = q.x + Math.sin(q.th) * fwd * (5 + pr() * 10) + q.lx * (pr() - 0.5) * 6; z = q.z + Math.cos(q.th) * fwd * (5 + pr() * 10) + q.lz * (pr() - 0.5) * 6; y = q.y + 1 + pr() * 3; s = 9 + pr() * 6; }
         puffs.push([x, y, z, s]);
       }
-      // волна 4: облачная шторка и в конце ветки к отелю
-      for (let k = 0, nB = HI ? 6 : 3; k < nB; k++) { const q = road.branch.sample(BR.len - 2 - pr() * 6); puffs.push([q.x + Math.sin(q.th) * (4 + pr() * 9) + q.lx * (pr() - 0.5) * 6, q.y + 1 + pr() * 3, q.z + Math.cos(q.th) * (4 + pr() * 9) + q.lz * (pr() - 0.5) * 6, 9 + pr() * 6]); }
       const P = [], OF = [], SZ = [], UV = [], I = [];
       puffs.forEach(([x, y, z, s], k) => { [[-0.5, -0.35], [0.5, -0.35], [0.5, 0.35], [-0.5, 0.35]].forEach(([a, b], j) => { P.push(a, b, 0); OF.push(x, y, z); SZ.push(s * 2); UV.push(j === 1 || j === 2 ? 1 : 0, j >= 2 ? 1 : 0); }); const i0 = k * 4; I.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3); });
       const geo = keep(new T.BufferGeometry());
@@ -2221,12 +2121,9 @@ void main() {
     const sitUse = (b, view) => () => ({ kind: 'sit', seat: [b.x, b.y + 0.47, b.z], ry: b.ry, view });
     const spots = [{ id: 'road_view', x: sView.x, y: sView.y, z: sView.z, r: 3, label: 'Смотровая', icon: '⭐', action: 'Сесть на лавочку', seat: { x: benchP.x, y: benchP.y + 0.47, z: benchP.z, ry: toTower }, ry: toTower, view: 'viewpoint', parkS: iPk * DS, bench: true, use: sitUse(BENCHES[0], 'viewpoint') }];
     BENCHES.slice(1).forEach(b => spots.push({ id: b.id, x: b.x, y: b.y, z: b.z, r: 3, label: 'Лавочка', icon: '🪑', action: 'Сесть на лавочку', seat: { x: b.x, y: b.y + 0.47, z: b.z, ry: b.ry }, ry: b.ry, view: 'bench' + b.k, parkS: b.i * DS, bench: true, use: sitUse(b, 'bench' + b.k) }));
-    const hotelEnd = road.branch.sample(BR.len - 5);
     const exits = [
       { id: 'toCity', x: R.x[1], y: R.y[1], z: R.z[1], r: 4, label: 'В город', s: 1 * DS },
       { id: 'toVillage', x: R.x[N - 4], y: R.y[N - 4], z: R.z[N - 4], r: 5, label: TXT.toVillage, s: (N - 4) * DS },
-      // волна 4: ветка к отелю (регион отеля — отдельно, js/village_w4/hotel.js); s — по ветке, rid: 1
-      { id: 'toHotel', x: hotelEnd.x, y: hotelEnd.y, z: hotelEnd.z, r: 5, label: 'К отелю', icon: '🏨', s: BR.len - 5, rid: 1, road: 'hotel' },
     ];
     const V3 = (x, y, z) => [+x.toFixed(2), +y.toFixed(2), +z.toFixed(2)];
     const views = {};
@@ -2265,8 +2162,6 @@ void main() {
         const ta = Math.atan2(TOWER.x - ey[0], TOWER.z - ey[2]), ya = b.ry + clamp(angDiff(ta, b.ry), -0.5, 0.5) * 0.6, pd = -7 * D2R;
         views['bench' + b.k] = { pos: V3(...ey), target: V3(ey[0] + Math.sin(ya) * Math.cos(pd) * 60, ey[1] + Math.sin(pd) * 60, ey[2] + Math.cos(ya) * Math.cos(pd) * 60), fov: 34 };
       });
-      // W6: развилка — с левого края основной дороги перед развилкой: ветка уходит вправо вверх через проём в скале
-      { const f = road.sample(BR.sF - 7), g = road.branch.sample(16); views.fork = { pos: V3(f.x + f.lx * 3.0, f.y + 3.4, f.z + f.lz * 3.0), target: V3(g.x, g.y + 1.0, g.z), fov: 58 }; }
       // W6: щит «Осторожно, камушки» у начала подъёма
       { const q = road.sample(kI * DS - 12), k = road.sample(kI * DS); views.pebbleSign = { pos: V3(q.x + q.lx * 0.8, q.y + 1.6, q.z + q.lz * 0.8), target: V3(k.x - k.lx * (k.wr + 0.65), k.y + 1.9, k.z - k.lz * (k.wr + 0.65)), fov: 45 }; }
       const ea = road.sample(exitI * DS - 26);
@@ -2294,14 +2189,14 @@ void main() {
       return o;
     }
     const tmpM = { top: new T.Color(), hor: new T.Color(), fog: new T.Color(), hs: new T.Color(), hg: new T.Color(), sun: new T.Color(), near: 0, far: 0, hi: 0, si: 0 };
-    const gateP = { x: R.x[exitI], z: R.z[exitI] }, startP = { x: R.x[0], z: R.z[0] }, hotelP = { x: GX[NG2 - 1], z: GZ[NG2 - 1] };
+    const gateP = { x: R.x[exitI], z: R.z[exitI] }, startP = { x: R.x[0], z: R.z[0] };
     function applyMood(camY, hx, hz) {
       // W6+: туман у подножия реже (долина внизу видна, а не «пустота» за кромкой), в облаке — «молоко», но дорога видна дальше;
       // переходы растянуты по высоте, чтобы туман не «обрывался»
       const t1 = sm(-110, -98, camY), t2 = sm(-95, -82, camY);
       blend(MC.valley, MC.cloud, t1, tmpM); blend(tmpM, MC.clear, t2, cur);
       // облачная шторка у ворот въезда
-      const dG = Math.hypot(hx - gateP.x, hz - gateP.z), dH = Math.hypot(hx - hotelP.x, hz - hotelP.z), kG = Math.max(1 - sm(10, 46, dG), 1 - sm(6, 30, dH)) * 0.8;
+      const dG = Math.hypot(hx - gateP.x, hz - gateP.z), kG = (1 - sm(10, 46, dG)) * 0.8;
       if (kG > 0.001) { blend(cur, MC.cloud, kG, tmpM); Object.assign(cur, { near: tmpM.near, far: tmpM.far, hi: tmpM.hi, si: tmpM.si }); ['top', 'hor', 'fog', 'hs', 'hg', 'sun'].forEach(k => cur[k].copy(tmpM[k])); }
       fog.color.copy(cur.fog); fog.near = cur.near; fog.far = cur.far;
       hemi.color.copy(cur.hs); hemi.groundColor.copy(cur.hg); hemi.intensity = cur.hi; sun.color.copy(cur.sun); sun.intensity = cur.si;
@@ -2536,7 +2431,7 @@ void main() {
       }
       // страховка от «за край»: точка вне полотна — назад к ближайшему полотну (коллайдеры края этого не допускают, но вдруг)
       if (!onRoad(x, z, 0.05)) {
-        const A = road.areas(x, z); let p = A[0]; if (A[1] && Math.abs(A[1].e) - (A[1].e > 0 ? A[1].wl : A[1].wr) < Math.abs(p.e) - (p.e > 0 ? p.wl : p.wr)) p = A[1];
+        const p = road.project(x, z);
         const W = (p.e > 0 ? p.wl : p.wr) - r * 0.5, over = Math.abs(p.e) - W; if (over > 0) { x -= p.lx * Math.sign(p.e) * over; z -= p.lz * Math.sign(p.e) * over; }
       }
       return [x, z];
@@ -2568,9 +2463,9 @@ void main() {
     const handle = {
       id: 'serpentine', root, named, season, quality, title: TXT.title,
       spawn, carSpawn, colliders, ground, npcs, spots, exits,
-      // волна 4: ходьба по дороге, лавочки, ветка к отелю, покрытие (см. шапку файла)
+      // волна 4: ходьба по дороге, лавочки, покрытие (см. шапку файла)
       collide, walkable, groundInfo, rayHit, dynamic, camColliders: [], benches: BENCHES.map(b => ({ id: b.id, x: b.x, y: b.y, z: b.z, ry: b.ry, seat: { x: b.x, y: b.y + 0.47, z: b.z, ry: b.ry }, view: b.k ? 'bench' + b.k : 'viewpoint', s: b.i * DS })),
-      surface: road.surface, hotel: { fork: { x: R.x[BR.iF], y: R.y[BR.iF], z: R.z[BR.iF], s: BR.sF }, end: { x: GX[NG2 - 1], y: GY[NG2 - 1], z: GZ[NG2 - 1] }, len: BR.len, side: BR.side },
+      surface: road.surface,
       camera: { views, far: 1600, near: 0.25, fovZoom: [58, 16] },
       road, update, dispose,
       // W6: камушки со скалы (см. блок PEB): trigger(s?), active(), list(), next(), stats(), on(fn) → отписка, enabled
@@ -2591,12 +2486,12 @@ void main() {
       fogInfo(o) { o = o || FOGI; const m = mood; o.cloud = m ? m.t1 * (1 - m.t2) : 0; o.gate = m ? m.kG : 0; o.valley = m ? 1 - m.t1 : 0; return o; },
       // подробное село вдали: true (по умолчанию) — настоящее, false — силуэт (запас для слабых устройств)
       setVillageDetail(on) { villageFull = !!on; return !!realDistant && villageFull; },
-      info() { return { buildMs, tris: triCount, len: +R.len.toFixed(1), samples: N, hairpins: 0, legs: 0, layout: 'contour', bends: noses.length, grade: +((R.y[N - 1] - R.y[0]) / R.len * 100).toFixed(1), sEmerge: +sEmerge.toFixed(1), climb: +(R.y[N - 1] - R.y[0]).toFixed(1), nearCells: NG.act.reduce((a, b) => a + b, 0), trees: trees.length, colliders: colliders.length, village: realDistant ? 'kubachi.distant' : 'placeholder', mood, branch: +BR.len.toFixed(1), benches: BENCHES.length, feats: { holes: FEAT[0].concat(FEAT[1]).filter(f => f.kind === 'hole').length, puddles: FEAT[0].concat(FEAT[1]).filter(f => f.kind === 'puddle').length, mud: FEAT[0].concat(FEAT[1]).filter(f => f.kind === 'mud').length, stones: FEAT[0].concat(FEAT[1]).filter(f => f.kind === 'stone').length } }; },
+      info() { return { buildMs, tris: triCount, len: +R.len.toFixed(1), samples: N, hairpins: 0, legs: 0, layout: 'contour', bends: noses.length, grade: +((R.y[N - 1] - R.y[0]) / R.len * 100).toFixed(1), sEmerge: +sEmerge.toFixed(1), climb: +(R.y[N - 1] - R.y[0]).toFixed(1), nearCells: NG.act.reduce((a, b) => a + b, 0), trees: trees.length, colliders: colliders.length, village: realDistant ? 'kubachi.distant' : 'placeholder', mood, benches: BENCHES.length, feats: { holes: FEAT.filter(f => f.kind === 'hole').length, puddles: FEAT.filter(f => f.kind === 'puddle').length, mud: FEAT.filter(f => f.kind === 'mud').length, stones: FEAT.filter(f => f.kind === 'stone').length } }; },
       stats() { return { tris: triCount, colliders: colliders.length, npcs: npcs.length, buildMs }; },
       // для отладки и стыковки: точки и подписи
       points: { bench: benchP, tur: meshes.turP, gate: { x: R.x[exitI], y: R.y[exitI], z: R.z[exitI] }, start: { x: R.x[0], y: R.y[0], z: R.z[0] }, bridge: iBr >= 0 ? { x: R.x[iBr], y: R.y[iBr], z: R.z[iBr] } : null, hairpinApex6: { x: R.x[iAp6], y: R.y[iAp6], z: R.z[iAp6] } },
       // W6: L3 — где дорога выныривает из облаков (как прежнее плечо L3), H6 — нос отрога со смотровой (как прежняя шпилька H6)
-      sOf: { L3: sEmerge, emerge: sEmerge, H6: iAp6 * DS, view: iPk * DS, noses: noses.map(i => i * DS), bench: benchI * DS, gate: exitI * DS, bridge: iBr * DS, fork: BR.sF, benches: BENCHES.map(b => b.i * DS) },
+      sOf: { L3: sEmerge, emerge: sEmerge, H6: iAp6 * DS, view: iPk * DS, noses: noses.map(i => i * DS), bench: benchI * DS, gate: exitI * DS, bridge: iBr * DS, benches: BENCHES.map(b => b.i * DS) },
       labels: TXT,
     };
     return handle;
@@ -2643,13 +2538,7 @@ void main() {
     m.name = 'serpentineDistant'; m.userData.dispose = () => { geo.dispose(); m.material.dispose(); };
     return m;
   }
-  // волна 4: ветка к отелю без сборки региона — развилка, конец ветки (там выход toHotel), осевая; для региона отеля и карты
-  function hotelRoad() {
-    const B = buildBranch(), R = buildPath(), pts = [], e = B.N - 1;
-    for (let i = 0; i < B.N; i++) pts.push({ x: B.x[i], y: B.y[i], z: B.z[i] });
-    return { len: B.len, side: B.side, fork: { x: R.x[B.iF], y: R.y[B.iF], z: R.z[B.iF], s: B.sF, th: R.th[B.iF] }, end: { x: B.x[e], y: B.y[e], z: B.z[e], th: B.th[e] }, points: pts };
-  }
   // W6: где фону села нужен рельеф дороги (groundCut вместо своей чаши), чтобы вся контурная дорога лежала на месте: ρ и β от башни
   const patch = { r0: 292, r1: 560, b0: -104, b1: 66, tx: TX, tz: TZ };
-  V.regions.serpentine = { build, path, distant, groundMacro: natY, groundCut, hotelRoad, patch, layout: 'contour', frame: { RV2XZ, XZ2RV, TOWER, CLOUD_TOP, SB } };
+  V.regions.serpentine = { build, path, distant, groundMacro: natY, groundCut, patch, layout: 'contour', frame: { RV2XZ, XZ2RV, TOWER, CLOUD_TOP, SB } };
 })();
