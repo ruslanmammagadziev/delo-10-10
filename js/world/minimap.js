@@ -1670,6 +1670,7 @@
     if (p.id === 'spring_lid') return 'Крышку — открыть, воду — в ладошки.';
     if (p.id === 'padel') return 'Стеклянная коробка с сеткой.';
     if (p.id === 'football') return 'Маленькое поле с воротами.';
+    if (p.id === 'schoolYard') return 'Футбол с Зайчонком: мяч — у ворот.';
     if (p.kind === 'shop') return 'Лавка у площади.';
     return LINES[p.kind] || '';
   }
@@ -1699,7 +1700,13 @@
         : (V.regions.serpentine && V.regions.serpentine.groundMacro ? (x, z) => V.regions.serpentine.groundMacro(x, z) : () => 0);
     M.toMacro = rid === 'hotel' ? (x, z) => { try { const f = (h && h.frame && h.frame.toMacro) || HD.toMacro; const q = f(x, 0, z); return [q.x, q.z]; } catch (e) { const F = (V.ZIP_GEO && V.ZIP_GEO.frame) || { x: 490, z: 500, ry: 0.722 }; const c = Math.cos(F.ry), s = Math.sin(F.ry); return [F.x + x * c + z * s, F.z - x * s + z * c]; } } : (x, z) => [x, z];
     // точки: живые (o.pois) — снаружи; здесь — статичные и добавки из ручки
-    M.staticPois = () => (STATIC_POIS[rid] || []).map(a => mtnPoi({ id: a[0], kind: a[1], x: a[2], z: a[3], label: a[4] }, rid, named));
+    // отель ещё не загружали: футбол и падел — места игры на кортах (VILLAGE.sports.HOTEL.spots, poi — id точки), гольф — грин
+    M.staticPois = () => {
+      const list = (STATIC_POIS[rid] || []).map(a => mtnPoi({ id: a[0], kind: a[1], x: a[2], z: a[3], label: a[4] }, rid, named));
+      if (rid !== 'hotel') return list;
+      ((V.sports && V.sports.HOTEL && V.sports.HOTEL.spots) || []).forEach(s => { if (!s.poi) return; const q = list.find(p => p.id === s.poi); if (q) { q.x = s.x; q.z = s.z; } else list.push(mtnPoi({ id: s.poi, kind: 'sport', x: s.x, z: s.z }, rid, named)); });
+      return list.some(q => q.id === 'padel' || q.id === 'football') ? list.filter(q => q.id !== 'sports_look') : list;   // как живой радар отеля
+    };
     M.extraPois = () => {
       const out = []; if (!h) return out;
       const sp = id => (h.spots || []).find(s => s.id === id);
@@ -1709,7 +1716,9 @@
         const ex = (h.exits || []).find(e => e.id === 'toRoad'); if (ex) out.push(mtnPoi({ id: 'toRoad', kind: 'city', x: ex.x, z: ex.z }, rid, named));
       } else if (rid === 'hotel') {
         const avg = re => { let n = 0, x = 0, z = 0; (h.colliders || []).forEach(c => { if (re.test(String(c.id || ''))) { n++; x += c.x; z += c.z; } }); return n ? [x / n, z / n] : null; };
-        const pd = avg(/^padel$/), gl = avg(/^goal$/);
+        // точки — на местах игры (на корте, иначе у входа), где сразу видна кнопка; середина кортов по коллайдерам — запас
+        const ps = (...ids) => ids.map(sp).find(Boolean), at = (s, c) => (s ? [s.x, s.z] : c);
+        const pd = at(ps('padel_court', 'padel_play'), avg(/^padel$/)), gl = at(ps('football_court', 'football_play'), avg(/^goal$/));
         if (pd) out.push(mtnPoi({ id: 'padel', kind: 'sport', x: pd[0], z: pd[1] }, rid, named));
         if (gl) out.push(mtnPoi({ id: 'football', kind: 'sport', x: gl[0], z: gl[1] }, rid, named));
       }
