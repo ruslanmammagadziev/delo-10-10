@@ -807,9 +807,11 @@
       V.finish2D = close;
       G.setHud({ label: `${p.icon || ''} ${p.short || p.id}`.trim(), onExit: close, exitText: '← на улицу' });
       // ☰ → «Образ» и в 2D-комнате (js/looks_picker.js Looks.change): героиня здесь — в репликах (рисунок героини — по G.look()),
-      // путь — тот же, что у зеркала ателье (ctx.setLook)
+      // путь — тот же, что у зеркала ателье (ctx.setLook). Пока идёт реплика (и приветствие хозяйки) или открыт лист — «минутку»,
+      // как в 3D-сценах (их blocked()): карусель поверх реплики прятала бы её, а Enter листал бы невидимую
       if (window.HUD && HUD.menu && window.Looks && Looks.menuItem) {
-        HUD.menu.add(Looks.menuItem({ id: 't-look', when: () => !closed && !V.gone, gone: () => closed || V.gone, busy: () => (busy ? 'wait' : ''),
+        const talk = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full');
+        HUD.menu.add(Looks.menuItem({ id: 't-look', when: () => !closed && !V.gone, gone: () => closed || V.gone, busy: () => (busy || talk() ? 'wait' : ''),
           apply: id => { if (closed) return false; V.ctx.setLook({ look: id }, true); return true; } }));
       }
       const paint = () => {
