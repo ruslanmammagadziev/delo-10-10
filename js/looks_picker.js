@@ -381,8 +381,9 @@
 
   // ателье: карусель поверх комнаты; итог — id образа («Надеть») или null (✕, ушла, пропуск).
   // o: { onChange, noAutoplay — ролики без автозапуска (постер и ▶), header — цвет шапки Telegram после (строка или функция),
-  //      prep(id) — «Надеть» с подготовкой: кнопка «Примеряю…», карусель остаётся на экране, пока сцена переодевает героиню
-  //      (ждать — над роликом, а не над замершей сценой); итог prep — id (закрыть с ним) или null }
+  //      prep(id, closed) — «Надеть» с подготовкой: кнопка «Примеряю…», карусель остаётся на экране, пока сцена переодевает
+  //      героиню (ждать — над роликом, а не над замершей сценой); ✕ и тут закрывает (closed() — уже закрыли: prep бросает
+  //      работу); итог prep — id (закрыть с ним) или null }
   function atelier(ctx, o = {}) {
     const g = G_();
     return new Promise(res => {
@@ -410,13 +411,13 @@
         const b = ov.querySelector('#pick'); if (b) { b.disabled = true; b.textContent = 'Примеряю…'; }
         // два кадра — «Примеряю…» успевает на экран до долгой работы
         new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-          .then(() => (done ? null : o.prep(id)))
+          .then(() => (done ? null : o.prep(id, () => done)))
           .then(r => fin(r), e => { console.warn('looks prep', e); fin(null); });
       };
       try {
         p = mount(ov, {
           mode: 'atelier', start: g.look(), cta: 'Надеть', noAutoplay: !!o.noAutoplay,
-          onChange: o.onChange, onPick: id => pick(id), onClose: () => { if (!prepping) fin(null); },
+          onChange: o.onChange, onPick: id => pick(id), onClose: () => fin(null),
         });
       } catch (e) { console.warn('looks atelier', e); fin(null); return; }
       // верхняя полоса HUD лежит выше слоя #layer — на время гардероба её прячем (body.lk-on, css/style.css);
@@ -435,7 +436,8 @@
   // поездка — World.relook, комната — api.setLook самой комнаты через визит места). Переодевание идёт, пока карусель ещё на
   // экране («Примеряю…»: на слабом телефоне это секунда-другая — пусть над роликом, а не над замершей сценой); закрылась —
   // сцена уже в новом образе, у героини искры. Сохраняет G.setLook (localStorage и облако Telegram). Пока карусель открыта,
-  // одежду и узор образа, на котором задержались, готовит простой (HeroOutfits.warm) — «Надеть» их уже не ждёт.
+  // одежду и узор образа, на котором задержались, готовит простой — кусками по несколько мс (HeroOutfits.warmSome), листание
+  // и касания между кусками не ждут; «Надеть» доделывает остаток (тоже кусками: «Примеряю…» живая, ✕ отменяет).
   // o: { busy() — '' или ключ BUSY / строка «не сейчас» (тост); gone() — сцены уже нет; apply(id) — надеть (false — не вышло:
   // образ только сохраняем); at() — { x, y } героини в #app (искры; null — середина); lite — ролики без автозапуска (функция
   // или флаг); header — цвет шапки Telegram после }. Итог — id нового образа или null.
@@ -447,6 +449,13 @@
     hands: 'Руки заняты — переоденемся чуть позже.',
   };
   const WARM_MS = 900;   // столько смотрят образ в карусели — его одежду можно готовить (пролистанные не трогаем)
+  const SLICE_MS = 8;    // кусок подготовки в простое (мс; шаг — 1–20 мс на компьютере) — касание ждёт не дольше куска
+  const PREP_MS = 40;    // кусок подготовки после «Надеть» (мс): между кусками — кадр «Примеряю…» и ✕
+  // простой: requestIdleCallback (без срока — занят кадр, ждём), где его нет (Safari) — пауза; итог — отмена
+  const idle = f => {
+    if (window.requestIdleCallback) { const h = requestIdleCallback(f); return () => cancelIdleCallback(h); }
+    const h = setTimeout(() => f(null), 60); return () => clearTimeout(h);
+  };
   let changing = false;
   const busyLine = o => { let k = ''; try { k = o.busy ? o.busy() : ''; } catch (e) { k = 'wait'; } return k ? BUSY[k] || String(k) : ''; };
   const val = v => { try { return typeof v === 'function' ? v() : v; } catch (e) { return null; } };
@@ -457,27 +466,39 @@
     const no = busyLine(o);
     if (no) { g.toast(no, 2200, { replace: true }); fx('light'); return null; }
     changing = true;
-    let warmT = 0, idleH = 0, done = null;
+    let warmT = 0, unIdle = null, done = null;
     const warmed = new Set();
-    const stopWarm = () => { clearTimeout(warmT); if (idleH && window.cancelIdleCallback) cancelIdleCallback(idleH); idleH = 0; };
+    const stopWarm = () => { clearTimeout(warmT); if (unIdle) unIdle(); unIdle = null; };
+    // образ сменили — кусок не доделан: HeroOutfits помнит начатое (вернулись или надели — продолжит)
     const warm = id => {
       stopWarm();
       const ho = HO();
-      if (!ho || !ho.cold || !ho.cold(id)) return;
-      warmT = setTimeout(() => {
-        const go = () => { idleH = 0; if (ho.cold(id) && ho.warm(id) != null) warmed.add(id); };
-        if (window.requestIdleCallback) idleH = requestIdleCallback(go, { timeout: 1500 }); else go();
-      }, WARM_MS);
+      if (!ho || !ho.warmSome || !ho.cold(id)) return;
+      const slice = dl => {
+        unIdle = null;
+        const t0 = performance.now();
+        const r = ho.warmSome(id, () => performance.now() - t0 < SLICE_MS && (!dl || dl.timeRemaining() > 1));
+        if (r === true) warmed.add(id); else if (r === false) unIdle = idle(slice);
+      };
+      warmT = setTimeout(() => { unIdle = idle(slice); }, WARM_MS);
     };
     // «Надеть»: карусель ещё на экране — доготовить одежду (если простой не успел) и переодеть. «Занята ли» второй раз не
     // спрашиваем: под каруселью сцена стоит (кадров нет), а blocked() сцены теперь видит саму карусель
-    const prep = id => {
+    const prep = async (id, closed) => {
       stopWarm();
       if (id === g.look()) return id;
       if (o.gone && o.gone()) return null;
       const ho = HO();
       let t0 = performance.now(), prepMs = 0, ok = false;
-      if (ho && ho.cold && ho.cold(id) && ho.warm(id) != null) prepMs = Math.round(performance.now() - t0);
+      if (ho && ho.warmSome && ho.cold(id)) {
+        for (let r = false; r === false;) {
+          const t1 = performance.now();
+          r = ho.warmSome(id, () => performance.now() - t1 < PREP_MS);
+          if (r === false) await new Promise(f => setTimeout(f, 0));
+          if ((closed && closed()) || (o.gone && o.gone())) return null;
+        }
+        prepMs = Math.round(performance.now() - t0);
+      }
       t0 = performance.now();
       try { ok = !!o.apply && o.apply(id) !== false; } catch (e) { console.warn('looks change', e); ok = false; }
       done = { id, ms: Math.round(performance.now() - t0), prepMs, warm: warmed.has(id), ok };
