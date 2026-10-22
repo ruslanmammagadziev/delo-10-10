@@ -98,6 +98,8 @@
   };
   // o.coach → приставка его реплик в LINES (нет своей — говорит енот-тренер отеля)
   const COACHES = { pupil_bunny: 'pupil_' };
+  // кто катит мяч в пас-пасе: имя в подсказке и в карточке конца, наряд (kit) — у Зайчонка школьного двора синяя майка с номером
+  const PASSERS = { '': { nom: 'Зайка', ins: 'Зайкой', kit: null }, pupil_bunny: { nom: 'Зайчонок', ins: 'Зайчонком', kit: 'pupil' } };
   const SAY = {
     perfect: 'Супер!', good: 'Есть!', weak: 'Достала!', reach: 'Не дотянулась!', early: 'Подожду мячик…', miss: 'Ой, мимо!', point: 'Очко!', win: 'Победа!', lose: 'Ничего, ещё сыграем!',
     goal: 'Гол!', saved: 'Почти!', post: 'Ой, штанга!', wide: 'Мимо… Ничего!', high: 'Высоковато!', serve: 'Подача!',
@@ -291,9 +293,10 @@
       ];
       return L.concat(face(K, 2, 1.0, 0.215, 0.09, 0.245));
     } },
-    bunny: { who: 'sport_bunny', name: 'Зайка', headY: 1.42, build(K) {
-      const { G, part: P } = K, W = '#F7F3EE', Sh = '#9DD3F0', Pk = '#F4A9B8', ink = '#3A2E3F';
+    bunny: { who: 'sport_bunny', name: 'Зайка', headY: 1.42, build(K, o) {
+      const pu = o.kit === 'pupil', { G, part: P } = K, W = pu ? '#F2EEE6' : '#F7F3EE', Sh = pu ? '#3F78B8' : '#9DD3F0', Pk = '#F4A9B8', ink = '#3A2E3F';   // pupil — как Зайчонок-футболист двора (kubachi.js)
       const L = [
+        ...(pu ? [P(G.box, '#FFFFFF', [0, 0.55, 0.235], [0.1, 0, 0], [0.07, 0.14, 0.03], { b: 1, ol: 0 })] : []),   // номер на майке
         P(G.sph, Sh, [0, 0.5, 0], 0, [0.25, 0.3, 0.23], { b: 1 }), P(G.sph, W, [0, 0.32, -0.25], 0, 0.08, { b: 1 }),
         P(G.sph, W, [0, 0.9, 0.02], 0, 0.23, { b: 2 }), P(G.sph, W, [0, 0.84, 0.17], 0, [0.1, 0.075, 0.08], { b: 2, ol: 0 }),
         P(G.sph, Pk, [0, 0.875, 0.245], 0, [0.035, 0.026, 0.024], { b: 2, ol: 0 }),
@@ -1153,7 +1156,7 @@
     const c = C.court, GW = c.goalW || 3, GH = c.goalH || 2, GD = c.goalD || 1;
     const GZ = c.goalZ !== undefined ? c.goalZ : (c.d || 34) / 2 - 0.1, SPOT = GZ - (c.spotD || 6);
     const bear = makeAnimal(K, 'bear', {}, C.bag); bear.root.userData.headY = 1.42; C.add(bear.root);
-    const bunny = makeAnimal(K, 'bunny', {}, C.bag); bunny.root.userData.headY = 1.55; bunny.root.visible = false; C.add(bunny.root);
+    const PS = PASSERS[C.o.coach] || PASSERS[''], bunny = makeAnimal(K, 'bunny', { kit: PS.kit }, C.bag); bunny.root.userData.headY = 1.55; bunny.root.visible = false; C.add(bunny.root);
     const ball = makeBall(K, 'football'); C.add(ball);
     const blob = makeBlob(T, C.bag); C.add(blob);
     const marks = makeRings(T, C.bag, 3); C.add(marks);   // 0 — метка в воротах, 1/2 — кольцо по времени (пас-пас)
@@ -1170,7 +1173,7 @@
       S.kick = 0; S.goals = 0; S.res = []; S.outcome = null; timers.length = 0;
       bunny.root.visible = S.variant === 'pass';
       C.line(C.lineOf(S.variant === 'pass' ? 'footPassStart' : 'footStart'), null, 3.2);
-      C.hint(S.variant === 'pass' ? 'Зайка катит мяч — жми, когда он в кольце' : 'Проведи к воротам: куда и как сильно. Или «Удар!»', 5.5);
+      C.hint(S.variant === 'pass' ? PS.nom + ' катит мяч — жми, когда он в кольце' : 'Проведи к воротам: куда и как сильно. Или «Удар!»', 5.5);
       C.mainBtn('⚽', 'Удар!');
       C.sideBtn(S.variant === 'pass' ? 'Пенальти' : 'Пас-пас', true);
       C.ui.side.classList.add('low'); C.ui.side.style.right = '132px';
@@ -1280,8 +1283,8 @@
       S.last = res;
       C.line(C.lineOf('footEnd'), null, 2.8);
       const title = res.goals >= 4 ? 'Бомбардир! ⚽' : res.goals >= 2 ? 'Здорово!' : 'Хорошая попытка!';
-      later(0.6, () => C.showEnd({ title, text: 'Голов: <b>' + res.goals + ' из ' + FOOT.KICKS + '</b>' + (S.variant === 'pass' ? ' · пас-пас с Зайкой' : ' · пенальти'), best: 'Лучшее за сегодня: ' + BEST.football.goals + ' из ' + FOOT.KICKS,
-        extra: [[S.variant === 'pass' ? 'Пенальти' : 'Пас-пас с Зайкой', () => { S.variant = S.variant === 'pass' ? 'penalty' : 'pass'; C.hideEnd(); C.curtain(() => { reset(); C.camT.snap = true; }, null); }]], result: res }));
+      later(0.6, () => C.showEnd({ title, text: 'Голов: <b>' + res.goals + ' из ' + FOOT.KICKS + '</b>' + (S.variant === 'pass' ? ' · пас-пас с ' + PS.ins : ' · пенальти'), best: 'Лучшее за сегодня: ' + BEST.football.goals + ' из ' + FOOT.KICKS,
+        extra: [[S.variant === 'pass' ? 'Пенальти' : 'Пас-пас с ' + PS.ins, () => { S.variant = S.variant === 'pass' ? 'penalty' : 'pass'; C.hideEnd(); C.curtain(() => { reset(); C.camT.snap = true; }, null); }]], result: res }));
     }
     function stepGame(dt) {
       for (let i = timers.length - 1; i >= 0; i--) if (C.t >= timers[i].t) { const f = timers[i].fn; timers.splice(i, 1); f(); }

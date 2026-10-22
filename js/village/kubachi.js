@@ -347,7 +347,7 @@
     return { n, x: X, z: Z, s: Sx, key: keyAt };
   }
   // сеть проездов: плотные оси (≈ 1 м), профиль высоты по рельефу baseY(x, z), круги-площадки; быстрый поиск ближайшей оси.
-  // o (волна 7, внешние дороги): defs — свои оси, disks — свои площадки, ri0 — сдвиг номеров осей (s = 1000·(ri + 1) + s),
+  // o (волна 7, внешние дороги): defs — свои оси, disks — свои площадки, ri0 — сдвиг номеров осей (s = SG·(ri + 1) + s),
   // M — запас сетки поиска, lands — ровные площадки на профиле ({x, z, r, y | on: id оси — высота с неё}), ext(L) — высота
   // площадки с чужой сети. Без o — прежняя сеть села (street, tower, up) и её площадки (разворот, карман)
   function roadNet(baseY, o = {}) {
@@ -438,7 +438,9 @@
   // адаптер «дороги» для js/village/drive.js (только чтение): объединение участков — капсулы по осям (круглые концы), круги
   // (парковка, разворот, карман у школы) и прямоугольник площади. areas(x, z) → [{ s, len, e, wl, wr, lx, lz, th, rid, id }]:
   // мягкий край drive.js держит машину внутри объединения (выбирает участок, где кузов вылезает меньше всего). Концов у сети нет
-  // (s всегда в середине: project().s = 1000·(№ оси + 1) + s по оси, len = 1e6) — упираются только в край участков и в выходы.
+  // (s всегда в середине: project().s = SG·(№ оси + 1) + s по оси, len = 1e6) — упираются только в край участков и в выходы.
+  // Шаг SG — 10 000 м: длиннее любой оси (дорога к отелю — 1164 м; при прежних 1000 м её верх читался как ось № 8, которой нет)
+  const SG = 10000;
   function driveNet(RN, extra) {
     const A = [];   // { type: 'seg'|'disk'|'rect', ... }
     RN.roads.forEach(R => { for (let i = 0; i < R.n - 1; i++) A.push({ type: 'seg', R, i, x0: R.x[i], z0: R.z[i], x1: R.x[i + 1], z1: R.z[i + 1], hw: R.hw, kind: R.kind, id: R.id, s0: R.s[i] }); });
@@ -458,10 +460,10 @@
     function qOf(a, x, z) {
       if (a.type === 'seg') {
         const vx = a.x1 - a.x0, vz = a.z1 - a.z0, L = Math.hypot(vx, vz) || 1e-6, ux = vx / L, uz = vz / L, t = ((x - a.x0) * ux + (z - a.z0) * uz);
-        if (t >= 0 && t <= L) { const lx = uz, lz = -ux, e = (x - a.x0) * lx + (z - a.z0) * lz; return { a, s: 1 + a.s0 + t, len: a.R.len + 2, e, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(ux, uz), rid: 0, id: a.id, kind: a.kind, sg: 1000 * (a.R.ri + 1) + a.s0 + t }; }
+        if (t >= 0 && t <= L) { const lx = uz, lz = -ux, e = (x - a.x0) * lx + (z - a.z0) * lz; return { a, s: 1 + a.s0 + t, len: a.R.len + 2, e, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(ux, uz), rid: 0, id: a.id, kind: a.kind, sg: SG * (a.R.ri + 1) + a.s0 + t }; }
         const px = t < 0 ? a.x0 : a.x1, pz = t < 0 ? a.z0 : a.z1, dx = x - px, dz = z - pz, d = Math.hypot(dx, dz), lx = d > 1e-6 ? dx / d : uz, lz = d > 1e-6 ? dz / d : -ux;
         const sl = clamp(a.s0 + t, 0, a.R.len);
-        return { a, s: 1 + sl, len: a.R.len + 2, e: d, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: 1000 * (a.R.ri + 1) + sl };
+        return { a, s: 1 + sl, len: a.R.len + 2, e: d, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: SG * (a.R.ri + 1) + sl };
       }
       if (a.type === 'disk') { const dx = x - a.x, dz = z - a.z, d = Math.hypot(dx, dz), lx = d > 1e-6 ? dx / d : 1, lz = d > 1e-6 ? dz / d : 0; return { a, s: 1, len: 3, e: d, wl: a.r, wr: a.r, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: 900000 }; }
       // прямоугольник: ось с наименьшим запасом (у угла — та, по которой вылез сильнее)
@@ -481,9 +483,9 @@
     // на площадке (круг, площадь) — ось дороги, что через неё идёт (пилот и следилка едут по дороге, а не к центру площади)
     function project(x, z) { const L = areas(x, z), q = L[0].sg >= 900000 ? (L.find(p => p.sg < 900000) || L[0]) : L[0]; return Object.assign({}, q, { s: q.sg, len: 1e6, rs: q.s }); }
     function sample(s) {
-      const ri = Math.floor(s / 1000) - 1, R = RN.roads[ri];
+      const ri = Math.floor(s / SG) - 1, R = RN.roads[ri];
       if (!R) { const r0 = A.find(a => a.type === 'rect') || A[0]; return { x: r0.x !== undefined ? r0.x : r0.x0, z: r0.z !== undefined ? r0.z : r0.z0, th: 0, lx: 1, lz: 0, y: 0 }; }
-      const sl = clamp(s - 1000 * (ri + 1), 0, R.len); let i = 0; while (i < R.n - 2 && R.s[i + 1] < sl) i++;
+      const sl = clamp(s - SG * (ri + 1), 0, R.len); let i = 0; while (i < R.n - 2 && R.s[i + 1] < sl) i++;
       const t = clamp((sl - R.s[i]) / Math.max(1e-6, R.s[i + 1] - R.s[i]), 0, 1), vx = R.x[i + 1] - R.x[i], vz = R.z[i + 1] - R.z[i], L = Math.hypot(vx, vz) || 1;
       return { x: R.x[i] + vx * t, z: R.z[i] + vz * t, y: R.y[i] + (R.y[i + 1] - R.y[i]) * t, th: Math.atan2(vx, vz), lx: vz / L, lz: -vx / L };
     }
@@ -491,8 +493,8 @@
     // волна 7: кривизна осей (1/R) — следилка отъезжает на поворотах и шпильках, пилот тормозит перед ними; у площадок — 0
     const KAP = RN.roads.map(R => { const k = new Float32Array(R.n); for (let i = 1; i < R.n - 1; i++) { const a1 = Math.atan2(R.x[i] - R.x[i - 1], R.z[i] - R.z[i - 1]), a2 = Math.atan2(R.x[i + 1] - R.x[i], R.z[i + 1] - R.z[i]), d = Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)); k[i] = Math.abs(d) / Math.max(0.3, (R.s[i + 1] - R.s[i - 1]) / 2); } return k; });
     function kmax(s, ahead) {
-      const ri = Math.floor(s / 1000) - 1, R = RN.roads[ri]; if (!R) return 0;
-      const sl = s - 1000 * (ri + 1), K = KAP[ri]; let m = 0;
+      const ri = Math.floor(s / SG) - 1, R = RN.roads[ri]; if (!R) return 0;
+      const sl = s - SG * (ri + 1), K = KAP[ri]; let m = 0;
       for (let i = 1; i < R.n - 1; i++) if (R.s[i] >= sl && R.s[i] <= sl + ahead) m = Math.max(m, (K[i - 1] + K[i] + K[i + 1]) / 3);   // впереди (как у серпантина: назад — s − ahead)
       return m;
     }
@@ -4047,9 +4049,10 @@
         school_yard: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'school_yard', npc: 'pupil_kitten', event: 'schoolYard' }),
         school_bell: () => { npcHop('teacher_fox'); npcHop('pupil_bunny'); return { kind: 'toast', text: 'Дзинь-дзинь!', npc: 'teacher_fox', event: 'schoolBell' }; },
         // футбол во дворе (VILLAGE.sports): поле школы в осях игры — длинная сторона по +z к северным воротам (поворот рамки на +90°);
-        // тренер и пас-пас — Зайчонок (coach), мяч у южных ворот на время игры прячем (у игры свой); без модуля игр — тост text
-        school_football: sp => { npcHop('pupil_bunny'); const P0 = W6.yard.pitch;
-          return { kind: 'sport', sport: 'football', npc: 'pupil_bunny', coach: 'pupil_bunny', hide: W6.ballMesh ? [W6.ballMesh] : [], text: 'Футбол с Зайчонком: пенальти и пас-пас.',
+        // тренер и пас-пас — Зайчонок (coach), мяч у южных ворот на время игры прячем (у игры свой); без модуля игр — тост text.
+        // Сам Зайчонок на время игры тоже уходит (тело NPC): в пас-пасе мяч катит он же — в игре, в своей синей майке
+        school_football: sp => { npcHop('pupil_bunny'); const P0 = W6.yard.pitch, pb = npcs.find(q => q.id === 'pupil_bunny');
+          return { kind: 'sport', sport: 'football', npc: 'pupil_bunny', coach: 'pupil_bunny', hide: [W6.ballMesh, pb && pb.body].filter(Boolean), text: 'Футбол с Зайчонком: пенальти и пас-пас.',
             court: { x: P0.x, y: P0.y, z: P0.z, ry: P0.ry + PI / 2, w: P0.d, d: P0.w, goalW: P0.goalW, goalH: P0.goalH, goalD: P0.goalD, goalZ: P0.goalX, spotD: 6 },
             returnTo: { x: sp.x, y: G(sp.x, sp.z), z: sp.z, ry: sp.ry } }; },
         tower_bench: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'tower_park' }),
@@ -4207,7 +4210,7 @@
     /* ============== 5.15b ВОЛНА 6: ЕЗДА ПО СЕЛУ — данные для контроллера машины (js/village/drive.js) ============== */
     // участки: оси проездов (капсулы), круги (парковка, разворот у башни, карман у школы), прямоугольник площади
     const SQ_DRIVE = { id: 'square', kind: 'cobble', x: SQUARE.x + 1.0 * Math.cos(SQUARE.ry), z: SQUARE.z - 1.0 * Math.sin(SQUARE.ry), w: 20.4, d: 9.8, ry: SQUARE.ry };
-    // волна 7: одна сеть для машины — прежние проезды и внешние дороги (номера осей подряд: s = 1000·(ri + 1) + s)
+    // волна 7: одна сеть для машины — прежние проезды и внешние дороги (номера осей подряд: s = SG·(ri + 1) + s, SG = 10 000)
     const ALLNET = FAR ? null : { roads: model.RN.roads.concat(OUTR.net.roads), disks: model.RN.disks.concat(OUTR.net.disks) };
     const DNET = FAR ? null : driveNet(ALLNET, { disks: [{ id: 'park', x: PARK.x, z: PARK.z, r: 5.4, kind: 'cobble' }], rects: [SQ_DRIVE] });
     // где ставить машину: на парковке (как раньше), на площади, у разворота башни, у школы, наверху у дороги к отелю (носом вниз)

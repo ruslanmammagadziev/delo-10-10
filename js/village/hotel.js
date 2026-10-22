@@ -85,7 +85,7 @@
     hotel_raccoon: [
       { who: 'hotel_raccoon', text: 'Падел, мини-футбол, мини-гольф. Мячик выдам бесплатно!' },
       { who: 'hotel_raccoon', text: 'Падел — как теннис, только в стеклянной коробке!' },
-      { who: 'hotel_raccoon', text: 'Попробуй мини-гольф: три удара — и мячик в лунке!' },
+      { who: 'hotel_raccoon', text: 'Попробуй мини-гольф: три лунки — загони мячик в каждую!' },
     ],
     hotel_otter: [
       { who: 'hotel_otter', text: 'Вода в бассейне тёплая — с подогревом!' },
@@ -1325,7 +1325,7 @@
       { const x = 66, z = -50; box(vc, F0, x, y + 0.7, z, 1.52, 0.06, 2.74, snowTop(rgb('#3E6EB0'), 0.5)); box(vc, F0, x, y + 0.76, z, 1.6, 0.15, 0.02, rgb('#F6F6F2')); [[-0.6, -1.1], [0.6, -1.1], [-0.6, 1.1], [0.6, 1.1]].forEach(([a, b]) => box(vc, F0, x + a, y, z + b, 0.06, 0.7, 0.06, DARK)); colBox(x, z, 1.6, 2.8, y - 1, y + 0.8, 'pingpong'); }
       bench(36, y, -64.4, 0); bench(20, y, -64.4, 0); bench(56, y, -63.2, PI);
       [[18, -62], [44, -62], [16, -44], [44, -44], [86 - 2, -62], [-2, -62]].forEach(([x, z]) => lampPost(x, y, z));
-      [[6, -60], [72, -44], [84, -44], [-2, -92], [30, -92]].forEach(([x, z]) => addTree(x, z, 1.0, R() < 0.5 ? 'pine' : 'rowan'));
+      [[6, -60], [72, -44], [84, -44], [-2, -92], [37, -91.5]].forEach(([x, z]) => addTree(x, z, 1.0, R() < 0.5 ? 'pine' : 'rowan'));   // (30, −92) → (37, −91,5): там теперь смотровая (полукруг 3,3 м и лавка)
     }
 
     /* ---------- 3.10 банный комплекс (волна 4B): каменный корпус с деревом и большими окнами, купол хамама, бревенчатая
@@ -1956,7 +1956,9 @@
       spots.push({ id: 'golf_putt', x: GREEN.tee[0] - 0.7, y: -4, z: GREEN.tee[1] + 0.6, r: 1.6, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три лунки', play: true });
       spots.push({ id: 'fire_pit', x: FIRE.x, y: -8, z: FIRE.z + 4.3, r: 1.5, icon: '🔥', label: 'Костровой круг', action: 'Посидеть у огня', seat: [FIRE.x, -8 + 0.46, FIRE.z + 3.3], ry: PI, view: 'fire_pit' });
       spots.push({ id: 'spa_look', x: -31, y: -8, z: -47.2, r: 1.6, icon: '♨️', label: 'Купели с паром', action: 'Посмотреть', view: 'spa' });
-      spots.push({ id: 'sports_look', x: 40, y: -4, z: -62, r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Сыграть', view: 'sports', play: true });   // 4B (NEEDS REGION 1); у енота-тренера — выбор игры
+      // 4B (NEEDS REGION 1); у енота-тренера — выбор игры: круг — на самом еноте (39,2; −59,6), чуть шире его «Поговорить» (2,5 м),
+      // так что с любой стороны рядом с ним — «⚽ Сыграть» и вторая кнопка «Поговорить»
+      spots.push({ id: 'sports_look', x: 39.2, y: -4, z: -59.6, r: 2.7, icon: '⚽', label: 'Падел и мини-футбол', action: 'Сыграть', view: 'sports', play: true });
       spots.push({ id: 'pond_look', x: -19.5, y: -8, z: POND.z + POND.rz + 1.3, r: 1.5, icon: '🦆', label: 'Пруд под холмом', action: 'Посмотреть', view: 'pond' });
       spots.push({ id: 'hotel_tower', x: TW.x + TW.rB + 0.8, y: 0, z: TW.z, r: 1.3, icon: '🏰', label: 'Башня во дворе', action: 'Подняться наверх' });
       spots.push({ id: 'tower_down', x: TW.x - TVD.x * 0.85, y: TW.floor, z: TW.z - TVD.z * 0.85, r: 0.75, icon: '⬇️', label: 'Спуститься', action: 'Вниз', level: 'top' });
