@@ -727,6 +727,8 @@
           room: p.room || p.id, mode: 'free', hudLabel: label,
           hero: heroLook(), catHelper: catF, catSweater: !!st.catSweater && catF, catBeret: !!t.k.cb && catF,
           held: heldNow(), spotIds: V.spotIds,
+          // ☰ → «Образ» в комнате (js/city3d.js, Looks.change): путь гардероба ателье — героиня комнаты, сохранение, реплика про обновку
+          onLook: id => { if (V.gone) return false; V.ctx.setLook({ look: id }, true); return true; },
           onSpot: (id, api) => { V.api = api; return runSpot(V, id); },
           onNpc: (id, api) => { V.api = api; return runNpc(V, id); },
           beforeActive: async api => {
@@ -798,11 +800,18 @@
       let closed = false, busy = false;
       const close = () => {
         if (closed) return; closed = true; V.end();
+        if (window.HUD && HUD.menu) HUD.menu.remove('t-look');
         G.skipDialogs(true); closeLayer(); syncSheetClass(); setTimeout(() => G.skipDialogs(false), 400);
         log('left', { id: p.id, r: 'exit' }); resolve('exit');
       };
       V.finish2D = close;
       G.setHud({ label: `${p.icon || ''} ${p.short || p.id}`.trim(), onExit: close, exitText: '← на улицу' });
+      // ☰ → «Образ» и в 2D-комнате (js/looks_picker.js Looks.change): героиня здесь — в репликах (рисунок героини — по G.look()),
+      // путь — тот же, что у зеркала ателье (ctx.setLook)
+      if (window.HUD && HUD.menu && window.Looks && Looks.menuItem) {
+        HUD.menu.add(Looks.menuItem({ id: 't-look', when: () => !closed && !V.gone, gone: () => closed || V.gone, busy: () => (busy ? 'wait' : ''),
+          apply: id => { if (closed) return false; V.ctx.setLook({ look: id }, true); return true; } }));
+      }
       const paint = () => {
         if (closed) return;
         const g = scr.querySelector('.tr-grid'); if (g) g.innerHTML = spotChips(V);
@@ -1310,6 +1319,9 @@
   const Town = window.Town = {
     run, running: false, place, patch, get, list, week, day, calendar: { DAY0, WEEK_STARTS: WEEK_STARTS.slice() }, state: ensure, counts, status, sheet, overlay, REG, bits, style, visit, storySafe, walkOnce,
     passportHTML, bindPassport, exportLine, validate, v: variants, Variants, Gone, heroLook, log: name => log('await', name), mark: name => log('await', name),
+    // образ сменили прямо в игре (☰ → «Образ», js/looks_picker.js): следующее место заметит обновку (реплика react.look, как
+    // после зеркала ателье). Без сохранения — его делает G.setLook следом
+    lookChanged() { ensure().k.lc = 1; },
   };
 
   /* ---------- Отладка (?debug=1, §11) ---------- */

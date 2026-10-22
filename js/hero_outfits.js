@@ -541,10 +541,32 @@
     OTEX.userData.cv = cv; OTEX.userData.look = null;
     return OTEX;
   }
+  // узор образа заранее (смена образа прямо в игре, HeroOutfits.warm — в простое, пока открыт гардероб): готовый холст,
+  // texFor копирует его, а не рисует заново (цветы «Звезды вечера» рисуются ~1,3 с на компьютере). Один запас на сессию
+  let OPRE = null;
+  const texPainted = id => !!(LOOKS[id] && (LOOKS[id].tex || LOOKS[id].texPost));
+  function texWarm(id) {
+    if (!texPainted(id) || (OPRE && OPRE.id === id) || (OTEX && OTEX.userData.look === id)) return false;
+    const cv = OPRE ? OPRE.cv : document.createElement('canvas');
+    cv.width = cv.height = 512;
+    texDraw(cv.getContext('2d', { willReadFrequently: true }), id);
+    OPRE = { id, cv };
+    return true;
+  }
   function texFor(T, id) {
-    const tx = outfitTex(T), lk = LOOKS[id];
+    const tx = outfitTex(T);
     if (tx.userData.look === id) return tx;
     const c = tx.userData.cv.getContext('2d', { willReadFrequently: true });
+    if (OPRE && OPRE.id === id) {
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'copy'; c.drawImage(OPRE.cv, 0, 0); c.restore();
+      tx.userData.look = id; tx.needsUpdate = true; return tx;
+    }
+    texDraw(c, id);
+    tx.userData.look = id; tx.needsUpdate = true;
+    return tx;
+  }
+  function texDraw(c, id) {
+    const lk = LOOKS[id];
     c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, 512, 512);
     if (lk && lk.tex) {
       try {
@@ -558,8 +580,6 @@
     // texPost — после поправки (цвета уже «текстурные», как у краски: кожа модели и tc-цвета)
     if (lk && lk.texPost) { try { lk.texPost(c, 512); } catch (e) { console.warn('outfit tex', e); } }
     c.fillStyle = '#FFFFFF'; c.fillRect(500, 0, 12, 12);
-    tx.userData.look = id; tx.needsUpdate = true;
-    return tx;
   }
   // материал одежды героини: toon с цветом вершин, рампа — как у героини; контур, прятки частей, подбор подола — в шейдере
   // материал двусторонний: изнанка юбки, брюк и накидки (подол снизу, штанина сзади) — цвет ткани темнее, а не контур;
@@ -3786,6 +3806,17 @@
     setQuality,
     ok: H3 => !!prep(H3),
     apply, dress, set, update, wear, lookFor,
+    // одежда образа заранее (смена образа прямо в игре: гардероб открыт, смотрят этот образ — в простое собираются сетка
+    // одежды и узор атласа, «Надеть» потом их не ждёт); cold(id) — что-то ещё не готово. Итог warm — мс (0 — всё уже было),
+    // null — нет образа
+    cold: id => !!(lookOf(id) && ((LOOKS[id].garment && !GEO[id]) || (texPainted(id) && !(OPRE && OPRE.id === id) && !(OTEX && OTEX.userData.look === id)))),
+    warm: id => {
+      const T = window.THREE;
+      if (!T || !lookOf(id)) return null;
+      const t0 = performance.now();
+      try { if (LOOKS[id].garment) garmentGeo(T, id); texWarm(id); } catch (e) { console.warn('hero outfit warm', id, e); return null; }
+      return Math.round(performance.now() - t0);
+    },
     current: H3 => { const st = H3 && ST.get(H3); return st ? st.id : null; },
     // последний надетый образ (одна модель на сессию): каз подгоняется под причёску этого образа
     id: () => stats.id,

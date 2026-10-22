@@ -2707,7 +2707,8 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       (FREE ? Object.keys(DOORS) : Object.keys(B)).forEach(k => { const d = doorOf(k); const dist = Math.hypot(px - d.x, pz - d.z); if (dist < bd) { bd = dist; best = k; } });
       return best;
     };
-    const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full');
+    // .lk-ov — карусель образов (гардероб ателье, ☰ → «Образ»): пока она открыта, Enter и пробел — ей, а не точкам комнаты
+    const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .lk-ov');
     // встать с сиденья: перед любым новым походом (тап по точке/двери, walkTo, sit)
     const standUp = () => { if (sitting) { px = sitting.from.x; pz = sitting.from.z; sitting = null; hero.body.rotation.x = 0; } };
     let spotBusy = false, pendingSpot = null, smellT = -1, smellNext = 6, spinT = -1, catSweaterG = null;
@@ -2979,6 +2980,16 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const finishRoom = v => { if (finished) return; finished = true; setAct(''); bubble.classList.add('hidden'); cleanup(); o.done(v); };
     if (RM) { G.setHud({ label: o.hudLabel, onExit: () => { if (!finished) leave(true); }, top: true }); document.body.classList.add('room-on'); }
     if (FREE) G.setHud({ label: o.hudLabel, onExit: () => toMenu(), exitText: FO.exitText || '← в меню', exitPlace: 'menu', menuSub: FO.menuSub });
+    // ☰ → «Образ» (js/looks_picker.js Looks.change): у комнаты своя героиня на общей модели — переодевает recolor (api.setLook),
+    // а не город. Визит места (js/town.js) передаёт o.onLook — путь гардероба ателье (ctx.setLook: сохранение и реплика
+    // следующего места про обновку). Нельзя, пока идёт точка или руки заняты
+    const lookRow = window.HUD && HUD.menu && window.Looks && Looks.menuItem && window.HeroLooks ? 'c-look' : null;
+    if (lookRow) {
+      HUD.menu.add(Looks.menuItem({ id: lookRow, when: () => active && !finished, gone: () => finished,
+        busy: () => (!active || finished || spotBusy || twirl || blocked() ? 'wait' : iaBusy() ? 'hands' : ''),
+        apply: id => { if (o.onLook) return o.onLook(id); recolor({ look: id }); return true; },
+        at: () => spotApi.toScreen(px, 1.2, pz) }));
+    }
     // метки: розовая точка (ещё не была) и золотая бирка «НОВОЕ» (изменилось на неделе)
     const doorMarks = [];
     if (FREE) Object.keys(DOORS).forEach(id => {
@@ -3633,6 +3644,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
 
     function cleanup() {
       cancelAnimationFrame(raf);
+      if (lookRow) HUD.menu.remove(lookRow);
       document.body.classList.remove('room-on'); interceptFn = null;
       // волна 4: что в руке на выходе — лавкам города (City3D.lastHeld); слой рук этой героини — убрать
       { const it = iaHeldIt(); roomHeldOut = heldKind ? { kind: heldKind, data: it ? Object.assign({}, heldData || {}, { _bites: it.bites || 0, _level: it.level }) : heldData } : null; LAST_HELD = roomHeldOut;

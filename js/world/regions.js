@@ -65,7 +65,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const G_ = () => window.G || null;
   const V_ = () => window.VILLAGE || null;
-  const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .wr-sheet');
+  // .lk-ov — карусель образов (☰ → «Образ», js/looks_picker.js): пока она открыта, клавиши — ей, а не героине
+  const blocked = () => !!document.querySelector('#layer .dlg-wrap, #layer .modal, .img-full, .wr-sheet, .lk-ov');
   const HUD_ = () => (window.HUD && window.HUD.v ? window.HUD : null);   // HUD v2 (js/world/hud.js); без него — прежний интерфейс
   const emitWin = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) { /* старый браузер */ } };
 
@@ -445,6 +446,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const b = ui && ui.root.querySelector('.dn-toggle'); return b && b.style.display !== 'none' ? b.textContent : null;
     }
     function hudBegin() {
+      WORLD.regionRelook = relookHere;   // смена образа прямо в игре (World.relook) — пока идёт поездка, через этот крючок
       const H = HUD_(); if (!H) return;
       hudSaved = { obj: H.objective && H.objective.get ? H.objective.get() : null, status: H.status && H.status.get ? H.status.get() : null };
       try { if (H.objective) H.objective.set(null); } catch (e) { /* ok */ }
@@ -453,6 +455,13 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         H.menu.add({ id: 'r-map', icon: '🗺', label: 'Карта', order: 10, tint: 'mint', when: () => S.active && !!(radar && radar.open), onTap: () => { if (S.active && radar && radar.open && !S.busy && !S.zip) radar.open(); } });
         if (window.DayNight) { const it = dnMenuItem(); if (it) H.menu.add(it); }
         H.menu.add({ id: 'r-kaz', icon: '🧣', label: kazRowLabel, order: 45, tint: 'sun', when: kazRowOn, onTap: () => kazBtn() });
+        // образ героини (☰ → «Образ», js/looks_picker.js): переодевает город (World.relook → relookHere — с казом). Ролики в
+        // карусели — без автозапуска на низком качестве (постер и ▶): сцена гор тяжелее города; замер на 390 × 844, CPU ×4 —
+        // карусель открывается за 67 мс вместо 147, без двух длинных задач декодера (~75 мс)
+        if (window.Looks && Looks.menuItem && window.World && World.relook) {
+          H.menu.add(Looks.menuItem({ id: 'r-look', when: () => S.active, gone: () => !S.active, busy: lookBusy, apply: id => World.relook(id), at: heroAt,
+            lite: () => regionQ !== 'high' || lite, header: () => (dn && dn.lampsOn() ? '#1E2A5E' : '#FFF4EC') }));
+        }
         H.menu.add({ id: 'r-radar', icon: '🧭', order: 70, tint: 'sky', keepOpen: true, when: () => S.active && !!(radar && radar.collapse),
           label: () => (radar && radar.isCollapsed && radar.isCollapsed() ? 'Мини-карта: показать' : 'Мини-карта: спрятать'),
           onTap: () => { if (radar && radar.collapse) radar.collapse(!(radar.isCollapsed && radar.isCollapsed())); } });
@@ -460,10 +469,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.hudStatus = null; S.hudObj = null; S.hudMode = null; S.hudObjT = 0;
     }
     function hudEnd() {
+      if (WORLD.regionRelook === relookHere) WORLD.regionRelook = null;
       const H = HUD_(); document.body.classList.remove('wr-hud-sport', 'wr-hud-zip');
       if (!H) return;
       if (H.bar) H.bar({});
-      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-radar'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
+      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-look', 'r-radar'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
       try { H.status(hudSaved ? hudSaved.status : null); } catch (e) { /* ok */ }
       try { if (H.objective) H.objective.set(hudSaved && hudSaved.obj ? Object.assign({}, hudSaved.obj, { bounce: false }) : null); } catch (e) { /* ok */ }
       hudSaved = null;
@@ -1179,6 +1189,37 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const r = await sheetFn({ title: (m && m.name) || (named ? 'Каз' : 'Праздничный платок'), body: paras([text]), actions: [{ label: 'Примерить', value: 1 }, { label: 'Потом', value: 0, cls: 'soft' }] });
         if (r && S.rid === 'kubachi') kazWear({});
       });
+    }
+    // смена образа прямо в игре (World.relook → этот крючок, пока идёт поездка): каз подогнан под причёску образа и прячет
+    // волосы в общем индексе героини — снять, переодеть, надеть обратно сразу (подгонка — под новую причёску); вид из-за руля
+    // заново соберёт руки
+    function relookHere(apply) {
+      if (!S.active) return false;
+      const had = kazWorn();
+      if (had) { try { V_().kaz.remove(); } catch (e) { console.warn('region kaz remove', e); } }
+      try { apply(); } finally {
+        if (had && !kazWear({ instant: true, say: false })) { updKazBtn(); emit('region:kaz', { worn: false }); }
+        if (S.ck && S.ck.refresh) S.ck.refresh();
+      }
+      return true;
+    }
+    // ☰ → «Образ»: когда переодеваться нельзя (Looks.change покажет тост): шторка, посадка в машину и выход, игры отеля, танец,
+    // зиплайн, полёт, лестница башни, прыжок, руки заняты. Пешком, сидя, за рулём и в лавке — можно
+    function lookBusy() {
+      if (!S.active || S.busy || blocked()) return 'wait';
+      if (S.sport || S.golf || S.dance) return 'game';
+      if (S.zip || flyActive() || S.mode === 'climb' || mvBusy()) return 'air';
+      if (IA && IA.busy()) return 'hands';
+      return '';
+    }
+    // где героиня на экране (искры смены образа, координаты #app); из-за руля героини не видно — искры посередине
+    function heroAt() {
+      const g = G_();
+      if (!hero || !cam || !host || !g || (S.ck && S.ck.active)) return null;
+      hero.root.getWorldPosition(tmpV); tmpV.y += 1.2; tmpV.project(cam);
+      if (tmpV.z > 1) return null;
+      const r = host.getBoundingClientRect(), a = g.app.getBoundingClientRect();
+      return { x: (tmpV.x + 1) / 2 * r.width + r.left - a.left, y: (1 - tmpV.y) / 2 * r.height + r.top - a.top };
     }
     // HUD v2: «🧣 Снять каз / Надеть каз» — строка меню ☰ (только в селе, пешком); регистрирует begin(), убирает end()
     const kazRowOn = () => !!(S.active && S.rid === 'kubachi' && kazOk() && S.mode === 'walk' && !S.dance && !S.zip);
@@ -2917,7 +2958,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     function tick() {
       raf = requestAnimationFrame(tick);
-      if (!S.active || !S.h || document.hidden) { last = performance.now(); return; }
+      // поездку закрыл непрозрачный экран (карусель образов, body.scene-paused): кадры не считаем и не рисуем (как комнаты)
+      if (!S.active || !S.h || document.hidden || document.body.classList.contains('scene-paused')) { last = performance.now(); return; }
       const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
       fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
       try {

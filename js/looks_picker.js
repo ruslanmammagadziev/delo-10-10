@@ -16,7 +16,8 @@
    Без автозапуска («уменьшить движение», экономия трафика, 2g, отказ play() в энергосбережении iOS) —
    постер и большая ▶. Ролик не загрузился — постер; постер не загрузился — встроенная миниатюра;
    нет и данных — рисованная героиня в этом образе.
-   Looks.casting / Looks.wardrobe / Looks.atelier — готовые сценарии для ep1.js, main.js и ателье.
+   Looks.casting / Looks.wardrobe / Looks.atelier — готовые сценарии для ep1.js, main.js и ателье;
+   Looks.change / Looks.menuItem — смена образа прямо в игре (меню ☰ → «Образ»: город, поездка, комнаты).
    ===================================================================== */
 (function () {
   'use strict';
@@ -378,7 +379,10 @@
     });
   }
 
-  // ателье: карусель поверх комнаты; итог — id образа («Надеть») или null (✕, ушла, пропуск)
+  // ателье: карусель поверх комнаты; итог — id образа («Надеть») или null (✕, ушла, пропуск).
+  // o: { onChange, noAutoplay — ролики без автозапуска (постер и ▶), header — цвет шапки Telegram после (строка или функция),
+  //      prep(id) — «Надеть» с подготовкой: кнопка «Примеряю…», карусель остаётся на экране, пока сцена переодевает героиню
+  //      (ждать — над роликом, а не над замершей сценой); итог prep — id (закрыть с ним) или null }
   function atelier(ctx, o = {}) {
     const g = G_();
     return new Promise(res => {
@@ -394,13 +398,25 @@
         try { if (p) p.destroy(); } catch (e) { console.warn('looks destroy', e); }
         ov.remove();
         if (!document.querySelector('#layer .modal.sheet:not(.out)')) document.body.classList.remove('sheet-on');
-        g.tgHeader(LIGHT);
+        let hc = LIGHT; try { hc = (typeof o.header === 'function' ? o.header() : o.header) || LIGHT; } catch (e) { hc = LIGHT; }
+        g.tgHeader(hc);
         res(id);
+      };
+      let prepping = false;
+      const pick = id => {
+        if (!o.prep) { fin(id); return; }
+        if (prepping || done) return;
+        prepping = true;
+        const b = ov.querySelector('#pick'); if (b) { b.disabled = true; b.textContent = 'Примеряю…'; }
+        // два кадра — «Примеряю…» успевает на экран до долгой работы
+        new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+          .then(() => (done ? null : o.prep(id)))
+          .then(r => fin(r), e => { console.warn('looks prep', e); fin(null); });
       };
       try {
         p = mount(ov, {
-          mode: 'atelier', start: g.look(), cta: 'Надеть',
-          onChange: o.onChange, onPick: id => fin(id), onClose: () => fin(null),
+          mode: 'atelier', start: g.look(), cta: 'Надеть', noAutoplay: !!o.noAutoplay,
+          onChange: o.onChange, onPick: id => pick(id), onClose: () => { if (!prepping) fin(null); },
         });
       } catch (e) { console.warn('looks atelier', e); fin(null); return; }
       // верхняя полоса HUD лежит выше слоя #layer — на время гардероба её прячем (body.lk-on, css/style.css);
@@ -413,5 +429,84 @@
     });
   }
 
-  window.Looks = { casting, wardrobe, atelier, nameSheet };
+  /* ---------- Смена образа прямо в игре: меню ☰ → «Образ» (город, поездка, комнаты) ---------- */
+  // Та же карусель ателье поверх сцены (сцена под ней не рисуется и не слушает клавиши: body.scene-paused, .lk-ov в их
+  // blocked()). «Надеть» — новый образ на героине сразу, без перезагрузки: у каждой сцены свой путь o.apply(id) (город и
+  // поездка — World.relook, комната — api.setLook самой комнаты через визит места). Переодевание идёт, пока карусель ещё на
+  // экране («Примеряю…»: на слабом телефоне это секунда-другая — пусть над роликом, а не над замершей сценой); закрылась —
+  // сцена уже в новом образе, у героини искры. Сохраняет G.setLook (localStorage и облако Telegram). Пока карусель открыта,
+  // одежду и узор образа, на котором задержались, готовит простой (HeroOutfits.warm) — «Надеть» их уже не ждёт.
+  // o: { busy() — '' или ключ BUSY / строка «не сейчас» (тост); gone() — сцены уже нет; apply(id) — надеть (false — не вышло:
+  // образ только сохраняем); at() — { x, y } героини в #app (искры; null — середина); lite — ролики без автозапуска (функция
+  // или флаг); header — цвет шапки Telegram после }. Итог — id нового образа или null.
+  // Looks.lastChange — { id, ms, prepMs, warm, ok } последней смены (замер для проверок)
+  const BUSY = {
+    wait: 'Минутку — закончим и переоденемся.',
+    game: 'Сначала доиграем — потом переоденемся.',
+    air: 'Переоденемся на земле.',
+    hands: 'Руки заняты — переоденемся чуть позже.',
+  };
+  const WARM_MS = 900;   // столько смотрят образ в карусели — его одежду можно готовить (пролистанные не трогаем)
+  let changing = false;
+  const busyLine = o => { let k = ''; try { k = o.busy ? o.busy() : ''; } catch (e) { k = 'wait'; } return k ? BUSY[k] || String(k) : ''; };
+  const val = v => { try { return typeof v === 'function' ? v() : v; } catch (e) { return null; } };
+  const frame2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  async function change(o = {}) {
+    const g = G_(), H = HL(), HO = () => window.HeroOutfits;
+    if (!g || !H || changing) return null;
+    const no = busyLine(o);
+    if (no) { g.toast(no, 2200, { replace: true }); fx('light'); return null; }
+    changing = true;
+    let warmT = 0, idleH = 0, done = null;
+    const warmed = new Set();
+    const stopWarm = () => { clearTimeout(warmT); if (idleH && window.cancelIdleCallback) cancelIdleCallback(idleH); idleH = 0; };
+    const warm = id => {
+      stopWarm();
+      const ho = HO();
+      if (!ho || !ho.cold || !ho.cold(id)) return;
+      warmT = setTimeout(() => {
+        const go = () => { idleH = 0; if (ho.cold(id) && ho.warm(id) != null) warmed.add(id); };
+        if (window.requestIdleCallback) idleH = requestIdleCallback(go, { timeout: 1500 }); else go();
+      }, WARM_MS);
+    };
+    // «Надеть»: карусель ещё на экране — доготовить одежду (если простой не успел) и переодеть. «Занята ли» второй раз не
+    // спрашиваем: под каруселью сцена стоит (кадров нет), а blocked() сцены теперь видит саму карусель
+    const prep = id => {
+      stopWarm();
+      if (id === g.look()) return id;
+      if (o.gone && o.gone()) return null;
+      const ho = HO();
+      let t0 = performance.now(), prepMs = 0, ok = false;
+      if (ho && ho.cold && ho.cold(id) && ho.warm(id) != null) prepMs = Math.round(performance.now() - t0);
+      t0 = performance.now();
+      try { ok = !!o.apply && o.apply(id) !== false; } catch (e) { console.warn('looks change', e); ok = false; }
+      done = { id, ms: Math.round(performance.now() - t0), prepMs, warm: warmed.has(id), ok };
+      // следующее место заметит обновку (js/town.js); сохранение — G.setLook (комната путём ателье уже сохранила сама)
+      try { if (window.Town && Town.lookChanged) Town.lookChanged(); } catch (e) { /* без города */ }
+      if (g.look() !== id) g.setLook(id);
+      return id;
+    };
+    let id = null;
+    try { id = await atelier({ get gone() { return !!(o.gone && o.gone()); } }, { onChange: warm, prep, noAutoplay: !!val(o.lite), header: o.header }); }
+    finally { stopWarm(); changing = false; }
+    if (!id || !done || done.id !== id) { if (id && id === g.look()) g.toast('Этот образ и так на тебе.', 1800); return null; }
+    Looks.lastChange = done;
+    // сцена снова рисуется — уже в новом образе; искры у героини
+    await frame2();
+    const p = val(o.at);
+    g.sparkle(p ? p.x : undefined, p ? p.y : undefined, { n: 16, dist: 70 });
+    fx('success', 'ok');
+    g.toast(done.ok ? `«${H.get(id).name}» — тебе идёт!` : 'Образ сохранён — наденешь в следующей сцене.', 2200);
+    return id;
+  }
+  // строка меню ☰ «Образ» (подпись — нынешний образ); o — как у change, плюс id строки и when (видна ли)
+  function menuItem(o) {
+    return {
+      id: o.id || 'look', icon: '👗', label: 'Образ', order: 25, tint: 'lav', when: o.when,
+      sub: () => { const g = G_(), H = HL(); return g && H ? H.get(g.look()).name : ''; },
+      onTap: () => { change(o).catch(e => console.warn('looks change', e)); },
+    };
+  }
+
+  const Looks = window.Looks = { casting, wardrobe, atelier, nameSheet, change, menuItem, BUSY, lastChange: null };
 })();
