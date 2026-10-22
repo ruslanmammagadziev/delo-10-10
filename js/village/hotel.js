@@ -1,5 +1,5 @@
 /* =====================================================================
-   ОТЕЛЬ НА ВЕРШИНЕ (регион VILLAGE.regions.hotel): горный курорт на холме через долину от горного села. Корпус — по фото автора
+   ОТЕЛЬ НА ВЕРШИНЕ (регион VILLAGE.regions.hotel): горный курорт на вершине горы над горным селом. Корпус — по фото автора
    (h1–h5, 16.10, чертёж v2): сливочный объём 39,7 × 21 м, широкий фронтон к двору, бледно-розовая кровля с терракотовой кромкой, тёмные рамы,
    балконы во фронтоне, LED-контур «домика» ночью; ниже двора — длинная лестница по газонному склону к пруду. Без бренда.
    Желания автора (волна 4): отель высоко на холме, к нему можно подъехать; белый, с красивым двором; гольф; крытый бассейн;
@@ -13,12 +13,13 @@
        (не «гольф-клуб» — здесь паттинг-грин с флажками и мини-игра); инвентарь бесплатно [A/B]; копия сельской башни во
        дворе — смотровая [A]; 4 этажа корпуса [B]; коттеджи со стеклом во всю стену и террасами [A]; баня (сауна, хамам) [A];
        вид на горы, особенно на закате [A];
-     · стилизация без реплик-фактов: холм, белый фасад, двор с фонтаном, купели-«джакузи» с паром, костровой круг,
-       зиплайн, село на склоне через долину.
+     · стилизация без реплик-фактов: вершина горы, белый фасад, двор с фонтаном, купели-«джакузи» с паром, костровой круг,
+       стартовая вышка и зиплайн, село внизу.
 
-   Координаты — СВОИ (локальные): метры, x — вправо, y — вверх, z — назад; вперёд (−z) — вид на село через долину.
-   y = 0 — двор (верхний уровень). Связь с макро-осями села и серпантина (x — восток, z — юг):
-     макро = FRAME + повёрнутое локальное (локальное +z → (sin ry, cos ry)), FRAME = VILLAGE.ZIP_GEO.frame = {490, 38, 500, 0.722}.
+   Координаты — СВОИ (локальные): метры, x — вправо, y — вверх, z — назад; вперёд (−z) — вид вниз, на село (≈ 600 м, на 110 м
+   ниже двора). y = 0 — двор (верхний уровень). Связь с макро-осями села и серпантина (x — восток, z — юг):
+     макро = FRAME + повёрнутое локальное (локальное +z → (sin ry, cos ry)), FRAME = VILLAGE.ZIP_GEO.frame = {508,4; 110; −315,4;
+     ry 2,0944} (js/village/summit.js: гора к востоку-северо-востоку от села, к отелю — второй серпантин из села).
      Село в регионе — настоящее (VILLAGE.regions.kubachi.distant), поставлено группой-«шарниром» с обратным переводом.
 
    Интерфейс — как у села (js/village_w4/README.md, «Интерфейс региона»), только добавления:
@@ -29,16 +30,18 @@
        places, stats(), dispose();
        волна 4: zipline — маршрут для VILLAGE.zipline.ride (локальные оси), golf — мини-игра «паттинг» (см. ниже),
        frame {x,y,z,ry, toMacro(x,y,z), toLocal(X,Y,Z)}, village (группа далёкого села), pollEvents().
-     Места: hotel_view (sit — скамья на смотровой: вид на село), fire_pit (sit, вечер, медвежонок), golf_putt (kind 'golf'),
-       pool_look (view — бассейн через стекло), hotel_tower → наверх (teleport, level 'top'), zipline_start (level 'top',
-       kind 'zipline'), tower_down, spa_look (view — купели с паром, внутрь не заходим), pond_look (view 'pond' — пруд под лестницей).
+     Места: hotel_view (sit — скамья на краю средней террасы: село внизу), fire_pit (sit, вечер, медвежонок), golf_putt (kind
+       'golf'), pool_look (view — бассейн через стекло), hotel_tower → наверх (teleport, level 'top': башня-копия во дворе —
+       смотровая), tower_down, zip_tower → наверх стартовой вышки у края нижней террасы (teleport, level 'top'), zipline_start
+       (level 'top', kind 'zipline'), zip_down, spa_look (view — купели с паром, внутрь не заходим), pond_look (view 'pond').
      Выходы (W8: развилки серпантина больше нет — отсюда только вниз, в село): toVillage (у машины → село, from 'hotel': за рулём
        наверху дороги мимо школы), toVillageWalk (walk: у ворот → село пешком, рядом с машиной), zipline { id:'zipline', to:'kubachi',
        spawn:'zipline_landing' }.
      golf: { start() → {stand, view, ball, hole}, stance(angle) → {x,y,z,ry}, aim(angle, power), shoot(angle, power) → Promise
        <{holed, tries, left, text, who}>, stop(), heroPose(anim, dt) (стойка и замах — после anim.update), state, tries, maxTries }.
-     VILLAGE.regions.hotel.distant(THREE, season) → группа в макро-осях (холм; корпус, пруд, лестница, башня — отдельной сеткой без
-       полос террас; трос) — для вида из села.
+     VILLAGE.regions.hotel.distant(THREE, season, { hill?: false, foot? }) → группа в макро-осях (холм; корпус, пруд, лестница,
+       башня, стартовая вышка с флажком — отдельной сеткой без полос террас; трос) — для вида из села и с серпантина (там гору с
+       площадками рисует свой рельеф: hill: false, стены с цоколем foot м).
      VILLAGE.hotel = { LINES, SPEAKERS, EVENTS, linesFor(named), FRAME }.
    ===================================================================== */
 (function () {
@@ -57,7 +60,11 @@
     frame: { x: 508.4, y: 110, z: -315.4, ry: 2.0944 },
     tower: { x: -26, z: -24, floor: 16.6 },
     landing: { x: 53, y: 0, z: 5 },
+    sag: 0.01,
   };
+  // вершина: старт зиплайна — стартовая вышка на краю нижней террасы, лицом к селу (DESIGN §4.3 «C11»: с башни-копии во дворе
+  // трос шёл над своими террасами и подъездом ниже 2,4 м). То же — в zipline.js
+  if (!GEO.launch) GEO.launch = { x: -55, z: -99.6, floor: 5.0, base: -8 };
   const FR = GEO.frame, FC = Math.cos(FR.ry), FS = Math.sin(FR.ry);
   const toMacro = (x, y, z) => ({ x: FR.x + x * FC + z * FS, y: FR.y + y, z: FR.z - x * FS + z * FC });
   const toLocal = (X, Y, Z) => { const dx = X - FR.x, dz = Z - FR.z; return { x: dx * FC - dz * FS, y: Y - FR.y, z: dx * FS + dz * FC }; };
@@ -88,10 +95,10 @@
     hotel_bear: [
       { who: 'hotel_bear', text: 'Садись к огню, тут тепло!' },
       { who: 'hotel_bear', text: 'Поленья сухие — горят и потрескивают.' },
-      { who: 'hotel_bear', text: 'Видишь село на том склоне? Вечером там зажигаются огоньки.' },
+      { who: 'hotel_bear', text: 'Видишь село внизу? Вечером там зажигаются огоньки.' },
     ],
     hotel_marmot: [
-      { who: 'hotel_marmot', text: 'Держись крепче — и вжу-у-ух, через всю долину!' },
+      { who: 'hotel_marmot', text: 'Держись крепче — и вжу-у-ух, с горы прямо в село!' },
       { who: 'hotel_marmot', text: 'Руки — на ручку, сама — в обвязку. Готова?' },
       { who: 'hotel_marmot', text: 'Внизу террасы — ступеньки для великана!' },
     ],
@@ -140,6 +147,12 @@
   // профиль лестницы: доля высоты по доле длины (с площадкой — два марша)
   const stairK = (s, t) => (s.land ? (t < s.land[0] ? t / s.land[0] * 0.5 : t < s.land[1] ? 0.5 : 0.5 + (t - s.land[1]) / (1 - s.land[1]) * 0.5) : t);
   const TW = { x: GEO.tower.x, z: GEO.tower.z, rB: 1.85, rT: 1.7, floor: GEO.tower.floor, rIn: 1.38 };
+  // стартовая вышка («C11»): каркас 4,6 × 4,6 м на краю нижней террасы (base), площадка старта на floor (13 м над террасой: трос
+  // над последним подъёмом дороги — не ниже 10 м),
+  // шатёр (свес до eave, конёк — apex над полом), повёрнута по тросу (ry: локальный +z рамки — к селу, к финишу)
+  const LT = (() => { const L = GEO.launch, ld = toLocal(GEO.landing.x, 0, GEO.landing.z); return { x: L.x, z: L.z, floor: L.floor, base: L.base !== undefined ? L.base : -8, hw: 2.3, hIn: 2.05, eave: 3.1, apex: 4.6, ry: Math.atan2(ld.x - L.x, ld.z - L.z) }; })();
+  const LTF = (() => { const c = Math.cos(LT.ry), s = Math.sin(LT.ry); return { c, s, toL: (x, z) => { const dx = x - LT.x, dz = z - LT.z; return [dx * c - dz * s, dx * s + dz * c]; }, toW: (lx, lz) => [LT.x + lx * c + lz * s, LT.z - lx * s + lz * c] }; })();
+  const onLT = (x, z, m) => { const q = LTF.toL(x, z); return Math.abs(q[0]) < m && Math.abs(q[1]) < m; };
   // корпус по фото (чертёж v2 по h1–h5): стены 39,7 × 21 м, фронтон к двору (z0), карниз 12,0 м; apex — верх стены фронтона
   // под ветровой доской (уклон 20°: 12,0 + 19,85 · tg 20°)
   const MAIN = { x0: -21.85, x1: 17.85, z0: 15, z1: 36, eave: 12.0, apex: 19.22 };
@@ -245,6 +258,7 @@
   function groundInfo(x, z) {
     // площадка башни (верх) — круг на высоте пола
     if (Math.hypot(x - TW.x, z - TW.z) < TW.rT) return { y: TW.floor, kind: 'tower' };
+    if (onLT(x, z, LT.hw)) return { y: LT.floor, kind: 'tower' };   // площадка стартовой вышки (снизу к ней не подойти — коробка-коллайдер шире)
     const p = padAt(x, z); if (p) return { y: p.y, kind: p.kind };
     const r = ROAD.near(x, z); if (r && r.d < ROAD.w) return { y: r.y, kind: 'road' };
     return { y: hillY(x, z), kind: 'slope' };
@@ -284,6 +298,8 @@
     function collide(x, z, r = 0.3, y) {
       // верх башни: внутри парапета
       if (y !== undefined && y > TW.floor - 1.5 && Math.hypot(x - TW.x, z - TW.z) < TW.rB + 1) { const dx = x - TW.x, dz = z - TW.z, d = Math.hypot(dx, dz) || 1e-6, m = TW.rIn - r; if (d > m) { x = TW.x + dx / d * m; z = TW.z + dz / d * m; } return [x, z]; }
+      // площадка стартовой вышки: внутри перил (в проёме старта — тоже: дальше шлагбаум)
+      if (y !== undefined && y > LT.floor - 1.5 && y < LT.floor + 4 && onLT(x, z, LT.hw + 1)) { const q = LTF.toL(x, z), m = LT.hIn - r; return LTF.toW(clamp(q[0], -m, m), clamp(q[1], -m, m)); }
       for (let it = 0; it < 3; it++) {
         const L = near(x, z);
         for (const c of L) {
@@ -421,6 +437,7 @@
       q(-98, -102, -12, -46, 0.0, LAWN, S.FLAT);
       // от фото-лестницы — прямая дорожка к пруду
       q(-20.75, POND.z + POND.rz + 0.8, -18.25, -46, 0.02, GRAVEL); q(-86, -66, -12, -63, 0.02, GRAVEL); q(-22, -56, -12, -47, 0.02, GRAVEL); q(-44, -100, -36, -66, 0.02, GRAVEL);
+      q(LT.x - 0.8, LT.z + LT.hw + 0.5, -44, LT.z + LT.hw + 2.1, 0.02, GRAVEL);   // вершина: от дорожки к костру — к лестнице стартовой вышки
       q(-40, -62, -22, -48, 0.05, WIN ? mix(WOOD, SNOW, 0.5) : rgb('#B58B62'));
     }
     // покрытия кладём на свои высоты (у каждой площадки — своя y): сдвигаем вершины по padAt после постройки
@@ -529,7 +546,7 @@
     const TERR = {};
     function terrainNear() {
       const rings = []; { let r = 0, st = 2.0; while (r < 300) { rings.push(r); r += st; st = Math.min(9, st * 1.035 + 0.03); } rings.push(300); }
-      const NA = HI ? 200 : 128, pos = [], col = [], idx = [];   // 4B: low — реже по кругу (−2 тыс. тр.)
+      const NA = HI ? 176 : 112, pos = [], col = [], idx = [];   // 4B: low — реже по кругу (−2 тыс. тр.); вершина: 200/128 → 176/112 (виды на село с вышки и с башни — в бюджете)
       for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) {
         const a = j / NA * TAU, x = HC.x + Math.sin(a) * rings[i], z = HC.z + Math.cos(a) * rings[i], p0 = padAt(x, z), p = p0 && !p0.float ? p0 : null;
         let y = p ? p.y - 0.35 : hillY(x, z);
@@ -561,7 +578,7 @@
     }
     // дальний рельеф: естественный склон (как у серпантина), под селом — ниже (у далёкого села своя чаша), дымка по дальности
     function terrainFar() {
-      const SP = V.regions.serpentine, rings = [], pos = [], col = [], idx = [], NA = HI ? 150 : 96;
+      const SP = V.regions.serpentine, rings = [], pos = [], col = [], idx = [], NA = HI ? 128 : 84;   // вершина: 150/96 → 128/84 (дальше 280 м — не видно)
       { let r = 280, st = 8; while (r < 1500) { rings.push(r); r += st; st = Math.min(60, st * (r < 760 ? 1.045 : 1.1)); } rings.push(1500); }
       const haze = WIN ? rgb('#E3EAF1') : rgb('#9DB4C4');
       for (let i = 0; i < rings.length; i++) for (let j = 0; j <= NA; j++) {
@@ -610,18 +627,20 @@
       // вместе с селом вдали)
       const NB = 140, inNear = (x, z) => Math.abs(x - HC.x) < NB && Math.abs(z - HC.z) < NB;
       const fields = [{ contour: { x0: HC.x - NB - 6, z0: HC.z - NB - 6, x1: HC.x + NB + 6, z1: HC.z + NB + 6, cell: 3 }, octaves: HI ? 2 : 1, near: true },
-        { contour: { x0: HC.x - 300, z0: HC.z - 300, x1: HC.x + 300, z1: HC.z + 300, cell: 4 }, octaves: 2, far: true, lift: 0.3, segL: HI ? 6 : 8.5, outer: true }];
+        { contour: { x0: HC.x - 300, z0: HC.z - 300, x1: HC.x + 300, z1: HC.z + 300, cell: 4 }, octaves: 2, far: true, lift: 0.3, segL: HI ? 8 : 11, outer: true }];   // вершина: шаг вдоль горизонтали дальше 140 м — 6/8,5 → 8/11 м
       const res = VK.terraces({ cx: HC.x, cz: HC.z, fields, surf: hillY, ok, tread: TB, wall: TB, winter: WIN, seed: 4343, segL: HI ? 4.0 : 6.4, dr: 1.5, lift: 0.3, shrubFar: true, wallDrop: 1.1, grid: HGRID, shrubs: SHR, shrubEvery: 8, pathEvery: 0,
         onBand: ({ pts }) => {
           const wide = pts.filter(q => q.okp && q.ww > 3.2);
           if (wide.length && R() < 0.05 && nStacks < 10) { const q = wide[Math.floor(R() * wide.length)], x = q.xm, z = q.zm, hh = 1.9 + R() * 0.6, rr = 0.85 + R() * 0.2, yy = q.y - 0.05;
             TB.cyl(x, yy, z, rr, 0.06, hh, { seg: 7, col: p => (WIN && p[1] > yy + hh * 0.45 ? snowT : mul(C('hay'), 0.82 + 0.22 * (p[1] - yy) / hh)) }); TB.cyl(x, yy + hh - 0.25, z, 0.04, 0.04, 0.7, { seg: 4, col: C('woodD') }); nStacks++; STACKS.push([x, z, rr]); }
-          if (wide.length > 2 && R() < 0.16) { const q = wide[Math.floor(R() * wide.length)], t2 = 0.35 + R() * 0.3; addTree(lerp(q.xi, q.xo, t2), lerp(q.zi, q.zo, t2), 0.9 + R() * 0.45, 'lone', q.y - 0.1); }
+          if (wide.length > 2 && R() < 0.16) { const q = wide[Math.floor(R() * wide.length)], t2 = 0.35 + R() * 0.3, x = lerp(q.xi, q.xo, t2), z = lerp(q.zi, q.zo, t2), s = 0.9 + R() * 0.45; if (!inLookCone(x, z)) addTree(x, z, s, 'lone', q.y - 0.1); }   // вершина: не перед смотровой
         } });
       nBands = res.bands; nShrubs += res.shrubs;
     }
-    // террасы на дальних склонах (макро, по горизонталям вокруг башни села, как поля села): склон с серпантином под отелем,
-    // склоны слева и справа; полосы обходят дорогу серпантина (W8: ветки к отелю больше нет), холм отеля и ядро села
+    // террасы на дальних склонах (макро, по горизонталям вокруг башни села, как поля села): склоны глубокой долины к юго-востоку
+    // от села и к югу за ним; полосы обходят дорогу серпантина, второй серпантин к отелю (SUMMIT.roadNear), гору отеля и ядро
+    // села. Вершина: прежний сектор на востоке (азимут 72…112°, 430–640 м) лёг на южный склон горы под отелем — убран (там
+    // ступени рисует шейдер рельефа, а полосы спорили бы с ногами серпантина)
     const FB = new K.Baker('vc'); let nFar = 0;
     function farFields() {
       const SP = V.regions.serpentine, TXo = -11.2, TZo = -15.4;
@@ -629,10 +648,11 @@
       const RQ = new Map(), RC = 16; pts.forEach(q => { const k = Math.floor(q.x / RC) + ',' + Math.floor(q.z / RC); if (!RQ.has(k)) RQ.set(k, []); RQ.get(k).push(q); });
       const nearRoad = (x, z, m) => { const kx = Math.floor(x / RC), kz = Math.floor(z / RC); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = RQ.get((kx + a) + ',' + (kz + b)); if (l) for (const q of l) if (Math.abs(q.x - x) < m && Math.abs(q.z - z) < m && Math.hypot(q.x - x, q.z - z) < m) return true; } return false; };
       const surfM = (X, Z) => { const rho = Math.hypot(X - TXo, Z - TZo), be = Math.atan2(X - TXo, Z - TZo) / D2R, w = SP && SP.groundCut ? sst(282, 300, rho) * sst(552, 534, rho) * sst(-9, 1, be) * sst(67, 57, be) : 0; return w > 0 ? lerp(natMacro(X, Z), SP.groundCut(X, Z), w) : natMacro(X, Z); };
-      const okXZ = (X, Z) => { const L = toLocal(X, 0, Z); if (sdUnion(L.x, L.z) < 60) return false; if (Math.hypot(X, Z - 96) < 140 && Z < 100) return false; return !nearRoad(X, Z, 10); };
+      const SM = V.SUMMIT, summitRoad = (X, Z) => { if (!SM || !SM.roadNear) return false; const q = SM.roadNear(X, Z); return !!q && q.d < 14; };
+      const okXZ = (X, Z) => { const L = toLocal(X, 0, Z); if (sdUnion(L.x, L.z) < 60) return false; if (Math.hypot(X, Z - 96) < 140 && Z < 100) return false; return !nearRoad(X, Z, 10) && !summitRoad(X, Z); };
       // 4B: тот же общий построитель (дальние поля — проще: одна полоса проступи, стенки цветом)
-      const rf = VK.terraces({ cx: TXo, cz: TZo, fields: [{ b0: 14, b1: 72, r0: 340, r1: 514, far: true }, { b0: 72, b1: 112, r0: 430, r1: 640, far: true }, { b0: -46, b1: 12, r0: 372, r1: 540, far: true }],
-        surf: surfM, ok: okXZ, tread: FB, wall: FB, winter: WIN, seed: 4545, segL: HI ? 10 : 18, dr: 2.5, pathEvery: 0, grid: { step: HGRID.step, phase: HGRID.phase + FR.y }, shrubs: SHRF, shrubFar: true, shrubEvery: 16 });
+      const rf = VK.terraces({ cx: TXo, cz: TZo, fields: [{ b0: 14, b1: 72, r0: 340, r1: 514, far: true }, { b0: -46, b1: 12, r0: 372, r1: 540, far: true }],
+        surf: surfM, ok: okXZ, tread: FB, wall: FB, winter: WIN, seed: 4545, segL: HI ? 13 : 22, dr: 2.5, pathEvery: 0, grid: { step: HGRID.step, phase: HGRID.phase + FR.y }, shrubs: SHRF, shrubFar: true, shrubEvery: 16 });
       nFar = rf.bands; nShrubs += rf.shrubs;
       if (!FB.n) return null;
       const g = FB.build(); pivot.updateMatrix(); g.applyMatrix4(pivot.matrix); g.computeBoundingSphere();
@@ -1076,8 +1096,8 @@
       { const poles = [[[22.6, -14], [22.6, -6.6]]], hp = 4.3;
         poles.forEach(([a, b]) => { [a, b].forEach(([x, z]) => { vc.cyl(x, 0, z, 0.09, 0.07, hp + 0.15, { seg: 6, col: WOODK }); vc.cyl(x, 0, z, 0.16, 0.14, 0.35, { seg: 6, col: STONEW }); colCirc(x, z, 0.14, -1, hp, 'festoonPole'); });
           festoon([a[0], hp, a[1]], [b[0], hp, b[1]], 0.45, false); }); }
-      // смотровая у переднего края: лавка «вид на село» и бинокль на стойке
-      bench(-5, 0, -36.9, PI, 'view');
+      // смотровая на консоли у переднего края: бинокль на стойке (вершина: лавка «вид на село» — на краю средней террасы, lookout:
+      // отсюда село на 110 м ниже закрывают свои террасы)
       { const x = -2.4, z = -37.7; vc.cyl(x, 0, z, 0.07, 0.07, 1.25, { seg: 6, col: DARK }); vc.box(F0, x, 1.32, z, 0.34, 0.2, 0.3, { col: rgb('#4A90D8') }); [-1, 1].forEach(s => vc.cyl(x + s * 0.08, 1.32, z - 0.18, 0.06, 0.07, 0.12, { seg: 8, col: DARK })); colCirc(x, z, 0.25, -1, 1.5, 'binoc'); }
     }
     // гирлянда: тёплые лампочки-ромбики по провисающей нити (в сетке плафонов — ночью светятся); в точки ночи (ореолы) — каждая
@@ -1108,7 +1128,7 @@
     }
     function bollard(x, y, z) { vc.cyl(x, y, z, 0.09, 0.09, 0.55, { seg: 6, col: DARK }); lantB.cyl(x, y + 0.55, z, 0.1, 0.1, 0.12, { seg: 6, col: rgb('#FFE2A8') }); NIGHT.lamps.push([x, y + 0.6, z]); }
     /* ---------- 3.7 башня-копия (волна 4B — как сельская: тёсаный камень пятнами, цоколь, карниз на консолях с тенью,
-       парапет и крупные зубцы, бойницы; смотровая и старт зиплайна: проём со шлагбаумом к тросу, мачта) ---------- */
+       парапет и крупные зубцы, бойницы); вершина: теперь только смотровая — старт зиплайна на стартовой вышке (3.7б) ---------- */
     function tower() {
       const t = TW, top = t.floor, seg = 22, tc = [1.03, 0.99, 0.93];
       const mott = p => { const a = Math.atan2(p[0] - t.x, p[2] - t.z), hy = p[1]; const n = VK.fbm(Math.cos(a) * 1.4 + 3.3 + hy * 0.06, Math.sin(a) * 1.4 + hy * 0.32, 3); return mul(tc, (0.9 + 0.1 * clamp(hy / 3, 0, 1)) * (0.93 + 0.13 * n)); };
@@ -1123,41 +1143,96 @@
       at.cyl(t.x, yB0, t.z, rBand, rBand, yB1 - yB0, { seg, col: mul(mott([t.x, top, t.z + 1]), 1.07), s: S.ASHLAR, cap: false, uvW: per });
       for (let i = 0; i < 18; i++) { const a = (i + 0.5) / 18 * TAU, F = new K.Frame(t.x + Math.sin(a) * (t.rT + 0.06), yB0 - 0.1, t.z + Math.cos(a) * (t.rT + 0.06), a); at.box(F, 0, 0, 0, 0.13, 0.2, 0.16, { col: mul(tc, 0.98), cols: { ny: mul(tc, 0.55) }, s: S.ASHLAR, skip: { nz: 1 } }); }
       vc.cyl(t.x, top, t.z, t.rT, t.rT, 0.06, { seg, col: WIN ? SNOW : rgb('#B9A584') });                           // пол площадки
-      const R0 = route(), dirA = Math.atan2(R0.dir.x, R0.dir.z);
-      // парапет с крупными зубцами; со стороны троса — проём со шлагбаумом
+      // парапет с крупными зубцами (вершина: сплошной — трос отсюда больше не начинается)
       const nm = 12, rO = t.rT + 0.04, rI = t.rT - 0.24;
       for (let i = 0; i < nm; i++) {
-        const a = (i + 0.5) / nm * TAU, gap = Math.abs(((a - dirA + PI) % TAU + TAU) % TAU - PI) < 0.42;
-        const a0 = i / nm * TAU, a1 = (i + 1) / nm * TAU;
-        if (gap) continue;
+        const a = (i + 0.5) / nm * TAU, a0 = i / nm * TAU, a1 = (i + 1) / nm * TAU;
         const p0 = [t.x + Math.sin(a0) * t.rT, t.z + Math.cos(a0) * t.rT], p1 = [t.x + Math.sin(a1) * t.rT, t.z + Math.cos(a1) * t.rT];
         const mx = (p0[0] + p1[0]) / 2, mz = (p0[1] + p1[1]) / 2, len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
         at.box(new K.Frame(mx, top, mz, a), 0, 0.34, -0.11, len + 0.03, 0.68, rO - rI, { col: mott([mx, top + 0.3, mz]), cols: { py: snowTop(mul(tc, 1.08), 0.9), nz: mul(tc, 0.85) }, s: S.ASHLAR });
         if (i % 2 === 0) at.box(new K.Frame(mx, top, mz, a), 0, 0.68 + 0.27, -0.11, len * 0.66, 0.54, rO - rI + 0.02, { col: mott([mx, top + 0.9, mz]), cols: { py: snowTop(mul(tc, 1.12), 0.9), nz: mul(tc, 0.88) }, s: S.ASHLAR, skip: { ny: 1 } });
       }
-      // шлагбаум старта и деревянный настил-выступ
-      { const gx = t.x + R0.dir.x * (t.rT - 0.1), gz = t.z + R0.dir.z * (t.rT - 0.1), F = new K.Frame(gx, top, gz, dirA);
-        box(vc, F, 0, 0, 0.35, 1.4, 0.08, 0.8, WOOD); [-0.62, 0.62].forEach(s => box(vc, F, s, 0, 0, 0.1, 1.05, 0.1, rgb('#D9455A'))); box(vc, F, 0, 0.95, 0, 1.3, 0.07, 0.07, rgb('#F2B544')); }
       // окна-бойницы (тёмные, с каменной обводкой)
       [[40, 3.2], [160, 5.6], [260, 2.6], [320, 6.4], [100, 7.2]].forEach(([az, hy]) => { const a = az * D2R, r = rAt(hy) + 0.03, cs = Math.cos(a), sn = Math.sin(a);
         const Q = (u, v, k = 0) => [t.x + sn * (r + k) - cs * u, hy + v, t.z + cs * (r + k) + sn * u];
         at.quadF(Q(-0.26, -0.42, -0.01), Q(0.26, -0.42, -0.01), Q(0.26, 0.42, -0.01), Q(-0.26, 0.42, -0.01), mul(tc, 1.12), S.ASHLAR, [sn, 0, cs]);
         at.quadF(Q(-0.15, -0.3), Q(0.15, -0.3), Q(0.15, 0.3), Q(-0.15, 0.3), rgb('#2B2622'), S.FLAT, [sn, 0, cs]); });
-      // дверь (к двору, +x): арка из светлого камня, синяя дверь, табличка «Зиплайн»
+      // дверь (к двору, +x): арка из светлого камня, синяя дверь, табличка «Смотровая»
       { const a = PI / 2, r = t.rB + 0.02; at.quadF([t.x + r + 0.01, 0, t.z + 0.72], [t.x + r + 0.01, 0, t.z - 0.72], [t.x + r + 0.01, 2.45, t.z - 0.72], [t.x + r + 0.01, 2.45, t.z + 0.72], mul(tc, 1.12), S.ASHLAR, [1, 0]);
         at.quadF([t.x + r + 0.02, 0, t.z + 0.55], [t.x + r + 0.02, 0, t.z - 0.55], [t.x + r + 0.02, 2.1, t.z - 0.55], [t.x + r + 0.02, 2.1, t.z + 0.55], rgb('#3F78B8'), S.FLAT, [1, 0]);
-        props.signs.push({ text: 'Зиплайн', p: [t.x + r + 0.06, 2.75, t.z], ry: a, h: 0.4, bg: '#FFF6E6', fg: '#3A2E3F', border: '#D9455A' });
+        props.signs.push({ text: 'Смотровая', p: [t.x + r + 0.06, 2.75, t.z], ry: a, h: 0.4, bg: '#FFF6E6', fg: '#3A2E3F', border: '#D9455A' });
         lampBracket([t.x + r + 0.3, 2.3, t.z + 0.95], [1, 0]); }
-      // мачта троса: стальная А-рама на площадке
-      const mast = R0.from;   // локальные оси
-      [-1, 1].forEach(s => { const px = TW.x - R0.dir.z * s * 0.75 - R0.dir.x * 0.3, pz = TW.z + R0.dir.x * s * 0.75 - R0.dir.z * 0.3; vc.cyl(px, top, pz, 0.07, 0.05, mast.y - top + 0.15, { seg: 6, col: STEEL }); });
-      vc.box(new K.Frame(mast.x, mast.y + 0.1, mast.z, dirA), 0, 0, 0, 1.6, 0.12, 0.14, { col: STEEL });
       // у подножия — клумба полукругом и две лавки
       if (!WIN) for (let i = 0; i < 18; i++) { const a = -0.9 + i / 17 * 1.8 + PI / 2, rr = t.rB + 0.55 + (i % 2) * 0.25; if (Math.abs(a - PI / 2) < 0.32) continue; flowers.push({ p: [t.x + Math.sin(a) * rr, 0.05, t.z + Math.cos(a) * rr], s: [0.14, 0.2, 0.14], c: rgb(['#D9455A', '#F2B544', '#E87A9A', '#FFFFFF'][i % 4]) }); }
       colCirc(t.x, t.z, t.rB + 0.1, -1, top, 'tower');
       camColliders.push({ type: 'box', x: t.x, z: t.z, w: t.rB * 1.8, d: t.rB * 1.8, ry: 0, y0: -1, y1: top + 1.1, id: 'towerCam', cam: true });
       camColliders.push({ type: 'box', x: t.x, z: t.z, w: t.rB * 1.8, d: t.rB * 1.8, ry: PI / 4, y0: -1, y1: top + 1.1, id: 'towerCam', cam: true });
     }
+    /* ---------- 3.7б стартовая вышка зиплайна («C11», вершина): на краю нижней террасы, лицом к селу. Каркас из тёмного бруса
+       на каменных пятах, раскосы крест-накрест, внутри — лестница маршами туда-обратно; площадка старта с кремовыми перилами,
+       в проёме к тросу — шлагбаум, над ним стальная мачта; шатёр терракотой (из села — тёмный уголок на светлом корпусе позади)
+       и флажок на шпиле; фонарь под шатром — ночью тёплая точка над бровкой ---------- */
+    function launchTower() {
+      const L = LT, F = new K.Frame(L.x, 0, L.z, L.ry), P = (lx, y, lz) => F.p(lx, y, lz), y0 = L.base, yf = L.floor, h = L.hw, k = h - 0.2;
+      const post = WIN ? mix(WOODK, SNOW, 0.1) : WOODK, beam = WIN ? mix(WOODW, SNOW, 0.15) : WOODW, cream = WIN ? rgb('#F6F0E4') : rgb('#F2E6CF');
+      const roofT = WIN ? SNOW : rgb('#C0563E'), roofU = rgb('#7A3E30'), fasc = rgb('#CF6249');
+      // пяты и стойки — сквозные, от пят до свеса шатра
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => {
+        at.box(F, sx * k, y0 + 0.25, sz * k, 0.7, 0.6, 0.7, { col: C('rubbleY'), s: S.RUBBLE, skip: { ny: true } });
+        vc.box(F, sx * k, (y0 + 0.55 + yf + L.eave) / 2, sz * k, 0.3, yf + L.eave - y0 - 0.55, 0.3, { col: post, skip: { ny: true, py: true } }); });
+      // раскосы (доски на ребро, двусторонние) в три яруса и ригели между ними — на всех четырёх гранях
+      const plank = (a, b, u, w, c) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], l = Math.hypot(dx, dy, dz) || 1, al = (dx * u[0] + dz * u[1]) / l, be = dy / l, px = -be * u[0] * w / 2, py = al * w / 2, pz = -be * u[1] * w / 2;
+        vcD.quad([a[0] - px, a[1] - py, a[2] - pz], [b[0] - px, b[1] - py, b[2] - pz], [b[0] + px, b[1] + py, b[2] + pz], [a[0] + px, a[1] + py, a[2] + pz], c); };
+      const yb3 = [0, 1, 2, 3].map(i => lerp(y0 + 0.6, yf - 0.25, i / 3)), ux = F.dir(1, 0), uz = F.dir(0, 1), o = k + 0.17;
+      [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => {
+        const u = sx ? uz : ux, A = (t, y) => (sx ? P(sx * o, y, t) : P(t, y, sz * o));
+        for (let i = 0; i < 3; i++) { const ya = yb3[i], yb = yb3[i + 1]; plank(A(-k, ya), A(k, yb), u, 0.16, beam); plank(A(k, ya), A(-k, yb), u, 0.16, beam); }
+        [1, 2].forEach(i => vc.box(F, sx * (k + 0.05), yb3[i] - 0.11, sz * (k + 0.05), sx ? 0.2 : 2 * k, 0.22, sx ? 2 * k : 0.2, { col: beam, skip: { ny: true } })); });
+      // лестница: шесть маршей «ножницами» (туда — по левой дорожке, обратно — по правой), площадки у передней и задней граней
+      { const n = 6, rise = (yf - y0) / n, steps = 7;
+        for (let f = 0; f < n; f++) { const lx = f % 2 ? 0.85 : -0.85, za = f % 2 ? 1.25 : -1.25, zb = -za, ya = y0 + rise * f, yb = ya + rise;
+          [-0.42, 0.42].forEach(e => plank(P(lx + e, ya - 0.1, za), P(lx + e, yb - 0.1, zb), uz, 0.24, post));
+          for (let i = 0; i < steps; i++) { const t = (i + 0.5) / steps; box(vc, F, lx, lerp(ya, yb, t) - 0.05, lerp(za, zb, t), 0.8, 0.05, 0.3, beam, { skip: { ny: true, px: true, nx: true } }); }
+          if (f < n - 1) box(vc, F, 0, yb - 0.08, zb + Math.sign(zb) * 0.3, 2 * k - 0.4, 0.08, 0.55, beam, { skip: { ny: true } }); } }
+      // площадка старта: дощатый настил, кремовые перила (три стороны сплошные, спереди — проём со шлагбаумом)
+      vc.box(F, 0, yf - 0.12, 0, 2 * h, 0.24, 2 * h, { col: snowTop(rgb('#B58B62'), 0.85), cols: { ny: post, px: beam, nx: beam, pz: beam, nz: beam } });
+      const rail = (lx, lz, w, d) => { vc.box(F, lx, yf + 0.55, lz, w, 0.95, d, { col: cream, skip: { ny: true } }); vc.box(F, lx, yf + 1.07, lz, w + 0.06, 0.08, d + 0.06, { col: snowTop(beam, 0.8) }); };
+      rail(0, -h + 0.04, 2 * h, 0.08); rail(-h + 0.04, 0, 0.08, 2 * h); rail(h - 0.04, 0, 0.08, 2 * h);
+      [-1, 1].forEach(s => rail(s * (h + 0.8) / 2, h - 0.04, h - 0.8, 0.08));
+      [-0.75, 0.75].forEach(s => box(vc, F, s, yf, h - 0.04, 0.1, 1.05, 0.1, rgb('#D9455A'))); box(vc, F, 0, yf + 0.95, h - 0.04, 1.4, 0.07, 0.07, rgb('#F2B544'));
+      // мачта троса: стальная П-рама над серединой площадки (трос уходит в проём)
+      const mast = route().from;
+      [-1, 1].forEach(s => { const q = P(s * 0.75, 0, -0.3); vc.cyl(q[0], yf, q[2], 0.07, 0.05, mast.y - yf + 0.15, { seg: 6, col: STEEL }); });
+      vc.box(F, 0, mast.y + 0.1, -0.3, 1.6, 0.12, 0.14, { col: STEEL });
+      // шатёр: четыре ската терракотой от свеса к шпилю, снизу — тёмная подшивка, по свесу — кромка в цвет корпуса
+      { const ro = h + 0.45, ye = yf + L.eave, ya = yf + L.apex, Cn = [P(-ro, ye, -ro), P(ro, ye, -ro), P(ro, ye, ro), P(-ro, ye, ro)], Ap = P(0, ya, 0);
+        for (let i = 0; i < 4; i++) { const a = Cn[i], b = Cn[(i + 1) % 4], m = [(a[0] + b[0]) / 2 - L.x, (a[2] + b[2]) / 2 - L.z];
+          triF(vc, a, b, Ap, roofT, [m[0], 1.2, m[1]]); triF(vc, a, b, [Ap[0], ya - 0.5, Ap[2]], roofU, [0, -1, 0]);
+          vc.quadF([a[0], ye - 0.22, a[2]], [b[0], ye - 0.22, b[2]], [b[0], ye + 0.02, b[2]], [a[0], ye + 0.02, a[2]], fasc, S.FLAT, [m[0], 0, m[1]]); }
+        // флажок на шпиле (вымпел — двусторонний треугольник)
+        vc.cyl(Ap[0], ya - 0.1, Ap[2], 0.05, 0.035, 2.5, { seg: 5, col: DARK, cap: false });
+        const fp = P(0, ya + 2.35, 0), fq = P(1.25, ya + 2.05, 0), fr = P(0, ya + 1.7, 0); vcD.tri(fp, fq, fr, rgb('#D9455A')); }
+      // фонарь под шатром, табличка «Зиплайн» над входом на лестницу (сзади), два столбика-огонька у входа
+      lantB.box(F, 0, yf + L.eave - 0.45, 0, 0.26, 0.36, 0.26, { col: rgb('#FFE2A8') }); NIGHT.lamps.push(P(0, yf + L.eave - 0.45, 0));
+      props.signs.push({ text: 'Зиплайн', p: P(0, y0 + 2.5, -(o + 0.08)), ry: L.ry + PI, h: 0.45, bg: '#FFF6E6', fg: '#3A2E3F', border: '#D9455A' });
+      [-1.1, 1.1].forEach(s => { const q = P(s, y0, -h - 0.3); bollard(q[0], y0, q[2]); });
+      // снизу — коробка (внутрь не пройти, на площадку — по месту «Подняться наверх»), для камеры — до шпиля
+      colliders.push({ type: 'box', x: L.x, z: L.z, w: 2 * h + 0.4, d: 2 * h + 0.4, ry: L.ry, y0: y0 - 1, y1: yf - 0.9, id: 'launchTower' });
+      camColliders.push({ type: 'box', x: L.x, z: L.z, w: 2 * h, d: 2 * h, ry: L.ry, y0: y0 - 1, y1: yf + L.apex, id: 'launchCam', cam: true });
+    }
+    // смотровая «вид на село» (вершина: со смотровой на консоли у двора село на 110 м ниже закрывают свои террасы, а с края
+    // нижней террасы низ села перечёркивает последний подъём дороги — он там в 40 м впереди и всего на 7–9 м ниже): на краю
+    // средней террасы между кортами — на 4 м выше нижней, дорога под бровкой на 17 м ниже, село над склоном целиком. Каменная
+    // площадка-полукруг у парапета, лавка лицом к селу и бинокль на стойке; выше по горе — площадка стартовой вышки
+    const LOOK = { x: 30, y: -4, z: -93.25, edge: -94 };
+    function lookout() {
+      const y = LOOK.y, x = LOOK.x, ze = LOOK.edge + 0.05, c = WIN ? rgb('#E6ECF1') : rgb('#CFC6B4');
+      for (let i = 0; i < 10; i++) { const a = -PI / 2 + i / 10 * PI, b = a + PI / 10; triF(vc, [x, y + 0.03, ze], [x + Math.sin(a) * 3.3, y + 0.03, ze + Math.cos(a) * 3.3], [x + Math.sin(b) * 3.3, y + 0.03, ze + Math.cos(b) * 3.3], mul(c, 0.94 + 0.08 * (i % 2)), [0, 1, 0]); }
+      bench(x, y, LOOK.z, PI, 'view');
+      { const bx = x + 2.1, bz = LOOK.edge + 0.45; vc.cyl(bx, y, bz, 0.07, 0.07, 1.25, { seg: 6, col: DARK }); vc.box(F0, bx, y + 1.32, bz, 0.34, 0.2, 0.3, { col: rgb('#4A90D8') }); [-1, 1].forEach(s => vc.cyl(bx + s * 0.08, y + 1.32, bz - 0.18, 0.06, 0.07, 0.12, { seg: 8, col: DARK })); colCirc(bx, bz, 0.25, y - 1, y + 1.5, 'binoc'); }
+    }
+    // перед смотровой (до 60 м вниз по склону, конусом) деревьев нет — вид на село открыт
+    const inLookCone = (x, z) => z < LOOK.edge && z > LOOK.edge - 60 && Math.abs(x - LOOK.x) < 6 + (LOOK.edge - z) * 0.4;
     // фонарь-бра на стене: кронштейн, стекло (плафоны), шапочка
     function lampBracket(p, dir) {
       const F = new K.Frame(p[0], p[1], p[2], Math.atan2(dir[0], dir[1]));
@@ -1357,7 +1432,7 @@
         const c = F.p(0, 0, 0.6); colliders.push({ type: 'box', x: c[0], z: c[2], w: W + 0.4, d: D + 4.2, ry: F.ry, y0: y - 1, y1: y + Hr + 1, id: 'cottage' });
         camColliders.push({ type: 'box', x: c[0], z: c[2], w: W, d: D, ry: F.ry, y0: y - 1, y1: y + Hr, id: 'cottageCam', cam: true });
       });
-      [[-74, -47.5], [-60, -98], [-20, -98], [-94, -48], [-16, -60], [-74, -86], [-52, -76]].forEach(([x, z]) => addTree(x, z, 1.0 + R() * 0.3, R() < 0.55 ? 'pine' : 'birch'));
+      [[-74, -47.5], [-68, -98], [-20, -98], [-94, -48], [-16, -60], [-74, -86], [-52, -76]].forEach(([x, z]) => addTree(x, z, 1.0 + R() * 0.3, R() < 0.55 ? 'pine' : 'birch'));   // (−60, −98) → −68: там стартовая вышка
       [[-30, -70], [-50, -70], [-60, -86]].forEach(([x, z]) => lampPost(x, y, z, 2.6));
     }
     function logBench(x, y, z, ry, tag) {
@@ -1477,8 +1552,8 @@
       if (SP && SP.distant) { try { serpRib = SP.distant(T, season, { w: 1.4, col: WIN ? '#E6EAEE' : '#C8C2B0', wall: WIN ? '#DDE3E9' : '#9A9078', skirt: 1.6 }); serpRib.material.dispose(); serpRib.material = K.keep(new T.MeshBasicMaterial({ vertexColors: true, fog: true, side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6 })); K.keep(serpRib.geometry); serpRib.renderOrder = 7; pivot.add(serpRib); } catch (e) { serpRib = null; } }
       if (V.zipline && V.zipline.buildLanding) { try { landing = V.zipline.buildLanding({ THREE: T, season, quality, cable: false }); pivot.add(landing.group); } catch (e) { console.warn('hotel: landing', e); landing = null; } }
     }
-    // маршрут зиплайна (локальные оси); без zipline.js — свой расчёт по той же формуле
-    function route() { if (V.zipline && V.zipline.route) return V.zipline.route('hotel'); const t = toMacro(TW.x, 0, TW.z), L = GEO.landing, dl = Math.hypot(L.x - t.x, L.z - t.z), d = [(L.x - t.x) / dl, (L.z - t.z) / dl], dir = { x: d[0] * FC - d[1] * FS, z: d[0] * FS + d[1] * FC }; const to = toLocal(L.x + d[0] * 2.4, 2.45, L.z + d[1] * 2.4); return { from: { x: TW.x - dir.x * 0.3, y: TW.floor + 2.6, z: TW.z - dir.z * 0.3 }, to, sag: dl * (GEO.sag || 0.02), dir, heading: Math.atan2(dir.x, dir.z), launch: { x: TW.x + dir.x * 1.2, y: TW.floor, z: TW.z + dir.z * 1.2, ry: Math.atan2(dir.x, dir.z) }, u0: 0.002, uStop: 0.996, lenH: dl }; }
+    // маршрут зиплайна (локальные оси; старт — стартовая вышка LT); без zipline.js — свой расчёт по той же формуле
+    function route() { if (V.zipline && V.zipline.route) return V.zipline.route('hotel'); const t = toMacro(LT.x, 0, LT.z), L = GEO.landing, dl = Math.hypot(L.x - t.x, L.z - t.z), d = [(L.x - t.x) / dl, (L.z - t.z) / dl], dir = { x: d[0] * FC - d[1] * FS, z: d[0] * FS + d[1] * FC }; const to = toLocal(L.x + d[0] * 2.4, 2.45, L.z + d[1] * 2.4); return { from: { x: LT.x - dir.x * 0.3, y: LT.floor + 2.6, z: LT.z - dir.z * 0.3 }, to, sag: dl * (GEO.sag || 0.02), dir, heading: Math.atan2(dir.x, dir.z), launch: { x: LT.x + dir.x * 1.2, y: LT.floor, z: LT.z + dir.z * 1.2, ry: Math.atan2(dir.x, dir.z) }, u0: 0.002, uStop: 0.996, lenH: dl }; }
 
     /* ---------- 3.14 жители: козочка, енот, выдра, медвежонок, сурок (+ выдра плавает в бассейне, молча) ---------- */
     const NPCB = {
@@ -1566,7 +1641,8 @@
       placeNpc('hotel_raccoon', 39.2, -59.6, -PI / 2 - 0.4, { headY: 1.2 });
       placeNpc('hotel_otter', 30.5, -3.6, PI + 0.3, { y: 0.04, headY: 1.2 });
       { const f = FIRE; placeNpc('hotel_bear', f.x - 3.05, f.z + 1.2, PI / 2 + 0.3, { y: -8 + 0.38, headY: 1.15, talkR: 3.0 }); }
-      { const R0 = route(), x = TW.x - R0.dir.z * 0.95 - R0.dir.x * 0.25, z = TW.z + R0.dir.x * 0.95 - R0.dir.z * 0.25; placeNpc('hotel_marmot', x, z, Math.atan2(R0.launch.x - x, R0.launch.z - z), { y: TW.floor + 0.04, headY: 1.0, level: 'top', talkR: 1.8 }); }
+      // сурок-инструктор — на площадке стартовой вышки, сбоку от проёма к тросу
+      { const R0 = route(), x = LT.x - R0.dir.z * 1.35 + R0.dir.x * 0.3, z = LT.z + R0.dir.x * 1.35 + R0.dir.z * 0.3; placeNpc('hotel_marmot', x, z, Math.atan2(R0.launch.x - x, R0.launch.z - z), { y: LT.floor + 0.04, headY: 1.0, level: 'top', talkR: 1.8 }); }
       // выдра плавает в бассейне (молча, за стеклом)
       const sw = placeNpc('hotel_otter', 30, 18.5, PI / 2, { uid: 'pool_swimmer', y: -0.25, silent: true, headY: 1.0 }); sw.swim = 0;
     }
@@ -1577,13 +1653,15 @@
     const bTri0 = vc.count() + at.count() + ledGlowB.count(), bWin0 = glaz.length;
     mainBuilding();
     const mainTris = vc.count() + at.count() + ledGlowB.count() - bTri0 + (glaz.length - bWin0) * 2;
-    poolHall(); courtyard(); tower(); parking(); sports(); relax(); photoGrounds();
-    // деревья на склонах и у подножия (не на дороге, не на площадках)
+    poolHall(); courtyard(); tower(); launchTower(); parking(); sports(); relax(); photoGrounds(); lookout();
+    // деревья на склонах и у подножия (не на дороге, не на площадках, не под тросом: в полосе 7 м, где он ниже 20 м над склоном)
+    const ZC = (() => { const R0 = route(), dx = R0.to.x - R0.from.x, dz = R0.to.z - R0.from.z, L2 = dx * dx + dz * dz || 1;
+      return (x, z) => { const t = clamp(((x - R0.from.x) * dx + (z - R0.from.z) * dz) / L2, 0, 1), d = Math.hypot(x - R0.from.x - dx * t, z - R0.from.z - dz * t), cy = R0.from.y + (R0.to.y - R0.from.y) * t - 4 * R0.sag * t * (1 - t); return d < 7 && cy - hillY(x, z) < 20; }; })();
     { let k = 0; for (let tries = 0; tries < 2600 && k < (HI ? 170 : 120); tries++) { const a = R() * TAU, r = 30 + Math.pow(R(), 0.8) * 200, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r;
-        if (sdUnion(x, z) < 4) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 5) continue; if (Math.abs(x - TW.x) < 12 && z < -20 && z > -200 && Math.abs(x + 20) < 30) continue;   // под тросом — пусто
+        if (sdUnion(x, z) < 4) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 5) continue; if (ZC(x, z) || inLookCone(x, z)) continue;   // под тросом и перед смотровой — пусто
         const y = hillY(x, z); if (y < -60) continue; addTree(x, z, 0.9 + R() * 0.6, R() < 0.45 ? 'pine' : R() < 0.5 ? 'rowan' : 'birch', y - 0.1); k++; }
-      // камни на склоне (low — реже: бюджет видов со смотровой и с лестницы)
-      for (let i = 0; i < (HI ? 70 : 50); i++) { const a = R() * TAU, r = 25 + R() * 160, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r; if (sdUnion(x, z) < 3) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 3.4) continue; rocks.push({ x, z, r: 0.4 + R() * 0.9, h: 0.35 + R() * 0.6 }); }
+      // камни на склоне (low — реже: бюджет видов со смотровой и с лестницы; вершина: 70/50 → 56/36 — виды с вышки и с башни)
+      for (let i = 0; i < (HI ? 56 : 36); i++) { const a = R() * TAU, r = 25 + R() * 160, x = HC.x + Math.sin(a) * r, z = HC.z + Math.cos(a) * r; if (sdUnion(x, z) < 3) continue; const rn = ROAD.near(x, z); if (rn && rn.d < 3.4) continue; rocks.push({ x, z, r: 0.4 + R() * 0.9, h: 0.35 + R() * 0.6 }); }
       // камни на обочине дороги (старая горная дорога, без ограждений — только камни по краю)
       for (let i = 0; i < ROAD.N; i += 7) { const s = R() < 0.5 ? 1 : -1, d = ROAD.w + 0.6 + R() * 1.4, x = ROAD.x[i] + Math.cos(ROAD.th[i]) * s * d, z = ROAD.z[i] - Math.sin(ROAD.th[i]) * s * d; if (sdUnion(x, z) < 2) continue; if (ROAD.summit && Math.hypot(x - HC.x, z - HC.z) > 150) continue; rocks.push({ x, z, r: 0.25 + R() * 0.45, h: 0.2 + R() * 0.3 }); }   // вершина: камни у обочины — только у отеля (дальше их не видно)
     }
@@ -1628,20 +1706,47 @@
     const meshVCD = addSplit(vcD.mesh(K.vcMatD), { cast: false, name: 'hotelVCD' }, null);
     const meshT = add(litMesh(terrainNear()), { cast: false, name: 'terrainNear' });
     const meshTF = add(terrainFar(), { receive: false });
-    // вершина: лента подъезда (второй серпантин из села) — поверх рельефа, с юбкой вниз (сетка холма крупнее полотна)
-    const meshRoad = ROAD.summit ? add((() => {
-      const P2 = [], C2 = [], I2 = [], cR = WIN ? rgb('#E6EAEE') : rgb('#B3A68E'), cS = WIN ? rgb('#DDE3E9') : rgb('#8E846C'), w = ROAD.w, n = ROAD.N;
-      // ряд через ~2 м, на прямых вдали от холма (> 150 м) — через ~4 м; разрыв (участок в чаше села вдали) — без перемычки
+    // вершина: лента подъезда (второй серпантин из села) — как полотно внешних дорог села (kubachi.js, roadsGeo): грунтовка тёплого
+    // тона в той же «камушковой» текстуре (повтор 2,6 м), к краю — светлее и в траву (мягкая кромка без бордюров), свет — как у
+    // рельефа (litMesh). Ряды через ~3 м, на прямых вдали от холма (> 150 м) — через ~6 м (на изгибах — 2 и 3 м); юбка вниз
+    // (сетка холма крупнее полотна) — только у холма, дальше ленту видно сверху; разрыв (участок в чаше села вдали) — без перемычки
+    const roadTexH = () => {
+      const N = 256, [cv, c] = K.cnv(N, N), R2 = rng(1606);
+      c.fillStyle = WIN ? '#E9EDF0' : '#B4A384'; c.fillRect(0, 0, N, N);
+      for (let i = 0; i < 700; i++) { c.fillStyle = `rgba(${110 + R2() * 40},${92 + R2() * 30},${64 + R2() * 30},0.14)`; c.fillRect(R2() * N, R2() * N, 1 + R2() * 4, 1 + R2() * 4); }
+      const tones = WIN ? ['#F3F5F7', '#E6EAEE', '#EEF1F4', '#DCE2E8'] : ['#CFC8B8', '#BDB6A6', '#D8D1C0', '#ABA496', '#C6B9A0', '#B4AE9F'];
+      for (let i = 0; i < 120; i++) {
+        const x = R2() * N, y = R2() * N, rx = 6 + R2() * 9, ry = rx * (0.6 + R2() * 0.35), a = R2() * PI, col = tones[Math.floor(R2() * tones.length)];
+        for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) {
+          const X = x + ox, Y = y + oy; if (X < -20 || X > N + 20 || Y < -20 || Y > N + 20) continue;
+          c.fillStyle = 'rgba(70,58,44,0.28)'; c.beginPath(); c.ellipse(X + 1, Y + 1.8, rx + 1.2, ry + 1.2, a, 0, TAU); c.fill();
+          c.fillStyle = col; c.beginPath(); c.ellipse(X, Y, rx, ry, a, 0, TAU); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.22)'; c.beginPath(); c.ellipse(X - rx * 0.25, Y - ry * 0.3, rx * 0.5, ry * 0.4, a, 0, TAU); c.fill();
+        }
+      }
+      const t = K.tex(cv, { repeat: true }); t.anisotropy = HI ? 4 : 2; return t;
+    };
+    const meshRoad = ROAD.summit ? add(litMesh((() => {
+      const P2 = [], C2 = [], U2 = [], N2 = [], I2 = [], w = ROAD.w, n = ROAD.N;
+      const tn = WIN ? [0.97, 0.97, 0.98] : rgb('#E2CDAA'), grassT = WIN ? rgb('#EEF2F6') : mix(rgb(VK.TPAL.bg[0]), rgb(VK.TPAL.bg[1]), 0.4);
+      const cEdge = mix(mul(tn, 0.84), grassT, 0.6), cSkirt = mul(grassT, 0.86);
       const bend = i => { const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 2); return Math.abs(Math.atan2(Math.sin(ROAD.th[b] - ROAD.th[a]), Math.cos(ROAD.th[b] - ROAD.th[a]))) > 0.08; };
-      let pv = -1, nr = 0;
-      for (let i = 0; i < n; i++) { const x = ROAD.x[i], z = ROAD.z[i], st = Math.hypot(x - HC.x, z - HC.z) > 150 && !bend(i) ? 4 : 2; if (i % st && i !== n - 1 && !(i && Math.hypot(x - ROAD.x[i - 1], z - ROAD.z[i - 1]) >= 4)) continue;
-        const lx = Math.cos(ROAD.th[i]), lz = -Math.sin(ROAD.th[i]), y = ROAD.y[i] + 0.06, k = 0.92 + 0.08 * Math.sin(i * 0.37);
-        P2.push(x - lx * w, y, z - lz * w, x + lx * w, y, z + lz * w, x - lx * (w + 0.5), y - 1.2, z - lz * (w + 0.5), x + lx * (w + 0.5), y - 1.2, z + lz * (w + 0.5)); C2.push(...VK.mul(cR, k), ...VK.mul(cR, k), ...cS, ...cS);
-        if (pv >= 0 && Math.hypot(x - ROAD.x[pv], z - ROAD.z[pv]) < 6) { const o = (nr - 1) * 4, q = nr * 4; I2.push(o, q, o + 1, o + 1, q, q + 1, o + 2, q + 2, o, o, q + 2, q, o + 1, q + 1, o + 3, o + 3, q + 1, q + 3); }
-        pv = i; nr++; }
-      const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P2, 3)); g.setAttribute('color', new T.Float32BufferAttribute(C2, 3)); g.setIndex(I2); g.computeVertexNormals(); g.computeBoundingSphere();
-      const m = new T.Mesh(K.keep(g), K.keep(new T.MeshBasicMaterial({ vertexColors: true, side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }))); m.renderOrder = 7; return m;
-    })(), { cast: false, receive: false, name: 'approachRoad' }) : null;
+      const vert = (x, y, z, c) => { P2.push(x, y, z); C2.push(c[0], c[1], c[2]); U2.push(x / 2.6, z / 2.6); N2.push(0, 1, 0); };
+      let pv = -1, nr = 0, pNear = false;
+      for (let i = 0; i < n; i++) { const x = ROAD.x[i], z = ROAD.z[i], near = Math.hypot(x - HC.x, z - HC.z) < 150, st = bend(i) ? (near ? 2 : 3) : near ? 3 : 6; if (i % st && i !== n - 1 && !(i && Math.hypot(x - ROAD.x[i - 1], z - ROAD.z[i - 1]) >= 4)) continue;
+        const lx = Math.cos(ROAD.th[i]), lz = -Math.sin(ROAD.th[i]), y = ROAD.y[i] + 0.06, nz = 0.05 * VK.vnoise(x * 0.4, z * 0.4);
+        // поперёк: кромка (в траву) — край полотна — край полотна — кромка; под кромками — юбка
+        [[-(w + 0.45), cEdge, -0.03], [-w, mul(tn, 0.9 + nz), 0], [w, mul(tn, 0.9 + nz), 0], [w + 0.45, cEdge, -0.03]].forEach(([e, c, dy]) => vert(x + lx * e, y + dy, z + lz * e, c));
+        [-(w + 0.9), w + 0.9].forEach(e => vert(x + lx * e, y - 1.2, z + lz * e, cSkirt));
+        if (pv >= 0 && Math.hypot(x - ROAD.x[pv], z - ROAD.z[pv]) < 8) { const o = (nr - 1) * 6, q = nr * 6;
+          for (let k = 0; k < 3; k++) I2.push(o + k, q + k, o + k + 1, o + k + 1, q + k, q + k + 1);
+          if (near || pNear) I2.push(o + 4, q + 4, o, o, q + 4, q, o + 3, q + 3, o + 5, o + 5, q + 3, q + 5); }
+        pv = i; nr++; pNear = near; }
+      const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P2, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(N2, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(U2, 2)); g.setAttribute('color', new T.Float32BufferAttribute(C2, 3));
+      g.setIndex(I2); g.computeBoundingSphere();
+      const po = { map: roadTexH(), vertexColors: true, side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 };
+      const m = new T.Mesh(K.keep(g), K.BAKED ? K.keep(new T.MeshBasicMaterial(po)) : K.toon('#FFFFFF', po)); m.renderOrder = 7; return m;
+    })()), { cast: false, receive: !K.BAKED, name: 'approachRoad' }) : null;
     const meshTB = addSplit(TB.mesh(K.vcMat), { cast: false, name: 'terraces' }, QUAD);
     // ROAD2 («деревья висят в воздухе», щель под камнями у дороги): деревья и камни вне площадок — на видимую землю. Полярная
     // сетка холма (кольца до 9 м) расходится с hillY на метры (у выемки дороги — до 5,5 м), проступи террас лежат над склоном
@@ -1713,7 +1818,7 @@
     const rockG = (() => { const g = new T.DodecahedronGeometry(1, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); p.setY(i, yy < 0 ? yy * 0.4 : yy); } g.computeVertexNormals(); const n = p.count, c = new Float32Array(n * 3); const rc = C('rock'); for (let i = 0; i < n; i++) c.set(mul(rc, 0.9 + 0.2 * (p.getY(i) > 0 ? 1 : 0)), i * 3); g.setAttribute('color', new T.BufferAttribute(c, 3)); return K.keep(g); })();
     addSplit((K.merged(rockG, K.instMat, rocks.map(r => ({ p: [r.x, (r.y !== undefined ? r.y : hillY(r.x, r.z)) - 0.15, r.z], r: [0, r.x * 3.1, 0], s: [r.r, r.h, r.r * 0.8], c: WIN ? [1.12, 1.14, 1.16] : [1, 1, 1] })))), { name: 'rocks' }, null);
     add(signsMesh(), { cast: false, receive: false });
-    // трос зиплайна (от мачты на башне до стойки у края села)
+    // трос зиплайна (от мачты на стартовой вышке до стойки у края села)
     const ZR = route();
     let cableG = null; if (V.zipline && V.zipline.cable && V.zipline.cableMesh) { cableG = V.zipline.cableMesh(T, V.zipline.cable(ZR.from, ZR.to, ZR.sag), { color: '#4E4A52' }); root.add(cableG); }
     // ролик ждёт на старте (декор; во время поездки его скрывают — он «уезжает» с героиней)
@@ -1839,9 +1944,14 @@
     /* ---------- места, выходы, камеры ---------- */
     const GOLF = makeGolf();
     const viewDir = (() => { const v = toLocal(-11.2, 12, -15.4); return v; })();   // башня села — куда смотрят виды «на село»
+    // с башни-копии — на село (вершина: трос отсюда больше не начинается, старт — на стартовой вышке LT)
+    const TVD = (() => { const dx = viewDir.x - TW.x, dz = viewDir.z - TW.z, l = Math.hypot(dx, dz) || 1; return { x: dx / l, z: dz / l }; })();
+    // стартовая вышка: вход на лестницу сзади (со стороны террасы); наверху — сразу у старта (кнопка — «Пристегнуться»), спуск —
+    // у задних перил
+    const LTE = (() => { const g = LTF.toW(0, -LT.hw - 1.1), d = LTF.toW(0, -LT.hIn + 0.55), t = LTF.toW(0, 0.3); return { gate: { x: g[0], z: g[1] }, down: { x: d[0], z: d[1] }, top: { x: t[0], z: t[1] } }; })();
     {
       const R0 = ZR;
-      spots.push({ id: 'hotel_view', x: -5, y: 0, z: -35.5, r: 1.5, icon: '🏞️', label: 'Смотровая: вид на село', action: 'Посидеть', seat: [-5, 0.45, -36.9], ry: PI, view: 'hotel_view' });
+      spots.push({ id: 'hotel_view', x: LOOK.x, y: LOOK.y, z: LOOK.z + 1.5, r: 1.5, icon: '🏞️', label: 'Смотровая: село внизу', action: 'Посидеть', seat: [LOOK.x, LOOK.y + 0.45, LOOK.z], ry: PI, view: 'hotel_view' });
       spots.push({ id: 'pool_look', x: 34, y: 0, z: 4.7, r: 1.5, icon: '🏊', label: 'Бассейн за стеклом', action: 'Заглянуть в окно', view: 'pool_look' });
       spots.push({ id: 'golf_putt', x: GREEN.tee[0] - 0.7, y: -4, z: GREEN.tee[1] + 0.6, r: 1.6, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три лунки', play: true });
       spots.push({ id: 'fire_pit', x: FIRE.x, y: -8, z: FIRE.z + 4.3, r: 1.5, icon: '🔥', label: 'Костровой круг', action: 'Посидеть у огня', seat: [FIRE.x, -8 + 0.46, FIRE.z + 3.3], ry: PI, view: 'fire_pit' });
@@ -1849,24 +1959,29 @@
       spots.push({ id: 'sports_look', x: 40, y: -4, z: -62, r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Сыграть', view: 'sports', play: true });   // 4B (NEEDS REGION 1); у енота-тренера — выбор игры
       spots.push({ id: 'pond_look', x: -19.5, y: -8, z: POND.z + POND.rz + 1.3, r: 1.5, icon: '🦆', label: 'Пруд под холмом', action: 'Посмотреть', view: 'pond' });
       spots.push({ id: 'hotel_tower', x: TW.x + TW.rB + 0.8, y: 0, z: TW.z, r: 1.3, icon: '🏰', label: 'Башня во дворе', action: 'Подняться наверх' });
-      spots.push({ id: 'zipline_start', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, icon: '🪂', label: 'Зиплайн — в село', action: 'Пристегнуться и ехать!', level: 'top' });
-      spots.push({ id: 'tower_down', x: TW.x - R0.dir.x * 0.85, y: TW.floor, z: TW.z - R0.dir.z * 0.85, r: 0.75, icon: '⬇️', label: 'Спуститься', action: 'Вниз', level: 'top' });
+      spots.push({ id: 'tower_down', x: TW.x - TVD.x * 0.85, y: TW.floor, z: TW.z - TVD.z * 0.85, r: 0.75, icon: '⬇️', label: 'Спуститься', action: 'Вниз', level: 'top' });
+      // вершина: зиплайн — со стартовой вышки на краю нижней террасы (снизу — «Подняться наверх», наверху — старт и спуск)
+      spots.push({ id: 'zip_tower', x: LTE.gate.x, y: LT.base, z: LTE.gate.z, r: 1.4, icon: '🪂', label: 'Стартовая вышка зиплайна', action: 'Подняться наверх' });
+      spots.push({ id: 'zipline_start', x: R0.launch.x, y: LT.floor, z: R0.launch.z, r: 1.2, icon: '🪂', label: 'Зиплайн — в село', action: 'Пристегнуться и ехать!', level: 'top' });
+      spots.push({ id: 'zip_down', x: LTE.down.x, y: LT.floor, z: LTE.down.z, r: 0.75, icon: '⬇️', label: 'Спуститься', action: 'Вниз', level: 'top' });
       const npcHop = id => { const n = npcs.find(q => q.id === id); if (n && n.hop) n.hop(); };
       const ev = (k) => { const e = EVENTS[k]; return e ? { who: e.who, text: e.text } : null; };
       const USE = {
-        hotel_view: s => ({ kind: 'sit', seat: s.seat, ry: s.ry, view: 'hotel_view', activity: 'hotel_view', text: 'Через долину — село с башней. А за ним — горы в террасах.', hero: HERO.view }),
+        hotel_view: s => ({ kind: 'sit', seat: s.seat, ry: s.ry, view: 'hotel_view', activity: 'hotel_view', text: 'Внизу — село с башней, а вокруг — горы в террасах. И дорога видна, по которой ехали!', hero: HERO.view }),
         pool_look: () => { npcHop('hotel_otter'); return { kind: 'view', view: 'pool_look', npc: 'hotel_otter', line: ev('poolLook'), text: 'Бассейн под крышей: голубая вода, а за стеклом — горы.', hero: HERO.pool }; },
         golf_putt: () => ({ kind: 'golf', golf: GOLF, tries: GOLF.maxTries, stand: GOLF.stance(GOLF.aimAngle()), view: 'golf', npc: 'hotel_raccoon', text: 'Мини-гольф: три лунки — попади мячиком в лунку!', hero: HERO.golfStart }),
-        fire_pit: s => { npcHop('hotel_bear'); return { kind: 'sit', seat: s.seat, ry: s.ry, view: 'fire_pit', mood: 'evening', npc: 'hotel_bear', line: ev('fireSit'), activity: 'fire_pit', text: 'Огонь потрескивает, а вдали — огоньки села.', hero: HERO.fire }; },
+        fire_pit: s => { npcHop('hotel_bear'); return { kind: 'sit', seat: s.seat, ry: s.ry, view: 'fire_pit', mood: 'evening', npc: 'hotel_bear', line: ev('fireSit'), activity: 'fire_pit', text: 'Огонь потрескивает, а внизу — огоньки села.', hero: HERO.fire }; },
         pond_look: () => ({ kind: 'view', view: 'pond', text: 'Тихий пруд под холмом: в воде — небо, а наверху — отель.', hero: 'Как спокойно!' }),
         spa_look: () => ({ kind: 'view', view: 'spa', line: ev('spaLook'), text: 'Купели парят! Внутрь бани сегодня не заходим — только любуемся.', hero: HERO.spa }),
         // у енота-тренера — не только посмотреть: «Во что сыграем?» → игра на своём корте (VILLAGE.sports, места *_court / *_play);
         // без модуля игр (стенд) — подпись text тостом
         sports_look: () => { npcHop('hotel_raccoon'); return { kind: 'sport', view: 'sports', npc: 'hotel_raccoon', line: { who: 'hotel_raccoon', text: LINES.hotel_raccoon[1].text }, title: 'Во что сыграем?', text: 'Падел — в стеклянной коробке, рядом — мини-футбол, у дорожки — мини-гольф. Мячик выдают бесплатно.',
           pick: [{ label: '⚽ Мини-футбол', spots: ['football_court', 'football_play'] }, { label: '🎾 Падел', spots: ['padel_court', 'padel_play'] }, { label: '⛳ Мини-гольф', spots: ['golf_putt', 'golf_green'] }] }; },
-        hotel_tower: () => ({ kind: 'teleport', level: 'top', to: [R0.launch.x - R0.dir.x * 0.9, TW.floor, R0.launch.z - R0.dir.z * 0.9], fade: 'Наверх по лестнице…', activity: 'hotel_tower', npc: 'hotel_marmot' }),
+        hotel_tower: () => ({ kind: 'teleport', level: 'top', to: [TW.x + TVD.x * 0.4, TW.floor, TW.z + TVD.z * 0.4], fade: 'Наверх по винтовой лестнице…', activity: 'hotel_tower' }),
         tower_down: () => ({ kind: 'teleport', level: 'ground', to: [TW.x + TW.rB + 0.9, 0, TW.z], fade: '' }),
-        zipline_start: () => { npcHop('hotel_marmot'); return { kind: 'zipline', route: ZR, exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, npc: 'hotel_marmot', line: ev('zipReady'), text: 'Держись крепче — и вжу-у-ух, через всю долину!', hero: HERO.zip }; },
+        zip_tower: () => ({ kind: 'teleport', level: 'top', to: [LTE.top.x, LT.floor, LTE.top.z], fade: 'Наверх по лестнице…', activity: 'zip_tower', npc: 'hotel_marmot' }),
+        zip_down: () => ({ kind: 'teleport', level: 'ground', to: [LTE.gate.x, LT.base, LTE.gate.z], fade: '' }),
+        zipline_start: () => { npcHop('hotel_marmot'); return { kind: 'zipline', route: ZR, exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, npc: 'hotel_marmot', line: ev('zipReady'), text: 'Держись крепче — и вжу-у-ух, с горы прямо в село!', hero: HERO.zip }; },
       };
       spots.forEach(s => { s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (() => ({ kind: 'toast', text: s.label })))(s, ctx)); });
       // волна 6: нижняя дорога у ворот — вниз, в село (регион kubachi, from: 'hotel' — наверху дороги мимо школы).
@@ -1876,29 +1991,32 @@
       const cs = opts.from === 'kubachi' ? FROM_VILLAGE.car : PARKING, cr = opts.from === 'kubachi' ? 1.4 : 1.8;
       exits.push({ id: 'toVillage', to: 'kubachi', via: 'hotel', x: cs.x + 1.6, y: 0, z: cs.z - 2.9, r: cr, label: 'Сесть в машину — вниз, в село', icon: '🚗' });
       exits.push({ id: 'toVillageWalk', to: 'kubachi', via: 'hotel', walk: true, x: FROM_VILLAGE.exit.x, y: 0, z: FROM_VILLAGE.exit.z, r: FROM_VILLAGE.exit.r, label: 'Пешком — вниз, в село', icon: '🚶' });
-      exits.push({ id: 'zipline', to: 'kubachi', spawn: 'zipline_landing', via: 'zipline', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, level: 'top', label: 'Зиплайн — в село', icon: '🪂' });
+      exits.push({ id: 'zipline', to: 'kubachi', spawn: 'zipline_landing', via: 'zipline', x: R0.launch.x, y: LT.floor, z: R0.launch.z, r: 1.0, level: 'top', label: 'Зиплайн — в село', icon: '🪂' });
     }
     const vT = viewDir;
-    // вершина: село на 110 м ниже (≈ 13° под горизонтом) — со смотровой на консоли его закрывают свои террасы (−4 и −8 на 57–65 м
-    // вперёд); виды «на село» — с края нижней террасы (обрыв к склону горы), с башни — как было
-    const vEdge = [-40, -8 + 1.7, -100.5];
+    // вершина: село на 110 м ниже (≈ 10–16° под горизонтом). Со смотровой на консоли у двора его закрывают свои террасы — лавка
+    // «вид на село» на краю средней террасы (LOOK), с площадки стартовой вышки (13 м над нижней террасой) село целиком над
+    // дорогой; с башни-копии — поверх террас
+    const atLT = (lx, y, lz) => { const p = LTF.toW(lx, lz); return [p[0], y, p[1]]; };
+    const eyeL = [LOOK.x, LOOK.y + 0.45 + 0.85, LOOK.z - 0.1], ZL0 = ZR.launch, eyeZ = atLT(-1.3, LT.floor + 1.6, 1.6);   // eyeZ — у передних перил площадки старта, сбоку от мачты
     const views = {
-      arrival: { pos: [-175, -12, -90], target: [-40, 0, -15], fov: 40 },
-      summit_village: { pos: vEdge, target: [vT.x, vT.y + 6, vT.z], fov: 30 },
+      arrival: { pos: [-160, 8, -200], target: [-40, 2, -50], fov: 40 },   // вершина: с юго-запада, над последним подъёмом дороги — стартовая вышка, коттеджи, лестница и корпус
+      summit_village: { pos: eyeZ, target: [vT.x, vT.y - 8, vT.z], fov: 42 },
       summit_road: { pos: [-60, 6, 30], target: [-200, -60, -120], fov: 55 },
       facade: { pos: [-4, 2.4, -25], target: [-2, 6.2, 22], fov: 56 },
       courtyard: { pos: [26, 13, -27], target: [-4, 0, 2], fov: 50 },
       sports: { pos: [94, 20, -30], target: [36, -6, -72], fov: 50 },
       spa: { pos: [-13.5, -3.2, -79], target: [-43, -6.4, -52], fov: 50 },
       fire_pit: { pos: [FIRE.x + 1.4, -8 + 2.35, FIRE.z + 6.2], target: [FIRE.x - 0.5, -11.5, FIRE.z - 60], fov: 52, mood: 'evening' },
-      hotel_view: { pos: [-5 + 0.25, 2.75, -32.2], target: [vT.x, vT.y - (FR.y > 60 ? 0 : 62), vT.z], fov: 34 },
+      hotel_view: { pos: eyeL, target: [vT.x, vT.y - 4, vT.z], fov: 38 },
       pool_look: { pos: [33.5, 1.55, 4.4], target: [36, 0.1, 18.5], fov: 56 },
       golf: { pos: [GREEN.tee[0] - 4.6, -4 + 2.7, GREEN.tee[1] + 4.9], target: [(GREEN.tee[0] + GREEN.hole[0]) / 2, -4.2, (GREEN.tee[1] + GREEN.hole[1]) / 2], fov: 52 },
-      tower_top: { pos: [TW.x - ZR.dir.x * 0.9, TW.floor + 1.75, TW.z - ZR.dir.z * 0.9], target: [vT.x, vT.y - 6, vT.z], fov: 42 },
+      tower_top: { pos: [TW.x - TVD.x * 0.9, TW.floor + 1.75, TW.z - TVD.z * 0.9], target: [vT.x, vT.y - 6, vT.z], fov: 42 },
       overview: { pos: [62, 48, -150], target: [-8, -4, -12], fov: 46 },
-      zip_start: { pos: [TW.x + 7, TW.floor + 3.5, TW.z - 6], target: [TW.x, TW.floor + 1.5, TW.z], fov: 50 },
+      zip_start: { pos: atLT(5.2, LT.floor + 3.6, -5.4), target: [ZL0.x, LT.floor + 1.2, ZL0.z], fov: 50 },
+      launch_tower: { pos: atLT(-8, LT.base + 1.7, -11), target: [LT.x, LT.floor + 0.5, LT.z], fov: 56 },
       winter_overview: { pos: [86, 64, 64], target: [-12, -10, -40], fov: 50, season: 'winter' },
-      village_far: FR.y > 60 ? { pos: vEdge, target: [vT.x, vT.y - 4, vT.z], fov: 9 } : { pos: [-5, 1.8, -37.0], target: [vT.x, vT.y - 14, vT.z], fov: 9 },
+      village_far: { pos: eyeL, target: [vT.x, vT.y - 3, vT.z], fov: 10 },
       // по фото: фронтон с двора (h1), угол со стороны парковки (h2), пруд и лестница снизу (h4)
       hotel_front: { pos: [-2, 4.5, -64], target: [-2, 9.5, MAIN.z0], fov: 64 },
       hotel_corner: { pos: [-38.1, 1.7, 2.2], target: [-18.8, 8.7, 16.5], fov: 50 },
@@ -2034,7 +2152,7 @@
     let disposed = false;
     const fromVillage = opts.from === 'kubachi';   // волна 6: приехала из села по нижней дороге (выход toHotel наверху сельской дороги)
     const carSpawn = fromVillage ? { x: FROM_VILLAGE.car.x, y: 0, z: FROM_VILLAGE.car.z, ry: FROM_VILLAGE.car.ry } : { x: PARKING.x, y: 0, z: PARKING.z, ry: PARKING.ry };
-    const spawn = opts.from === 'zipline' ? { x: ZR.launch.x, y: TW.floor, z: ZR.launch.z, ry: ZR.heading } : fromVillage ? { x: FROM_VILLAGE.hero.x, y: 0, z: FROM_VILLAGE.hero.z, ry: FROM_VILLAGE.hero.ry } : { x: PARKING.x + 3.4, y: 0, z: PARKING.z - 3.2, ry: PI / 2 };
+    const spawn = opts.from === 'zipline' ? { x: ZR.launch.x, y: LT.floor, z: ZR.launch.z, ry: ZR.heading } : fromVillage ? { x: FROM_VILLAGE.hero.x, y: 0, z: FROM_VILLAGE.hero.z, ry: FROM_VILLAGE.hero.ry } : { x: PARKING.x + 3.4, y: 0, z: PARKING.z - 3.2, ry: PI / 2 };
     const evQueue = [];
     const handle = {
       id: 'hotel', named, season, quality, root, buildMs,
@@ -2054,7 +2172,8 @@
       night: { lamps: NIGHT.lamps, glow: K.GLOW.amt, sky: BG.sky, lampSize: 1.2 },
       nightMaterials: NIGHT.mats,
       setNight,
-      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: -5, z: -36.9 }, main: MAIN, pond: POND, road: { len: ROAD.len, end: ROAD.end },
+      places: { tower: { x: TW.x, z: TW.z, floor: TW.floor, door: [TW.x + TW.rB + 0.9, 0, TW.z] }, courtyard: { x: FOUNT.x, z: FOUNT.z }, pool: POOL, green: GREEN, fire: FIRE, spa: SPA, park: carSpawn, view: { x: LOOK.x, z: LOOK.z }, main: MAIN, pond: POND, road: { len: ROAD.len, end: ROAD.end },
+        launch: { x: LT.x, z: LT.z, y: LT.base, floor: LT.floor, ry: LT.ry, door: [LTE.gate.x, LT.base, LTE.gate.z], start: { x: ZR.launch.x, z: ZR.launch.z } },   // вершина: стартовая вышка зиплайна
         village: { x: FROM_VILLAGE.exit.x, z: FROM_VILLAGE.exit.z, car: FROM_VILLAGE.car, hero: FROM_VILLAGE.hero }, parking: { x: PARKING.x, z: PARKING.z, ry: PARKING.ry } },   // волна 6: приезд из села
       zipline: ZR, golf: GOLF,
       frame: { x: FR.x, y: FR.y, z: FR.z, ry: FR.ry, toMacro, toLocal },
@@ -2147,6 +2266,25 @@
     // башня-копия (12 граней) с поясом зубцов
     { const seg = 12, tc = WIN ? rgb('#E6E2DA') : rgb('#D8C29A'); for (let i = 0; i < seg; i++) { const a = i / seg * TAU, b = (i + 1) / seg * TAU; Bd.quad([TW.x + Math.sin(a) * TW.rB, 0, TW.z + Math.cos(a) * TW.rB], [TW.x + Math.sin(b) * TW.rB, 0, TW.z + Math.cos(b) * TW.rB], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.92 + 0.1 * Math.cos(a)));
         if (i % 2 === 0) Bd.quad([TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(a) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 0.7, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(b) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(b) * (TW.rT + 0.15)], [TW.x + Math.sin(a) * (TW.rT + 0.15), TW.floor + 1.25, TW.z + Math.cos(a) * (TW.rT + 0.15)], VK.mul(tc, 0.95 + 0.1 * Math.cos(a))); } }
+    // вершина: стартовая вышка на бровке нижней террасы — из села это первое, что видно над краем горы (корпус позади закрывают
+    // свои террасы). Стойки и раскосы здесь толще настоящих (0,45 м: за 400–600 м — линия в пиксель, а не мерцание), площадка,
+    // светлые перила полосой, шатёр терракотой, флажок; фонарь под шатром — в ночной сетке Ld (ночью — тёплая точка)
+    { const L = LT, Q = (lx, y, lz) => { const p = LTF.toW(lx, lz); return [p[0], y, p[1]]; }, h = L.hw, k = h - 0.2, y0 = L.base - F0, yf = L.floor, ye = yf + L.eave, ya = yf + L.apex, ro = h + 0.45;
+      const post = rgb('#6E4A36'), cream = WIN ? rgb('#F6F0E4') : rgb('#F2E6CF'), roofT = WIN ? rgb('#F4F7FA') : rgb('#C0563E'), deck = rgb('#A9805A');
+      const boxL = (cx, cz, w, d, ya_, yb_, c, top) => { const a = Q(cx - w / 2, 0, cz - d / 2), b = Q(cx + w / 2, 0, cz - d / 2), c2 = Q(cx + w / 2, 0, cz + d / 2), e = Q(cx - w / 2, 0, cz + d / 2), P4 = [a, b, c2, e];
+        for (let i = 0; i < 4; i++) { const p = P4[i], q = P4[(i + 1) % 4]; Bd.quad([q[0], ya_, q[2]], [p[0], ya_, p[2]], [p[0], yb_, p[2]], [q[0], yb_, q[2]], VK.mul(c, i % 2 ? 0.9 : 1)); }
+        Bd.quad([e[0], yb_, e[2]], [c2[0], yb_, c2[2]], [b[0], yb_, b[2]], [a[0], yb_, a[2]], top || c); };
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => boxL(sx * k, sz * k, 0.45, 0.45, y0, ye, post));
+      // раскосы крест-накрест на передней и боковых гранях (к селу) — по одной ленте на ярус
+      const y3 = [0, 1, 2, 3].map(i => lerp(L.base + 0.6, yf - 0.3, i / 3)); [[0, 1], [-1, 0], [1, 0]].forEach(([sx, sz]) => [[y3[0], y3[1]], [y3[1], y3[2]], [y3[2], y3[3]]].forEach(([yA, yB]) => [[-1, 1], [1, -1]].forEach(([s0, s1]) => {
+        const A = t => (sx ? Q(sx * (k + 0.2), 0, t) : Q(t, 0, sz * (k + 0.2))), p = A(s0 * k), q = A(s1 * k); Bd.quad([p[0], yA - 0.25, p[2]], [q[0], yB - 0.25, q[2]], [q[0], yB + 0.25, q[2]], [p[0], yA + 0.25, p[2]], post); })));
+      boxL(0, 0, 2 * h, 2 * h, yf - 0.3, yf, deck); boxL(0, 0, 2 * h + 0.06, 2 * h + 0.06, yf, yf + 1.05, cream);
+      const Cn = [Q(-ro, ye, -ro), Q(ro, ye, -ro), Q(ro, ye, ro), Q(-ro, ye, ro)].map(p => [p[0], ye, p[2]]), Ap = Q(0, ya, 0);
+      for (let i = 0; i < 4; i++) Bd.tri(Cn[i], Cn[(i + 1) % 4], [Ap[0], ya, Ap[2]], VK.mul(roofT, i % 2 ? 0.88 : 1));
+      Bd.quad(Cn[3], Cn[2], Cn[1], Cn[0], rgb('#7A3E30'));
+      boxL(0, 0, 0.12, 0.12, ya, ya + 2.4, rgb('#3E3A44')); { const f0 = Q(0, 0, 0), f1 = Q(1.6, 0, 0); Bd.tri([f0[0], ya + 2.35, f0[2]], [f1[0], ya + 1.95, f1[2]], [f0[0], ya + 1.5, f0[2]], rgb('#D9455A')); }
+      { const vt = toLocal(-11.2, 12, -15.4), p = Q(0, 0, 0), dx = vt.x - p[0], dz = vt.z - p[2], l = Math.hypot(dx, dz) || 1, ux = -dz / l * 0.6, uz = dx / l * 0.6, y = yf + L.eave - 0.5;
+        Ld.quad([p[0] - ux, y, p[2] - uz], [p[0], y + 0.6, p[2]], [p[0] + ux, y, p[2] + uz], [p[0], y - 0.6, p[2]], WIN ? rgb('#CDD4DA') : rgb('#9A6A50')); } }
     const gH = H.geo(), gB = Bd.geo(), gL = Ld.geo();
     const matH = new T.MeshLambertMaterial({ vertexColors: true }), matB = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide });
     VK.terraceStripes(matH, { THREE: T, step: 2.5, phase: 0.3, far: 1400, dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });   // волна 6: ступени террас на холме отеля

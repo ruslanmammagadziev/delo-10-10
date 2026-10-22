@@ -1,6 +1,6 @@
 /* =====================================================================
-   ЗИПЛАЙН: от башни-копии во дворе отеля на холме — через долину к краю села (VILLAGE.zipline).
-   Желание автора (волна 4): «схватиться за ручку и скатиться по тросу от отеля до самых Кубачей».
+   ЗИПЛАЙН: со стартовой вышки на краю нижней террасы отеля на вершине — с горы прямо в село, к его восточному краю
+   (VILLAGE.zipline). Желание автора (волна 4): «схватиться за ручку и скатиться по тросу от отеля до самых Кубачей».
    По research (plan2/kubachi_spec2.md §1.3) зиплайна у Кубачей НЕТ — это чистая выдумка игры: никаких реплик-«фактов»
    («самый длинный» и т. п.), только «держись крепче — и вжу-у-ух!».
 
@@ -9,9 +9,16 @@
    ГЕОГРАФИЯ (общая с hotel.js, макро-координаты села и серпантина: x — восток, z — юг, y = 0 — площадь села):
      VILLAGE.ZIP_GEO = { frame: { x, y, z, ry } — начало и поворот локальных осей отеля (локальное +z → (sin ry, cos ry)),
                          tower: { x, z, floor } — башня-копия во дворе отеля (локальные оси отеля), floor — пол площадки,
-                         landing: { x, y, z } — середина площадки приземления у восточного края села (макро) }
-     Трос — парабола провиса между мачтой на башне и А-образной стойкой за площадкой; высота над площадкой подобрана так,
+                         launch: { x, z, floor, base } — стартовая вышка на краю нижней террасы (локальные оси; floor — пол
+                           площадки старта, base — земля у ног вышки); без launch трос начинается на башне-копии,
+                         landing: { x, y, z } — середина площадки приземления у восточного края села (макро), sag — провис }
+     Трос — парабола провиса между мачтой на вышке и А-образной стойкой за площадкой; высота над площадкой подобрана так,
      чтобы стоящая героиня доставала ручку, а сидящая в обвязке пролетала над настилом.
+     Вершина (отель на горе, js/village/summit.js): с башни-копии во дворе трос шёл бы над своими террасами и над подъездом
+     ниже 2,4 м — старт перенесён на вышку у края нижней террасы, лицом к селу («C11»; пол площадки — 13 м над террасой: при
+     8,7 м трос шёл над последним подъёмом дороги всего в 6,3 м). Трос 458 м по горизонтали (472 м), спуск 116 м (25 %), провис
+     1 %; над склоном, дорогой и крышами — не ниже 10 м, кроме захода на настил финиша (последние ≈ 37 м — над полем у края
+     села, плавно вниз к настилу, как и раньше; замер %TEMP%/lf/s2/qa/zipcheck2.js).
 
    API:
      VILLAGE.zipline.route(space, o?) → { from, to, sag, len, u0, uStop, dir, heading, launch, land, spawn, stopY }
@@ -37,7 +44,7 @@
          W5 «держись крепче» (желание автора): o.hold: true — на скольжении игрок держит палец/кнопку мыши (игра зовёт
          .hold(true) на pointerdown и .hold(false) на pointerup/cancel/blur). Отпустила дольше o.holdGrace (3 с) — фаза 'drop':
          руки разжимаются, героиня мультяшно «парит» вниз (1,3 с, ничего страшного), промис → { ok:false, dropped:true,
-         restart:{x,y,z,ry} (старт на башне, оси route), spawn:'zipline_start' } — игра под шторкой ставит её на старт.
+         restart:{x,y,z,ry} (старт на вышке, оси route), spawn:'zipline_start' } — игра под шторкой ставит её на старт.
          События: 'holdHint' (подготовка), 'grip' {held} (смена), 'slip' {line} (отпустила > o.holdWarn 0,7 с), 'drop' {line},
          'fade' (за 0,45 с до конца падения — шторка). .state().grip = { on, held, free, left, grace }. Без o.hold — как раньше.
      VILLAGE.zipline.ik.arm(anim, side 'L'|'R', grip:Vector3, pole:Vector3, w?) — IK руки (кисть хватом в точку).
@@ -58,7 +65,10 @@
     frame: { x: 508.4, y: 110, z: -315.4, ry: 2.0944 },
     tower: { x: -26, z: -24, floor: 16.6 },
     landing: { x: 53, y: 0, z: 5 },
+    sag: 0.01,
   };
+  // вершина: старт — стартовая вышка на краю нижней террасы (то же — в hotel.js; кто первый, тот и задал)
+  if (!GEO.launch) GEO.launch = { x: -55, z: -99.6, floor: 5.0, base: -8 };
   const toMacro = (x, y, z) => { const F = GEO.frame, c = Math.cos(F.ry), s = Math.sin(F.ry); return { x: F.x + x * c + z * s, y: F.y + y, z: F.z - x * s + z * c }; };
   const toLocal = (X, Y, Z) => { const F = GEO.frame, c = Math.cos(F.ry), s = Math.sin(F.ry), dx = X - F.x, dz = Z - F.z; return { x: dx * c - dz * s, y: Y - F.y, z: dx * s + dz * c }; };
 
@@ -74,11 +84,11 @@
     return { from, to, sag, lenH, len, at, tangent, u: sH => sH / lenH, points: n => { const out = []; for (let i = 0; i <= n; i++) out.push(at(i / n)); return out; } };
   }
 
-  /* ---------- маршрут: мачта на башне → стойка за настилом; высоты под «достаёт ручку» ---------- */
+  /* ---------- маршрут: мачта на вышке (без неё — на башне) → стойка за настилом; высоты под «достаёт ручку» ---------- */
   const BAR_STAND = 1.84, STRAP = 0.5;    // перекладина над ногами стоящей героини; от оси ролика до перекладины
   function route(space, o = {}) {
     const ground = o.ground || (() => GEO.landing.y || 0);
-    const TW = GEO.tower, Lm = GEO.landing;
+    const TW = GEO.launch || GEO.tower, Lm = GEO.landing;
     const tM = toMacro(TW.x, 0, TW.z);
     const dX = Lm.x - tM.x, dZ = Lm.z - tM.z, dl = Math.hypot(dX, dZ), D = { x: dX / dl, z: dZ / dl };
     const gyL = o.landY !== undefined ? o.landY : ground(Lm.x, Lm.z);
@@ -230,9 +240,10 @@
     const cab = cable(R.from, R.to, R.sag), cm = o.cable === false ? null : cableMesh(T, cab, { color: '#4E4A52', fog: true }); if (cm) g.add(cm);
     const colliders = legs.map((f, i) => ({ type: 'circle', x: f.x, z: f.z, r: 0.22, y0: gy - 1, y1: gy + 3.4, id: 'zipLeg' + i }));   // мат низкий — по нему можно пройти
     const spawn = { x: R.spawn.x, y: R.spawn.y, z: R.spawn.z, ry: R.heading };
-    const view = { pos: [L.x - D.x * 5 + side.x * 2.5, gy + 2.4, L.z - D.z * 5 + side.z * 2.5], target: [L.x - D.x * 400, gy + 30, L.z - D.z * 400], fov: 30 };
+    // вид с настила — вверх по тросу, на вышку старта и отель на горе (цель — начало троса, чуть выше: над ним корпус)
+    const view = { pos: [L.x - D.x * 5 + side.x * 2.5, gy + 2.4, L.z - D.z * 5 + side.z * 2.5], target: [R.from.x, R.from.y + 4, R.from.z], fov: 30 };
     const spot = { id: 'zipline_landing', x: L.x - D.x * 1.2, y: gy, z: L.z - D.z * 1.2, r: 1.6, icon: '🪂', label: 'Финиш зиплайна', action: 'Посмотреть на отель',
-      use: () => ({ id: 'zipline_landing', kind: 'view', view: 'zip_hotel', text: 'Вон там, на холме, — отель. А трос — до самой площадки!' }) };
+      use: () => ({ id: 'zipline_landing', kind: 'view', view: 'zip_hotel', text: 'Вон там, на горе, — отель. А трос — с вышки прямо сюда!' }) };
     return { group: g, colliders, spot, spawn, anchor: { x: R.to.x, y: R.to.y, z: R.to.z }, view, route: R,
       dispose() { g.traverse(m => { if (m.geometry) m.geometry.dispose(); }); if (cm && cm.userData.dispose) cm.userData.dispose(); MT.dispose(); if (g.parent) g.parent.remove(g); } };
   }
@@ -371,7 +382,7 @@
     }
 
     // камера: смещение считаем ОТНОСИТЕЛЬНО героини (перекладины) — на 28 м/с нет отставания; финиш — точка на настиле
-    const offCur = new T.Vector3(), lookCur = new T.Vector3(), wantOff = new T.Vector3(), lookOff = new T.Vector3();
+    const offCur = new T.Vector3(), lookCur = new T.Vector3(), wantOff = new T.Vector3(), lookOff = new T.Vector3(), camAbs = new T.Vector3(), lookTmp = new T.Vector3(), herV = new T.Vector3();
     function camera(dt) {
       if (!cam) return;
       if (S.phase === 'drop' && hero) {   // W5: камера остаётся, где была, чуть поднимается и смотрит на героиню
@@ -385,17 +396,29 @@
       else if (S.phase === 'settle' || (S.phase === 'slide' && S.t - PREP > SLIDE - 4.2)) mode = 'land';
       else if (k > 0.36 && k < 0.62) mode = 'front';
       else mode = 'chase';
-      if (mode !== S.camMode) { S.camMode = mode; S.camW = 0; }
+      if (mode !== S.camMode) { S.camFrom = S.camMode; S.camMode = mode; S.camW = 0; }
       S.camW = Math.min(1, S.camW + dt / 1.6);
       const U = (x) => new T.Vector3(0, x, 0);
+      // вершина: трос круто вниз (≈ 24 %) — сзади камера выше на уклон (над тросом, а не под ним), взгляд — вдоль спуска
+      const tg = cab.tangent(clamp(S.s / Lh, 0, 1), tmp.tg), g = Math.max(0, -tg.y / (Math.hypot(tg.x, tg.z) || 1));
       if (mode === 'prep') { wantOff.copy(rootStand).addScaledVector(SIDE, 2.7).addScaledVector(DIR, 2.9).add(U(1.9)).sub(P); lookOff.copy(rootStand).add(U(1.55)).addScaledVector(DIR, 0.6).sub(P); }
-      else if (mode === 'chase') { wantOff.set(0, 0, 0).addScaledVector(DIR, -6.2).addScaledVector(SIDE, 1.7).add(U(1.5)); lookOff.set(0, 0, 0).addScaledVector(DIR, 26).add(U(-4.5)); }
-      else if (mode === 'front') { wantOff.set(0, 0, 0).addScaledVector(DIR, 5.6).addScaledVector(SIDE, -2.4).add(U(0.35)); lookOff.set(0, 0, 0).add(U(-0.55)).addScaledVector(DIR, -1.2); }   // лицом к героине: за ней — трос вверх к отелю
+      else if (mode === 'chase') { wantOff.set(0, 0, 0).addScaledVector(DIR, -6.2).addScaledVector(SIDE, 1.7).add(U(1.5 + 6.2 * g)); lookOff.set(0, 0, 0).addScaledVector(DIR, 26).add(U(-4.5 - 26 * g * 0.75)); }
+      else if (mode === 'front') { wantOff.set(0, 0, 0).addScaledVector(DIR, 5.6).addScaledVector(SIDE, -2.4).add(U(0.35 - 2.8 * g)); lookOff.set(0, 0, 0).add(U(-0.55)).addScaledVector(DIR, -1.2); }   // лицом к героине: за ней — трос вверх к отелю
       else { const L = landP; wantOff.set(L.x, L.y, L.z).addScaledVector(SIDE, 2.9).addScaledVector(DIR, 4.2).add(U(2.3)).sub(P); lookOff.set(0, 0, 0).lerp(new T.Vector3(L.x, L.y + 1.2, L.z).sub(P), S.phase === 'settle' ? 0.6 : 0.25); }
-      if (!camInit) { offCur.copy(wantOff); lookCur.copy(lookOff); camInit = true; }
+      if (!camInit) { offCur.copy(wantOff); lookCur.copy(lookOff); camInit = true; camPos.copy(P).add(offCur); }
       const kk = 1 - Math.exp(-dt * 2.4 * (0.35 + S.camW));
-      offCur.lerp(wantOff, kk); lookCur.lerp(lookOff, Math.min(1, kk * 1.5));
+      // финиш: к точке у настила камера едет в мировых осях (от прошлого кадра), а не «относительно героини»: на 14–20 м/с
+      // относительное сглаживание проносило камеру на 4–8 м за настил, на уровне земли — в стены домов у площадки
+      if (mode === 'land') { camAbs.copy(camPos).lerp(lookTmp.copy(P).add(wantOff), kk * 0.55); offCur.copy(camAbs).sub(P); } else offCur.lerp(wantOff, kk);
+      // смена «сзади» ↔ «спереди»: камера обходит героиню сбоку (по прямой проходила сквозь ролик и трос) и смотрит на неё
+      const swing = (mode === 'front' || mode === 'chase') && (S.camFrom === 'front' || S.camFrom === 'chase') && S.camFrom !== mode && S.camW < 1 ? Math.sin(PI * S.camW) : 0;
+      lookCur.lerp(lookOff, Math.min(1, kk * 1.5));
       camPos.copy(P).add(offCur); camLook.copy(P).add(lookCur);
+      if (swing) camPos.addScaledVector(SIDE, (mode === 'front' ? 2.8 : -2.8) * swing);
+      // пока камера облетает героиню (смена ракурса, начало финиша — камера уходит вперёд к настилу), взгляд — на неё:
+      // сглаженный взгляд отставал и смотрел в склон, героиня выпадала из кадра
+      const wHer = Math.max(Math.min(1, swing * 1.8), mode === 'land' && S.camFrom === 'chase' ? 1 - sst(0.55, 1, S.camW) : 0);
+      if (wHer > 0) { const d1 = lookTmp.copy(camLook).sub(camPos).normalize(), d2 = herV.copy(P).add(U(-0.6)).sub(camPos).normalize(); d1.lerp(d2, wHer).normalize(); camLook.copy(camPos).addScaledVector(d1, 10); }   // поворот взгляда (направления), а не точки: дальняя точка «перевешивала»
       if (o.ground) { const gy = o.ground(camPos.x, camPos.z); if (camPos.y < gy + 1.4) camPos.y = gy + 1.4; }
       cam.position.copy(camPos); cam.lookAt(camLook);
       const fovT = mode === 'land' ? 52 : mode === 'front' ? 54 : mode === 'prep' ? 48 : 60;
