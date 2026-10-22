@@ -168,7 +168,7 @@
     const hotelOpen = o.hotel !== false && !!(V.regions && V.regions.hotel) && (() => { try { return !WORLD.Regions || !WORLD.Regions.hotelLock || WORLD.Regions.hotelLock().ok; } catch (e) { return true; } })();
     const hotel = hotelOpen ? [
       { id: 'hotel', stage: 'hotel', title: 'Отель на вершине', text: ['Дорога мимо школы — и выше, серпантином на гору, к отелю на вершине.', 'Во дворе башня, бассейн под крышей, мини-гольф, купели с паром и костровой круг. Внизу видны дома ступеньками и круглая башня.'], who: ['hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear'], act: 'golf' },
-      { id: 'zipline', stage: 'hotel', title: 'Зиплайн вниз', text: ['С башни во дворе натянут трос — с вершины прямо к домам.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
+      { id: 'zipline', stage: 'hotel', title: 'Зиплайн вниз', text: ['Со стартовой вышки на краю натянут трос — с вершины прямо к домам.', 'Руки — на ручку, сама — в обвязку…'], who: ['hotel_marmot'], act: 'zip' },
     ] : [];
     // волна 5B: параплан с башни — если открыт (CONFIG.UNLOCK.paraglider, вместе с поездкой)
     const flyOpen = (() => { try { return !WORLD.Regions || !WORLD.Regions.flyLock || WORLD.Regions.flyLock().ok; } catch (e) { return true; } })();
@@ -180,9 +180,9 @@
       { id: 'wedding', stage: 'village', title: 'Свадьба во дворе', text: named ? ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Высокие пальтары в кольчугах и войлочных масках пляшут, хлопают и веселят гостей.'] : ['Во дворе большого дома — свадьба: живая музыка, круг танца и общий стол.', 'Высокие ряженые в кольчугах и масках пляшут, хлопают и веселят гостей.'], who: ['wed_bride', 'wed_groom', 'wed_zurna', 'wed_drum', 'wed_aunt', 'paltar'], act: 'dance' },
       { id: 'tower', stage: 'village', title: (A.tower && A.tower.title) || 'Башня', text: ((A.tower_top && A.tower_top.text) || ['Внизу — море облаков и крыши ступеньками.']).slice(0, 2).concat(flyOpen ? ['С площадки башни можно полететь на параплане — над крышами и обратно на землю.'] : []), who: ['eagle', 'owl_keeper', 'spring_hedgehog'] },
     ];
-    // W8: после отеля — назад через площадь, к машине (трос приносит к домам), и вниз
-    const down = [{ id: 'down', stage: 'down', title: 'Вниз, к городу', text: (hotel.length ? ['Трос приносит назад, к домам: через площадь — к машине на парковке.'] : []).concat(['Шпилька за шпилькой — и вот уже знакомые улицы и фонари.']), who: [], last: true }];
     const from = o.from || 'city';
+    // W8: после отеля — назад через площадь, к машине (трос приносит к домам), и вниз; с середины спуска (from 'down') троса не было
+    const down = [{ id: 'down', stage: 'down', title: 'Вниз, к городу', text: (hotel.length && from !== 'down' ? ['Трос приносит назад, к домам: через площадь — к машине на парковке.'] : []).concat(['Шпилька за шпилькой — и вот уже знакомые улицы и фонари.']), who: [], last: true }];
     // W8: порядок — дорога наверх → село → отель (выше села) → назад через село → вниз
     const list = from === 'down' ? down : from === 'hotel' ? hotel.concat(down) : from === 'village' ? village.concat(hotel, down) : up.concat(village, hotel, down);
     return list.map(c => Object.assign({ art: c.id }, c));
@@ -207,6 +207,8 @@
   }
   // строка события модуля гор: { who, text } (озвучена) — с учётом named
   function evLine(src, key, named) { const e = src && src[key]; return e ? pickN(e, named) : null; }
+  // реплики жителя на карточке: у отеля в 2D только мини-гольф — строки енота-тренера про падел и мини-футбол не берём
+  const cardLines = (c, id, named) => { const L = linesOf(id, named); return c.id === 'hotel' ? L.filter(l => !/падел|футбол/i.test(l.text || '')) : L; };
 
   function run(o = {}) {
     ensureCss();
@@ -246,13 +248,13 @@
       const stepName = c => (c.stage === 'up' ? 'Дорога наверх' : c.stage === 'down' ? 'Дорога вниз' : 'Пешком');
       function show(k) {
         const c = list[k]; i = k; seen.push(c.id);
-        const who = c.who.filter(id => linesOf(id, named).length);
+        const who = c.who.filter(id => cardLines(c, id, named).length);
         card.innerHTML = (ART[c.art] ? ART[c.art](P) : '') + `<div class="t2d-body"><div class="t2d-step">${esc(stepName(c))} · ${k + 1} / ${list.length}</div><div class="t2d-title">${esc(c.title)}</div><div class="t2d-text">${c.text.map(t => `<p>${esc(t)}</p>`).join('')}</div>`
           + (who.length ? `<div class="t2d-who">${who.map(id => { const sp = speakerOf(id, named); return `<button type="button" data-who="${esc(id)}"><i>${esc(sp.icon || '🐾')}</i>${esc(sp.name)}</button>`; }).join('')}</div>` : '')
           + `<div class="t2d-act"></div><div class="t2d-note"></div><div class="t2d-acts">${k > 0 && !c.last ? '<button type="button" class="t2d-back">← Назад</button>' : ''}<button type="button" class="t2d-go">${c.last ? 'В город' : 'Дальше →'}</button></div></div>`;
         card.scrollTop = 0;
         card.querySelectorAll('.t2d-who button').forEach(b => b.addEventListener('click', async e => {
-          e.stopPropagation(); const id = b.dataset.who, L = linesOf(id, named); if (!L.length) return;
+          e.stopPropagation(); const id = b.dataset.who, L = cardLines(c, id, named); if (!L.length) return;
           const n = idx[id] || 0; idx[id] = (n + 1) % L.length; talked.push(id); b.classList.add('done');
           try { if (g && g.haptic) g.haptic('light'); } catch (x) { /* нет */ }
           if (say) await say([L[n]]); else card.querySelector('.t2d-note').textContent = speakerOf(id, named).name + ': ' + L[n].text;

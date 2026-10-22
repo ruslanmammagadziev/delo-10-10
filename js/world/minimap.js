@@ -1597,7 +1597,7 @@
         html += st(1, 'Вверх по горной дороге', 'Справа скала, слева обрыв. Лавочки над долиной — по пути.', false) + st(2, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', false)
           + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От школы — серпантином на гору. Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
       } else if (h.rid === 'hotel') {
-        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Башня во дворе — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн с вершины вниз, к домам.')}</small></div></div>`
+        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Стартовая вышка на краю — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн с вершины вниз, к домам.')}</small></div></div>`
           + st(2, 'Или — вниз, в село', 'У ворот — в машину или пешком: серпантином вниз, мимо школы — к площади.', false);
       } else {
         html += st('·', 'Пекарня, родник, башня и базарная площадь', 'Все места — во вкладке «' + mtnTab(named) + '».', false)
@@ -1678,13 +1678,13 @@
       ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 14.9, -9.7], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
       // волна 6: дороги села — школа, школьный двор, разворот у башни
-      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 18.65, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
+      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 5.6, -54, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
       // вершина: начало дороги к отелю (площадка jHotel за школой) и верх дороги — ворота парковки отеля (выход toHotel);
       // места передохнуть по пути — из VILLAGE.SUMMIT.rest (summitRest)
       ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9]],
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', 30, -93.2], ['tower', 'view', -26, -24, 'Смотровая башня'], ['launch', 'zip', -55, -96.2, 'Вышка зиплайна'],
-      ['park', 'parking', -50, 13]],
+      ['park', 'parking', -48.4, 10.1]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
       ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['toVillage', 'gate', 313, 350.4]],
   };
@@ -1693,7 +1693,7 @@
   // подписи точек гор (одинаковые для радара, списка и карточки); named:false — без названия села и этнографии
   function mtnLabel(id, kind, named, rid) {
     const L = {
-      tower: rid === 'hotel' ? 'Башня — старт зиплайна' : 'Башня', square: rid === 'hotel' ? 'Двор с фонтаном' : 'Базарная площадь', bakery: 'Пекарня', spring: 'Родник', spring_lid: 'Родник с крышкой',
+      tower: rid === 'hotel' ? 'Смотровая башня' : 'Башня', launch: 'Вышка зиплайна', square: rid === 'hotel' ? 'Двор с фонтаном' : 'Базарная площадь', bakery: 'Пекарня', spring: 'Родник', spring_lid: 'Родник с крышкой',
       wedding: named ? 'Пальтары и свадьба' : 'Ряженые и свадьба', kaz_try: named ? 'Каз — примерка' : 'Праздничный платок', workshop: 'Мастерская', museum: 'Комната образцов',
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',

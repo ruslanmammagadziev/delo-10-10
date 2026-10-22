@@ -1099,7 +1099,9 @@ body.hud-card-on .toast { top: calc(var(--hud-bar-b) + 8px + var(--hud-card-h, 9
   background: var(--hud-glass-2); color: var(--cherry); box-shadow: 0 4px 0 rgba(58,46,63,.14), 0 8px 18px rgba(58,46,63,.12);
   font-family: inherit; font-size: 13.5px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; z-index: 21; touch-action: manipulation;
 }
-.hud-a2 > i { font-style: normal; font-size: 18px; line-height: 1; }
+.hud-a2 > i { font-style: normal; font-size: 18px; line-height: 1; flex-shrink: 0; }
+/* text-overflow не действует на саму flex-кнопку: длинная подпись — многоточием в span */
+.hud-a2 > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hud-a2:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(58,46,63,.14); }
 /* педали */
 .hud-pedal { width: 64px; border: 0; border-radius: 22px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8px; font-family: inherit; font-size: 13px; font-weight: 900; z-index: 21; touch-action: none; box-shadow: 0 4px 0 rgba(58,46,63,.16); }
