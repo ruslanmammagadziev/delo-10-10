@@ -286,6 +286,7 @@
     if (w > 0) y += (roadTerrain(x, z, rho, beta) - y) * w;
     y = Math.max(y, spurY(rho, beta));
     const yv = villageY(x, z); if (yv > y) y = yv;
+    if (V.SUMMIT && V.SUMMIT.lift) y = V.SUMMIT.lift(x, z, y);   // вершина с отелем к востоку-северо-востоку от села (js/village/summit.js) — та же гора, что в селе и в отеле
     return VSINK ? y - villageSink(x, z) : y;
   }
 
@@ -864,7 +865,9 @@ void main() {
 
     /* --- дальний рельеф: прямоугольная сетка с мелким шагом в середине и крупным по краям --- */
     const axis = (lo, hi, fLo, fHi, fs, cs) => { const a = []; for (let x = lo; x < fLo; x += cs) a.push(x); for (let x = fLo; x < fHi; x += fs) a.push(x); for (let x = fHi; x <= hi; x += cs) a.push(x); return a; };
-    const FX = axis(-1500, 1680, -480, 560, Q.far, HI ? 90 : 120), FZ = axis(-1320, 1800, -270, 610, Q.far, HI ? 90 : 120);   // W6: дорога заходит на запад до x ≈ −390
+    // вершина: гора с отелем (x 250…750, z −100…−560) — полосой средней сетки (≈ 2 шага ближней), иначе с дороги — пирамида из клеток 120 м
+    const axis3 = (A, mid, ms) => { const out = A.filter(v => v < mid[0] || v > mid[1]); for (let v = mid[0]; v <= mid[1]; v += ms) out.push(v); return out.sort((a, b) => a - b).filter((v, i, a) => !i || v - a[i - 1] > ms * 0.4); };
+    const FX = axis3(axis(-1500, 1680, -480, 560, Q.far, HI ? 90 : 120), [560, 780], HI ? 16 : 24), FZ = axis3(axis(-1320, 1800, -270, 610, Q.far, HI ? 90 : 120), [-640, -270], HI ? 16 : 24);   // W6: дорога заходит на запад до x ≈ −390
     const FH = new Float32Array(FX.length * FZ.length);
     // W6++ (шов сеток): дальняя сетка — природный рельеф; под ближнюю её уводит только точный проход ниже. Прежнее
     // опускание «окном» ±11 м на глубину выемки (и ещё на 3 м у полотна) тянуло её вниз и за краем ближней сетки —

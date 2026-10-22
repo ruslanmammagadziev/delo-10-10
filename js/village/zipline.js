@@ -53,9 +53,10 @@
   const angW = a => a - TAU * Math.round(a / TAU);
 
   /* ---------- общая география (то же самое — в hotel.js; кто загрузился первым, тот и задал) ---------- */
+  // вершина (js/village/summit.js задаёт ZIP_GEO раньше): без него — те же числа (прежние: рамка {490, 38, 500, 0.722}, пол 8,6)
   const GEO = V.ZIP_GEO = V.ZIP_GEO || {
-    frame: { x: 490, y: 38, z: 500, ry: 0.722 },
-    tower: { x: -26, z: -24, floor: 8.6 },
+    frame: { x: 508.4, y: 110, z: -315.4, ry: 2.0944 },
+    tower: { x: -26, z: -24, floor: 16.6 },
     landing: { x: 53, y: 0, z: 5 },
   };
   const toMacro = (x, y, z) => { const F = GEO.frame, c = Math.cos(F.ry), s = Math.sin(F.ry); return { x: F.x + x * c + z * s, y: F.y + y, z: F.z - x * s + z * c }; };
@@ -84,7 +85,7 @@
     // мачта: чуть позади середины площадки башни; с точки старта (1,2 м вперёд) перекладина — на высоте рук стоящей
     const mast = { x: tM.x - D.x * 0.3, z: tM.z - D.z * 0.3 };
     const endM = { x: Lm.x + D.x * 2.4, z: Lm.z + D.z * 2.4 };
-    const lenH = Math.hypot(endM.x - mast.x, endM.z - mast.z), sag = +(lenH * 0.02).toFixed(2);
+    const lenH = Math.hypot(endM.x - mast.x, endM.z - mast.z), sag = +(lenH * (GEO.sag || 0.02)).toFixed(2);   // вершина: провис — доля длины из ZIP_GEO (с горы трос туже: 1 %)
     const u0 = 1.5 / lenH, uStop = 1 - 2.4 / lenH;
     const yS = gyL + BAR_STAND + STRAP;                         // ось ролика над настилом
     const yT = GEO.frame.y + TW.floor + BAR_STAND + STRAP;      // ось ролика над площадкой башни (в точке старта)
