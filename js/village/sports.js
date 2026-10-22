@@ -21,6 +21,7 @@
        o.returnTo  — {x,y,z,ry}: куда поставить героиню в конце (по умолчанию — где она стояла до игры: у места)
        o.hide      — [Object3D]: спрятать на время игры (например, h.golf.ball — мяч старого гольфа отеля)
        o.variant   — футбол: 'penalty' (по умолчанию) | 'pass' (пас-пас с Зайкой)
+       o.coach     — кто тренер вместо енота отеля (и катит мяч в пас-пасе): 'pupil_bunny' — Зайчонок-футболист школьного двора
        o.bubbles   — false: не рисовать свои облачка (реплики только через onEvent 'line' / 'hero')
        o.seed      — число: повторяемый случай (тесты)
      ctrl.update(dt) — раз в кадр ВМЕСТО своих anim.update / IA.update / камеры игры (как зиплайн с external:true):
@@ -31,7 +32,8 @@
                        aim(angle,power) / shoot() (гольф), objects() (что добавлено в сцену), ideal() …
      VILLAGE.sports.best() → { padel, football, golf } — лучшие за сессию; VILLAGE.sports.reset() — забыть
      VILLAGE.sports.HOTEL — поля отеля (копия констант js/village/hotel.js: PADEL, PITCH, GREEN) + spots у входов;
-     VILLAGE.sports.spotsFor(h) → места, которых в h.spots ещё нет (padel_play, football_play; golf_putt у отеля уже есть):
+     VILLAGE.sports.spotsFor(h) → места, которых в h.spots ещё нет (padel_play, football_play; golf_putt у отеля уже есть;
+       и на самих кортах: football_court, padel_court, golf_green — с poi, точкой радара): play — игра важнее разговора рядом;
        use() → { kind: 'sport', sport, court, returnTo, npc } — игра зовёт start(sport, …); kind 'golf' старого места — туда же
      VILLAGE.sports.LINES / SPEAKERS — реплики { who, text } (для озвучки) и голоса новых зверят
 
@@ -87,7 +89,15 @@
     golfHoled: { who: 'hotel_raccoon', text: 'В лунке! Отлично!' },
     golfSand: { who: 'hotel_raccoon', text: 'Песочек мячик притормозил.' },
     golfEnd: { who: 'hotel_raccoon', text: 'Все три лунки пройдены! Сыграем ещё?' },
+    // школьный двор села (o.coach: 'pupil_bunny'): тренер и пас-пас — Зайчонок-футболист вместо енота отеля и Зайки
+    pupil_footStart: { who: 'pupil_bunny', text: 'Пенальти! Пять ударов — проведи пальцем к воротам.' },
+    pupil_footPassStart: { who: 'pupil_bunny', text: 'Пас-пас! Я качу мяч — бей с ходу!' },
+    pupil_footEnd: { who: 'pupil_bunny', text: 'Вот это серия! Ещё пять ударов?' },
+    pupil_bunnyPass: [{ who: 'pupil_bunny', text: 'Пас!' }, { who: 'pupil_bunny', text: 'Лови мячик!' }, { who: 'pupil_bunny', text: 'Бей!' }],
+    pupil_bunnyGoal: { who: 'pupil_bunny', text: 'Ура, гол!' },
   };
+  // o.coach → приставка его реплик в LINES (нет своей — говорит енот-тренер отеля)
+  const COACHES = { pupil_bunny: 'pupil_' };
   const SAY = {
     perfect: 'Супер!', good: 'Есть!', weak: 'Достала!', reach: 'Не дотянулась!', early: 'Подожду мячик…', miss: 'Ой, мимо!', point: 'Очко!', win: 'Победа!', lose: 'Ничего, ещё сыграем!',
     goal: 'Гол!', saved: 'Почти!', post: 'Ой, штанга!', wide: 'Мимо… Ничего!', high: 'Высоковато!', serve: 'Подача!',
@@ -112,6 +122,11 @@
       { id: 'padel_play', sport: 'padel', x: 14.6, y: -4, z: -79, r: 1.6, ry: -PI / 2, icon: '🎾', label: 'Падел', action: 'Сыграть в падел' },
       { id: 'football_play', sport: 'football', x: 64, y: -4, z: -65.6, r: 1.7, ry: PI, icon: '⚽', label: 'Мини-футбол', action: 'Пробить пенальти' },
       { id: 'golf_putt', sport: 'golf', x: 20.9, y: -4, z: -51.0, r: 1.6, ry: PI * 0.75, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три лунки' },
+      // и на самих кортах — туда ведут точки карты (poi: id точки радара; «Поехать сюда» ставит прямо на место, лицом по ry):
+      // центральный круг поля (r 3 — сам круг), своя половина падела (на сетке посередине стоять нельзя), середина грина
+      { id: 'football_court', sport: 'football', x: 64, y: -4, z: -79, r: 3.0, ry: PI / 2, icon: '⚽', label: 'Мини-футбол', action: 'Пробить пенальти', poi: 'football' },
+      { id: 'padel_court', sport: 'padel', x: 8, y: -4, z: -84.5, r: 2.6, ry: 0, icon: '🎾', label: 'Падел', action: 'Сыграть в падел', poi: 'padel' },
+      { id: 'golf_green', sport: 'golf', x: 27, y: -4, z: -56, r: 3.0, ry: PI * 0.75, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три лунки', poi: 'green' },
     ],
   };
 
@@ -497,11 +512,13 @@
     const bubbles = o.bubbles !== false;
     const bub = { a: { el: ui.bubA, t: 0, obj: null, y: 1.3 }, h: { el: ui.bubH, t: 0, obj: null, y: 2.15 } };
     const said = [];
+    const coachPre = COACHES[o.coach] || '';
+    const lineOf = k => (coachPre && LINES[coachPre + k]) || LINES[k];   // реплика тренера: своя у o.coach, иначе — енота
     function line(L, obj, sec) {
       if (!L) return; said.push(L.text); if (said.length > 40) said.shift();
       emit('line', { who: L.who, text: L.text, kind });
       if (!bubbles) return;
-      const sp = SPEAKERS[L.who], nm = sp ? sp.name : L.who === 'hotel_raccoon' ? 'Енот-тренер' : '';
+      const sp = SPEAKERS[L.who] || (V.SPEAKERS && V.SPEAKERS[L.who]), nm = sp ? sp.name : L.who === 'hotel_raccoon' ? 'Енот-тренер' : '';
       const b = bub.a; b.el.innerHTML = (nm ? '<b>' + nm + '</b>' : '') + escapeHtml(L.text); b.t = sec || 2.6; b.obj = obj || null; b.y = obj && obj.userData && obj.userData.headY ? obj.userData.headY : 1.35; b.fixed = !obj;
     }
     function heroSay(text, sec) {
@@ -655,7 +672,7 @@
     /* ---------- общее состояние ---------- */
     const C = {
       kind, active: true, ended: false, fading: false, rounds: 0, t: 0,
-      T, K, IK, F, R, court, scene, cam, heroRoot, anim, ia, add, bag, H, hv, camT, ui, line, heroSay, hint, flash, setScore, mainBtn, sideBtn, sfx, emit,
+      T, K, IK, F, R, court, scene, cam, heroRoot, anim, ia, add, bag, H, hv, camT, ui, line, lineOf, heroSay, hint, flash, setScore, mainBtn, sideBtn, sfx, emit,
       heroPlace, heroMove, heroApply, heroAnimate, iaBusy, fitFov, showEnd, hideEnd, curtain, confetti, ptr, said, o, groundY,
       haptic: k => emit('haptic', k),
     };
@@ -1152,7 +1169,7 @@
     function reset() {
       S.kick = 0; S.goals = 0; S.res = []; S.outcome = null; timers.length = 0;
       bunny.root.visible = S.variant === 'pass';
-      C.line(S.variant === 'pass' ? LINES.footPassStart : LINES.footStart, null, 3.2);
+      C.line(C.lineOf(S.variant === 'pass' ? 'footPassStart' : 'footStart'), null, 3.2);
       C.hint(S.variant === 'pass' ? 'Зайка катит мяч — жми, когда он в кольце' : 'Проведи к воротам: куда и как сильно. Или «Удар!»', 5.5);
       C.mainBtn('⚽', 'Удар!');
       C.sideBtn(S.variant === 'pass' ? 'Пенальти' : 'Пас-пас', true);
@@ -1250,7 +1267,7 @@
     function result(o2) {
       S.res.push(o2 === 'goal' ? 'goal' : o2); if (o2 === 'goal') S.goals++;
       S.phase = 'result'; S.t = 0; score();
-      if (o2 === 'goal') { C.flash(SAY.goal); C.sfx('goal'); C.haptic('success'); C.H.celebrate = true; C.confetti.burst(...wpos(0, GH * 0.6, GZ + 0.2), R); C.line(pick(LINES.bearGoal, R), bear.root, 2.4); if (S.variant === 'pass') later(0.9, () => C.line(LINES.bunnyGoal, bunny.root, 1.8)); }
+      if (o2 === 'goal') { C.flash(SAY.goal); C.sfx('goal'); C.haptic('success'); C.H.celebrate = true; C.confetti.burst(...wpos(0, GH * 0.6, GZ + 0.2), R); C.line(pick(LINES.bearGoal, R), bear.root, 2.4); if (S.variant === 'pass') later(0.9, () => C.line(C.lineOf('bunnyGoal'), bunny.root, 1.8)); }
       else if (o2 === 'save') { C.sfx('save'); C.line(Kp.save === 'catch' ? pick(LINES.bearSave, R) : LINES.bearParry, bear.root, 2.2); C.heroSay(SAY.saved, 1.4); }
       else if (o2 === 'post') { C.sfx('post'); C.flash('Дзынь!'); C.line(LINES.bearPost, bear.root, 2.2); C.heroSay(SAY.post, 1.4); }
       else { C.sfx('aww'); C.heroSay(o2 === 'high' ? SAY.high : SAY.wide, 1.4); }
@@ -1261,7 +1278,7 @@
       const res = { goals: S.goals, kicks: FOOT.KICKS, variant: S.variant, shots: S.res.slice() };
       const b = BEST.football; if (!b || res.goals > b.goals) BEST.football = { goals: res.goals, kicks: FOOT.KICKS };
       S.last = res;
-      C.line(LINES.footEnd, null, 2.8);
+      C.line(C.lineOf('footEnd'), null, 2.8);
       const title = res.goals >= 4 ? 'Бомбардир! ⚽' : res.goals >= 2 ? 'Здорово!' : 'Хорошая попытка!';
       later(0.6, () => C.showEnd({ title, text: 'Голов: <b>' + res.goals + ' из ' + FOOT.KICKS + '</b>' + (S.variant === 'pass' ? ' · пас-пас с Зайкой' : ' · пенальти'), best: 'Лучшее за сегодня: ' + BEST.football.goals + ' из ' + FOOT.KICKS,
         extra: [[S.variant === 'pass' ? 'Пенальти' : 'Пас-пас с Зайкой', () => { S.variant = S.variant === 'pass' ? 'penalty' : 'pass'; C.hideEnd(); C.curtain(() => { reset(); C.camT.snap = true; }, null); }]], result: res }));
@@ -1281,7 +1298,7 @@
         if (!Bl.live && S.passT > 1.1) {
           const tx = CONT.x - 0.12, tz = CONT.z + 0.38, Tp = 1.25, dx = tx - Bl.x, dz = tz - Bl.z;
           Bl.vx = dx / Tp; Bl.vz = dz / Tp; Bl.vy = 0; Bl.live = true; S.arrive = C.t + Tp; Bl.roll = true;
-          bunny.kickT = 0; C.line(pick(LINES.bunnyPass, R), bunny.root, 1.3); C.sfx('kick');
+          bunny.kickT = 0; C.line(pick(C.lineOf('bunnyPass'), R), bunny.root, 1.3); C.sfx('kick');
         }
         if (Bl.live && !kick.on && C.t > S.arrive + 0.15) { Bl.live = true; S.phase = 'flight'; S.outcome = 'wide'; S.t = 0; Bl.vx *= 0.8; C.heroSay(SAY.miss, 1.2); }
       }
@@ -1714,7 +1731,7 @@
   function spotsFor(h) {
     // уже есть в регионе (golf_putt отеля — kind 'golf') — не дублируем: игра направляет kind 'golf' сюда же
     return HOTEL.spots.filter(s => !(h && h.spots && h.spots.some(q => q.id === s.id))).map(s => {
-      const sp = Object.assign({}, s);
+      const sp = Object.assign({ play: true }, s);   // play: кнопка игры важнее «Поговорить» рядом (житель — на вторую кнопку)
       sp.use = () => ({ id: s.id, kind: 'sport', sport: s.sport, court: HOTEL[s.sport], returnTo: { x: s.x, y: s.y, z: s.z, ry: s.ry }, npc: 'hotel_raccoon' });
       return sp;
     });

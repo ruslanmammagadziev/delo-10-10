@@ -1812,10 +1812,10 @@
       const R0 = ZR;
       spots.push({ id: 'hotel_view', x: -5, y: 0, z: -35.5, r: 1.5, icon: '🏞️', label: 'Смотровая: вид на село', action: 'Посидеть', seat: [-5, 0.45, -36.9], ry: PI, view: 'hotel_view' });
       spots.push({ id: 'pool_look', x: 34, y: 0, z: 4.7, r: 1.5, icon: '🏊', label: 'Бассейн за стеклом', action: 'Заглянуть в окно', view: 'pool_look' });
-      spots.push({ id: 'golf_putt', x: GREEN.tee[0] - 0.7, y: -4, z: GREEN.tee[1] + 0.6, r: 1.6, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три удара' });
+      spots.push({ id: 'golf_putt', x: GREEN.tee[0] - 0.7, y: -4, z: GREEN.tee[1] + 0.6, r: 1.6, icon: '⛳', label: 'Мини-гольф', action: 'Сыграть: три лунки', play: true });
       spots.push({ id: 'fire_pit', x: FIRE.x, y: -8, z: FIRE.z + 4.3, r: 1.5, icon: '🔥', label: 'Костровой круг', action: 'Посидеть у огня', seat: [FIRE.x, -8 + 0.46, FIRE.z + 3.3], ry: PI, view: 'fire_pit' });
       spots.push({ id: 'spa_look', x: -31, y: -8, z: -47.2, r: 1.6, icon: '♨️', label: 'Купели с паром', action: 'Посмотреть', view: 'spa' });
-      spots.push({ id: 'sports_look', x: 40, y: -4, z: -62, r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Посмотреть', view: 'sports' });   // 4B (NEEDS REGION 1)
+      spots.push({ id: 'sports_look', x: 40, y: -4, z: -62, r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Сыграть', view: 'sports', play: true });   // 4B (NEEDS REGION 1); у енота-тренера — выбор игры
       spots.push({ id: 'pond_look', x: -19.5, y: -8, z: POND.z + POND.rz + 1.3, r: 1.5, icon: '🦆', label: 'Пруд под холмом', action: 'Посмотреть', view: 'pond' });
       spots.push({ id: 'hotel_tower', x: TW.x + TW.rB + 0.8, y: 0, z: TW.z, r: 1.3, icon: '🏰', label: 'Башня во дворе', action: 'Подняться наверх' });
       spots.push({ id: 'zipline_start', x: R0.launch.x, y: TW.floor, z: R0.launch.z, r: 1.0, icon: '🪂', label: 'Зиплайн — в село', action: 'Пристегнуться и ехать!', level: 'top' });
@@ -1825,11 +1825,14 @@
       const USE = {
         hotel_view: s => ({ kind: 'sit', seat: s.seat, ry: s.ry, view: 'hotel_view', activity: 'hotel_view', text: 'Через долину — село с башней. А за ним — горы в террасах.', hero: HERO.view }),
         pool_look: () => { npcHop('hotel_otter'); return { kind: 'view', view: 'pool_look', npc: 'hotel_otter', line: ev('poolLook'), text: 'Бассейн под крышей: голубая вода, а за стеклом — горы.', hero: HERO.pool }; },
-        golf_putt: () => ({ kind: 'golf', golf: GOLF, tries: GOLF.maxTries, stand: GOLF.stance(GOLF.aimAngle()), view: 'golf', npc: 'hotel_raccoon', text: 'Мини-гольф: три удара — попади мячиком в лунку!', hero: HERO.golfStart }),
+        golf_putt: () => ({ kind: 'golf', golf: GOLF, tries: GOLF.maxTries, stand: GOLF.stance(GOLF.aimAngle()), view: 'golf', npc: 'hotel_raccoon', text: 'Мини-гольф: три лунки — попади мячиком в лунку!', hero: HERO.golfStart }),
         fire_pit: s => { npcHop('hotel_bear'); return { kind: 'sit', seat: s.seat, ry: s.ry, view: 'fire_pit', mood: 'evening', npc: 'hotel_bear', line: ev('fireSit'), activity: 'fire_pit', text: 'Огонь потрескивает, а вдали — огоньки села.', hero: HERO.fire }; },
         pond_look: () => ({ kind: 'view', view: 'pond', text: 'Тихий пруд под холмом: в воде — небо, а наверху — отель.', hero: 'Как спокойно!' }),
         spa_look: () => ({ kind: 'view', view: 'spa', line: ev('spaLook'), text: 'Купели парят! Внутрь бани сегодня не заходим — только любуемся.', hero: HERO.spa }),
-        sports_look: () => { npcHop('hotel_raccoon'); return { kind: 'view', view: 'sports', npc: 'hotel_raccoon', line: { who: 'hotel_raccoon', text: LINES.hotel_raccoon[1].text }, text: 'Падел — в стеклянной коробке, рядом — мини-футбол. Мячик выдают бесплатно.', hero: 'Здорово! Сыграем потом.' }; },
+        // у енота-тренера — не только посмотреть: «Во что сыграем?» → игра на своём корте (VILLAGE.sports, места *_court / *_play);
+        // без модуля игр (стенд) — подпись text тостом
+        sports_look: () => { npcHop('hotel_raccoon'); return { kind: 'sport', view: 'sports', npc: 'hotel_raccoon', line: { who: 'hotel_raccoon', text: LINES.hotel_raccoon[1].text }, title: 'Во что сыграем?', text: 'Падел — в стеклянной коробке, рядом — мини-футбол, у дорожки — мини-гольф. Мячик выдают бесплатно.',
+          pick: [{ label: '⚽ Мини-футбол', spots: ['football_court', 'football_play'] }, { label: '🎾 Падел', spots: ['padel_court', 'padel_play'] }, { label: '⛳ Мини-гольф', spots: ['golf_putt', 'golf_green'] }] }; },
         hotel_tower: () => ({ kind: 'teleport', level: 'top', to: [R0.launch.x - R0.dir.x * 0.9, TW.floor, R0.launch.z - R0.dir.z * 0.9], fade: 'Наверх по лестнице…', activity: 'hotel_tower', npc: 'hotel_marmot' }),
         tower_down: () => ({ kind: 'teleport', level: 'ground', to: [TW.x + TW.rB + 0.9, 0, TW.z], fade: '' }),
         zipline_start: () => { npcHop('hotel_marmot'); return { kind: 'zipline', route: ZR, exit: { id: 'zipline', to: 'kubachi', spawn: 'zipline_landing' }, npc: 'hotel_marmot', line: ev('zipReady'), text: 'Держись крепче — и вжу-у-ух, через всю долину!', hero: HERO.zip }; },

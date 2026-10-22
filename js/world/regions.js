@@ -238,7 +238,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
   // строки героини волны 4 — облачком, без голоса (как в стенде): короткие, без имени
   const SAY = {
     bread: 'Ммм, тёплый!', spring: 'Холодненькая!', beret: 'Ой! Мой берет!', beretBack: 'Ха-ха, спасибо!', jingle: 'Звяк-звяк!',
-    holed: 'Ура! В лунку!', sports: 'Здорово! Сыграем потом.', sit: 'Посижу немножко.', back: 'Поехали дальше!',
+    holed: 'Ура! В лунку!', sit: 'Посижу немножко.', back: 'Поехали дальше!',
   };
   const BUNNY_GIVE = [{ who: 'baker_bunny', text: 'Держи! Горячий.' }, { who: 'baker_bunny', text: 'Держи! Тёплый, с хрустом.' }];
   const SOFT_BG = ['#E6EEF6', '#F6E7EB', '#EEF3E2', '#FFF0DC', '#EDE6F6'];
@@ -1239,17 +1239,6 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (gc) HC.getContext = function (type, opt) { return gc.call(this, type, type === '2d' ? Object.assign({ willReadFrequently: true }, opt || {}) : opt); };
       try { return fn(); } finally { if (tni) BG.toNonIndexed = tni; if (gc) HC.getContext = gc; }
     }
-    // отель: падел и мини-футбол — только вид (своего места у hotel.js нет): «Посмотреть» у сетки грина
-    function addSportsSpot(h) {
-      if (!h || !h.spots || h.spots.some(s => s.id === 'sports_look') || !(h.camera && h.camera.views && h.camera.views.sports)) return;
-      const C = [[40, -62], [38, -60], [44, -64], [36, -66], [42, -58]];
-      const at = C.find(([x, z]) => (!h.walkable || h.walkable(x, z)) && Math.abs(h.ground(x, z) + 4) < 0.3);
-      if (!at) return;
-      const V = V_(), RL = V && V.hotel && V.hotel.LINES && V.hotel.LINES.hotel_raccoon;
-      const line = RL && RL[1] ? { who: RL[1].who, text: RL[1].text } : null;
-      h.spots.push({ id: 'sports_look', x: at[0], y: h.ground(at[0], at[1]), z: at[1], r: 1.6, icon: '⚽', label: 'Падел и мини-футбол', action: 'Посмотреть',
-        use: () => ({ id: 'sports_look', kind: 'view', view: 'sports', npc: 'hotel_raccoon', line, text: 'Падел — в стеклянной коробке, рядом — мини-футбол. Мячик выдают бесплатно.', hero: SAY.sports }) });
-    }
     function load(id, from) {
       const mod = REG(id); if (!mod) throw new Error('region ' + id + ' missing');
       // W7: смена места — вид «из-за руля» выключается (камера и её near — уже нового места; включить можно снова)
@@ -1266,8 +1255,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const h = S.h;
       cam.near = (h.camera && h.camera.near) || 0.1; cam.far = (h.camera && h.camera.far) || 1600; cam.updateProjectionMatrix();
       registerSpeakers();
-      if (id === 'hotel') addSportsSpot(h);
-      // W5: падел и мини-футбол — места у настоящих кортов (golf_putt отеля уже есть: теперь он ведёт в новый гольф)
+      // W5: падел и мини-футбол — места у настоящих кортов (golf_putt отеля уже есть: теперь он ведёт в новый гольф); и на самих
+      // кортах (football_court, padel_court, golf_green) — туда ведут точки карты; «⚽ Сыграть» у енота (sports_look, hotel.js) — выбор игры
       if (id === 'hotel' && V.sports && V.sports.spotsFor) { try { V.sports.spotsFor(h).forEach(sp => h.spots.push(sp)); } catch (e) { console.warn('region sports spots', e); } }
       if (id === 'serpentine') fogReset();
       if (hero && hero.root.parent !== scene) scene.add(hero.root);
@@ -1319,7 +1308,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function regionPois() {
       const h = S.h; if (!h) return [];
       const out = [], spot = id => h.spots.find(s => s.id === id), V = V_() || {};
-      const put = (id, kind, x, z, label, extra) => { if (isFinite(x) && isFinite(z)) out.push(Object.assign({ id, kind, x: +x, z: +z, label }, extra || {})); };
+      // точка с местом игры (sp.poi = id: гольф на грине, школьный двор у мяча) — на месте игры: туда и ведёт «Поехать сюда»
+      const put = (id, kind, x, z, label, extra) => { const ps = h.spots.find(s => s.poi === id); if (ps) { x = ps.x; z = ps.z; } if (isFinite(x) && isFinite(z)) out.push(Object.assign({ id, kind, x: +x, z: +z, label }, extra || {})); };
       const at = (id, kind, label, extra) => { const s = spot(id); if (s) put(id, kind, s.x, s.z, label, extra); };
       if (S.rid === 'kubachi') {
         const P = h.places || {};
@@ -1398,12 +1388,15 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (S.mode === 'drive') { await getOut(); if (S.mode !== 'walk') return false; }   // волна 7: за пешей сеткой села getOut сам скажет тостом, почему нет
       iaStop(); standUp();
+      // у точки есть место игры (sp.poi = id точки: футбол, падел, гольф, школьный двор) — прямо на него, лицом по его ry:
+      // кнопка игры видна сразу (раньше — центр корта, а кнопка — у входа, в 6–13 м)
+      const ps = h.spots.find(s => s.poi === q.id && (s.level || 'ground') === 'ground'), tq = ps || q;
       await fade((q.label || '') + '…', async () => {
-        let x = q.x, z = q.z, ok = !h.walkable || h.walkable(x, z);
-        for (let r = 1; !ok && r <= 9; r++) for (let i = 0; i < 16 && !ok; i++) { const a = i / 16 * TAU, tx = q.x + Math.cos(a) * r, tz = q.z + Math.sin(a) * r; if (h.walkable(tx, tz)) { x = tx; z = tz; ok = true; } }
+        let x = tq.x, z = tq.z, ok = !h.walkable || h.walkable(x, z);
+        for (let r = 1; !ok && r <= 9; r++) for (let i = 0; i < 16 && !ok; i++) { const a = i / 16 * TAU, tx = tq.x + Math.cos(a) * r, tz = tq.z + Math.sin(a) * r; if (h.walkable(tx, tz)) { x = tx; z = tz; ok = true; } }
         if (h.collide) { const c = h.collide(x, z, 0.3, h.ground(x, z)); x = c[0]; z = c[1]; }
         S.level = 'ground'; S.view = null; S.sitting = null; S.look = null; S.moveTo = null;
-        const ang = Math.hypot(q.x - x, q.z - z) > 0.3 ? Math.atan2(q.x - x, q.z - z) : S.ang;
+        const ang = ps && ps.ry !== undefined ? ps.ry : Math.hypot(tq.x - x, tq.z - z) > 0.3 ? Math.atan2(tq.x - x, tq.z - z) : S.ang;
         placeHero(x, z, ang, ang);
       }, 'облака расступаются');
       return true;
@@ -1700,6 +1693,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (d.kind === 'zipline') return startZip(d);
       // W5: параплан и спорт; гольф — новый (VILLAGE.sports: три лунки, «Ещё раз»/«Хватит», героиня в конце у коврика)
       if (d.kind === 'fly') return startFly(d);
+      if (d.kind === 'sport' && d.pick) return sportPick(d);
       if (d.kind === 'sport') return startSport(d.sport, d);
       if (d.kind === 'golf' && V_().sports && V_().sports.start) return startSport('golf', { returnTo: { x: sp.x, y: h.ground(sp.x, sp.z), z: sp.z, ry: PI * 0.75 } });
       if (d.kind === 'golf') return startGolf(d);
@@ -2203,8 +2197,20 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
        камеру и свой слой касаний (поверх кнопок региона). */
     const sportsLock = () => featureLock('sports', 'trip');
     const SPORT_SFX = { hit: 'pop', kick: 'pop', putt: 'pop', bounce: 'tap', bump: 'tap', glass: 'chime', post: 'chime', net: 'flutter', swish: 'flutter', whoosh: 'flutter', point: 'chime', goal: 'chime', holed: 'chime', cheer: 'chime', aww: 'blip', save: 'blip' };
+    // «⚽ Сыграть» у енота-тренера (d.pick): «Во что сыграем?» → игра своего корта; место — первое живое из spots (центр корта,
+    // иначе вход): игра ставит героиню на поле, а после неё героиня там — кнопка игры снова рядом
+    async function sportPick(d) {
+      const h = S.h, find = ids => (ids || []).map(id => h.spots.find(s => s.id === id)).find(Boolean);
+      const opts = (d.pick || []).map(o => ({ label: o.label, sp: find(o.spots) })).filter(o => o.sp);
+      if (!opts.length) { toast(d.text || d.title || 'Корты — рядом!', 3200); return; }
+      const n = npcBy(d.npc); if (d.line && !(n && performance.now() - (S.lastGreet[n.id] || -1e9) < 4000)) npcLine(n, d.line, 3000);   // только что поздоровался — без второго облачка
+      const r = await runBusy(() => sheetFn({ title: d.title || 'Во что сыграем?', body: paras([d.text]), actions: opts.map((o, i) => ({ label: o.label, value: i + 1 })).concat([{ label: 'Потом', value: 0, cls: 'soft' }]) }));
+      const o = r ? opts[r - 1] : null;
+      if (o && S.active && S.h === h) await useSpot(o.sp);
+    }
     function startSport(kind, d) {
-      const SP = V_() && V_().sports; if (!SP || !SP.start || S.sport || !hero || S.busy || mvBusy()) return false;
+      const SP = V_() && V_().sports; if (!SP || !SP.start || S.sport || !hero) return false;
+      if (S.busy || mvBusy()) { toast(mvBusy() ? 'Сначала приземлимся — и сыграем!' : 'Секундочку — и сыграем!', 2000); return false; }
       const lk = sportsLock(); if (!lk.ok) { toast(lk.text, 2600); return false; }
       iaStop(); if (IA && IA.drop) iaDrop(); stopGolf(true);
       if (S.pf) S.pf.enable(false);
@@ -2213,10 +2219,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       try {
         S.sport = SP.start(kind, {
           THREE: T, scene, camera: cam, hero, anim: hero.rig && hero.rig.anim, ia: IA, ui: { host: ui.root },
-          court: (d && d.court) || SP.HOTEL[kind], variant: d && d.variant,
+          court: (d && d.court) || SP.HOTEL[kind], variant: d && d.variant, coach: d && d.coach,
           returnTo: (d && d.returnTo) || { x: S.px, y: S.py, z: S.pz, ry: S.ang },
           ground: (x, z) => S.h.ground(x, z),
-          hide: G ? [G.ball, G.putter, G.arrow].filter(Boolean) : [],   // мяч и клюшка старого гольфа отеля
+          // мяч и клюшка старого гольфа отеля; d.hide — что ещё спрятать на время игры (мяч у ворот школьного двора)
+          hide: (G ? [G.ball, G.putter, G.arrow] : []).concat((d && d.hide) || []).filter(Boolean),
           onEvent: (n, e) => {
             if (n === 'line' && e) voiceBubble(e.who, e.text);           // облачка зверят и тренера модуль рисует сам — здесь голос
             else if (n === 'hero' && e && e.text) voiceBubble('hero', e.text);
@@ -2227,7 +2234,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           onEnd: r => sportEnd(r),
         });
       } catch (e) { console.warn('region sport', e); S.sport = null; }
-      if (!S.sport) return false;
+      if (!S.sport) { toast('Игра не запустилась — попробуй ещё раз.', 2400); return false; }
       ui.root.classList.add('sport'); S.sportLog.push('start:' + kind);
       sportHintWatch();
       emit('region:sportStart', { kind });
@@ -2568,12 +2575,15 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function nearest() {
       const h = S.h; if (!h) return null;
       let best = null;
-      const cand = (kind, ref, x, y, z, r, label) => { const d = Math.hypot(S.px - x, S.pz - z); if (d < r && Math.abs((y || 0) - S.py) < 2.4 && (!best || d < best.d)) best = { kind, ref, d, label }; };
+      const top = {};   // ближайший в радиусе по видам: житель (npc) и место мини-игры (play) — для пары кнопок «игра + поговорить»
+      const cand = (kind, ref, x, y, z, r, label) => { const d = Math.hypot(S.px - x, S.pz - z); if (d < r && Math.abs((y || 0) - S.py) < 2.4) { const c = { kind, ref, d, label }, k = kind === 'spot' && ref.play ? 'play' : kind; if (!top[k] || d < top[k].d) top[k] = c; if (!best || d < best.d) best = c; } };
       S.near2 = null;
       if (S.mode === 'walk') {
         h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; const p = n.root.position; cand('npc', n, p.x, p.y, p.z, (n.talkR || 2.2) + (n.id === 'eagle' ? 1.5 : 0), (n.id === 'roof_cat' && S.flags.bread ? 'Угостить: ' : 'Поговорить: ') + n.name); });
         h.spots.forEach(sp => { if ((sp.level || 'ground') !== S.level) return; cand('spot', sp, sp.x, sp.y, sp.z, sp.r || 1.2, (sp.icon ? sp.icon + ' ' : '') + (sp.action || sp.label)); });
         h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if ((ex.level || 'ground') !== S.level) return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });
+        // мини-игра (sp.play) рядом с жителем: главная кнопка — игра, «Поговорить» — вторая (енот-тренер у кортов, Зайчонок у мяча)
+        if (top.play && top.npc && (best === top.play || best === top.npc)) { best = top.play; S.near2 = top.npc; }
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv && S.mode === 'drive') {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;

@@ -2500,17 +2500,20 @@
       for (let i = 0; i < 16; i++) { const a0 = i / 16 * TAU, a1 = (i + 1) / 16 * TAU; line(Math.sin(a0) * 1.8, Math.cos(a0) * 1.8, Math.sin(a1) * 1.8, Math.cos(a1) * 1.8, 0.09); }
       [-1, 1].forEach(sd => { const x0 = sd * PW / 2, x1 = sd * (PW / 2 - 3.0); line(x0, -2.8, x1, -2.8); line(x1, -2.8, x1, 2.8); line(x1, 2.8, x0, 2.8); });
       if (WIN) (pb.noSnow = pb.noSnow || []).push([pn0, pb.n]);
+      const GW = 3, GH = 1.64, GD = 0.9, GX = PW / 2 + 0.05;   // ворота: ширина, высота, глубина сетки, линия ворот (от центра)
       [-1, 1].forEach(sd => {
         // ворота 3 × 1,6 м: белые штанги, перекладина, сетка (тонкие нити)
-        const gx = sd * (PW / 2 + 0.05), post = (z) => pb.box(PF, gx, 0.82, z, 0.09, 1.64, 0.09, { col: rgb('#FFFFFF') });
-        post(-1.5); post(1.5); pb.box(PF, gx, 1.64, 0, 0.09, 0.09, 3.09, { col: rgb('#FFFFFF') });
-        const back = gx + sd * 0.9, net = rgb('#C9CDD2');
-        [-1.5, 1.5].forEach(z => { railSeg(PF, [gx, 1.64, z], [back, 0.2, z], 0.03, net, db); railSeg(PF, [back, 0.02, z], [back, 0.2, z], 0.03, net, db); });
-        for (let k = -3; k <= 3; k++) railSeg(PF, [gx, 1.64, k * 0.5], [back, 0.15, k * 0.5], 0.015, net, db);
-        for (let k = 1; k <= 3; k++) railSeg(PF, [gx + sd * 0.3 * k, 1.64 - 0.5 * k, -1.5], [gx + sd * 0.3 * k, 1.64 - 0.5 * k, 1.5], 0.015, net, db);
-        const c = PF.p(gx + sd * 0.45, 0, 0); colliders.push({ type: 'box', x: c[0], z: c[2], w: 1.0, d: 3.2, ry: PF.ry, y0: y - 0.5, y1: y + 1.7, id: 'goal' }); });
-      // мяч у южных ворот (красно-белый)
-      { const p = PF.p(-PW / 2 + 3.6, 0.17, 1.2); db.sph(p[0], p[1], p[2], 0.17, 0.17, 0.17, (q, ny) => (Math.abs(ny) < 0.35 ? rgb('#FFFFFF') : rgb('#D9455A')), { seg: 8, rings: 6 }); W6.ball = p; }
+        const gx = sd * GX, post = (z) => pb.box(PF, gx, GH / 2, z, 0.09, GH, 0.09, { col: rgb('#FFFFFF') });
+        post(-GW / 2); post(GW / 2); pb.box(PF, gx, GH, 0, 0.09, 0.09, GW + 0.09, { col: rgb('#FFFFFF') });
+        const back = gx + sd * GD, net = rgb('#C9CDD2');
+        [-GW / 2, GW / 2].forEach(z => { railSeg(PF, [gx, GH, z], [back, 0.2, z], 0.03, net, db); railSeg(PF, [back, 0.02, z], [back, 0.2, z], 0.03, net, db); });
+        for (let k = -3; k <= 3; k++) railSeg(PF, [gx, GH, k * 0.5], [back, 0.15, k * 0.5], 0.015, net, db);
+        for (let k = 1; k <= 3; k++) railSeg(PF, [gx + sd * 0.3 * k, GH - 0.5 * k, -GW / 2], [gx + sd * 0.3 * k, GH - 0.5 * k, GW / 2], 0.015, net, db);
+        // id не 'goal': ворота кортов отеля радар ищет по 'goal' (minimap extraPois) — школьные с ними не путаем
+        const c = PF.p(gx + sd * 0.45, 0, 0); colliders.push({ type: 'box', x: c[0], z: c[2], w: 1.0, d: 3.2, ry: PF.ry, y0: y - 0.5, y1: y + 1.7, id: 'yardGoal' }); });
+      // мяч у южных ворот (красно-белый) — своя крошечная сетка (W6.ballB → W6.ballMesh, дочка мелочи двора): на время футбола
+      // во дворе (место school_football) его прячет игра, у неё свой мяч
+      { const p = PF.p(-PW / 2 + 3.6, 0.17, 1.2); W6.ballB = new K.Baker('vc'); W6.ballB.sph(p[0], p[1], p[2], 0.17, 0.17, 0.17, (q, ny) => (Math.abs(ny) < 0.35 ? rgb('#FFFFFF') : rgb('#D9455A')), { seg: 8, rings: 6 }); W6.ball = p; }
       // ограда: цоколь 0,4 м и решётка (крашеная, тёмно-зелёная) по ломаной YARD.fence; ворота на восток
       const iron = WIN ? rgb('#3E4A44') : rgb('#3F5F4E');
       // звено ограды не длиннее 8 м (длинный пролёт делим): уровень — средний по земле трёх точек звена (у дороги двор чуть
@@ -2558,7 +2561,8 @@
       // пустые). За западной оградой видимая земля — фон, опущенный ниже уровня двора (backdrop): стволы — на 15 см ниже двора
       const wX = Y.fence[1][0];
       [[-5.0, -52, 1.0], [-5.0, -61, 1.1], [-5.0, -72, 0.95], [-5.0, -82, 1.05], [-5.0, -47.0, 0.95], [-1.4, -79.5, 1.0], [33.0, -49.6, 1.0], [33.5, -61.5, 0.95], [6, -102, 1.1], [36, -102, 1.0]].forEach(([x, z, s]) => addTree(x, z, s, 'round', x < wX ? Math.min(G(x, z), y) - 0.15 : undefined));
-      W6.yard = { x: Y.x, z: Y.z, y, w: Y.w, d: Y.d, gate: gateP, pitch: { w: PW, d: PD, x: PF.ox, z: PF.oz } };
+      // поле — для футбола во дворе (VILLAGE.sports: поле в осях игры — длинная сторона по +z, ворота на +z — северные, у школы)
+      W6.yard = { x: Y.x, z: Y.z, y, w: Y.w, d: Y.d, gate: gateP, pitch: { w: PW, d: PD, x: PF.ox, z: PF.oz, y: y + 0.04, ry: PF.ry, goalW: GW, goalH: GH, goalD: GD, goalX: GX } };
       W6.cnt = Object.assign(W6.cnt || {}, { yard: bk.count() - t0, yardDetail: db.count() - d0, yardProps: pb.count() - p0 });
     }
     // разворот у башенного холма: низкий бортик из бута по северной кромке, скамейка, указатель; тропинка-ступени к башне
@@ -3640,6 +3644,8 @@
     // волна 6: мелочь двора школы и разворота (прутья ограды, сетки ворот, скамьи, цветы) — отдельной сеткой: дальше ~130 м
     // от камеры она меньше пикселя и прячется (update), как зверята в дальних кадрах
     if (W6.detB) { snowify(W6.detB); const m = add(litMesh(W6.detB.mesh(K.vcMat)), { cast: true }); if (m) { m.name = 'schoolDetail'; m.geometry.computeBoundingSphere(); W6.detMesh = m; } }
+    // мяч двора — дочка мелочи двора (прячется вместе с ней вдали; +1 вызов только вблизи)
+    if (W6.ballB && W6.detMesh) { snowify(W6.ballB); const m = litMesh(W6.ballB.mesh(K.vcMat)); if (m) { m.name = 'yardBall'; m.castShadow = W6.detMesh.castShadow; m.receiveShadow = W6.detMesh.receiveShadow; W6.detMesh.add(m); W6.ballMesh = m; } }
     add(glowB.mesh(K.keep(new T.MeshBasicMaterial({ vertexColors: true }))));
     if (!FAR) { add(carvedMesh()); add(signsMesh()); add(waterMesh(), { order: 3, receive: false }); }
     // повторяющиеся детали (окна, листы кровли, трубы, кроны, стволы, камни): одной обычной сеткой на вид (K.merged) —
@@ -3768,6 +3774,10 @@
     // волна 6: школа — посидеть на скамейке во дворе (вид на двор и школу), звонок у крыльца; скамейка у разворота башни
     if (W6.benches) { const b = W6.benches.find(q => q.id === 'b2'); if (b) S2({ id: 'school_yard', x: b.x + Math.sin(b.ry) * 0.7, y: YARD.y, z: b.z + Math.cos(b.ry) * 0.7, r: 1.3, icon: '🏫', label: 'Школьный двор', action: 'Посидеть', seat: b.seat, ry: b.ry, view: 'school_yard' }); }
     if (W6.school) S2({ id: 'school_bell', x: W6.school.door[0], y: SCHOOL.y, z: W6.school.door[2], r: 1.4, icon: '🔔', label: 'Школа', action: 'Позвонить в звонок' });
+    // футбол во дворе: место у мяча и Зайчонка (южные ворота), бьём в северные — у школы; play — кнопка игры важнее «Поговорить»,
+    // poi — точка радара «Школьный двор» ведёт сюда
+    if (W6.yard && W6.yard.pitch && W6.ball) { const b = W6.ball, P0 = W6.yard.pitch, g = new K.Frame(P0.x, 0, P0.z, P0.ry).p(P0.goalX, 0, 0), x = b[0] + 0.4, z = b[2] - 1.4;
+      S2({ id: 'school_football', x, y: YARD.y, z, r: 2.2, ry: Math.atan2(g[0] - x, g[2] - z), icon: '⚽', label: 'Футбол с Зайчонком', action: 'Пробить пенальти', play: true, poi: 'schoolYard' }); }
     if (W6.towerBench) { const b = W6.towerBench; S2({ id: 'tower_bench', x: b.x + Math.sin(b.ry) * 0.7, y: b.y, z: b.z + Math.cos(b.ry) * 0.7, r: 1.2, icon: '🪑', label: 'Скамейка у башни', action: 'Посидеть', seat: b.seat, ry: b.ry, view: 'tower_park' }); }
     props.carved.filter(c => !c.deco).forEach(c => S2({ id: 'carved_' + c.id, x: c.p[0], y: G(c.p[0], c.p[2]), z: c.p[2], r: 1.6, icon: c.id === 'lions' ? '🦁' : c.id === 'deer' ? '🦌' : '🐦', label: 'Резной камень', action: 'Рассмотреть' }));
     spotsList.forEach(s => { if (s.y === undefined) s.y = G(s.x, s.z); });
@@ -3797,6 +3807,12 @@
         // волна 6: школа и разворот у башни
         school_yard: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'school_yard', npc: 'pupil_kitten', event: 'schoolYard' }),
         school_bell: () => { npcHop('teacher_fox'); npcHop('pupil_bunny'); return { kind: 'toast', text: 'Дзинь-дзинь!', npc: 'teacher_fox', event: 'schoolBell' }; },
+        // футбол во дворе (VILLAGE.sports): поле школы в осях игры — длинная сторона по +z к северным воротам (поворот рамки на +90°);
+        // тренер и пас-пас — Зайчонок (coach), мяч у южных ворот на время игры прячем (у игры свой); без модуля игр — тост text
+        school_football: sp => { npcHop('pupil_bunny'); const P0 = W6.yard.pitch;
+          return { kind: 'sport', sport: 'football', npc: 'pupil_bunny', coach: 'pupil_bunny', hide: W6.ballMesh ? [W6.ballMesh] : [], text: 'Футбол с Зайчонком: пенальти и пас-пас.',
+            court: { x: P0.x, y: P0.y, z: P0.z, ry: P0.ry + PI / 2, w: P0.d, d: P0.w, goalW: P0.goalW, goalH: P0.goalH, goalD: P0.goalD, goalZ: P0.goalX, spotD: 6 },
+            returnTo: { x: sp.x, y: G(sp.x, sp.z), z: sp.z, ry: sp.ry } }; },
         tower_bench: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'tower_park' }),
       };
       spotsList.forEach(s => { if (typeof s.use === 'function') return; s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (s.id.startsWith('carved_') ? () => ({ kind: 'sheet', activity: s.id, event: 'stones3', collect: 'stones' }) : () => ({ kind: 'toast', text: s.label })))(s, ctx)); });
