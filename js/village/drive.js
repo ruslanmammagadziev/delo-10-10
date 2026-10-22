@@ -15,7 +15,7 @@
      update(dt, input) → { bumped, edge, s, e, onRoad, surface }
        input: { thr: -1..1, brake: bool, str: -1..1 } — педали/клавиши; str > 0 — вправо (руль только от игрока)
               { dir: [dx, dz, mag], thr? } — джойстик «покажи, куда ехать» (направление в мире; газ — mag или thr)
-              { auto: true, thr, road?: 'hotel' } — ТОЛЬКО ДЛЯ QA: «виртуальный игрок» (pilot) жмёт газ и крутит руль
+              { auto: true, thr } — ТОЛЬКО ДЛЯ QA: «виртуальный игрок» (pilot) жмёт газ и крутит руль
                 сам — тем же вводом { thr, str }, что и человек; игра его не посылает
      pos, speed, heading, S, cfg, teleport(s | {x, z, ry}), info(), reset(), dispose()
      W6: tap(k 0..1) — лёгкий толчок подвески (камушек со скалы; то же — collider.tap), скорость не меняет;
@@ -37,8 +37,9 @@
      стекла); от героини на время вида видны только руки (своя сетка «руки» по весам скина), остальное спрятано слоем.
    VILLAGE.drive.touchInput({ jx, jy, gas, brake, v }) → { thr, str, brake } — рекомендуемая раскладка телефона:
      палец слева по горизонтали — руль (пропорционально, мягкий центр), педали справа — газ/тормоз (тормоз после остановки — назад).
-   road (из региона): { len, project(x, z, hintS), sample(s), kmax(s, ahead), areas?(x, z, hintS, hintB), surface?(x, z, hintS),
-     branch? } — без road машина ездит «свободно», только по коллайдерам ({type:'box', x, z, w, d, ry} | {type:'circle', x, z, r}).
+   road (из региона): { len, project(x, z, hintS), sample(s), kmax(s, ahead), areas?(x, z, hintS), surface?(x, z, hintS) }
+     — без road машина ездит «свободно», только по коллайдерам ({type:'box', x, z, w, d, ry} | {type:'circle', x, z, r}).
+     Без развилки (W8): ветки к отелю (road.branch, pilot road:'hotel') больше нет — S.rid и S.sb всегда 0.
    ===================================================================== */
 (function () {
   'use strict';
@@ -325,15 +326,7 @@
       const thr = inp.thr == null ? 1 : clamp(inp.thr, -1, 1);
       if (!road) return { thr, str: 0 };
       const smax = steerLimit(), la = 3.4 + 0.42 * Math.abs(S.v), back = thr < 0;
-      const toHotel = inp.road === 'hotel' && road.branch;
-      let Q, P;
-      // W6: к ветке — снизу за 9 м до развилки, сверху (от села) — когда развилка уже рядом (+7 м), раньше — по основной дороге
-      const nearFork = !!road.branch && (S.along >= 0 ? S.s > road.branch.sF - 9 : S.s < road.branch.sF + 7);   // у дорог без ветки (село) — нет
-      if (toHotel && (S.rid === 1 || nearFork)) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(Math.max(0, P.s) + la, 0, road.branch.len)); }
-      // W5: на ветке без road:'hotel' — сперва по ветке к развилке (вход теперь почти поперёк основной дороги: ближайшая точка
-      // основной дороги — за склоном, «по основной» пилот прижимался бы к краю ветки); у самой развилки — на основную
-      else if (road.branch && S.rid === 1 && S.sb > 7) { P = road.branch.project(S.x, S.z, S.sb); Q = road.branch.sample(clamp(P.s - la, 0, road.branch.len)); }
-      else { P = road.project(S.x, S.z, S.s); const al = Math.cos(angDiff(S.ry, P.th)) >= 0 ? 1 : -1; Q = road.sample(clamp(P.s + al * (back ? -la : la), 0, road.len)); }
+      const P = road.project(S.x, S.z, S.s), al0 = Math.cos(angDiff(S.ry, P.th)) >= 0 ? 1 : -1, Q = road.sample(clamp(P.s + al0 * (back ? -la : la), 0, road.len));
       const lane = inp.lane || 0, ax = Q.x + Q.lx * lane, az = Q.z + Q.lz * lane;
       let al2 = angDiff(Math.atan2(ax - S.x, az - S.z), S.ry); if (back) al2 = angDiff(al2 + PI, 0);
       const delta = Math.atan2(2 * cfg.wb * Math.sin(al2), la);
@@ -341,9 +334,8 @@
       // у машины помощников по-прежнему нет. inp.brakes === false — «газ в пол» (проверка мягкого края)
       let thr2 = thr, brk = false;
       if (thr > 0 && inp.brakes !== false && road.kmax && !back) {
-        const v = Math.abs(S.v), Lb = v * v / (2 * cfg.brake * 0.8) + 6, onB = toHotel && (S.rid === 1 || nearFork);
-        const al = Math.cos(angDiff(S.ry, P.th)) >= 0 ? 1 : -1;
-        const k = onB ? 0.06 : al > 0 ? road.kmax(P.s, Lb) : road.kmax(Math.max(0, P.s - Lb), Lb);
+        const v = Math.abs(S.v), Lb = v * v / (2 * cfg.brake * 0.8) + 6;
+        const k = al0 > 0 ? road.kmax(P.s, Lb) : road.kmax(Math.max(0, P.s - Lb), Lb);
         const vSafe = k > 1e-4 ? Math.min(cfg.vmax, Math.sqrt(8.5 / k), (cfg.wMaxHi || cfg.wMax) * 0.95 / k + 2) : cfg.vmax;
         if (v > vSafe + 1.2) { thr2 = 0; brk = true; } else if (v > vSafe) thr2 = 0;
       }
@@ -541,18 +533,11 @@
         // волна 7: упёрлась в край (тупик площадки, угол) — скорость сходит к той, с которой машина на самом деле едет вперёд
         // (иначе стоит на месте «на полном ходу»: спидометр, мотор, «Выйти» недоступно); скольжение вдоль края — как было
         if (edge && dt > 0) { const fwd = ((nx - S.x) * Math.sin(ry) + (nz - S.z) * Math.cos(ry)) / dt, vf = Math.sign(S.v) * Math.max(0, fwd * Math.sign(S.v)); if (Math.abs(vf) < Math.abs(S.v) * 0.6) S.v += (vf - S.v) * Math.min(1, damp(9, dt)); }
-        // концы дорог: дальше — облако (выходы региона); конец ветки к отелю — тоже
+        // концы дорог: дальше — облако (выходы региона)
         const Pm = road.project(nx, nz, S.s);
         if (Pm.s <= 0.02 && S.v * Math.cos(angDiff(ry, Pm.th)) < 0) { S.v = 0; const q0 = road.sample(0.03); nx = q0.x + q0.lx * Pm.e; nz = q0.z + q0.lz * Pm.e; }
         if (Pm.s >= road.len - 0.02 && S.v * Math.cos(angDiff(ry, Pm.th)) > 0) { S.v = 0; const q1 = road.sample(road.len - 0.03); nx = q1.x + q1.lx * Pm.e; nz = q1.z + q1.lz * Pm.e; }
-        let rid = 0, sb = S.sb;
-        if (road.branch && road.areas && A.length > 1) {
-          const Pb = road.branch.project(nx, nz, S.sb); sb = Pb.s;
-          const inB = Math.abs(Pb.e) < (Pb.e > 0 ? Pb.wl : Pb.wr) && Pb.s > 0.5, inM = Math.abs(Pm.e) < (Pm.e > 0 ? Pm.wl : Pm.wr);
-          if (inB && (!inM || Pb.s > 6)) rid = 1;
-          if (rid && Pb.s >= road.branch.len - 0.05 && S.v * Math.cos(angDiff(ry, Pb.th)) > 0) { S.v = 0; const q1 = road.branch.sample(road.branch.len - 0.06); nx = q1.x + q1.lx * Pb.e; nz = q1.z + q1.lz * Pb.e; }
-        }
-        S.s = Pm.s; S.e = Pm.e; S.sb = sb; S.rid = rid; onRoad = true;
+        S.s = Pm.s; S.e = Pm.e; S.sb = 0; S.rid = 0; onRoad = true;
         const ca = Math.cos(angDiff(ry, Pm.th)); if (ca > 0.35) S.along = 1; else if (ca < -0.35) S.along = -1;
       }
       // прочие препятствия: три круга по длине кузова
@@ -945,5 +930,5 @@
     return { on, update, refresh() { st.hero = null; }, get active() { return st.on; }, get blend() { return st.k; }, st, dispose() { on(false); } };
   }
 
-  V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: true, cockpit: true } };
+  V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: false, cockpit: true } };
 })();

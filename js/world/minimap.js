@@ -1194,6 +1194,11 @@
     c.fillStyle = o.col || '#6F5470'; c.fillText(t, x, y);
     c.restore();
   }
+  // плашка «ты здесь» над героиней на обзоре: { x, y — центр, w, h } (шрифт плашки остаётся в c)
+  function heroBadge(c, [hx, hy], vw) {
+    c.font = "900 11.5px 'Nunito', sans-serif"; const w = c.measureText('ты здесь').width + 14;
+    return { x: clamp(hx, w / 2 + 4, vw.bw - w / 2 - 4), y: Math.max(12, hy - 24), w, h: 20 };
+  }
   function lockBadge(c, x, y, t) {
     c.save(); c.font = "800 11px 'Nunito', sans-serif"; const tw = c.measureText(t).width + 26;
     c.fillStyle = 'rgba(58,46,63,.16)'; rrect(c, x - tw / 2, y - 10 + 2, tw, 20, 10); c.fill();
@@ -1277,7 +1282,7 @@
     const V = mapViewer(box, cv, {
       // вершина: у села вся карта — с дорогой к отелю (model.view), основа — прежняя (model.bounds), гора — грубым слоем
       bounds: () => model(sub).view || model(sub).bounds, baseB: () => model(sub).bounds, core: () => model(sub).core,
-      paintBase: (c, s, ox, oz, W, H) => model(sub).paint(c, s, ox, oz, W, H, {}),
+      paintBase: (c, s, ox, oz, W, H) => { const M = model(sub); M.paint(c, s, ox, oz, W, H, { fb: M.far ? M.view : null }); },   // земля тает в грубый слой
       far: () => { const M = model(sub); return M.far ? { b: M.view, paint: (c, s, ox, oz, W, H) => M.paintFar(c, s, ox, oz, W, H) } : null; },   // на всю карту: без пустого угла
       height: (bw, fw, fh) => clamp(bw * fh / fw, 230, Math.min(((ctx.m.clientHeight || 700) * 0.4), 380)),
       // вершина: она на дороге к отелю (за основой) — первый кадр шире: дорога видна ногами, грубый слой не растянут
@@ -1285,10 +1290,11 @@
       focus: () => { const h = heroOf(sub); return h ? { x: h.x, z: h.z } : null; },
       live(c, toS, vs, hits, vw) {
         const r = clamp(8.5 + (vs - vw.fit) * 0.5, 8.5, 12.5);
-        // вершина: дорога к отелю за основой — линией поверх грубого слоя (чёткая при любом приближении)
+        // вершина: дорога к отелю за основой — линией поверх грубого слоя (чёткая при любом приближении); без ручки села (карта
+        // из города: в основе нет проездов) — вся, от площадки jHotel за школой, а не с края основы
         const SL = sub === 'kubachi' && model(sub).far ? summitLine() : null;
         if (SL) {
-          const pts = SL.pts.slice(SL.from), line = (w, col) => { c.beginPath(); pts.forEach((q, i) => { const [sx, sy] = toS(q[0], q[1]); if (i) c.lineTo(sx, sy); else c.moveTo(sx, sy); }); c.lineWidth = Math.max(1.2, w * vs); c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(); };
+          const pts = SL.pts.slice(model(sub).h && model(sub).h.drive ? SL.from : 0), line = (w, col) => { c.beginPath(); pts.forEach((q, i) => { const [sx, sy] = toS(q[0], q[1]); if (i) c.lineTo(sx, sy); else c.moveTo(sx, sy); }); c.lineWidth = Math.max(1.2, w * vs); c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(); };
           line(SL.w + 1.2, 'rgb(196,184,206)'); line(SL.w, 'rgb(214,205,222)');
         }
         // шпильки (без строки в списке)
@@ -1367,7 +1373,9 @@
   }
 
   // ---------- «Обзор»: нарисованная карта дороги в горы ----------
-  const OV_B = { x0: -156, x1: 566, z0: -420, z1: 566 };   // вершина: отель на горе к востоку-северо-востоку (рамка ≈ 508; −315) — обзор и на север
+  // вершина: отель на горе к востоку-северо-востоку (рамка ≈ 508; −315) — обзор и на север; по бокам — ещё по 60 м склонов: окно
+  // обзора выше (по рамке), и на телефоне рамка заполняет его целиком, без пустых полос бумаги слева и справа
+  const OV_B = { x0: -216, x1: 626, z0: -420, z1: 566 };
   const OV_CITY = { x0: -140, x1: -12, z0: 448, z1: 534 };
   const ovCity = (L, x, z) => { const b = (L && L.bounds) || { x0: -121, x1: 121, z0: -84, z1: 78.6 }; return [OV_CITY.x0 + (x - b.x0) / (b.x1 - b.x0) * (OV_CITY.x1 - OV_CITY.x0), OV_CITY.z0 + (z - b.z0) / (b.z1 - b.z0) * (OV_CITY.z1 - OV_CITY.z0)]; };
   // дорога от выезда из города до начала серпантина и «облачный» переезд от ворот к селу (схема, не масштаб)
@@ -1490,7 +1498,7 @@
     const Vw = mapViewer(box, cv, {
       bounds: () => OV_B,
       paintBase: (c, s, ox, oz, W, H) => paintOverview(c, s, ox, oz, W, H, { L, named }),
-      height: bw => clamp(bw * 1.0, 260, Math.min((ctx.m.clientHeight || 700) * 0.42, 400)),
+      height: (bw, fw, fh) => clamp(bw * fh / fw, 260, Math.min((ctx.m.clientHeight || 700) * 0.5, 460)),   // по рамке, не выше половины листа
       zoom0: 1, maxZoom: 4, baseK: 2.6,
       focus: () => { const h = here(); return h ? { x: h.x, z: h.z } : null; },
       live(c, toS, vs, hits, vw) {
@@ -1506,7 +1514,17 @@
         const lab = (t, x, z, o2) => { const [sx, sy] = toS(x, z); if (sx < -40 || sx > vw.bw + 40 || sy < -20 || sy > vw.bh + 20) return; mapLabel(c, t, sx, sy, o2); };
         lab('море облаков', 150, 200, { size: 11, weight: 700, col: '#8FA6BC', font: "'Nunito', sans-serif" });
         if (SLc) lab('серпантин к отелю', SLc[0], SLc[1], { size: 11, weight: 800, col: '#7E6A8E', font: "'Nunito', sans-serif" });
-        if (zr) { const [ax, ay] = toS(zr.from.x, zr.from.z), [bx, by] = toS(zr.to.x, zr.to.z); let a = Math.atan2(by - ay, bx - ax); if (a > PI / 2) a -= PI; if (a < -PI / 2) a += PI; const L2 = Math.hypot(bx - ax, by - ay) || 1, nx2 = -(by - ay) / L2, ny2 = (bx - ax) / L2, sg = ny2 < 0 ? 1 : -1; mapLabel(c, 'зиплайн', ax + (bx - ax) * 0.7 + nx2 * 9 * sg, ay + (by - ay) * 0.7 + ny2 * 9 * sg, { size: 11, rot: a, col: '#5E7F94', font: "'Nunito', sans-serif", weight: 800 }); }
+        // «ты здесь» (рисуется в конце): где плашка — подпись зиплайна её не прячет
+        const h = here(), hb = h ? heroBadge(c, toS(h.x, h.z), vw) : null;
+        if (zr) {
+          const [ax, ay] = toS(zr.from.x, zr.from.z), [bx, by] = toS(zr.to.x, zr.to.z); let a = Math.atan2(by - ay, bx - ax); if (a > PI / 2) a -= PI; if (a < -PI / 2) a += PI;
+          const L2 = Math.hypot(bx - ax, by - ay) || 1, nx2 = -(by - ay) / L2, ny2 = (bx - ax) / L2, sg = ny2 < 0 ? 1 : -1, mx = (ax + bx) / 2, my = (ay + by) / 2;
+          // место подписи вдоль троса: как было (0,7, со стороны села), а занято плашкой «ты здесь» — дальше по тросу или по другую сторону
+          // (не на значке зиплайна посередине)
+          const hit = (x, y) => { for (let k = -2; k <= 2; k++) { const px = x + Math.cos(a) * k * 13, py = y + Math.sin(a) * k * 13; if (hb && Math.abs(px - hb.x) < hb.w / 2 + 7 && Math.abs(py - hb.y) < hb.h / 2 + 7) return true; if (Math.hypot(px - mx, py - my) < 15) return true; } return false; };
+          const at = [0.7, 0.8, 0.3, 0.2].reduce((r, t) => r || [sg, -sg].map(g2 => [ax + (bx - ax) * t + nx2 * 9 * g2, ay + (by - ay) * t + ny2 * 9 * g2]).find(([x, y]) => !hit(x, y)), null);
+          if (at) mapLabel(c, 'зиплайн', at[0], at[1], { size: 11, rot: a, col: '#5E7F94', font: "'Nunito', sans-serif", weight: 800 });
+        }
         // узлы: сначала значки, потом подписи — под значком; занято (вершина: на всей карте город и серпантин рядом) — над ним,
         // справа или слева
         const placed = [], free = (x, y, w, h) => !placed.some(q => Math.abs(q.x - x) * 2 < q.w + w && Math.abs(q.y - y) * 2 < q.h + h);
@@ -1532,14 +1550,11 @@
           if (locks.zip && zr) { const [sx, sy] = toS((zr.from.x + zr.to.x) / 2, (zr.from.z + zr.to.z) / 2 + 24); lockBadge(c, sx, sy, locks.zip.when ? 'с ' + locks.zip.when : 'скоро'); }
         }
         // ты здесь
-        const h = here();
         if (h) {
           const [hx, hy] = toS(h.x, h.z), k2 = (now() % 1600) / 1600;
           c.strokeStyle = rgba('#F2557A', 0.55 * (1 - k2)); c.lineWidth = 2.5; c.beginPath(); c.arc(hx, hy, 7 + k2 * 16, 0, TAU); c.stroke();
           heroArrow(c, hx, hy, 8, -PI / 2);
-          c.font = "900 11.5px 'Nunito', sans-serif"; const t = 'ты здесь', tw = c.measureText(t).width + 14;
-          const lx = clamp(hx, tw / 2 + 4, vw.bw - tw / 2 - 4), ly = Math.max(12, hy - 24);
-          c.fillStyle = '#C2405B'; rrect(c, lx - tw / 2, ly - 10, tw, 20, 10); c.fill(); c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, lx, ly + 0.5);
+          c.fillStyle = '#C2405B'; rrect(c, hb.x - hb.w / 2, hb.y - 10, hb.w, 20, 10); c.fill(); c.font = "900 11.5px 'Nunito', sans-serif"; c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ты здесь', hb.x, hb.y + 0.5);
           hits.push({ id: '@hero', x: hx, y: hy, r: 14 });
         }
       },
@@ -1597,7 +1612,7 @@
         html += st(1, 'Вверх по горной дороге', 'Справа скала, слева обрыв. Лавочки над долиной — по пути.', false) + st(2, 'Ворота села', 'И ты в ' + (named ? villageTitle(true) : 'горном селе') + '!', false)
           + `<div class="wm-step${locks.hotel ? ' lock' : ''}"><b>★</b><div>А ещё выше — отель на вершине<small>${esc(locks.hotel ? locks.hotel.text : 'От школы — серпантином на гору. Двор, бассейн, мини-гольф и зиплайн.')}</small></div></div>`;
       } else if (h.rid === 'hotel') {
-        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Башня во дворе — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн с вершины вниз, к домам.')}</small></div></div>`
+        html += `<div class="wm-step${locks.zip ? ' lock' : ''}"><b>1</b><div>Стартовая вышка на краю — наверх<small>${esc(locks.zip ? locks.zip.text : 'Оттуда — зиплайн с вершины вниз, к домам.')}</small></div></div>`
           + st(2, 'Или — вниз, в село', 'У ворот — в машину или пешком: серпантином вниз, мимо школы — к площади.', false);
       } else {
         html += st('·', 'Пекарня, родник, башня и базарная площадь', 'Все места — во вкладке «' + mtnTab(named) + '».', false)
@@ -1678,13 +1693,13 @@
       ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 14.9, -9.7], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
       // волна 6: дороги села — школа, школьный двор, разворот у башни
-      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 18.65, -66, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
+      ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 5.6, -54, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
       // вершина: начало дороги к отелю (площадка jHotel за школой) и верх дороги — ворота парковки отеля (выход toHotel);
       // места передохнуть по пути — из VILLAGE.SUMMIT.rest (summitRest)
       ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9]],
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', 30, -93.2], ['tower', 'view', -26, -24, 'Смотровая башня'], ['launch', 'zip', -55, -96.2, 'Вышка зиплайна'],
-      ['park', 'parking', -50, 13]],
+      ['park', 'parking', -48.4, 10.1]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
       ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['toVillage', 'gate', 313, 350.4]],
   };
@@ -1693,7 +1708,7 @@
   // подписи точек гор (одинаковые для радара, списка и карточки); named:false — без названия села и этнографии
   function mtnLabel(id, kind, named, rid) {
     const L = {
-      tower: rid === 'hotel' ? 'Башня — старт зиплайна' : 'Башня', square: rid === 'hotel' ? 'Двор с фонтаном' : 'Базарная площадь', bakery: 'Пекарня', spring: 'Родник', spring_lid: 'Родник с крышкой',
+      tower: rid === 'hotel' ? 'Смотровая башня' : 'Башня', launch: 'Вышка зиплайна', square: rid === 'hotel' ? 'Двор с фонтаном' : 'Базарная площадь', bakery: 'Пекарня', spring: 'Родник', spring_lid: 'Родник с крышкой',
       wedding: named ? 'Пальтары и свадьба' : 'Ряженые и свадьба', kaz_try: named ? 'Каз — примерка' : 'Праздничный платок', workshop: 'Мастерская', museum: 'Комната образцов',
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',
@@ -1941,12 +1956,16 @@
   function paintMtn(c, M, s, ox, oz, W, H, o) {
     const V = V_() || {}, rid = M.rid, h = M.h, X = x => (x - ox) * s, Y = z => (z - oz) * s;
     c.save();
-    c.fillStyle = rid === 'serpentine' ? '#E6EEDF' : '#EBF0DF'; c.fillRect(0, 0, W, H);
+    // вершина: под основой — грубый слой (o.fb — его рамка); земля основы у краёв, за которыми он есть, тает в него (без шва
+    // прямоугольником) — отдельным холстом, чтобы таяла только земля: дороги, дома и деревья поверх — как были
+    const fb = M.far && o.fb ? o.fb : null, g = fb ? cnv(W, H).getContext('2d') : c;
+    g.fillStyle = rid === 'serpentine' ? '#E6EEDF' : '#EBF0DF'; g.fillRect(0, 0, W, H);
     // рельеф (у села с вершиной — рампа по всей основе, ту же продолжает грубый слой)
-    hillshade(c, M, s, ox, oz, W, H, rid === 'serpentine' ? 3 : 2, rid === 'serpentine' ? [[220, 230, 234], [216, 233, 206], [228, 237, 204], [243, 238, 214]] : HS_RAMP, rid === 'serpentine' ? 0.06 : 0.1, rid === 'serpentine' ? 0.95 : 0.88, 1.05, M.far ? M.hsFix || (M.hsFix = {}) : null);
+    hillshade(g, M, s, ox, oz, W, H, rid === 'serpentine' ? 3 : 2, rid === 'serpentine' ? [[220, 230, 234], [216, 233, 206], [228, 237, 204], [243, 238, 214]] : HS_RAMP, rid === 'serpentine' ? 0.06 : 0.1, rid === 'serpentine' ? 0.95 : 0.88, 1.05, M.far ? M.hsFix || (M.hsFix = {}) : null);
     // растр земли (виды покрытия)
     const R = M.raster;
-    if (R && R.cv) { c.imageSmoothingEnabled = true; c.drawImage(R.cv, X(R.x0), Y(R.z0), R.nx * R.cell * s, R.nz * R.cell * s); }
+    if (R && R.cv) { g.imageSmoothingEnabled = true; g.drawImage(R.cv, X(R.x0), Y(R.z0), R.nx * R.cell * s, R.nz * R.cell * s); }
+    if (fb) { featherEdges(g, M.bounds, fb, s, ox, oz, W, H); c.drawImage(g.canvas, 0, 0); }
     if (rid === 'kubachi') paintVillage(c, M, s, ox, oz, W, H, o, !!R);
     else if (rid === 'hotel') paintHotel(c, M, s, ox, oz, W, H, o, !!R);
     else paintRoad(c, M, s, ox, oz, W, H, o);
@@ -1962,6 +1981,30 @@
       });
     }
     c.restore();
+  }
+  // земля основы тает у краёв B, за которыми есть грубый слой (рамка fb): на FE м к краю альфа → 0; вдоль края — только там, где
+  // слой есть (у конца его рамки — плавно, без новой ступеньки). Маска — мелкой сеткой (2 м), растянута со сглаживанием: дёшево
+  const FE = 36, smooth = t => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+  function featherEdges(g, B, fb, s, ox, oz, W, H) {
+    const st = 2, nx = Math.ceil((B.x1 - B.x0) / st), nz = Math.ceil((B.z1 - B.z0) / st);
+    const fe = (d, a, lo, hi) => 1 - (1 - smooth(d / FE)) * smooth((a - lo) / FE) * smooth((hi - a) / FE);   // d — метров внутрь от края, a — вдоль
+    const mk = cnv(nx, nz), mx = mk.getContext('2d'), img = mx.createImageData(nx, nz), d = img.data;
+    for (let j = 0; j < nz; j++) {
+      const z = B.z0 + (j + 0.5) * st;
+      for (let i = 0; i < nx; i++) {
+        const x = B.x0 + (i + 0.5) * st;
+        let k = 1;
+        if (fb.x1 > B.x1 + 1) k *= fe(B.x1 - x, z, fb.z0, fb.z1);
+        if (fb.x0 < B.x0 - 1) k *= fe(x - B.x0, z, fb.z0, fb.z1);
+        if (fb.z0 < B.z0 - 1) k *= fe(z - B.z0, x, fb.x0, fb.x1);
+        if (fb.z1 > B.z1 + 1) k *= fe(B.z1 - z, x, fb.x0, fb.x1);
+        d[(j * nx + i) * 4 + 3] = Math.round(255 * k);
+      }
+    }
+    mx.putImageData(img, 0, 0);
+    g.save(); g.globalCompositeOperation = 'destination-in'; g.imageSmoothingEnabled = true;
+    g.drawImage(mk, (B.x0 - ox) * s, (B.z0 - oz) * s, nx * st * s, nz * st * s);
+    g.restore();
   }
   function paintVillage(c, M, s, ox, oz, W, H, o, hasRaster) {
     const V = V_(), kd = V.regions.kubachi.data || {}, X = x => (x - ox) * s, Y = z => (z - oz) * s, h = M.h;
@@ -2478,11 +2521,11 @@
       pois = list; LIVE_POIS[rid] = list.filter(p => !p.far);
     };
     function ensureBase(D) {
-      if (base && base.D === D && base.ver === M.ver) return base;
+      if (base && base.D === D && base.ver === M.ver && base.fe === !!far) return base;   // слой готов — основа ещё раз: тает в него
       const B = M.bounds, ppm = clamp(1.6 * D * 1.1, 1.8, 4.4), s = Math.min(ppm, 1600 / Math.max(B.x1 - B.x0, B.z1 - B.z0));
       const c = cnv((B.x1 - B.x0) * s, (B.z1 - B.z0) * s);
-      M.paint(c.getContext('2d'), s, B.x0, B.z0, c.width, c.height, { mini: true });
-      base = { D, ver: M.ver, cv: c, s, ox: B.x0, oz: B.z0 };
+      M.paint(c.getContext('2d'), s, B.x0, B.z0, c.width, c.height, { mini: true, fb: far ? M.far : null });
+      base = { D, ver: M.ver, cv: c, s, ox: B.x0, oz: B.z0, fe: !!far };
       return base;
     }
     // вершина: грубый слой (MB_FAR) — в простое: высоты кусками (M.startFar), потом рисунок ≈ 1,6 px/м на D 2 (≈ 2 МБ); цвет —

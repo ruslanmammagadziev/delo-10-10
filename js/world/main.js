@@ -290,7 +290,7 @@
           tripOpen: () => !!(S && S.tripOpen && S.tripOpen()),
           onTravelRegion: (rid, poiId, poi) => {
             if (rid === 'city' || !(S && S.regionTrip && S.tripOpen && S.tripOpen())) return false;
-            const at = poi && isFinite(poi.x) ? { x: poi.x, z: poi.z, label: poi.label } : null;
+            const at = poi && isFinite(poi.x) ? { id: poiId, x: poi.x, z: poi.z, label: poi.label } : null;
             // W8 (желание автора): в отель — только через село, от школы серпантином на гору. Пока отеля не было (st.world.hotel),
             // метка «📍» — у начала дороги к отелю (площадка jHotel за школой, Minimap.hotelWay); дальше — как обычно (в первый
             // раз — серпантин, потом — сразу в село: туда загрузчик ведёт сам, R.trip с to 'hotel' и refs.hotelSeen)
