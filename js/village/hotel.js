@@ -554,11 +554,52 @@
         pos.push(x, y, z); col.push(...slopeCol(x, z, y, p));
       }
       for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+      if (ROAD.summit) underRibbon(pos, idx);
       TERR.rings = rings; TERR.NA = NA;
       // волна 6: свой материал рельефа — со ступенями террас по горизонталям (шейдер terraceStripes, уровни как у HGRID)
       const tm = K.keep(K.vcMat.clone()); if (!K.BAKED) K.addRim(tm, 0.6);
       TERR.stripes = VK.terraceStripes(tm, { THREE: T, step: HGRID.step, phase: HGRID.phase, far: 700, dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });
       return meshFrom(pos, col, idx, 'terrainNear', tm);
+    }
+    // вершина: сетка холма вдали крупная (до 10–17 м между вершинами), вершины у дороги опущены (hillY), но между ними плоскость
+    // треугольника поднималась над лентой подъезда до 1,5 м (трава клиньями поперёк полотна). По рёбрам треугольников у дороги
+    // (через 0,5 м): где ребро над лентой — обе его вершины ниже на столько, сколько не хватает (до 4 проходов). Только сетка
+    // рисунка: ходьба — по hillY, а пешком сюда не дойти (у отеля клетки мелкие — правки там в сантиметрах)
+    // ближайшая точка ленты не дальше W: { d, y } или null — сетка 4 м (одна на сборку; ленты и W у обеих сеток рельефа одни)
+    let NWG = null;
+    function nearW(W) {
+      if (!NWG) { const G = new Map(), CS = 4, key = (i, j) => (i + 50000) * 100000 + (j + 50000);
+        for (let i = 0; i < ROAD.N - 1; i++) { const x0 = ROAD.x[i], z0 = ROAD.z[i], x1 = ROAD.x[i + 1], z1 = ROAD.z[i + 1]; if (Math.hypot(x1 - x0, z1 - z0) > 4) continue;
+          for (let a = Math.floor((Math.min(x0, x1) - W) / CS); a <= Math.floor((Math.max(x0, x1) + W) / CS); a++) for (let b = Math.floor((Math.min(z0, z1) - W) / CS); b <= Math.floor((Math.max(z0, z1) + W) / CS); b++) { const k = key(a, b); if (!G.has(k)) G.set(k, []); G.get(k).push(i); } }
+        NWG = (x, z) => { const l = G.get(key(Math.floor(x / CS), Math.floor(z / CS))); if (!l) return null; let bd = W, by = 0, hit = false;
+          for (let n = 0; n < l.length; n++) { const i = l[n], ax = ROAD.x[i], az = ROAD.z[i], vx = ROAD.x[i + 1] - ax, vz = ROAD.z[i + 1] - az, t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1), 0, 1), d = Math.hypot(x - ax - vx * t, z - az - vz * t); if (d <= bd) { bd = d; by = ROAD.y[i] + (ROAD.y[i + 1] - ROAD.y[i]) * t; hit = true; } }
+          return hit ? { d: bd, y: by } : null; }; }
+      return NWG;
+    }
+    function underRibbon(pos, idx) {
+      const W = ROAD.w + 0.45, NV = pos.length / 3, q0 = new Array(NV);
+      for (let v = 0; v < NV; v++) q0[v] = ROAD.near(pos[v * 3], pos[v * 3 + 2]);
+      const near = (v, L) => { const q = q0[v]; return !!q && q.d < W + L; };
+      const E = new Map();   // рёбра у ленты (без повторов)
+      for (let k = 0; k < idx.length; k += 3) for (let m = 0; m < 3; m++) { const a = idx[k + m], b = idx[k + (m + 1) % 3], lo = Math.min(a, b), hi = Math.max(a, b), key = lo * NV + hi; if (E.has(key)) continue;
+        const L = Math.hypot(pos[a * 3] - pos[b * 3], pos[a * 3 + 2] - pos[b * 3 + 2]); if (near(a, L) || near(b, L)) E.set(key, [lo, hi, L]); }
+      // точки рёбер над лентой: (t, высота ленты) — один раз (вдали от ленты шаг — на сколько до неё далеко: расстояние меняется
+      // не быстрее шага), дальше проходы только сравнивают высоты. Над лентой — своя мелкая сетка (клетка 4 м, в ней — отрезки
+      // ближе W): у ROAD.near в клетке сотни отрезков (ищет до 30 м), а точек над лентой — десятки тысяч
+      const nw = nearW(W), S = [];
+      E.forEach(([a, b, L]) => { const P = []; let s = 0;
+        while (s <= L + 1e-6) { const t = Math.min(1, s / L), x = pos[a * 3] + (pos[b * 3] - pos[a * 3]) * t, z = pos[a * 3 + 2] + (pos[b * 3 + 2] - pos[a * 3 + 2]) * t, q = nw(x, z);
+          if (q) { P.push(t, q.y - 0.05); s += 0.5; } else { const r = ROAD.near(x, z); s += Math.max(0.5, (r ? r.d : 30) - W); }
+          if (s > L && s < L + 0.5 && t < 1) s = L; }
+        if (P.length) S.push(a, b, P); });
+      const low = new Float32Array(NV);
+      for (let pass = 0; pass < 4; pass++) {
+        let bad = 0; low.fill(0);
+        for (let k = 0; k < S.length; k += 3) { const a = S[k], b = S[k + 1], P = S[k + 2];
+          for (let m = 0; m < P.length; m += 2) { const t = P[m], over = pos[a * 3 + 1] + (pos[b * 3 + 1] - pos[a * 3 + 1]) * t - P[m + 1]; if (over > 0) { bad++; if (over > low[a]) low[a] = over; if (over > low[b]) low[b] = over; } } }
+        if (!bad) break;
+        for (let v = 0; v < NV; v++) if (low[v] > 0) pos[v * 3 + 1] -= low[v] + 0.01;
+      }
     }
     function slopeCol(x, z, y, p) {
       const n = VK.fbm(x * 0.03 + 3, z * 0.03 - 1, 3), m = VK.vnoise(x * 0.12, z * 0.12);
@@ -601,6 +642,7 @@
         col.push(...mix(c, haze, clamp((d - 420) / 1100, 0, 0.75)));
       }
       for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < NA; j++) { const a = i * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+      if (ROAD.summit) underRibbon(pos, idx);   // вершина: низ подъезда (дальше 280 м от холма) — на дальней сетке
       const fm = K.keep(new T.MeshBasicMaterial({ vertexColors: true, fog: false }));
       TERR.stripesFar = VK.terraceStripes(fm, { THREE: T, step: HGRID.step, phase: HGRID.phase, far: 1100, near: [30, 90], dark: WIN ? [0.6, 0.62, 0.64] : [0.6, 0.7, 0.5], shrub: WIN ? 0.2 : 0.5 });   // волна 6
       const m = meshFrom(pos, col, idx, 'terrainFar', fm);

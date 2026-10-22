@@ -3728,7 +3728,7 @@
         if (!hid) return false; }
       return true;
     }
-    // вершина: с горы (камера выше 20 м и дальше r от башни: скамейки, смотровая и ворота на дороге к отелю) мелочь села меньше
+    // вершина: с горы (камера выше 28 ± 2 м и дальше r от башни: скамейки, смотровая и ворота на дороге к отелю) мелочь села меньше
     // пикселя — не рисуем: реквизит, мелочь у троп и двора, фонари, окна домов села (окна школы — своей сеткой, остаются), трубы,
     // кроны у троп, свадьба, базар, куски ближних террас дальше 200 м (ступени на склонах остаются — шейдер фона). Выключается
     // слой камеры (layers), своя видимость модулей (свадьба, базар) не трогается; list — в конце сборки
@@ -3746,8 +3746,16 @@
       for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < L.max; if (L.m.visible !== on) L.m.visible = on; }
       // вершина: дальний план заливки фона и ленты внешних дорог — кусок грубый, пока камера дальше RF_LOD.D от его края
       RF_LOD.update(c, cam);
-      { const d = Math.hypot(c.x - TOWER.x, c.y, c.z - TOWER.z), vf = c.y > 20 && d > VFAR.r + (VFAR.on ? -15 : 15); if (vf !== VFAR.on) { VFAR.on = vf; VFAR.list.forEach(e => { e.o.layers.mask = vf ? 0 : e.mask; }); }
-        for (const e of VFAR.dist) { const hid = VFAR.on && Math.hypot(c.x - e.x, c.z - e.z) - e.r > 200; if (hid !== e.hid) { e.hid = hid; e.o.layers.mask = hid ? 0 : e.mask; } }
+      // порог по высоте камеры 28 ± 2 м (было 20): по дороге к отелю мелочь села включается/прячется на первой ноге серпантина, где
+      // камера смотрит мимо села (вниз — на юг, село справа за кадром; вверх — село за спиной); при пороге 20 м она появлялась
+      // разом на подходе по плато — прямо перед камерой, едущей вниз (навесы свадьбы и базара, окна, фонари — ≈ 5 пикселей)
+      { const d = Math.hypot(c.x - TOWER.x, c.y, c.z - TOWER.z), vf = c.y > (VFAR.on ? 26 : 30) && d > VFAR.r + (VFAR.on ? -15 : 15); if (vf !== VFAR.on) { VFAR.on = vf; VFAR.list.forEach(e => { e.o.layers.mask = vf ? 0 : e.mask; }); }
+        // куски ближних террас: дальше 200 м — прятать, ближе — показать; в кадре кусок меняется, только если он совсем далеко
+        // (> 320 м, пара пикселей) или уже близко (< 90 м) — иначе ждёт, пока уйдёт из кадра (ступени не «перещёлкиваются» на глазах)
+        const fr = RF_LOD.force ? null : RF_LOD.FR;
+        for (const e of VFAR.dist) { const dd = Math.hypot(c.x - e.x, c.z - e.z) - e.r, hid = VFAR.on && dd > 200; if (hid === e.hid) continue;
+          if (fr && fr.intersectsSphere(e.sph) && (hid ? dd < 320 : dd > 90)) continue;
+          e.hid = hid; e.o.layers.mask = hid ? 0 : e.mask; }
         const oc = VFAR.on && (VOCC.n++ % 6 ? VOCC.on : coreHidden(c)); if (oc !== VOCC.on) { VOCC.on = oc; VOCC.list.forEach(e => { e.o.layers.mask = oc ? 0 : e.mask; }); } }
       // волна 6: с плато (школьный двор, за домом-усадьбой) двор свадьбы закрыт глухим домом в 3 этажа — меш модуля не рисуем,
       // если отрезки от камеры ко всем 8 углам его рамки проходят сквозь дом (−29 тыс. треуг. в кадре со двора школы на юг)
@@ -4110,14 +4118,14 @@
       summit_tele: { pos: [56, 9.5, -86], target: [505, 114, -312], fov: 9 },
       summit_map: { pos: [330, 620, -200.01], target: [330, 0, -200], fov: 55 },
       summit_top: { pos: [560, 113.5, -252], target: [40, -10, -40], fov: 50 },
-      summit_bend: { pos: [250, 46, -300], target: [380, 75, -200], fov: 60 },
+      summit_bend: { pos: [178, 70, -380], target: [250, 55, -280], fov: 60 },   // шпилька 2 и ноги над ней — сверху, снаружи (было [250, 46, −300]: камера внутри горы)
     };
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
     if (ZL && ZL.view) views.zip_hotel = ZL.view;   // W4A: с настила финиша — на отель и трос
 
     if (!FAR) root.traverse(o => { if (!(o.isMesh || o.isPoints || o.isSprite || o.isLine)) return; for (let p = o; p && p !== root; p = p.parent) { if (VFAR.names.test(p.name || '')) { VFAR.list.push({ o, mask: o.layers.mask }); return; }
-      if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
+      if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, sph: g.boundingSphere, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
 
     /* ============== 5.15 ОБНОВЛЕНИЕ КАДРА ============== */
     let tAll = 0, catFollow = 0;
