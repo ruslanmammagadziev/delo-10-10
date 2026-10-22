@@ -1042,6 +1042,14 @@ body.sheet-on .town-dot, body.sheet-on .town-bark { display: none !important; }
 .hud-mrow.on .lc-sw { background: var(--cherry); }
 .hud-mrow.on .lc-sw::after { transform: translateX(18px); }
 .hud-mrow .hud-dot { display: block; top: 8px; right: 8px; }
+/* строк бывает 9–10 («Образ», каз, «В город»), шапка с итогами — до 4 строк: лист растёт до полосы HUD, а на низком
+   экране (360 × 740) строки плотнее — весь список виден без прокрутки */
+.hud-menu .sheet-card { max-height: calc(100% - var(--hud-bar-b) - 8px); }
+@media (max-height: 760px) {
+  .hud-menu .hud-mlist { gap: 4px; padding-top: 4px; padding-bottom: 12px; }
+  .hud-menu .hud-mrow { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+  .hud-menu .hud-mi { width: 32px; height: 32px; font-size: 18px; }
+}
 /* тост: один, под полосой */
 .toast {
   top: calc(var(--hud-bar-b) + 8px); max-width: min(330px, calc(100% - 104px)); width: max-content;
