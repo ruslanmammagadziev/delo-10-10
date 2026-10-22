@@ -1472,7 +1472,7 @@
       { id: 'kubachi', rid: 'kubachi', kind: 'tower', x: 4, z: 10, label: villageTitle(named), line: 'Башня, базарная площадь, пекарня и родник.', poi: 'square', lock: 'trip' },
       { id: 'hotel', rid: 'hotel', kind: 'hotel', x: F.x, z: F.z, label: 'Отель на вершине', line: 'Двор, бассейн, мини-гольф, падел, костёр и вид на вершины.', poi: 'courtyard', lock: 'hotel' },
     ];
-    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'Со стартовой вышки на краю горы — по тросу вниз, к домам.', poi: 'launch', lock: 'zip', small: true });
+    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'Со стартовой вышки на краю вершины — по тросу вниз, к домам.', poi: 'launch', lock: 'zip', small: true });
     const lockOf = n => (n.lock === 'trip' ? locks.trip : n.lock === 'hotel' ? locks.trip || locks.hotel : n.lock === 'zip' ? locks.trip || locks.zip : null);
     let sel = null, showRoute = true;
     const here = () => ovHere(ctx);

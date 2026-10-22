@@ -3143,7 +3143,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const prev = S.rid;
       await fade(enterLabel(id, prev), () => load(id, from || prev), 'облака расступаются');
       if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? HINT.drive() : HINT.walk()); driveTip(); }   // волна 6: из отеля — за рулём; пешком — подсказка про езду
-      if (id === 'hotel') { S.trip.hotel = true; hint('Мини-футбол, падел, мини-гольф, бассейн, костёр — а со стартовой вышки на краю горы зиплайн вниз!', 4200); }
+      if (id === 'hotel') { S.trip.hotel = true; hint('Мини-футбол, падел, мини-гольф, бассейн, костёр — а со стартовой вышки на краю вершины — зиплайн вниз!', 4200); }
       if (id === 'serpentine' && S.dir === 'down') hint(HINT.drive());
     }
     async function leave(to) {
