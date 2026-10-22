@@ -54,13 +54,49 @@
     return FRAME.y + h - 60 * sst(MR - 80, MR, dC);
   }
   // гора = холм отеля со склонами и «полки» под дорогой: где полотно выше склона (насыпь — у шпилек и на последнем подъёме
-  // вокруг южного края площадок), склон поднят к нему: ровно 5,6 м от оси (полотно, обочина, трава), дальше 0,45 вниз —
-  // дорога лежит на плече горы, а не на высокой насыпи (одинаково в селе, в отеле и с серпантина)
-  const BENCH = { flat: 5.6, k: 0.45, drop: 0.6 };
+  // вокруг южного края площадок), склон поднят к нему: ровно 5,6 м от оси (полотно, обочина, трава), дальше откос вниз —
+  // дорога лежит на плече горы, а не на высокой насыпи (одинаково в селе, в отеле и с серпантина).
+  // Откос (bank): 0,45 до 12 м от оси, к 24 м круче — до 1 : 1, дальше 1 : 1; к reach (56 м) полка сходит на нет.
+  // Полка — от всех ног сразу, без ступенек: самый высокий откос из всех точек оси в reach (у каждой — ещё конус c, круче уклона
+  // дороги, — соседи по той же ноге не поднимают полку), но не выше «подъёма» (cut) любой точки оси: от её полки вверх не круче
+  // 1 : 1 — верхняя нога не засыпает нижнюю; у ближайшей точки — прежняя ровная полка. Раньше бралась только ближайшая нога в
+  // клетке поиска: на середине между ногами и на краях клеток 32 м — обрывы до 15 м (видно с вышки, троса и из отеля)
+  const BENCH = { flat: 5.6, k: 0.45, drop: 0.6, d1: 12, d2: 24, k2: 1.0, cut: 1.0, cone: 0.13, reach: 56, fade: 6 };
+  const BIG = 80;
+  function bankDrop(d) {
+    const B = BENCH; if (d <= B.flat) return B.drop;
+    let v = B.drop + B.k * (Math.min(d, B.d1) - B.flat);
+    if (d > B.d1) { const u = Math.min(d, B.d2) - B.d1; v += B.k * u + (B.k2 - B.k) * u * u / (2 * (B.d2 - B.d1)); if (d > B.d2) v += B.k2 * (d - B.d2); }
+    return v + BIG * sst(B.reach - B.fade, B.reach, d);
+  }
+  const cutRise = d => BENCH.cut * Math.max(0, d - BENCH.flat) - BENCH.drop + BIG * sst(BENCH.reach - BENCH.fade, BENCH.reach, d);
+  // верхняя граница полки в клетке 8 м (лениво, на всю жизнь страницы): по хордам её клетки поиска — высота хорды минус откос на
+  // нижней оценке расстояния (от середины клетки минус полудиагональ 5,66 м; откос с расстоянием только растёт). Склон выше неё —
+  // полок нет, без перебора хорд: в отеле так отвечают 2/3 медленных вызовов (сборка −60 мс)
+  function shelfCap(A, L, X, Z) {
+    const i8 = Math.floor(X / 8), j8 = Math.floor(Z / 8), k = i8 * 65536 + j8; let v = A.cap8.get(k); if (v !== undefined) return v;
+    const cx = i8 * 8 + 4, cz = j8 * 8 + 4, BX = A.bx, BZ = A.bz, BY = A.by; v = -1e9;
+    for (let n = 0; n < L.length; n++) {
+      const i = L[n], ax = BX[i], az = BZ[i], vx = BX[i + 1] - ax, vz = BZ[i + 1] - az; let t = ((cx - ax) * vx + (cz - az) * vz) / (vx * vx + vz * vz || 1e-9); t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(cx - ax - vx * t, cz - az - vz * t), b = Math.max(BY[i], BY[i + 1]) - bankDrop(Math.max(0, d - 5.66)); if (b > v) v = b;
+    }
+    A.cap8.set(k, v); return v;
+  }
   function mount(X, Z) {
     const dC = Math.hypot(X - HC.x, Z - HC.z); if (dC > MR) return -1e9;
-    const h = hill(X, Z, dC), q = roadNear(X, Z); if (!q) return h;
-    return Math.max(h, q.y - BENCH.drop - BENCH.k * Math.max(0, q.d - BENCH.flat));
+    const h = hill(X, Z, dC), A = axis(), kk = A.key2(Math.floor(X / A.CG), Math.floor(Z / A.CG)), L = A.bgrid.get(kk);
+    if (!L || h >= A.bymax.get(kk) - BENCH.drop || h >= shelfCap(A, L, X, Z)) return h;   // полки здесь ниже склона
+    const BX = A.bx, BZ = A.bz, BY = A.by, R2 = BENCH.reach * BENCH.reach, c = BENCH.cone, dr = BENCH.drop;
+    let bk = -1e9, ct = 1e9, d1 = 1e9, y1 = 0;
+    for (let k = 0; k < L.length; k++) {
+      const i = L[k], ax = BX[i], az = BZ[i], vx = BX[i + 1] - ax, vz = BZ[i + 1] - az; let t = ((X - ax) * vx + (Z - az) * vz) / (vx * vx + vz * vz || 1e-9); t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const ex = X - ax - vx * t, ez = Z - az - vz * t, e2 = ex * ex + ez * ez; if (e2 >= R2) continue;
+      const d = Math.sqrt(e2), y = BY[i] + (BY[i + 1] - BY[i]) * t, b = y - Math.max(dr + c * d, bankDrop(d)), u = y + Math.max(c * d - dr, cutRise(d));
+      if (b > bk) bk = b; if (u < ct) ct = u; if (d < d1) { d1 = d; y1 = y; }
+    }
+    if (d1 < BENCH.reach) { const b = y1 - bankDrop(d1), u = y1 + cutRise(d1); if (b > bk) bk = b; if (u < ct) ct = u; }
+    const sh = bk < ct ? bk : ct;
+    return sh > h ? sh : h;
   }
   // рельеф региона с горой: где гора выше — гора (плавный стык k), иначе — свой рельеф региона
   const lift = (X, Z, base, k = 6) => { const m = mount(X, Z); return m < base - k ? base : smax(m, base, k); };
@@ -89,16 +125,23 @@
     raw.forEach((p, i) => { X[i] = p[0]; Z[i] = p[1]; if (i) Sx[i] = Sx[i - 1] + Math.hypot(X[i] - X[i - 1], Z[i] - Z[i - 1]); });
     for (let k = 0; k < Kp.length - 1; k++) { const a = keyAt[k], b = keyAt[k + 1]; for (let i = a; i <= b; i++) Y[i] = Kp[k][2] + (Kp[k + 1][2] - Kp[k][2]) * (Sx[i] - Sx[a]) / Math.max(1e-6, Sx[b] - Sx[a]); }
     [PADS.start, PADS.top].forEach(L => { for (let i = 0; i < n; i++) if (Math.hypot(X[i] - L.x, Z[i] - L.z) < L.r + 0.3) Y[i] = L.y; });   // на площадке — ровно (как lands в roadNet)
-    // сетка поиска ближайшей оси (клетка 32 м — полки дальше 32 м от оси не тянутся)
+    // сетка поиска ближайшей оси (клетка 32 м: в клетке — все отрезки ближе 34 м к любой её точке)
     const CG = 32, grid = new Map(), key = (i, j) => i * 4096 + j;
-    for (let i = 0; i < n - 1; i++) { const m = 34; for (let a = Math.floor((Math.min(X[i], X[i + 1]) - m) / CG); a <= Math.floor((Math.max(X[i], X[i + 1]) + m) / CG); a++) for (let b = Math.floor((Math.min(Z[i], Z[i + 1]) - m) / CG); b <= Math.floor((Math.max(Z[i], Z[i + 1]) + m) / CG); b++) { const kk = key(a, b); if (!grid.has(kk)) grid.set(kk, []); grid.get(kk).push(i); } }
-    AX = { n, x: X, z: Z, y: Y, s: Sx, len: Sx[n - 1], key: keyAt, grid, CG, key2: key };
+    const reg = (G, x0, z0, x1, z1, m, i) => { for (let a = Math.floor((Math.min(x0, x1) - m) / CG); a <= Math.floor((Math.max(x0, x1) + m) / CG); a++) for (let b = Math.floor((Math.min(z0, z1) - m) / CG); b <= Math.floor((Math.max(z0, z1) + m) / CG); b++) { const kk = key(a, b); if (!G.has(kk)) G.set(kk, []); G.get(kk).push(i); } };
+    for (let i = 0; i < n - 1; i++) reg(grid, X[i], Z[i], X[i + 1], Z[i + 1], 34, i);
+    // для полок (mount): ось через две точки (хорды ≈ 3 м — на шпильке R 9,5 стрелка 12 см), в клетке — все хорды ближе reach;
+    // bymax — самое высокое полотно в клетке (склон выше него — полок нет, быстрый ответ)
+    const IB = []; for (let i = 0; i < n - 1; i += 3) IB.push(i); IB.push(n - 1);
+    const bx = Float32Array.from(IB, i => X[i]), bz = Float32Array.from(IB, i => Z[i]), by = Float32Array.from(IB, i => Y[i]), bgrid = new Map(), bymax = new Map();
+    for (let i = 0; i < IB.length - 1; i++) reg(bgrid, bx[i], bz[i], bx[i + 1], bz[i + 1], BENCH.reach + 0.5, i);
+    bgrid.forEach((L, kk) => { let m = -1e9; for (const i of L) m = Math.max(m, by[i], by[i + 1]); bymax.set(kk, m); });
+    AX = { n, x: X, z: Z, y: Y, s: Sx, len: Sx[n - 1], key: keyAt, grid, CG, key2: key, bx, bz, by, bgrid, bymax, cap8: new Map() };
     return AX;
   }
   // ближайшая точка оси: { d, y, i, t } или null (дальше 34 м)
   function roadNear(X, Z) {
     const A = axis(), L = A.grid.get(A.key2(Math.floor(X / A.CG), Math.floor(Z / A.CG))); if (!L) return null;
-    let bd = 1e9, by = 0, bi = -1, bt = 0;
+    let bd = 34 * 34, by = 0, bi = -1, bt = 0;
     for (let k = 0; k < L.length; k++) { const i = L[k], ax = A.x[i], az = A.z[i], vx = A.x[i + 1] - ax, vz = A.z[i + 1] - az; let t = ((X - ax) * vx + (Z - az) * vz) / (vx * vx + vz * vz || 1e-9); t = t < 0 ? 0 : t > 1 ? 1 : t; const ex = X - ax - vx * t, ez = Z - az - vz * t, d2 = ex * ex + ez * ez; if (d2 < bd) { bd = d2; bi = i; bt = t; } }
     if (bi < 0) return null; by = A.y[bi] + (A.y[bi + 1] - A.y[bi]) * bt; return { d: Math.sqrt(bd), y: by, i: bi, t: bt };
   }

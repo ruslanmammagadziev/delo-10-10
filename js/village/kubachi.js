@@ -347,7 +347,7 @@
     return { n, x: X, z: Z, s: Sx, key: keyAt };
   }
   // сеть проездов: плотные оси (≈ 1 м), профиль высоты по рельефу baseY(x, z), круги-площадки; быстрый поиск ближайшей оси.
-  // o (волна 7, внешние дороги): defs — свои оси, disks — свои площадки, ri0 — сдвиг номеров осей (s = 1000·(ri + 1) + s),
+  // o (волна 7, внешние дороги): defs — свои оси, disks — свои площадки, ri0 — сдвиг номеров осей (s = SG·(ri + 1) + s),
   // M — запас сетки поиска, lands — ровные площадки на профиле ({x, z, r, y | on: id оси — высота с неё}), ext(L) — высота
   // площадки с чужой сети. Без o — прежняя сеть села (street, tower, up) и её площадки (разворот, карман)
   function roadNet(baseY, o = {}) {
@@ -438,7 +438,9 @@
   // адаптер «дороги» для js/village/drive.js (только чтение): объединение участков — капсулы по осям (круглые концы), круги
   // (парковка, разворот, карман у школы) и прямоугольник площади. areas(x, z) → [{ s, len, e, wl, wr, lx, lz, th, rid, id }]:
   // мягкий край drive.js держит машину внутри объединения (выбирает участок, где кузов вылезает меньше всего). Концов у сети нет
-  // (s всегда в середине: project().s = 1000·(№ оси + 1) + s по оси, len = 1e6) — упираются только в край участков и в выходы.
+  // (s всегда в середине: project().s = SG·(№ оси + 1) + s по оси, len = 1e6) — упираются только в край участков и в выходы.
+  // Шаг SG — 10 000 м: длиннее любой оси (дорога к отелю — 1164 м; при прежних 1000 м её верх читался как ось № 8, которой нет)
+  const SG = 10000;
   function driveNet(RN, extra) {
     const A = [];   // { type: 'seg'|'disk'|'rect', ... }
     RN.roads.forEach(R => { for (let i = 0; i < R.n - 1; i++) A.push({ type: 'seg', R, i, x0: R.x[i], z0: R.z[i], x1: R.x[i + 1], z1: R.z[i + 1], hw: R.hw, kind: R.kind, id: R.id, s0: R.s[i] }); });
@@ -458,10 +460,10 @@
     function qOf(a, x, z) {
       if (a.type === 'seg') {
         const vx = a.x1 - a.x0, vz = a.z1 - a.z0, L = Math.hypot(vx, vz) || 1e-6, ux = vx / L, uz = vz / L, t = ((x - a.x0) * ux + (z - a.z0) * uz);
-        if (t >= 0 && t <= L) { const lx = uz, lz = -ux, e = (x - a.x0) * lx + (z - a.z0) * lz; return { a, s: 1 + a.s0 + t, len: a.R.len + 2, e, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(ux, uz), rid: 0, id: a.id, kind: a.kind, sg: 1000 * (a.R.ri + 1) + a.s0 + t }; }
+        if (t >= 0 && t <= L) { const lx = uz, lz = -ux, e = (x - a.x0) * lx + (z - a.z0) * lz; return { a, s: 1 + a.s0 + t, len: a.R.len + 2, e, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(ux, uz), rid: 0, id: a.id, kind: a.kind, sg: SG * (a.R.ri + 1) + a.s0 + t }; }
         const px = t < 0 ? a.x0 : a.x1, pz = t < 0 ? a.z0 : a.z1, dx = x - px, dz = z - pz, d = Math.hypot(dx, dz), lx = d > 1e-6 ? dx / d : uz, lz = d > 1e-6 ? dz / d : -ux;
         const sl = clamp(a.s0 + t, 0, a.R.len);
-        return { a, s: 1 + sl, len: a.R.len + 2, e: d, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: 1000 * (a.R.ri + 1) + sl };
+        return { a, s: 1 + sl, len: a.R.len + 2, e: d, wl: a.hw, wr: a.hw, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: SG * (a.R.ri + 1) + sl };
       }
       if (a.type === 'disk') { const dx = x - a.x, dz = z - a.z, d = Math.hypot(dx, dz), lx = d > 1e-6 ? dx / d : 1, lz = d > 1e-6 ? dz / d : 0; return { a, s: 1, len: 3, e: d, wl: a.r, wr: a.r, lx, lz, th: Math.atan2(-lz, lx), rid: 0, id: a.id, kind: a.kind, sg: 900000 }; }
       // прямоугольник: ось с наименьшим запасом (у угла — та, по которой вылез сильнее)
@@ -481,9 +483,9 @@
     // на площадке (круг, площадь) — ось дороги, что через неё идёт (пилот и следилка едут по дороге, а не к центру площади)
     function project(x, z) { const L = areas(x, z), q = L[0].sg >= 900000 ? (L.find(p => p.sg < 900000) || L[0]) : L[0]; return Object.assign({}, q, { s: q.sg, len: 1e6, rs: q.s }); }
     function sample(s) {
-      const ri = Math.floor(s / 1000) - 1, R = RN.roads[ri];
+      const ri = Math.floor(s / SG) - 1, R = RN.roads[ri];
       if (!R) { const r0 = A.find(a => a.type === 'rect') || A[0]; return { x: r0.x !== undefined ? r0.x : r0.x0, z: r0.z !== undefined ? r0.z : r0.z0, th: 0, lx: 1, lz: 0, y: 0 }; }
-      const sl = clamp(s - 1000 * (ri + 1), 0, R.len); let i = 0; while (i < R.n - 2 && R.s[i + 1] < sl) i++;
+      const sl = clamp(s - SG * (ri + 1), 0, R.len); let i = 0; while (i < R.n - 2 && R.s[i + 1] < sl) i++;
       const t = clamp((sl - R.s[i]) / Math.max(1e-6, R.s[i + 1] - R.s[i]), 0, 1), vx = R.x[i + 1] - R.x[i], vz = R.z[i + 1] - R.z[i], L = Math.hypot(vx, vz) || 1;
       return { x: R.x[i] + vx * t, z: R.z[i] + vz * t, y: R.y[i] + (R.y[i + 1] - R.y[i]) * t, th: Math.atan2(vx, vz), lx: vz / L, lz: -vx / L };
     }
@@ -491,8 +493,8 @@
     // волна 7: кривизна осей (1/R) — следилка отъезжает на поворотах и шпильках, пилот тормозит перед ними; у площадок — 0
     const KAP = RN.roads.map(R => { const k = new Float32Array(R.n); for (let i = 1; i < R.n - 1; i++) { const a1 = Math.atan2(R.x[i] - R.x[i - 1], R.z[i] - R.z[i - 1]), a2 = Math.atan2(R.x[i + 1] - R.x[i], R.z[i + 1] - R.z[i]), d = Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)); k[i] = Math.abs(d) / Math.max(0.3, (R.s[i + 1] - R.s[i - 1]) / 2); } return k; });
     function kmax(s, ahead) {
-      const ri = Math.floor(s / 1000) - 1, R = RN.roads[ri]; if (!R) return 0;
-      const sl = s - 1000 * (ri + 1), K = KAP[ri]; let m = 0;
+      const ri = Math.floor(s / SG) - 1, R = RN.roads[ri]; if (!R) return 0;
+      const sl = s - SG * (ri + 1), K = KAP[ri]; let m = 0;
       for (let i = 1; i < R.n - 1; i++) if (R.s[i] >= sl && R.s[i] <= sl + ahead) m = Math.max(m, (K[i - 1] + K[i] + K[i + 1]) / 3);   // впереди (как у серпантина: назад — s − ahead)
       return m;
     }
@@ -3726,7 +3728,7 @@
         if (!hid) return false; }
       return true;
     }
-    // вершина: с горы (камера выше 20 м и дальше r от башни: скамейки, смотровая и ворота на дороге к отелю) мелочь села меньше
+    // вершина: с горы (камера выше 28 ± 2 м и дальше r от башни: скамейки, смотровая и ворота на дороге к отелю) мелочь села меньше
     // пикселя — не рисуем: реквизит, мелочь у троп и двора, фонари, окна домов села (окна школы — своей сеткой, остаются), трубы,
     // кроны у троп, свадьба, базар, куски ближних террас дальше 200 м (ступени на склонах остаются — шейдер фона). Выключается
     // слой камеры (layers), своя видимость модулей (свадьба, базар) не трогается; list — в конце сборки
@@ -3744,8 +3746,16 @@
       for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < L.max; if (L.m.visible !== on) L.m.visible = on; }
       // вершина: дальний план заливки фона и ленты внешних дорог — кусок грубый, пока камера дальше RF_LOD.D от его края
       RF_LOD.update(c, cam);
-      { const d = Math.hypot(c.x - TOWER.x, c.y, c.z - TOWER.z), vf = c.y > 20 && d > VFAR.r + (VFAR.on ? -15 : 15); if (vf !== VFAR.on) { VFAR.on = vf; VFAR.list.forEach(e => { e.o.layers.mask = vf ? 0 : e.mask; }); }
-        for (const e of VFAR.dist) { const hid = VFAR.on && Math.hypot(c.x - e.x, c.z - e.z) - e.r > 200; if (hid !== e.hid) { e.hid = hid; e.o.layers.mask = hid ? 0 : e.mask; } }
+      // порог по высоте камеры 28 ± 2 м (было 20): по дороге к отелю мелочь села включается/прячется на первой ноге серпантина, где
+      // камера смотрит мимо села (вниз — на юг, село справа за кадром; вверх — село за спиной); при пороге 20 м она появлялась
+      // разом на подходе по плато — прямо перед камерой, едущей вниз (навесы свадьбы и базара, окна, фонари — ≈ 5 пикселей)
+      { const d = Math.hypot(c.x - TOWER.x, c.y, c.z - TOWER.z), vf = c.y > (VFAR.on ? 26 : 30) && d > VFAR.r + (VFAR.on ? -15 : 15); if (vf !== VFAR.on) { VFAR.on = vf; VFAR.list.forEach(e => { e.o.layers.mask = vf ? 0 : e.mask; }); }
+        // куски ближних террас: дальше 200 м — прятать, ближе — показать; в кадре кусок меняется, только если он совсем далеко
+        // (> 320 м, пара пикселей) или уже близко (< 90 м) — иначе ждёт, пока уйдёт из кадра (ступени не «перещёлкиваются» на глазах)
+        const fr = RF_LOD.force ? null : RF_LOD.FR;
+        for (const e of VFAR.dist) { const dd = Math.hypot(c.x - e.x, c.z - e.z) - e.r, hid = VFAR.on && dd > 200; if (hid === e.hid) continue;
+          if (fr && fr.intersectsSphere(e.sph) && (hid ? dd < 320 : dd > 90)) continue;
+          e.hid = hid; e.o.layers.mask = hid ? 0 : e.mask; }
         const oc = VFAR.on && (VOCC.n++ % 6 ? VOCC.on : coreHidden(c)); if (oc !== VOCC.on) { VOCC.on = oc; VOCC.list.forEach(e => { e.o.layers.mask = oc ? 0 : e.mask; }); } }
       // волна 6: с плато (школьный двор, за домом-усадьбой) двор свадьбы закрыт глухим домом в 3 этажа — меш модуля не рисуем,
       // если отрезки от камеры ко всем 8 углам его рамки проходят сквозь дом (−29 тыс. треуг. в кадре со двора школы на юг)
@@ -3932,7 +3942,10 @@
     // вершина: гору с площадками отеля рисует фон села (bgY + SUMMIT.mount) — у отеля вдали без холма, стены с цоколем
     let ZL = null, HOTD = null;
     if (!FAR && opts.hotelDistant !== false && V.regions && V.regions.hotel && typeof V.regions.hotel.distant === 'function') {
-      try { HOTD = V.regions.hotel.distant(T, season, SUMMIT ? { hill: false, foot: 2.5 } : {}); HOTD.traverse(m => { if (m.isMesh || m.isLine) { m.userData.noRay = true; m.castShadow = false; m.receiveShadow = false; } }); root.add(HOTD); } catch (e) { console.warn('village: hotel distant', e); HOTD = null; }
+      try { HOTD = V.regions.hotel.distant(T, season, SUMMIT ? { hill: false, foot: 2.5, gate: true } : {}); HOTD.traverse(m => { if (m.isMesh || m.isLine) { m.userData.noRay = true; m.castShadow = false; m.receiveShadow = false; } }); root.add(HOTD); } catch (e) { console.warn('village: hotel distant', e); HOTD = null; }
+      // вершина: въезд у ворот парковки (асфальт, столбы, щит «Отель», берёзы) — только ближе 250 м от середины парковки (снизу,
+      // со склона, площадку закрывает бровка горы — включение не видно)
+      if (HOTD && HOTD.userData.near) HOTD.userData.near.forEach(n => DISTLOD.push({ m: n.m, x: n.x, z: n.z, r: 0, max: 250 }));
     }
     if (!FAR && opts.zipLanding !== false && V.zipline && typeof V.zipline.buildLanding === 'function') {
       try {
@@ -4047,9 +4060,10 @@
         school_yard: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'school_yard', npc: 'pupil_kitten', event: 'schoolYard' }),
         school_bell: () => { npcHop('teacher_fox'); npcHop('pupil_bunny'); return { kind: 'toast', text: 'Дзинь-дзинь!', npc: 'teacher_fox', event: 'schoolBell' }; },
         // футбол во дворе (VILLAGE.sports): поле школы в осях игры — длинная сторона по +z к северным воротам (поворот рамки на +90°);
-        // тренер и пас-пас — Зайчонок (coach), мяч у южных ворот на время игры прячем (у игры свой); без модуля игр — тост text
-        school_football: sp => { npcHop('pupil_bunny'); const P0 = W6.yard.pitch;
-          return { kind: 'sport', sport: 'football', npc: 'pupil_bunny', coach: 'pupil_bunny', hide: W6.ballMesh ? [W6.ballMesh] : [], text: 'Футбол с Зайчонком: пенальти и пас-пас.',
+        // тренер и пас-пас — Зайчонок (coach), мяч у южных ворот на время игры прячем (у игры свой); без модуля игр — тост text.
+        // Сам Зайчонок на время игры тоже уходит (тело NPC): в пас-пасе мяч катит он же — в игре, в своей синей майке
+        school_football: sp => { npcHop('pupil_bunny'); const P0 = W6.yard.pitch, pb = npcs.find(q => q.id === 'pupil_bunny');
+          return { kind: 'sport', sport: 'football', npc: 'pupil_bunny', coach: 'pupil_bunny', hide: [W6.ballMesh, pb && pb.body].filter(Boolean), text: 'Футбол с Зайчонком: пенальти и пас-пас.',
             court: { x: P0.x, y: P0.y, z: P0.z, ry: P0.ry + PI / 2, w: P0.d, d: P0.w, goalW: P0.goalW, goalH: P0.goalH, goalD: P0.goalD, goalZ: P0.goalX, spotD: 6 },
             returnTo: { x: sp.x, y: G(sp.x, sp.z), z: sp.z, ry: sp.ry } }; },
         tower_bench: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'tower_park' }),
@@ -4107,14 +4121,14 @@
       summit_tele: { pos: [56, 9.5, -86], target: [505, 114, -312], fov: 9 },
       summit_map: { pos: [330, 620, -200.01], target: [330, 0, -200], fov: 55 },
       summit_top: { pos: [560, 113.5, -252], target: [40, -10, -40], fov: 50 },
-      summit_bend: { pos: [250, 46, -300], target: [380, 75, -200], fov: 60 },
+      summit_bend: { pos: [178, 70, -380], target: [250, 55, -280], fov: 60 },   // шпилька 2 и ноги над ней — сверху, снаружи (было [250, 46, −300]: камера внутри горы)
     };
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
     if (ZL && ZL.view) views.zip_hotel = ZL.view;   // W4A: с настила финиша — на отель и трос
 
     if (!FAR) root.traverse(o => { if (!(o.isMesh || o.isPoints || o.isSprite || o.isLine)) return; for (let p = o; p && p !== root; p = p.parent) { if (VFAR.names.test(p.name || '')) { VFAR.list.push({ o, mask: o.layers.mask }); return; }
-      if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
+      if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, sph: g.boundingSphere, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
 
     /* ============== 5.15 ОБНОВЛЕНИЕ КАДРА ============== */
     let tAll = 0, catFollow = 0;
@@ -4207,7 +4221,7 @@
     /* ============== 5.15b ВОЛНА 6: ЕЗДА ПО СЕЛУ — данные для контроллера машины (js/village/drive.js) ============== */
     // участки: оси проездов (капсулы), круги (парковка, разворот у башни, карман у школы), прямоугольник площади
     const SQ_DRIVE = { id: 'square', kind: 'cobble', x: SQUARE.x + 1.0 * Math.cos(SQUARE.ry), z: SQUARE.z - 1.0 * Math.sin(SQUARE.ry), w: 20.4, d: 9.8, ry: SQUARE.ry };
-    // волна 7: одна сеть для машины — прежние проезды и внешние дороги (номера осей подряд: s = 1000·(ri + 1) + s)
+    // волна 7: одна сеть для машины — прежние проезды и внешние дороги (номера осей подряд: s = SG·(ri + 1) + s, SG = 10 000)
     const ALLNET = FAR ? null : { roads: model.RN.roads.concat(OUTR.net.roads), disks: model.RN.disks.concat(OUTR.net.disks) };
     const DNET = FAR ? null : driveNet(ALLNET, { disks: [{ id: 'park', x: PARK.x, z: PARK.z, r: 5.4, kind: 'cobble' }], rects: [SQ_DRIVE] });
     // где ставить машину: на парковке (как раньше), на площади, у разворота башни, у школы, наверху у дороги к отелю (носом вниз)
