@@ -1472,7 +1472,7 @@
       { id: 'kubachi', rid: 'kubachi', kind: 'tower', x: 4, z: 10, label: villageTitle(named), line: 'Башня, базарная площадь, пекарня и родник.', poi: 'square', lock: 'trip' },
       { id: 'hotel', rid: 'hotel', kind: 'hotel', x: F.x, z: F.z, label: 'Отель на вершине', line: 'Двор, бассейн, мини-гольф, падел, костёр и вид на вершины.', poi: 'courtyard', lock: 'hotel' },
     ];
-    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'С башни отеля на вершине — по тросу вниз, к домам.', poi: 'tower', lock: 'zip', small: true });
+    if (zr) nodes.push({ id: 'zip', rid: 'hotel', kind: 'zip', x: (zr.from.x + zr.to.x) / 2, z: (zr.from.z + zr.to.z) / 2, label: 'Зиплайн', line: 'Со стартовой вышки на краю горы — по тросу вниз, к домам.', poi: 'launch', lock: 'zip', small: true });
     const lockOf = n => (n.lock === 'trip' ? locks.trip : n.lock === 'hotel' ? locks.trip || locks.hotel : n.lock === 'zip' ? locks.trip || locks.zip : null);
     let sel = null, showRoute = true;
     const here = () => ovHere(ctx);
@@ -1683,7 +1683,8 @@
       // места передохнуть по пути — из VILLAGE.SUMMIT.rest (summitRest)
       ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9]],
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
-      ['fire', 'fire', -40, -86], ['view', 'view', -5, -36.9], ['tower', 'zip', -26, -24], ['park', 'parking', -50, 13]],
+      ['fire', 'fire', -40, -86], ['view', 'view', 30, -93.2], ['tower', 'view', -26, -24, 'Смотровая башня'], ['launch', 'zip', -55, -96.2, 'Вышка зиплайна'],
+      ['park', 'parking', -50, 13]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
       ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['toVillage', 'gate', 313, 350.4]],
   };
@@ -1709,7 +1710,8 @@
     if (p.id === 'toHotel') return 'Конец серпантина — въезд к отелю.';
     if (/^summit_/.test(p.id)) return p.kind === 'view' ? 'Подзорная труба — крыши внизу как на ладони.' : 'Передохнуть и посмотреть вниз, на крыши.';
     if (p.id === 'zipLanding') return 'Сюда прилетают по тросу с вершины.';
-    if (p.id === 'tower' && p.rid === 'hotel') return 'Наверх — и вжух с вершины к домам.';
+    if (p.id === 'launch' && p.rid === 'hotel') return 'Наверх — и вжух с вершины к домам.';
+    if (p.id === 'tower' && p.rid === 'hotel') return 'Башня во дворе: вся гора видна.';
     if (p.id === 'square' || p.id === 'courtyard') return p.rid === 'hotel' ? 'Белые стены и фонтан.' : 'Лавки, лотки и годекан.';
     if (p.id === 'view' && p.rid === 'hotel') return 'Скамья и вид с вершины.';
     if (p.kind === 'square') return 'Площадь.';

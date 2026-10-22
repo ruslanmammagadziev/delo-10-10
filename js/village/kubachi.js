@@ -4064,7 +4064,7 @@
     // вершина: выезд к отелю — наверху второго серпантина, у ворот парковки отеля (без вершины — как раньше, наверху дороги мимо школы)
     const SUMR = OUTR ? OUTR.net.roads.find(R => R.id === 'summit') : null, SUMTOP = OUTR ? OUTR.net.disks.find(D => D.id === 'hotelGate') : null;
     const HOTEL_EXIT = SUMR && SUMTOP ? (() => { const i = SUMR.n - 3; return { x: SUMR.x[i], y: SUMR.y[i], z: SUMR.z[i] }; })() : (() => { const R = model.RN.byId('up'), i = R.n - 4; return { x: R.x[i], y: R.y[i], z: R.z[i] }; })();
-    exits.push({ id: 'toHotel', x: HOTEL_EXIT.x, y: HOTEL_EXIT.y, z: HOTEL_EXIT.z, r: 4, label: 'Дорога к отелю', icon: '🏨', to: 'hotel', auto: true });
+    exits.push({ id: 'toHotel', x: HOTEL_EXIT.x, y: HOTEL_EXIT.y, z: HOTEL_EXIT.z, r: 4, label: 'Ворота отеля', icon: '🏨', to: 'hotel', auto: true });
     const [lx0, lz0] = P(67.2, -0.24), [lx1, lz1] = P(67.2, 0.02);
     const views = {
       p1: { pos: [-86.18, -7, 114.46], target: [-30.18, 0.4, 31.97], fov: 19.1, aspect: 547 / 365 },   // издалека и снизу: башня на «шапке» из домов (p1)

@@ -1415,8 +1415,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (V.ZIP_GEO && V.ZIP_GEO.frame) put('hotel', 'hotel', V.ZIP_GEO.frame.x, V.ZIP_GEO.frame.z, 'Отель на вершине', { far: true });
       } else if (S.rid === 'hotel') {
         const P = h.places || {}, c = b => (b && b.x0 !== undefined ? [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2] : b ? [b.x, b.z] : null);
-        [['courtyard', 'square', 'Двор с фонтаном'], ['pool', 'pool', 'Бассейн'], ['green', 'golf', 'Мини-гольф'], ['fire', 'fire', 'Костровой круг'], ['spa', 'spa', 'Купели'], ['park', 'park', 'Парковка'], ['view', 'view', 'Смотровая'], ['tower', 'zip', 'Башня и зиплайн'], ['main', 'hotel', 'Отель']]
+        [['courtyard', 'square', 'Двор с фонтаном'], ['pool', 'pool', 'Бассейн'], ['green', 'golf', 'Мини-гольф'], ['fire', 'fire', 'Костровой круг'], ['spa', 'spa', 'Купели'], ['park', 'park', 'Парковка'], ['view', 'view', 'Смотровая'], ['tower', 'view', 'Смотровая башня'], ['main', 'hotel', 'Отель']]
           .forEach(([k, kind, label]) => { const q = c(P[k]); if (q) put(k, kind, q[0], q[1], label); });
+        if (P.launch && P.launch.door) put('launch', 'zip', P.launch.door[0], P.launch.door[2], 'Вышка зиплайна');   // вершина: зиплайн — со стартовой вышки на краю горы
         at('sports_look', 'sport', 'Падел и мини-футбол');
       } else if (S.rid === 'serpentine') {
         (h.benches || []).forEach(b => put(b.id, 'bench', b.x, b.z, 'Лавочка'));
@@ -3142,7 +3143,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const prev = S.rid;
       await fade(enterLabel(id, prev), () => load(id, from || prev), 'облака расступаются');
       if (id === 'kubachi') { S.trip.village = true; later(1400, () => heroSay(HERO.arrive, 2600)); hint(S.mode === 'drive' ? HINT.drive() : HINT.walk()); driveTip(); }   // волна 6: из отеля — за рулём; пешком — подсказка про езду
-      if (id === 'hotel') { S.trip.hotel = true; hint('Мини-футбол, падел, мини-гольф, бассейн, костёр — а с башни зиплайн!', 4200); }
+      if (id === 'hotel') { S.trip.hotel = true; hint('Мини-футбол, падел, мини-гольф, бассейн, костёр — а со стартовой вышки на краю горы зиплайн вниз!', 4200); }
       if (id === 'serpentine' && S.dir === 'down') hint(HINT.drive());
     }
     async function leave(to) {
