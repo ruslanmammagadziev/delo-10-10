@@ -4316,7 +4316,7 @@
         carSpawns: CAR_SPAWNS,                         // { parking, square, tower, school, hotel; волна 7: ledge, serpTop, meadow, north, ridge } — { x, y, z, ry }
         start: fromHotel ? 'hotel' : 'parking',
         heroInCar: fromHotel,                          // из отеля приезжает за рулём (как на серпантине)
-        cfg: { vmax: 13, vCap: 15 },                   // по селу — тише серпантина (47 км/ч; волна 7 — было 36: дорог стало много и длинных); drive.create({ cfg: Object.assign({}, car.driveCfg, drive.cfg) })
+        cfg: { vmax: 26, vCap: 30 },                   // по селу — тише серпантина (94 км/ч; волна 8 «в 2 раза быстрее» — было 13/15); drive.create({ cfg: Object.assign({}, car.driveCfg, drive.cfg) })
         exits: exits.filter(e => e.auto).map(e => e.id),   // какие выходы срабатывают сами, когда машина въезжает в облако
       } : null,
       dynamic: DYN,
