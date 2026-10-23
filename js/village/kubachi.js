@@ -1861,13 +1861,17 @@
     // вывески — в один атлас
     function signsMesh() {
       if (!props.signs.length) return null;
-      const cvs = props.signs.map(sg => K.signCanvas(sg.text, { bg: sg.bg, fg: sg.fg, size: sg.size || 64, font: 'Nunito', pad: sg.pad, r: sg.r }));
-      const Wd = 1024, H = cvs.reduce((a, c) => a + Math.min(c.height, 260) + 8, 0), [cv, c] = K.cnv(Wd, Math.max(64, H));
-      let y = 0; const rects = [];
-      cvs.forEach(s => { const k = Math.min(1, (Wd - 8) / s.width, 260 / s.height), w = s.width * k, h = s.height * k; c.drawImage(s, 0, y, w, h); rects.push([0, y, w, h]); y += h + 8; });
+      // одинаковые надписи (щиты «Отель», указатели с двух сторон) — одним местом в атласе
+      const keyOf = sg => [sg.text, sg.bg, sg.fg, sg.size, sg.pad, sg.r].join('|'), uniq = new Map();
+      props.signs.forEach(sg => { const k = keyOf(sg); if (!uniq.has(k)) uniq.set(k, K.signCanvas(sg.text, { bg: sg.bg, fg: sg.fg, size: sg.size || 64, font: 'Nunito', pad: sg.pad, r: sg.r })); });
+      const cvU = [...uniq.values()], Wd = 1024, H = cvU.reduce((a, c) => a + Math.min(c.height, 260) + 8, 0), [cv, c] = K.cnv(Wd, Math.max(64, H));
+      let y = 0; const rU = new Map();
+      [...uniq.keys()].forEach((key, q) => { const s = cvU[q], k = Math.min(1, (Wd - 8) / s.width, 260 / s.height), w = s.width * k, h = s.height * k; c.drawImage(s, 0, y, w, h); rU.set(key, [0, y, w, h]); y += h + 8; });
+      const rects = props.signs.map(sg => rU.get(keyOf(sg)));
       const tex = K.tex(cv); tex.anisotropy = 4;
       const g = new T.BufferGeometry(), P_ = [], U = [], N_ = [], I = [];
-      props.signs.forEach((sg, i) => { const [rx, ry, rw, rh] = rects[i], hh = sg.h, ww = sg.w || hh * rw / rh, F = new K.Frame(sg.p[0], sg.p[1], sg.p[2], sg.ry);
+      props.signs.forEach((sg, i) => { const [rx, ry, rw, rh] = rects[i]; let hh = sg.h, ww = sg.w || hh * rw / rh; if (sg.fitW && ww > sg.fitW) { hh *= sg.fitW / ww; ww = sg.fitW; }   // fitW — вписать в щит по ширине
+        const F = new K.Frame(sg.p[0], sg.p[1], sg.p[2], sg.ry);
         if (sg.p[1] - hh / 2 > G(sg.p[0], sg.p[2]) + 1.3) camExtra.push({ type: 'box', x: sg.p[0], z: sg.p[2], w: ww + 0.1, d: 0.3, ry: sg.ry, y0: sg.p[1] - hh / 2 - 0.08, y1: sg.p[1] + hh / 2 + 0.08, id: 'camSign', cam: true });
         [[-ww / 2, -hh / 2], [ww / 2, -hh / 2], [ww / 2, hh / 2], [-ww / 2, hh / 2]].forEach(([x, yy], k) => { P_.push(...F.p(x, yy, 0.01)); const d = F.dir(0, 1); N_.push(d[0], 0, d[1]);
           U.push((rx + (k === 1 || k === 2 ? rw : 0)) / Wd, 1 - (ry + (k >= 2 ? 0 : rh)) / cv.height); });
@@ -2695,6 +2699,96 @@
         post('meadow', [['К роднику — пешком', [5, 64]]]);
         post('jHotel', [['Отель на вершине', [100, -110]], ['Школа, село', [72, -98]]], 150 * D2R);   // вершина: справа у выезда наверх, лицом к едущему от школы («↑ Отель на вершине»)
       }
+    }
+    // дорога в отель: путь до ворот отеля считаем по сети проездов (граф по точкам осей + площадки, Дейкстра от ворот), от всех мест,
+    // где машина появляется (стоянки carSpawns, въезд с серпантина); у каждой площадки-развилки на пути — большой коричневый
+    // дорожный щит «Отель» со стрелкой (справа по ходу, лицом к едущему), сразу за ней — «↑ Отель N м», и такие же на длинных
+    // перегонах через ~200 м. Щиты — своей сеткой (W6.hsB), надписи — общим атласом вывесок; столбики — тонкие коллайдеры у обочины
+    function hotelSigns() {
+      const RS = model.RN.roads.concat(OUTR ? OUTR.net.roads : []), byId = id => RS.find(R => R.id === id);
+      const tgtR = byId('summit') || byId('up'); if (!tgtR) return;
+      const AR = model.RN.disks.concat(OUTR ? OUTR.net.disks : []).map(D => ({ id: D.id, x: D.x, z: D.z, r: D.r }));
+      AR.push({ id: 'park', x: PARK.x, z: PARK.z, r: 5.4, j: true },   // парковка — развилка всегда: улица в обе стороны и подъём (конец улицы — уже на площади)
+        { id: 'square', x: SQUARE.x + Math.cos(SQUARE.ry), z: SQUARE.z - Math.sin(SQUARE.ry), rect: { w: 21.4, d: 10.8, ry: SQUARE.ry } });   // площадь — как SQ_DRIVE, с запасом
+      const inA = (A, x, z, m) => { if (!A.rect) return Math.hypot(x - A.x, z - A.z) < A.r + m;
+        const c = Math.cos(A.rect.ry), s = Math.sin(A.rect.ry), dx = x - A.x, dz = z - A.z, u = dx * c - dz * s, v = dx * s + dz * c; return Math.abs(u) < A.rect.w / 2 + m && Math.abs(v) < A.rect.d / 2 + m; };
+      // вершины: точки осей (номер = база дороги + i), затем площадки
+      const base = []; let N = 0; RS.forEach(R => { base.push(N); N += R.n; }); const a0 = N; N += AR.length;
+      const adj = Array.from({ length: N }, () => []), link = (a, b, w) => { adj[a].push([b, w]); adj[b].push([a, w]); };
+      const X = new Float32Array(N), Z = new Float32Array(N);
+      RS.forEach((R, k) => { for (let i = 0; i < R.n; i++) { X[base[k] + i] = R.x[i]; Z[base[k] + i] = R.z[i]; if (i) link(base[k] + i - 1, base[k] + i, (R.s[i] - R.s[i - 1]) * (R.id === 'tower' ? 1.6 : 1)); } });   // переулок к башне узкий (и через площадь): с запада — в объезд, северной дорогой
+      AR.forEach((A, j) => { X[a0 + j] = A.x; Z[a0 + j] = A.z;
+        RS.forEach((R, k) => { for (let i = 0; i < R.n; i++) if (inA(A, R.x[i], R.z[i], 0.5)) link(a0 + j, base[k] + i, Math.hypot(R.x[i] - A.x, R.z[i] - A.z)); }); });
+      // концы дорог — к ближайшей точке другой дороги рядом (стык без площадки: конец дороги мимо школы → вершина)
+      RS.forEach((R, k) => [0, R.n - 1].forEach(i => { RS.forEach((Q, m) => { if (m === k) return; let bi = -1, bd = Q.hw + 1;
+        for (let t = 0; t < Q.n; t++) { const d = Math.hypot(Q.x[t] - R.x[i], Q.z[t] - R.z[i]); if (d < bd) { bd = d; bi = t; } }
+        if (bi >= 0) link(base[k] + i, base[m] + bi, bd); }); }));
+      // Дейкстра от ворот (последняя точка дороги наверх): dist — сколько ехать до отеля, nx — куда дальше
+      const T0 = base[RS.indexOf(tgtR)] + tgtR.n - 1, dist = new Float64Array(N).fill(1e9), nx = new Int32Array(N).fill(-1), done = new Uint8Array(N);
+      dist[T0] = 0; const hp = [[0, T0]];
+      const push = e => { hp.push(e); let i = hp.length - 1; while (i) { const p = (i - 1) >> 1; if (hp[p][0] <= hp[i][0]) break; [hp[p], hp[i]] = [hp[i], hp[p]]; i = p; } };
+      const pop = () => { const top = hp[0], last = hp.pop(); if (hp.length) { hp[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < hp.length && hp[l][0] < hp[m][0]) m = l; if (r < hp.length && hp[r][0] < hp[m][0]) m = r; if (m === i) break; [hp[m], hp[i]] = [hp[i], hp[m]]; i = m; } } return top; };
+      while (hp.length) { const [d, u] = pop(); if (done[u]) continue; done[u] = 1; adj[u].forEach(([v, w]) => { if (d + w < dist[v]) { dist[v] = d + w; nx[v] = u; push([d + w, v]); } }); }
+      // откуда: стоянки машины (кроме самого отеля) и въезд с серпантина (восточный конец улицы)
+      const UPR = model.RN.byId('up'), TWR = model.RN.byId('tower'), Wr = byId('west'), Sr = byId('serp'), Nr = byId('north'), Rr = byId('ridge'), ST = byId('street');
+      const starts = [[PARK.x, PARK.z], [SQUARE.x, SQUARE.z], [TURN.x, TURN.z], [BAY.x, BAY.z], [ST.x[0], ST.z[0]], [TWR.x[TWR.n - 6], TWR.z[TWR.n - 6]], [UPR.x[UPR.key[8]], UPR.z[UPR.key[8]]]];
+      if (Wr) starts.push([Wr.x[Wr.n - 12], Wr.z[Wr.n - 12]]); if (Sr) starts.push([Sr.x[14], Sr.z[14]], [Sr.x[Sr.n - 12], Sr.z[Sr.n - 12]]);
+      if (Nr) starts.push([Nr.x[Nr.n >> 1], Nr.z[Nr.n >> 1]]); if (Rr) starts.push([Rr.x[Math.round(Rr.n * 0.3)], Rr.z[Math.round(Rr.n * 0.3)]]);
+      const nearV = (x, z) => { let b = -1, bd = 1e9; for (let v = 0; v < a0; v++) { const d = (X[v] - x) ** 2 + (Z[v] - z) ** 2; if (d < bd) { bd = d; b = v; } } return b; };
+      const roadOf = v => { if (v >= a0) return null; let k = 0; while (k + 1 < RS.length && base[k + 1] <= v) k++; return [RS[k], v - base[k]]; };
+      // развилка — площадка, к которой подходят ≥ 3 ветки (конец дороги — одна, сквозная — две)
+      const branches = j => { let c = 0; RS.forEach(R => { const ins = []; for (let i = 0; i < R.n; i++) ins.push(inA(AR[j], R.x[i], R.z[i], 0.5));
+        if (!ins.some(Boolean)) { [0, R.n - 1].forEach(i => { if (inA(AR[j], R.x[i], R.z[i], 7)) c++; }); return; }
+        if (!ins[0]) c++; if (!ins[R.n - 1]) c++; }); return c; };
+      const isJ = AR.map((A, j) => A.j || branches(j) >= 3);
+      const sg = { jn: new Map(), conf: new Map(), rem: new Map() }, routes = [];
+      starts.forEach(([sx, sz]) => { let v = nearV(sx, sz); if (dist[v] > 1e8) return; const path = [v]; while (nx[v] >= 0) { v = nx[v]; path.push(v); } routes.push(path); });
+      routes.forEach(path => {
+        const pts = path.filter(v => v < a0);
+        // площадки по пути: щит — за r + 9 м до центра (но не на соседней площадке: тогда у самого въезда), подтверждение — r + 10 м после
+        const other = (v, j) => AR.some((B, m) => m !== j && isJ[m] && inA(B, X[v], Z[v], 0.6));
+        AR.forEach((A, j) => { if (!isJ[j] || A.id === 'hotelGate') return; const R0 = A.rect ? 11 : A.r;
+          const inn = pts.findIndex(v => inA(A, X[v], Z[v], 0.6)); if (inn < 0) return;
+          let out = inn; while (out < pts.length - 1 && inA(A, X[pts[out]], Z[pts[out]], 0.6)) out++;
+          let pre = -1; for (let q = inn - 1; q >= 0 && !other(pts[q], j); q--) { pre = q; if (Math.hypot(X[pts[q]] - A.x, Z[pts[q]] - A.z) > R0 + 9) break; }
+          if (pre < 0 && inn > 0) pre = inn;   // въезд прямо с соседней площадки (с площади на парковку)
+          let post = out; while (post < pts.length - 1 && Math.hypot(X[pts[post]] - A.x, Z[pts[post]] - A.z) < R0 + 10) post++;
+          const hOut = (() => { const a = pts[out], b = pts[Math.min(pts.length - 1, out + 6)]; return Math.atan2(X[b] - X[a], Z[b] - Z[a]); })();
+          if (pre >= 0) { const v = pts[pre], u = pre < inn ? pts[inn] : pts[inn], v0 = pre < inn ? v : pts[inn - 1], hIn = Math.atan2(X[u] - X[v0], Z[u] - Z[v0]), rel = Math.atan2(Math.sin(hOut - hIn), Math.cos(hOut - hIn)), a = Math.abs(rel);
+            const key = A.id + '|' + roadOf(v)[0].id + '|' + Math.round(hIn * 2);   // одна ветка подъезда — один щит
+            if (!sg.jn.has(key)) sg.jn.set(key, { v, ar: a < 0.6 ? '↑' : rel < 0 ? '→' : '←', at: A.id }); }
+          if (post < pts.length - 1 && !sg.conf.has(pts[post])) sg.conf.set(pts[post], { v: pts[post], at: A.id }); });
+      });
+      // подтверждение не ставим, если щит следующей развилки ближе 45 м дальше по пути (две площадки рядом: карман у школы и развилка)
+      const jnV = new Set([...sg.jn.values()].map(s => s.v));
+      sg.conf.forEach((s, v) => { for (let w = v; w >= 0 && dist[v] - dist[w] < 45; w = nx[w]) if (jnV.has(w)) { sg.conf.delete(v); return; } });
+      // перегоны: «↑ Отель N м» там, где остаток пересекает круглые 200 м (не ближе 45 м по пути к щитам развилок и подтверждениям)
+      const near = [...jnV, ...sg.conf.keys()];
+      routes.forEach(path => path.forEach(v => { const u = nx[v]; if (v >= a0 || u < 0 || u >= a0 || sg.rem.has(v)) return;
+        const k0 = Math.floor(dist[v] / 200), k1 = Math.floor(dist[u] / 200); if (k0 === k1 || dist[v] < 150) return;
+        if (near.some(w => Math.abs(dist[w] - dist[v]) < 45 && Math.hypot(X[w] - X[v], Z[w] - Z[v]) < 45)) return; sg.rem.set(v, { v }); near.push(v); }));
+      const km = d => d < 950 ? Math.round(d / 50) * 50 + ' м' : (Math.round(d / 100) / 10).toFixed(1).replace('.', ',').replace(',0', '') + ' км';
+      // щит: на траве справа по ходу (за обочиной), чуть повёрнут к полотну; если там другая дорога или откос — сдвигаемся по ходу
+      W6.hsB = new K.Baker('vc'); W6.hotelSigns = []; const hb = W6.hsB, BR = rgb('#6B4329'), WH = rgb('#F4EEDF'), POST = rgb('#7D7F82');
+      const place = (v, text, big) => {
+        const seq = []; for (let w = v; w >= 0 && seq.length < 12; w = nx[w]) if (w < a0) seq.push(w);   // точки осей дальше по пути (площадки — насквозь)
+        for (let t = 0; t + 3 < seq.length; t++) {
+          const w = seq[t], e = seq[t + 3], [R, i] = roadOf(w), th = Math.atan2(X[e] - X[w], Z[e] - Z[w]);   // куда едем — по пути к отелю
+          const rx = -Math.cos(th), rz = Math.sin(th), off = R.hw + VERGE + (R.outer ? 1.25 : 0.75), x = R.x[i] + rx * off, z = R.z[i] + rz * off, y = R.y[i], gy = G(x, z);
+          const q = model.roadNear(x, z); if ((q && q.id !== R.id && q.o < 0.9) || Math.abs(gy - y) > 0.7 || AR.some(A => inA(A, x, z, 1))) continue;   // не на чужом полотне, откосе и площадке
+          if (W6.hotelSigns.some(h => Math.hypot(h.x - x, h.z - z) < 4)) return;   // тот же щит с другого пути
+          const yy = Math.min(gy, y), hx = Math.sin(th), hz = Math.cos(th), ry = Math.atan2(-hx * 0.97 - rx * 0.26, -hz * 0.97 - rz * 0.26), F = new K.Frame(x, yy, z, ry);
+          const bw = big ? 2.6 : 1.7, bh = big ? 1.2 : 0.95, by = big ? 2.3 : 2.0;   // крупно: читается с ходу
+          [-1, 1].forEach(sx => hb.box(F, sx * bw * 0.36, (by - bh / 2 + 0.3) / 2 - 0.3, -0.04, 0.07, by - bh / 2 + 0.3, 0.07, { col: POST }));
+          hb.box(F, 0, by, -0.01, bw + 0.08, bh + 0.08, 0.04, { col: WH }); hb.box(F, 0, by, 0.012, bw, bh, 0.02, { col: BR });
+          props.signs.push({ text, p: F.p(0, by, 0.024), ry, h: bh * 0.86, fitW: bw * 0.94, bg: '#6B4329', fg: '#FFFFFF', size: 72, r: 6, pad: 22 });
+          [-1, 1].forEach(sx => { const p = F.p(sx * bw * 0.36, 0, -0.04); colliders.push({ type: 'circle', x: p[0], z: p[2], r: 0.08, y0: yy - 1, y1: yy + by + bh, id: 'sign' }); });
+          W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big, road: R.id, rem: Math.round(dist[w]) });
+          return; } };
+      sg.jn.forEach(s => place(s.v, s.ar === '→' ? 'Отель →' : s.ar + ' Отель', true));
+      sg.conf.forEach(s => place(s.v, '↑ Отель\n' + km(dist[s.v]), false));
+      sg.rem.forEach(s => place(s.v, '↑ Отель\n' + km(dist[s.v]), false));
     }
     // вершина: где передохнуть по пути наверх (SUMMIT.rest) — скамейка или смотровая (столбик с подзорной трубой) на траве у
     // обочины со стороны села, лицом к нему; места — в spots (sit/view), виды summit_rest_* — со спины на село
@@ -3816,7 +3910,7 @@
     towerGeo(); squareGeo(); museumGeo(); bakeryGeo();
     courtyardGeo(houses.find(h => h.tag === 'badger_house'), houses.find(h => h.id === 'h036'));
     if (!FAR) { springGeo(); westKnollGeo(); meadowGeo(); } lodGeo(); if (!FAR) roadGeo();
-    if (!FAR) { W6.detB = new K.Baker('vc'); uplandGeo(); { const g0 = glaz.length; schoolGeo(); W6.glazS = [g0, glaz.length]; } yardGeo(); turnGeo(); villageSigns(); summitRestGeo(); roadsGeo(); }   // волна 6: дороги села, плато, школа
+    if (!FAR) { W6.detB = new K.Baker('vc'); uplandGeo(); { const g0 = glaz.length; schoolGeo(); W6.glazS = [g0, glaz.length]; } yardGeo(); turnGeo(); villageSigns(); hotelSigns(); summitRestGeo(); roadsGeo(); }   // волна 6: дороги села, плато, школа
     // резной олень над дверью сокровищницы (пасхалка 3b)
     const TH = houses.find(h => h.tag === 'treasure_house');
     if (TH && TH.door) props.carved.push({ id: 'deer', p: [TH.door[0], TH.y0 + 2.25, TH.door[2] - 0.28 * Math.cos(TH.ry)].map((v, i) => i === 0 ? v - 0.28 * Math.sin(TH.ry) : v), ry: TH.ry, tile: 1, size: 0.42 });
@@ -3883,6 +3977,7 @@
     if (W6.detB) { snowify(W6.detB); const m = add(litMesh(W6.detB.mesh(K.vcMat)), { cast: true }); if (m) { m.name = 'schoolDetail'; m.geometry.computeBoundingSphere(); W6.detMesh = m; } }
     // мяч двора — дочка мелочи двора (прячется вместе с ней вдали; +1 вызов только вблизи)
     if (W6.ballB && W6.detMesh) { snowify(W6.ballB); const m = litMesh(W6.ballB.mesh(K.vcMat)); if (m) { m.name = 'yardBall'; m.castShadow = W6.detMesh.castShadow; m.receiveShadow = W6.detMesh.receiveShadow; W6.detMesh.add(m); W6.ballMesh = m; } }
+    if (W6.hsB) { snowify(W6.hsB); const m = add(litMesh(W6.hsB.mesh(K.vcMat)), { cast: true }); if (m) m.name = 'hotelSigns'; }   // щиты «Отель» по дороге наверх
     if (W6.sumB) { snowify(W6.sumB); const m = add(litMesh(W6.sumB.mesh(K.vcMat)), { cast: true }); if (m) m.name = 'summitRest'; }   // вершина: скамейки и смотровая на дороге к отелю
     add(glowB.mesh(K.keep(new T.MeshBasicMaterial({ vertexColors: true }))));
     if (!FAR) { add(carvedMesh()); add(signsMesh()); add(waterMesh(), { order: 3, receive: false }); }
@@ -4313,6 +4408,7 @@
         ground: (x, z) => model.y(x, z),
         colliders: carColliders,                       // V.drive.create({ colliders })
         dynamic: DYN,                                  // V.drive.create({ dynamic }) — коробка машины для ходьбы (handle.collide её учитывает)
+        hotelSigns: W6.hotelSigns || [],             // щиты «Отель» по пути к воротам: { text, x, y, z, ry, th — куда едет водитель, big, road, rem — м до отеля }
         carSpawns: CAR_SPAWNS,                         // { parking, square, tower, school, hotel; волна 7: ledge, serpTop, meadow, north, ridge } — { x, y, z, ry }
         start: fromHotel ? 'hotel' : 'parking',
         heroInCar: fromHotel,                          // из отеля приезжает за рулём (как на серпантине)
