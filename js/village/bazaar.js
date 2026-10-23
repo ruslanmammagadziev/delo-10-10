@@ -27,7 +27,7 @@
   const isDay = d => (d || new Date()).getDay() === DAY;
 
   /* ---------- предметы лавок, которых нет в js/interact.js: одна сетка, цвет в вершинах ---------- */
-  const ITEMS = ['scarf', 'socks', 'mittens', 'copper_jug'];
+  const ITEMS = ['scarf', 'socks', 'mittens', 'copper_jug', 'coffee'];   // волна 9: coffee — стаканчик кофе из кофейни «Мархарай»
   function makeItem(T, name) {
     const P = [], C = [], I = [];
     const add = (geo, col, m) => { geo = geo.index ? geo.toNonIndexed() : geo; if (m) geo.applyMatrix4(m); const p = geo.attributes.position, n0 = P.length / 3; for (let i = 0; i < p.count; i++) { P.push(p.getX(i), p.getY(i), p.getZ(i)); const c = typeof col === 'function' ? col(p.getX(i), p.getY(i), p.getZ(i)) : col; C.push(c.r, c.g, c.b); I.push(n0 + i); } geo.dispose(); };
@@ -45,6 +45,12 @@
       [-0.045, 0.045].forEach((x, k) => { add(new T.SphereGeometry(0.045, 10, 8), (px, py) => (py > 0.03 ? col('#F4F1EA') : col('#4F8F86')), M(x, 0.03, 0, 0, 0, 0, [1, 1.35, 0.55])); add(new T.SphereGeometry(0.018, 6, 4), col('#4F8F86'), M(x + (k ? -0.04 : 0.04), 0.03, 0, 0, 0, 0)); });
       add(new T.CylinderGeometry(0.004, 0.004, 0.1, 4), col('#C2405B'), M(0, 0.1, 0, 0, 0, PI / 2));
       hold = { in: 0.02, up: -0.03, fwd: 0.02 };
+    } else if (name === 'coffee') {   // кофе в бумажном стаканчике: тёмная крышечка, крафтовая муфта
+      add(new T.CylinderGeometry(0.042, 0.033, 0.105, 12), col('#FFFDF9'));
+      add(new T.CylinderGeometry(0.0425, 0.037, 0.045, 12), col('#B98A5E'), M(0, -0.004, 0));
+      add(new T.CylinderGeometry(0.045, 0.045, 0.012, 12), col('#3A2E2A'), M(0, 0.058, 0));
+      add(new T.CylinderGeometry(0.02, 0.03, 0.01, 10), col('#3A2E2A'), M(0, 0.068, 0));
+      hold = { in: 0.028, up: 0.004, fwd: 0.0 };
     } else {   // медный кувшинчик
       const pts = [[0.0, 0], [0.035, 0.002], [0.05, 0.03], [0.047, 0.07], [0.024, 0.1], [0.018, 0.13], [0.026, 0.14]].map(([r, y]) => new T.Vector2(r, y));
       add(new T.LatheGeometry(pts, 12), (x, y) => (y > 0.09 && y < 0.1 ? col('#E8C770') : col('#C77D4F')));

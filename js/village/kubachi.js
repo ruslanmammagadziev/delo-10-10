@@ -324,9 +324,20 @@
     ramp: [[117.2, 64.2], [114.6, 69.6], [109.2, 71.4]],               // пешая каменная аппарель от разворота к полянке (машине — нет)
     bridgeS: 36,                                                       // дом-мост: на какой длине оси (м от начала)
   };
+  // кофейня «Мархарай» (по фото автора: низкий дом между жёлтым кирпичным соседом и серым гаражом, тёмная вывеска с белыми
+  // буквами) — у Нижней улицы сразу за площадью, со стороны склона: фасадом к улице, панорамными окнами — на село и долину.
+  // Рамка: начало — середина пола, +z — к улице (фасад), −z — к виду; s — на какой длине оси улицы
+  const CAFE = (() => {
+    const A = roadAxis(LOWER.pts), s = 19.5; let i = 0; while (i < A.n - 2 && A.s[i + 1] < s) i++;
+    const tx = A.x[i + 1] - A.x[i], tz = A.z[i + 1] - A.z[i], L = Math.hypot(tx, tz), ux = tx / L, uz = tz / L;
+    const [nx, nz] = -ux > 0 ? [uz, -ux] : [-uz, ux];   // нормаль к оси — к югу (к виду)
+    const w = 6.6, d = 5.8, off = LOWER.w / 2 + 1.6 + d / 2, x = A.x[i] + nx * off, z = A.z[i] + nz * off;
+    return { x, z, ry: Math.atan2(-nx, -nz), w, d, h: 3.3, s, r: 4.6 };
+  })();
   OR_DEF.push({ id: 'lower', w: LOWER.w, kind: 'cobble', grade: LOWER.grade, label: 'Нижняя улица', pts: LOWER.pts },
     { id: 'gladeRamp', w: 2.4, kind: 'cobble', grade: 0.5, foot: true, label: 'Спуск к полянке', pts: [[LOWER.end.x, LOWER.end.z]].concat(LOWER.ramp, [[LOWER.glade.x, LOWER.glade.z]]) });
   OR_PADS.push(Object.assign({ on: 'lower' }, LOWER.end), Object.assign({ grass: true, foot: true }, LOWER.glade));
+  OR_PADS.push({ id: 'cafe', x: CAFE.x, z: CAFE.z, r: CAFE.r, y: 0, grass: true, foot: true });   // пол кофейни — ровно, вровень с улицей (зайти пешком)
   OR_LANDS.push({ id: 'jLower', x: LOWER.pts[0][0], z: LOWER.pts[0][1], r: 4.2, y: 0 });   // начало — на восточной половине площади (y 0)
   // школа и двор на верхнем плато (фасадом на юг, к селу) — 1-в-1 по двум фото: длинный симметричный корпус 39,4 × 12 м в 2 этажа
   // из силикатного кирпича, ризалит с фронтоном и козырьком над входом (school/bp — чертёж фотоаналитика).
@@ -2116,10 +2127,11 @@
         // край террасы кончается раньше дома: дом спускается на склон плеча (иначе — «башня» на высоком цоколе, p3)
         const cv = boxCorners({ x, z, w, d, ry }).map(([a, b]) => visY(a, b)), yc = visY(x, z), hh2 = Math.round(hh / ST) * ST;
         let yb = Math.min(y0, yc + 0.2); if (yb + hh2 < Math.max(...cv) + 2.0) yb = Math.max(...cv) + 2.0 - hh2;   // на склоне плеча: середина дома на земле, верхний этаж над откосом
+        if (!FAR && cafeView(x, z, true)) yb = Math.min(yb, -1.2 - hh2);   // волна 9: перед окнами кофейни крыши — ниже окон
         const h = { id: 'f' + i, row: -2, type, phi: -ry, x, z, ry, w, d, y0: yb, storeys: st, h: st * ST, wall: WALL[wl], blueBand: R() < 0.2, roof: R() < 0.65 ? 'hip' : 'shed', roofMat: RMAT[rm], nbL: -99, nbR: -99 };
         lightenWalls([h], () => 0.45);
         if (type === 'K2') h.gallery = { storeys: st > 2 ? [1, 2] : [1], bays: Math.floor((w - 0.6) / 0.9), proj: R() < 0.5 ? 0.5 : 0, frame: R() < 0.6 ? 'frameWhite' : 'frameBlue' };
-        if (!FAR && lowerHit(x, z, Math.max(w, d) / 2 + 0.5)) return;   // волна 9: на Нижней улице дома плеча не ставим
+        if (!FAR && (lowerHit(x, z, Math.max(w, d) / 2 + 0.5) || cafeView(x, z))) return;   // волна 9: на Нижней улице и перед окнами кофейни дома плеча не ставим
         if (opts.dbgSkip !== 'flank') houseGeo(h, { flatFoot: false, footY: visY });
         FOOT.push([x, z, Math.max(w, d) / 2]);
       });
@@ -2170,6 +2182,8 @@
     const LOWAX = roadAxis(LOWER.pts);
     const lowerHit = (x, z, rr) => { for (let i = 0; i < LOWAX.n; i += 2) if (Math.hypot(LOWAX.x[i] - x, LOWAX.z[i] - z) < LOWER.w / 2 + VERGE + SHOULDER + rr) return true; return false; };
     const W9 = { houses: [], roofs: [], stairs: [], annex: [], bridge: null, lamps: 0 };
+    // вплотную перед панорамными окнами кофейни дом плеча не ставим (закрыл бы вид)
+    const cafeView = (x, z, far) => { const dx = x - CAFE.x, dz = z - CAFE.z, ax = -Math.sin(CAFE.ry), az = -Math.cos(CAFE.ry), along = dx * ax + dz * az; const L = far ? 24 : 8; return along > -2 && along < L && Math.abs(dx * az - dz * ax) < 6 + (far ? along * 0.7 : 0); };   // вплотную — нет, дальше (far) — крыши ниже окон: вид на них
     // восточная половина площади: две скамьи и фонарь на столбе у её южного края (ночью светит)
     function plazaGeo() {
       const E = PLAZA.rects[1], F = new K.Frame(E.x, 0, E.z, E.ry);
@@ -2320,6 +2334,141 @@
       // полянка: стожки сена (мягко приземлиться — для вида), камни
       if (glade) [[-2.6, 1.8], [2.4, -1.2]].forEach(([dx, dz], i) => { const x = glade.x + dx, z = glade.z + dz, y = glade.y; pb.cyl(x, y - 0.1, z, 0.9, 0.0, 2.1, { seg: 9, col: p => mul(C('hay'), 0.85 + 0.2 * (p[1] - y) / 2.1) }); colliders.push({ type: 'circle', x, z, r: 0.95, y0: y - 1, y1: y + 2.2, id: 'hay' }); });
       W9.len = R0.len; W9.y = [R0.y[0], R0.y[R0.n - 1]];
+    }
+    // кофейня «Мархарай» (CAFE, по фото автора): низкий дом с тёмной вывеской (белые буквы с засечками, чашка, «кофейня»),
+    // вместо рольставни — два панорамных окна и стеклянная дверь (открыто, внутри тёплый свет); слева — жёлтый кирпичный сосед
+    // с красными ставнями, справа — серый гараж, крыши соседей — красный профлист. Внутри (по фото): тёмный потолок, светлые
+    // стены, окна в пол на село и горы со стойкой и высокими табуретами, деревянные столики, стойка с ковровым фасадом,
+    // кофемашина, витрина с выпечкой, полки, лампы-подвесы. Мелочь внутри — своей сеткой (прячется издалека)
+    function cafeGeo() {
+      const c = CAFE, F = new K.Frame(c.x, 0, c.z, c.ry), W = c.w, D = c.d, H = c.h, hw = W / 2, hd = D / 2, bk = chunk(c.x, c.z);
+      const ib = W9.cafeB = new K.Baker('vc'), gl = W9.cafeGlass = new K.Baker('vc');
+      const plaster = rgb('#CFCBC2'), inner = rgb('#ECE8DF'), dark = rgb('#2C2D31'), fr = rgb('#232428'), wood = rgb('#B0825A'), woodD = rgb('#76543A'), iron = rgb('#2E2E33');
+      const lowAt = (fw, x0, x1) => Math.min(...boxCorners({ x: F.p((x0 + x1) / 2, 0, 0)[0], z: F.p((x0 + x1) / 2, 0, 0)[2], w: x1 - x0 + 0.6, d: D + 0.6, ry: c.ry }).map(([x, z]) => G(x, z)), 0);
+      const foot = lowAt(0, -hw - 4.4, hw + 5.2) - 0.4;
+      // стена вдоль x с проёмами: столбы между проёмами — во всю высоту, под и над проёмом — простенки
+      const wallX = (z, holes, col, s) => { const xs = [-hw]; holes.forEach(o => xs.push(o.x0, o.x1)); xs.push(hw);
+        for (let i = 0; i < xs.length - 1; i++) { const a = xs[i], b = xs[i + 1], o = i % 2 ? holes[(i - 1) / 2] : null; if (b - a < 0.01) continue;
+          if (!o) bk.box(F, (a + b) / 2, (H + foot) / 2, z, b - a, H - foot, 0.22, { col, s });
+          else { if (o.y0 > 0.01) bk.box(F, (a + b) / 2, (o.y0 + foot) / 2, z, b - a, o.y0 - foot, 0.22, { col, s }); bk.box(F, (a + b) / 2, (o.y1 + H) / 2, z, b - a, H - o.y1, 0.22, { col, s }); } } };
+      const FRONT = [{ x0: -2.95, x1: -0.45, y0: 0.42, y1: 2.5 }, { x0: -0.25, x1: 1.35, y0: 0.42, y1: 2.5 }, { x0: 1.6, x1: 2.8, y0: 0, y1: 2.32 }];
+      const BACK = [{ x0: -3.05, x1: 3.05, y0: 0.18, y1: 2.98 }];
+      wallX(hd - 0.11, FRONT, plaster, S.PLASTER); wallX(-hd + 0.11, BACK, plaster, S.PLASTER);
+      [-1, 1].forEach(sd => bk.box(F, sd * (hw - 0.11), (H + foot) / 2, 0, 0.22, H - foot, D, { col: plaster, s: S.PLASTER }));
+      bk.box(F, 0, H + 0.08, 0, W + 0.1, 0.16, D + 0.1, { col: dark, s: S.FLAT, cols: { py: rgb('#55565B') } });   // плоская крыша
+      // рамы (тёмные) и стёкла (одна полупрозрачная сетка)
+      const frameHole = (o, z, mull) => { const t = 0.07, cy = (o.y0 + o.y1) / 2;
+        [o.x0 + t / 2, o.x1 - t / 2].forEach(x => bk.box(F, x, cy, z, t, o.y1 - o.y0, 0.14, { col: fr }));
+        [o.y0 + t / 2, o.y1 - t / 2].forEach(y => bk.box(F, (o.x0 + o.x1) / 2, y, z, o.x1 - o.x0, t, 0.14, { col: fr }));
+        (mull || []).forEach(x => bk.box(F, x, cy, z, 0.06, o.y1 - o.y0, 0.12, { col: fr }));
+        gl.box(F, (o.x0 + o.x1) / 2, cy, z, o.x1 - o.x0 - 0.1, o.y1 - o.y0 - 0.1, 0.01, { col: rgb('#CFE4EE') }); };
+      FRONT.forEach((o, i) => frameHole(o, hd - 0.1, i === 2 ? [] : [(o.x0 + o.x1) / 2]));
+      frameHole(BACK[0], -hd + 0.1, [-1.55, 0, 1.55]);
+      { const o = FRONT[2]; bk.box(F, o.x1 - 0.22, 1.05, hd + 0.0, 0.04, 0.5, 0.06, { col: rgb('#B9BDC2') }); }   // ручка двери
+      // вывеска: тёмная доска поперёк фасада, буквы — своей текстурой (W9.cafeSign)
+      bk.box(F, 0, H - 0.36, hd + 0.06, W + 0.04, 0.78, 0.1, { col: rgb('#2B2C30') });
+      W9.cafeSign = { p: F.p(0, H - 0.36, hd + 0.115), ry: c.ry, w: W - 0.2, h: 0.72 };
+      // бетонная отмостка перед входом
+      bk.quadF(F.p(-hw - 0.2, 0.03, hd), F.p(hw + 0.2, 0.03, hd), F.p(hw + 0.2, 0.03, hd + 1.3), F.p(-hw - 0.2, 0.03, hd + 1.3), rgb('#A8A49C'), S.SLAB, [0, 1, 0]);
+      // соседи: слева — жёлтый кирпич, красные металлические ставни; справа — серый гараж с серой дверью; крыши — красный профлист
+      const shedRoof = (x0, x1, h) => { const a = F.p(x0, h + 0.35, -hd - 0.3), b = F.p(x1, h + 0.35, -hd - 0.3), cc = F.p(x1, h, hd + 0.35), d = F.p(x0, h, hd + 0.35);
+        bk.quadF(a, b, cc, d, rgb('#A9443C'), S.ROOF, [0, 1, 0]); bk.quadF(a, b, cc, d, rgb('#7E2F2A'), S.ROOF, [0, -1, 0]); };
+      { const x0 = -hw - 4.4, x1 = -hw, xm = (x0 + x1) / 2, h2 = 3.0; bk.box(F, xm, (h2 + foot) / 2, 0, x1 - x0, h2 - foot, D, { col: rgb('#D8BE84'), s: S.ASHLAR }); shedRoof(x0, x1, h2);
+        [-1.5, 0.4].forEach(x => bk.box(F, x0 + 2.2 + x, 1.25, hd + 0.04, 1.3, 1.6, 0.06, { col: rgb('#9C2E2C') }));
+        bk.box(F, x0 + 0.5, 1.1, hd + 0.04, 0.7, 2.1, 0.06, { col: rgb('#9C2E2C') }); }
+      { const x0 = hw, x1 = hw + 5.2, xm = (x0 + x1) / 2, h2 = 3.0; bk.box(F, xm, (h2 + foot) / 2, 0, x1 - x0, h2 - foot, D, { col: rgb('#B7BBBC'), s: S.PLASTER }); shedRoof(x0, x1, h2);
+        bk.box(F, x0 + 1.4, 1.05, hd + 0.04, 1.1, 2.1, 0.06, { col: rgb('#8E9396') }); bk.box(F, x0 + 3.6, 1.6, hd + 0.04, 1.8, 1.3, 0.06, { col: rgb('#9AA0A3') }); }
+      // ===== внутри =====
+      const q4 = (pts, col, n) => ib.quadF(F.p(...pts[0]), F.p(...pts[1]), F.p(...pts[2]), F.p(...pts[3]), col, 0, n);
+      q4([[-hw + 0.22, 0.02, -hd + 0.22], [hw - 0.22, 0.02, -hd + 0.22], [hw - 0.22, 0.02, hd - 0.22], [-hw + 0.22, 0.02, hd - 0.22]], rgb('#8A6446'), [0, 1, 0]);   // пол — тёмное дерево
+      q4([[-hw + 0.22, H - 0.03, -hd + 0.22], [hw - 0.22, H - 0.03, -hd + 0.22], [hw - 0.22, H - 0.03, hd - 0.22], [-hw + 0.22, H - 0.03, hd - 0.22]], rgb('#34353A'), [0, -1, 0]);   // потолок тёмный
+      [-1, 1].forEach(sd => q4([[sd * (hw - 0.23), 0, -hd + 0.22], [sd * (hw - 0.23), 0, hd - 0.22], [sd * (hw - 0.23), H, hd - 0.22], [sd * (hw - 0.23), H, -hd + 0.22]], inner, [-sd * F.c, 0, sd * F.s]));
+      // стойка бариста вдоль правой стены: деревянный верх, фасад — «ковёр» (бордовые, красные, охристые и синие полосы)
+      const bx = hw - 1.25, bz0 = -hd + 0.55, bz1 = 1.05, bzc = (bz0 + bz1) / 2, bl = bz1 - bz0;
+      ib.box(F, bx, 0.52, bzc, 0.55, 1.04, bl, { col: woodD });
+      ib.box(F, bx - 0.05, 1.07, bzc, 0.7, 0.06, bl + 0.08, { col: wood });
+      const rugC = ['#7A1F2B', '#A8323A', '#7A1F2B', '#D0913E', '#2F4F7A', '#7A1F2B', '#E8D6B0', '#A8323A'].map(rgb);
+      for (let i = 0; i < 16; i++) ib.box(F, bx - 0.285, 0.52, bz0 + (i + 0.5) * bl / 16, 0.012, 0.98, bl / 16, { col: rugC[i % rugC.length] });
+      for (let k = 0; k < 3; k++) ib.box(F, bx - 0.29, 0.18 + k * 0.33, bzc, 0.012, 0.05, bl, { col: rgb('#E8D6B0') });   // поперечные узоры
+      { const p = [bx + 0.02, 1.1, bz0 + 0.45]; ib.box(F, p[0], p[1] + 0.24, p[2], 0.45, 0.48, 0.5, { col: rgb('#B9BEC4'), cols: { nx: rgb('#2C2D31') } }); ib.box(F, p[0] - 0.2, p[1] + 0.12, p[2], 0.08, 0.06, 0.3, { col: rgb('#3A3A40') }); }   // кофемашина
+      ib.box(F, bx + 0.0, 1.1 + 0.22, bz1 - 0.55, 0.5, 0.44, 0.8, { col: rgb('#DCEAF0') });   // витрина с выпечкой
+      for (let k = 0; k < 4; k++) { const q = F.p(bx - 0.05, 1.22, bz1 - 0.85 + k * 0.2); ib.sph(q[0], q[1], q[2], 0.07, 0.04, 0.07, rgb(k % 2 ? '#D9A55A' : '#C47A3E'), { seg: 6, rings: 3 }); }
+      // полки на правой стене с банками и пачками
+      [1.55, 1.95, 2.35].forEach((y, si) => { ib.box(F, hw - 0.4, y, bzc, 0.3, 0.04, bl, { col: wood }); for (let k = 0; k < 7; k++) { const z = bz0 + 0.2 + k * (bl - 0.4) / 6, p = F.p(hw - 0.4, y + 0.11, z); ib.cyl(p[0], p[1] - 0.09, p[2], 0.05, 0.05, 0.18, { seg: 6, col: rgb(['#C2405B', '#E8D6B0', '#7A1F2B', '#D0913E', '#F4F1EA'][(k + si) % 5]) }); } });
+      // у окон на село: стойка во всю ширину и высокие табуреты
+      ib.box(F, -0.55, 1.04, -hd + 0.45, W - 2.0, 0.05, 0.42, { col: wood }); [-2.6, 1.5].forEach(x => ib.box(F, x, 0.52, -hd + 0.4, 0.05, 1.0, 0.05, { col: iron }));
+      const STOOL = [-2.5, -1.2, 0.1];
+      STOOL.forEach(x => { const p = F.p(x, 0, -hd + 0.95); ib.cyl(p[0], 0.73, p[2], 0.19, 0.19, 0.06, { seg: 10, col: dark }); ib.cyl(p[0], 0.0, p[2], 0.03, 0.03, 0.73, { seg: 5, col: iron }); ib.cyl(p[0], 0.0, p[2], 0.17, 0.17, 0.03, { seg: 8, col: iron }); });
+      // два столика с металлическими стульями
+      const TAB = [[-2.1, 1.25], [-0.55, 1.5]];
+      TAB.forEach(([x, z]) => { ib.box(F, x, 0.74, z, 0.75, 0.05, 0.62, { col: wood }); ib.box(F, x, 0.37, z, 0.08, 0.74, 0.08, { col: woodD });
+        [-1, 1].forEach(sd => { const cx = x + sd * 0.55; ib.box(F, cx, 0.45, z, 0.4, 0.04, 0.4, { col: dark }); ib.box(F, cx + sd * 0.18, 0.7, z, 0.04, 0.5, 0.4, { col: dark }); [-1, 1].forEach(a => [-1, 1].forEach(b2 => ib.box(F, cx + a * 0.17, 0.22, z + b2 * 0.17, 0.03, 0.45, 0.03, { col: iron }))); }); });
+      // лампы-подвесы (ночью тёплые) и картина-ковёр на левой стене
+      [[-1.4, -0.6], [0.6, -1.2], [bx - 0.3, bzc]].forEach(([x, z]) => { ib.box(F, x, H - 0.4, z, 0.015, 0.75, 0.015, { col: iron }); { const q = F.p(x, 0, z); ib.cyl(q[0], H - 0.95, q[2], 0.2, 0.06, 0.2, { seg: 10, col: dark }); } glowB.sph(...F.p(x, H - 1.0, z), 0.08, 0.08, 0.08, rgb('#FFE2A8'), { seg: 6, rings: 4 }); NIGHT.lamps.push(F.p(x, H - 1.0, z)); });
+      for (let i = 0; i < 6; i++) ib.box(F, -hw + 0.24, 1.6, -0.4 + (i - 2.5) * 0.18, 0.012, 0.9, 0.18, { col: rugC[(i * 3) % rugC.length] });
+      // тёплый свет изнутри в окнах фасада (вечером и ночью — ярче, общий материал фонарей)
+      FRONT.slice(0, 2).forEach(o => lantB.box(F, (o.x0 + o.x1) / 2, 2.55 - 0.05, hd - 0.35, o.x1 - o.x0 - 0.3, 0.04, 0.2, { col: rgb('#FFE7B8') }));
+      // коллайдеры: стены (в двери — проход), стойки, столики, соседи; крыша — для луча камеры
+      const cb = (x, z, w, d, y1, id, y0 = foot) => { const p = F.p(x, 0, z); colliders.push({ type: 'box', x: p[0], z: p[2], w, d, ry: c.ry, y0, y1, id }); };
+      cb((-hw + FRONT[2].x0) / 2, hd - 0.11, FRONT[2].x0 + hw, 0.26, H + 0.2, 'cafeWall'); cb((FRONT[2].x1 + hw) / 2, hd - 0.11, hw - FRONT[2].x1, 0.26, H + 0.2, 'cafeWall');
+      cb(0, -hd + 0.11, W, 0.26, H + 0.2, 'cafeWall'); cb(-hw + 0.11, 0, 0.26, D, H + 0.2, 'cafeWall'); cb(hw - 0.11, 0, 0.26, D, H + 0.2, 'cafeWall');
+      cb(bx, bzc, 0.75, bl + 0.1, 1.1, 'cafeBar'); cb(-0.55, -hd + 0.45, W - 2.0, 0.44, 1.07, 'cafeCounter');
+      TAB.forEach(([x, z], i) => cb(x, z, 1.75, 0.7, 0.8, 'cafeTable' + i));
+      cb(-hw - 2.2, 0, 4.4, D, 3.4, 'cafeLeft'); cb(hw + 2.6, 0, 5.2, D, 3.4, 'cafeRight');
+      { const p = F.p(0, 0, 0); camExtra.push({ type: 'box', x: p[0], z: p[2], w: W, d: D, ry: c.ry, y0: H - 0.1, y1: H + 0.3, id: 'camCafe', cam: true }); }
+      HB.push({ x: F.p(0.4, 0, 0)[0], z: F.p(0.4, 0, 0)[2], w: W + 9.6, d: D, ry: c.ry, top: H + 0.2 });
+      // бариста за стойкой (лисичка в фартуке) и гостья у окна
+      const bar = placeNpc('barista_fox', ...(() => { const p = F.p(hw - 0.62, 0, bzc - 0.2); return [p[0], p[2]]; })(), c.ry - PI / 2, { y: 0, make: W9.makeBarista, headY: 1.15, talkR: 2.8, name: 'Лисичка-бариста' });
+      bar.paw = { color: '#D9783A', height: 0.66, meetY: 1.04 };
+      // лавка-кофейня (покупка — тем же путём, что в лавках базара: монетка → стаканчик из лап)
+      const inside = F.p(bx - 1.0, 0, bzc - 0.2).concat([c.ry + PI / 2]), door = F.p((FRONT[2].x0 + FRONT[2].x1) / 2, 0, hd + 1.0).concat([c.ry]);
+      const shop = { id: 'cafe', activity: 'shop_cafe', title: 'Мархарай', seller: bar.id, items: [], inside, door, view: 'shop_cafe', counter: F.p(bx - 0.3, 1.1, bzc), paw: bar.paw, thanks: 'shopThanks_cafe' };
+      const sp = { id: 'cafe', x: door[0], y: 0, z: door[2], r: 1.4, icon: '☕', label: 'Кофейня «Мархарай»', action: 'Зайти за кофе', shop };
+      sp.use = () => { if (bar.hop) bar.hop(); return { id: 'cafe', kind: 'sheet', activity: 'shop_cafe', npc: bar.id, shop }; };
+      spotsList.push(sp);
+      // «Сесть у окна»: высокий табурет, вид на Кубачи и горы
+      const seat = F.p(STOOL[1], 0.76, -hd + 0.95), stand = F.p(STOOL[1], 0, -hd + 1.6);
+      spotsList.push({ id: 'cafe_window', x: stand[0], y: 0, z: stand[2], r: 1.3, icon: '🪟', label: 'Сесть у окна', action: 'Сесть у окна', seat, ry: c.ry + PI,
+        use: () => ({ id: 'cafe_window', kind: 'sit', seat, ry: c.ry + PI, view: 'cafe_window', text: 'Внизу — крыши Кубачи, дальше — горы в дымке.' }) });
+      W9.cafeViews = {
+        shop_cafe: { pos: F.p(-2.4, 1.95, 2.0), target: F.p(1.4, 1.05, -0.9), fov: 62 },
+        cafe_window: { pos: F.p(STOOL[1] - 0.2, 1.75, -hd + 2.0), target: F.p(STOOL[1] - 5, -12, -hd - 20), fov: 60 },   // через окно — на крыши села к западу и горы
+        cafe_front: { pos: F.p(0.8, 1.7, hd + 8.5), target: F.p(0, 1.6, 0), fov: 56 },
+      };
+      W9.cafe = { x: c.x, z: c.z, ry: c.ry, w: W, d: D, door, inside, seat, barista: bar.id };
+    }
+    // лисичка-бариста: рыжая, белая грудка, тёмный фартук, белая чашечка в лапке
+    W9.makeBarista = () => K.npc('barista_fox', ({ n, body, P, face, M, GEO }) => {
+      const o = M('#D9783A'), cr = M('#F4EEE2'), dk = M('#3A2E3F'), ap = M('#2E2F33'), cup = M('#FFFDF9');
+      P(body, GEO.sph, o, [0, 0.4, 0], [0.23, 0.28, 0.21]); P(body, GEO.sph, cr, [0, 0.38, 0.12], [0.13, 0.17, 0.1], null, false);
+      P(body, GEO.box, ap, [0, 0.33, 0.19], [0.3, 0.38, 0.04], [0.08, 0, 0], false);
+      [-1, 1].forEach(sd => { P(body, GEO.sph, dk, [sd * 0.1, 0.06, 0.05], [0.07, 0.055, 0.1]); P(body, GEO.sph, o, [sd * 0.22, 0.47, 0.1], [0.06, 0.14, 0.06], [0.8, 0, sd * 0.4]); });
+      P(body, GEO.cyl, cup, [0.25, 0.58, 0.2], [0.04, 0.06, 0.04], null, false);
+      P(body, GEO.sph, o, [0, 0.25, -0.22], [0.1, 0.1, 0.22], [0.6, 0, 0]); P(body, GEO.sph, cr, [0, 0.12, -0.38], [0.07, 0.07, 0.08], null, false);   // хвост
+      const head = new T.Group(); head.position.set(0, 0.84, 0.03); body.add(head); n.head = head;
+      P(head, GEO.sph, o, [0, 0, 0], [0.2, 0.19, 0.2]); P(head, GEO.sph, cr, [0, -0.06, 0.13], [0.12, 0.08, 0.1], null, false);
+      face(head, { nose: '#3A2E3F', noseW: 13, noseH: 9, mouth: 'smile', ey: 340, lash: true }, [0.2, 0.19, 0.2]);
+      [-1, 1].forEach(sd => { P(head, GEO.cone, o, [sd * 0.11, 0.2, -0.02], [0.07, 0.13, 0.05], [0, 0, -sd * 0.25]); P(head, GEO.cone, dk, [sd * 0.115, 0.27, -0.02], [0.035, 0.06, 0.03], [0, 0, -sd * 0.25], false); });
+      n.extra = t => { n.body.rotation.y = Math.sin(t * 0.9) * 0.12; };
+    });
+    // вывеска «Мархарай»: своя текстура — тёмное поле, белые буквы с засечками (узкие, высокие), слева белая чашка линией, под ней «кофейня»
+    function cafeSignMesh() {
+      const sg = W9.cafeSign; if (!sg) return null;
+      const [cv, cx] = K.cnv(1024, 128), Wc = 1024, Hc = 128;
+      cx.fillStyle = '#2B2C30'; cx.fillRect(0, 0, Wc, Hc);
+      cx.strokeStyle = '#F4F2EE'; cx.fillStyle = '#F4F2EE'; cx.lineWidth = 4; cx.lineJoin = 'round';
+      cx.strokeRect(20, 14, 138, 74);   // рамка-эмблема с чашкой
+      cx.beginPath(); cx.moveTo(52, 36); cx.lineTo(56, 74); cx.quadraticCurveTo(58, 80, 66, 80); cx.lineTo(104, 80); cx.quadraticCurveTo(112, 80, 114, 74); cx.lineTo(118, 36); cx.closePath(); cx.stroke();
+      cx.beginPath(); cx.arc(124, 52, 11, -1.3, 1.3); cx.stroke();
+      [[72, 30], [86, 26], [100, 30]].forEach(([x, y]) => { cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x - 6, y - 7, x, y - 14); cx.stroke(); });
+      cx.font = '600 26px "DejaVu Serif", Georgia, "Times New Roman", serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('кофейня', 89, 108);
+      cx.save(); cx.translate(590, 68); cx.scale(0.8, 1); cx.font = '400 106px "Cormorant Garamond", "DejaVu Serif", Georgia, "Times New Roman", serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText('МАРХАРАЙ', 0, 4); cx.restore();
+      const tex = K.tex(cv); tex.anisotropy = 4;
+      const F = new K.Frame(sg.p[0], sg.p[1], sg.p[2], sg.ry), g = new T.PlaneGeometry(sg.w, sg.h);
+      const m = new T.Mesh(K.keep(g), K.keep(new T.MeshBasicMaterial({ map: tex })));
+      m.position.set(sg.p[0], sg.p[1], sg.p[2]); m.rotation.y = sg.ry; m.name = 'cafeSign'; m.userData.noRay = true;
+      return m;
     }
     function roadGeo() {
       // знак у въезда и указатель к дороге
@@ -4005,7 +4154,7 @@
     courtyardGeo(houses.find(h => h.tag === 'badger_house'), houses.find(h => h.id === 'h036'));
     if (!FAR) { springGeo(); westKnollGeo(); meadowGeo(); } lodGeo(); if (!FAR) roadGeo();
     if (!FAR) { W6.detB = new K.Baker('vc'); uplandGeo(); { const g0 = glaz.length; schoolGeo(); W6.glazS = [g0, glaz.length]; } yardGeo(); turnGeo(); villageSigns(); summitRestGeo(); roadsGeo(); }   // волна 6: дороги села, плато, школа
-    if (!FAR) { plazaGeo(); lowerQuarterGeo(); }   // волна 9: восточная половина площади и Нижняя улица с домами
+    if (!FAR) { plazaGeo(); cafeGeo(); lowerQuarterGeo(); }   // волна 9: восточная половина площади и Нижняя улица с домами
     // резной олень над дверью сокровищницы (пасхалка 3b)
     const TH = houses.find(h => h.tag === 'treasure_house');
     if (TH && TH.door) props.carved.push({ id: 'deer', p: [TH.door[0], TH.y0 + 2.25, TH.door[2] - 0.28 * Math.cos(TH.ry)].map((v, i) => i === 0 ? v - 0.28 * Math.sin(TH.ry) : v), ry: TH.ry, tile: 1, size: 0.42 });
@@ -4027,6 +4176,10 @@
     if (!FAR) towerInside();
     weddingHouseGeo();
     const BZ = bazaarBuild(); if (BZ && BZ.castMeshes) MODG.stalls.push(...BZ.castMeshes);
+    // волна 9: кофейня — мелочь внутри (прячется издалека), стёкла, вывеска
+    if (W9.cafeB) { const m = W9.cafeB.mesh(K.vcMat); if (m) { m.name = 'cafeInside'; add(litMesh(m), { cast: false }); W9.cafeIn = m; }
+      const g = W9.cafeGlass.build(); if (g) { const gm = new T.Mesh(g, K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false }))); gm.name = 'cafeGlass'; gm.renderOrder = 5; gm.userData.noRay = true; root.add(gm); }
+      const sm = cafeSignMesh(); if (sm) root.add(sm); }
     const WD = FAR ? null : weddingBuild();
     if (!FAR) { springPitGeo(); patsGeo(); benchesLate(nBench0); }
     terracesGeo();
@@ -4315,6 +4468,8 @@
       summit_top: { pos: [560, 113.5, -252], target: [40, -10, -40], fov: 50 },
       summit_bend: { pos: [178, 70, -380], target: [250, 55, -280], fov: 60 },   // шпилька 2 и ноги над ней — сверху, снаружи (было [250, 46, −300]: камера внутри горы)
     };
+    if (W9.cafeViews) Object.assign(views, W9.cafeViews);   // волна 9: кофейня — у стойки, у окна, фасад
+
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
     if (ZL && ZL.view) views.zip_hotel = ZL.view;   // W4A: с настила финиша — на отель и трос
@@ -4331,6 +4486,7 @@
       // волна 6: за рулём (героиня быстро едет) жители видны ближе (28 м вместо 46): кадр следилки над селом — меньше вызовов
       if (dt > 0) { const sp = Math.hypot(hx - (update.px === undefined ? hx : update.px), hz - (update.pz === undefined ? hz : update.pz)) / dt; update.fast = sp > 6 ? 1.2 : Math.max(0, (update.fast || 0) - dt); update.px = hx; update.pz = hz; }
       const visK = update.fast > 0 ? 28 / 46 : 1;
+      if (W9.cafeIn && cam) W9.cafeIn.visible = Math.hypot(cam.position.x - CAFE.x, cam.position.z - CAFE.z) < 60;   // волна 9: кофейня изнутри — только вблизи
       if (W6.detMesh && cam) { const bs = W6.detMesh.geometry.boundingSphere; W6.detMesh.visible = !bs || cam.position.distanceTo(bs.center) - bs.radius < 130; }   // волна 6: мелочь двора — вблизи
       npcs.forEach(n => {
         if (n.ext) return;   // волна 4: жители модулей (свадьба) — их update()
@@ -4502,7 +4658,7 @@
         outerPads: OUTR ? OUTR.net.disks.map(D => ({ id: D.id, x: D.x, z: D.z, y: D.y, r: D.r })) : [],
         // волна 9: площадь шире и Нижняя улица — для карты, тестов и подсказок
         plaza: PLAZA.rects.map(r => ({ x: r.x, z: r.z, w: r.w, d: r.d, ry: r.ry })),
-        lowerQuarter: FAR ? null : { road: 'lower', len: W9.len, y: W9.y, houses: W9.houses.length, ids: W9.houses.map(h => h.id), list: W9.houses.map(h => ({ id: h.id, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, roof: h.roof, row: h.row })), roofs: W9.roofs, stairs: W9.stairs, annex: W9.annex, bridge: W9.bridge, lamps: W9.lamps, glade: OUTR ? OUTR.net.disks.find(D => D.id === 'glade') : null, end: OUTR ? OUTR.net.disks.find(D => D.id === 'lowEnd') : null } },
+        lowerQuarter: FAR ? null : { road: 'lower', len: W9.len, y: W9.y, houses: W9.houses.length, ids: W9.houses.map(h => h.id), list: W9.houses.map(h => ({ id: h.id, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, roof: h.roof, row: h.row })), roofs: W9.roofs, stairs: W9.stairs, annex: W9.annex, bridge: W9.bridge, lamps: W9.lamps, cafe: W9.cafe || null, glade: OUTR ? OUTR.net.disks.find(D => D.id === 'glade') : null, end: OUTR ? OUTR.net.disks.find(D => D.id === 'lowEnd') : null } },
       // ===== волна 6 (дороги села, только добавления) =====
       // drive: всё, что нужно загрузчику, чтобы ездить по селу контроллером js/village/drive.js (см. README, «Волна 6»)
       drive: DNET ? {

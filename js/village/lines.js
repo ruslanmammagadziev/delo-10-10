@@ -26,6 +26,7 @@
     // волна 4: базарная площадь, лавки, коровья тропа (новым speaker id нужны пресеты в CAST, tools/voice_build.py)
     cow: { name: 'Корова', icon: '🐄', voice: 'добродушный, протяжный, с «му»' },
     goat_grocer: { name: 'Козочка-лавочница', icon: '🐐', voice: 'звонкий, приветливый' },
+    barista_fox: { name: 'Лисичка-бариста', icon: '🦊', voice: 'тёплый, весёлый' },   // волна 9: кофейня «Мархарай»
     bear_craft: { name: 'Медвежонок-медник', icon: '🐻', voice: 'басовитый, мягкий, неторопливый' },
     lamb_cloth: { name: 'Ягнёнок с пряжей', icon: '🐑', voice: 'тоненький, застенчивый' },
     squirrel_nuts: { name: 'Белочка с орешками', icon: '🐿️', voice: 'быстрый, весёлый' },
@@ -100,6 +101,12 @@
       { who: 'cow', text: 'Внизу дома — хлев, а наверху живут. Тепло и удобно!' },
       { who: 'cow', text: 'Смотри под ноги! Тут коровья тропа.' },
     ],
+    barista_fox: [   // волна 9: кофейня «Мархарай» у Нижней улицы
+      { who: 'barista_fox', text: 'Привет! Заходи, у нас тепло и пахнет кофе.' },
+      { who: 'barista_fox', text: 'Капучино или эспрессо? Сварю как ты любишь.' },
+      { who: 'barista_fox', text: 'Садись у окна — оттуда всё село видно, до самых гор.' },
+      { who: 'barista_fox', text: 'Утром облака прямо под окнами плывут!' },
+    ],
     goat_grocer: [
       { who: 'goat_grocer', text: 'Привет! Фрукты везём снизу — тут, наверху, абрикосы не растут.' },
       { who: 'goat_grocer', text: 'Творог, сметана, яйца — всё свежее!' },
@@ -158,6 +165,7 @@
     climbTop: { who: 'eagle', text: 'Поднялась по лестнице? Молодец! Отсюда видно всё село.' },
     cowPat: { who: 'cow', text: 'Му! Ничего, у родника отмоешь.' },
     shopThanks_food: { who: 'goat_grocer', text: 'Держи! Спасибо, приходи ещё.' },
+    shopThanks_cafe: { who: 'barista_fox', text: 'Осторожно, горячий! Приятного кофе.' },
     shopThanks_craft: { who: 'bear_craft', text: 'Держи! Пусть радует.' },
     shopThanks_cloth: { who: 'lamb_cloth', text: 'Держи! Тёплого тебе пути.' },
     bakeryGive: { who: 'baker_bunny', text: 'Держи! Тёплый, с хрустом.' },
@@ -237,6 +245,14 @@
           { id: 'scarf', item: 'scarf', title: 'Платочек', use: 'admire', hero: 'Какой мягкий!' },
           { id: 'socks', item: 'socks', title: 'Шерстяные носочки', use: 'admire', hero: 'Тёплые-тёплые.' },
           { id: 'mittens', item: 'mittens', title: 'Варежки', use: 'admire', hero: 'Как раз на мои ладошки!' },
+        ],
+      },
+      // волна 9: кофейня у Нижней улицы (вывеска — как на фото автора)
+      shop_cafe: {
+        title: 'Кофейня «Мархарай»', text: ['Окна во всю стену: внизу — крыши Кубачи, дальше — горы.'], seller: 'barista_fox', thanks: 'shopThanks_cafe',
+        items: [
+          { id: 'cappuccino', item: 'coffee', title: 'Капучино', use: 'admire', hero: 'Ммм, пенка с сердечком!' },
+          { id: 'espresso', item: 'coffee', title: 'Эспрессо', use: 'admire', hero: 'Крепкий и ароматный!' },
         ],
       },
       bazaar: { title: 'Базарная площадь', text: ['Раз в неделю здесь большой базар: фрукты, творог, мёд, медь, носочки и платки.'] },
