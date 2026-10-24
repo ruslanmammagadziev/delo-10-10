@@ -109,6 +109,7 @@
     // волна 4B: горы (село, отель, дорога); group — раздел списка на вкладке «Кубачи»
     tower: { col: '#C98A4E', g: 'tower', name: 'Башня', group: 'В селе' },
     bakery: { col: '#D9A04A', g: 'bread', name: 'Пекарня', group: 'В селе' },
+    cafe: { col: '#A86A48', g: 'cup', name: 'Кофейня', group: 'В селе' },   // волна 11: кофейня «Мархарай» на гребневой улице
     spring: { col: '#5DA6D6', g: 'drop', name: 'Родник', group: 'В селе' },
     wedding: { col: '#D9718E', g: 'note', name: 'Свадьба', group: 'В селе' },
     kaz: { col: '#B58ACB', g: 'scarf', name: 'Примерка', group: 'В селе' },
@@ -142,6 +143,7 @@
     hotel: 'Белый корпус, двор и вид на вершины.', pool: 'Тёплая вода за стеклом.', golf: 'Три лунки с флажками.', fire: 'Скамейки вокруг огонька.',
     spa: 'Купели с паром — только посмотреть.', sport: 'Мячик выдают бесплатно.', bench: 'Присесть и посмотреть на долину.',
     gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
+    cafe: 'Капучино у лисички-баристы и вид на крыши из окна.',
   };
   const rgba = (hex, a) => { const h = String(hex || '#F2DCE2').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
   const shade = (hex, k) => { const h = String(hex || '#ccc').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); const f = v => clamp(Math.round(v * k), 0, 255); return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`; };
@@ -278,6 +280,9 @@
       case 'clock': c.beginPath(); c.arc(0, 0, 0.42 * r, 0, TAU); c.fill(); c.strokeStyle = bg; lw(0.09); P([[0, 0], [-0.21, -0.12]]); c.stroke(); P([[0, 0], [0.24, -0.17]]); c.stroke(); break;
       // волна 4B: горы
       case 'tower': c.fillRect(-0.24 * r, -0.26 * r, 0.48 * r, 0.72 * r); for (let i = 0; i < 3; i++) c.fillRect((-0.32 + i * 0.25) * r, -0.46 * r, 0.14 * r, 0.24 * r); c.fillRect(-0.32 * r, -0.3 * r, 0.64 * r, 0.1 * r); c.fillStyle = bg; c.fillRect(-0.07 * r, 0.16 * r, 0.14 * r, 0.3 * r); break;
+      case 'cup': c.beginPath(); c.moveTo(-0.4 * r, -0.1 * r); c.lineTo(0.22 * r, -0.1 * r); c.quadraticCurveTo(0.22 * r, 0.34 * r, -0.09 * r, 0.34 * r); c.quadraticCurveTo(-0.4 * r, 0.34 * r, -0.4 * r, -0.1 * r); c.fill();
+        lw(0.09); c.beginPath(); c.arc(0.27 * r, 0.06 * r, 0.12 * r, -PI / 2, PI / 2); c.stroke(); c.fillRect(-0.5 * r, 0.38 * r, 0.82 * r, 0.08 * r);
+        lw(0.07); [-0.22, 0.02].forEach(x => { c.beginPath(); c.moveTo(x * r, -0.2 * r); c.bezierCurveTo((x - 0.1) * r, -0.32 * r, (x + 0.1) * r, -0.4 * r, x * r, -0.52 * r); c.stroke(); }); break;   // волна 11: кофейня
       case 'bread': c.beginPath(); c.ellipse(0, 0.04 * r, 0.48 * r, 0.3 * r, -0.25, 0, TAU); c.fill(); c.strokeStyle = bg; lw(0.08); [-0.2, 0, 0.2].forEach(x => { P([[x - 0.06, -0.12], [x + 0.08, 0.16]]); c.stroke(); }); break;
       case 'drop': c.beginPath(); c.moveTo(0, -0.5 * r); c.bezierCurveTo(0.2 * r, -0.2 * r, 0.38 * r, 0.02 * r, 0.38 * r, 0.16 * r); c.arc(0, 0.16 * r, 0.38 * r, 0, PI); c.bezierCurveTo(-0.38 * r, 0.02 * r, -0.2 * r, -0.2 * r, 0, -0.5 * r); c.fill(); break;
       case 'note': c.beginPath(); c.ellipse(-0.18 * r, 0.3 * r, 0.17 * r, 0.13 * r, -0.4, 0, TAU); c.fill(); c.beginPath(); c.ellipse(0.26 * r, 0.2 * r, 0.17 * r, 0.13 * r, -0.4, 0, TAU); c.fill(); lw(0.09); P([[-0.03, 0.28], [-0.03, -0.38], [0.41, -0.48], [0.41, 0.18]]); c.stroke(); break;
@@ -1696,13 +1701,19 @@
       ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 5.6, -54, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
       // вершина: начало дороги к отелю (площадка jHotel за школой) и верх дороги — ворота парковки отеля (выход toHotel);
       // места передохнуть по пути — из VILLAGE.SUMMIT.rest (summitRest)
-      ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9]],
+      ['jHotel', 'hairpin', 85, -102.5], ['toHotel', 'hotel', 562.4, -259.9],
+      // волна 11: кофейня «Мархарай» — у двери на гребневой улице (по рамке CAFE села — cafeDoor; это — запас без неё)
+      ['cafe', 'cafe', -41.82, 7.59]],
     hotel: [['main', 'hotel', -2, 25.5], ['courtyard', 'square', -3, -3], ['pool', 'pool', 36, 18], ['green', 'golf', 27, -56], ['sports_look', 'sport', 40, -62], ['spa', 'spa', -54, -55],
       ['fire', 'fire', -40, -86], ['view', 'view', 30, -93.2], ['tower', 'view', -26, -24, 'Смотровая башня'], ['launch', 'zip', -55, -96.2, 'Вышка зиплайна'],
       ['park', 'parking', -48.4, 10.1]],
     serpentine: [['toCity', 'city', -380.2, 11.4], ['road_view', 'view', -280.1, 291.3], ['road_bench1', 'bench', -221.7, 319], ['road_bench2', 'bench', -34.7, 414.9],
       ['road_bench3', 'bench', 112.2, 435], ['road_bench4', 'bench', 238.7, 397.4], ['toVillage', 'gate', 313, 350.4]],
   };
+  // волна 11: точка кофейни «Мархарай» — на улице у двери: 1,2 м от стены фасада, против проёма (рамка CAFE из kubachi.js: +z — к
+  // улице, проём — x 0,4; мир = (x + lx·cos ry + lz·sin ry, z − lx·sin ry + lz·cos ry)). «Поехать сюда» — пешком к месту села
+  // с poi 'cafe' (cafe_sign: в 2,6 м левее, напротив витрины), лицом к вывеске; без него — сюда
+  const cafeDoor = C => { if (!C || !isFinite(C.x) || !isFinite(C.ry)) return null; const c = Math.cos(C.ry), s = Math.sin(C.ry), lx = 0.4, lz = (C.d || 6.6) / 2 + 1.2; return [C.x + lx * c + lz * s, C.z - lx * s + lz * c]; };
   const STATIC_HOTEL = { main: { x0: -21.85, x1: 17.85, z0: 15, z1: 36 }, pool: { x0: 24, x1: 48, z0: 6, z1: 30, px0: 27, px1: 45, pz0: 15, pz1: 22 }, spa: { x0: -66, x1: -42, z0: -62, z1: -48 },
     green: { x: 27, z: -56, rx: 9.5, rz: 7 }, fire: { x: -40, z: -86, r: 1.3 }, tower: { x: -26, z: -24 }, courtyard: { x: -3, z: -3 } };
   // подписи точек гор (одинаковые для радара, списка и карточки); named:false — без названия села и этнографии
@@ -1713,6 +1724,7 @@
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',
       school: 'Школа', schoolYard: 'Школьный двор', towerPark: 'Разворот у башни',   // волна 6
+      cafe: named ? 'Кофейня «Мархарай»' : 'Кофейня',   // волна 11: на гребневой улице, вход с улицы
       toCity: 'Город', road_view: 'Смотровая с лавочкой', toHotel: 'Ворота отеля', jHotel: 'Дорога к отелю', toVillage: 'Ворота села', hotel: 'Отель на вершине',
     };
     if (/^road_bench/.test(id)) return 'Лавочка над долиной';
@@ -1748,12 +1760,13 @@
     if (!KINDS[kind]) kind = 'view';
     const p = { id: String(raw.id), kind, x: +raw.x, z: +raw.z, rid, far: !!raw.far, list: raw.list !== false };
     p.label = mtnLabel(p.id, kind, named, rid);
-    if (p.label === p.id && raw.label) p.label = raw.label;
+    if ((p.label === p.id || (KINDS[kind] && p.label === KINDS[kind].name)) && raw.label) p.label = raw.label;   // волна 11: своё имя точки вместо общего «Виды» (уступ, параплан)
     if (raw.label && /^shop_/.test(p.id)) p.label = raw.label;
     p.line = mtnLine(p, named);
     return p;
   }
   const RCACHE = {};   // растры земли регионов (на сессию): rid → { cv, x0, z0, cell, nx, nz }
+  const LQCACHE = { list: null };   // волна 11: дома Нижней улицы (их раскладывает сборка села) — с последней живой карты села
 
   // модель карты региона: h — ручка (или null — статичные данные)
   function mtnModel(rid, h, named) {
@@ -1770,6 +1783,7 @@
     M.staticPois = () => {
       const list = (STATIC_POIS[rid] || []).map(a => mtnPoi({ id: a[0], kind: a[1], x: a[2], z: a[3], label: a[4] }, rid, named));
       if (rid === 'kubachi') summitRest().forEach(r => list.push(mtnPoi(r, rid, named)));
+      if (rid === 'kubachi') { const q = cafeDoor(((V.regions.kubachi && V.regions.kubachi.data) || {}).CAFE), p = list.find(t => t.id === 'cafe'); if (q && p) { p.x = q[0]; p.z = q[1]; } }   // волна 11
       if (rid !== 'hotel') return list;
       ((V.sports && V.sports.HOTEL && V.sports.HOTEL.spots) || []).forEach(s => { if (!s.poi) return; const q = list.find(p => p.id === s.poi); if (q) { q.x = s.x; q.z = s.z; } else list.push(mtnPoi({ id: s.poi, kind: 'sport', x: s.x, z: s.z }, rid, named)); });
       return list.some(q => q.id === 'padel' || q.id === 'football') ? list.filter(q => q.id !== 'sports_look') : list;   // как живой радар отеля
@@ -1781,6 +1795,8 @@
         const r = sp('roof'); if (r) out.push(mtnPoi({ id: 'roof', kind: 'roof', x: r.x, z: r.z }, rid, named));
         const k = sp('knoll'); if (k) out.push(mtnPoi({ id: 'knoll', kind: 'view', x: k.x, z: k.z, label: 'Западный уступ' }, rid, named));
         const ex = (h.exits || []).find(e => e.id === 'toRoad'); if (ex) out.push(mtnPoi({ id: 'toRoad', kind: 'city', x: ex.x, z: ex.z }, rid, named));
+        // волна 11: кофейня «Мархарай» (в списке мест загрузчика её нет) — у двери, по рамке из ручки
+        const cf = cafeDoor(h.places && h.places.cafe); if (cf) out.push(mtnPoi({ id: 'cafe', kind: 'cafe', x: cf[0], z: cf[1] }, rid, named));
       } else if (rid === 'hotel') {
         const avg = re => { let n = 0, x = 0, z = 0; (h.colliders || []).forEach(c => { if (re.test(String(c.id || ''))) { n++; x += c.x; z += c.z; } }); return n ? [x / n, z / n] : null; };
         // точки — на местах игры (на корте, иначе у входа), где сразу видна кнопка; середина кортов по коллайдерам — запас
@@ -2026,6 +2042,16 @@
     // волна 6: проезды села (улица, переулок к башне, дорога мимо школы к отелю) — оси из ручки h.drive.roads; площадь — уже выше
     const DR = h && h.drive && Array.isArray(h.drive.roads) ? h.drive.roads : null;
     if (DR) { DR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.width || 5) + 1.2, 'rgb(196,184,206)')); DR.forEach(r => polyline(c, r.pts, s, ox, oz, r.width || 5, 'rgb(214,205,222)')); }
+    else if (typeof kd.mapRoads === 'function') {
+      // волна 11: села ещё не загружали (карта из города) — та же сеть проездов по ключам осей из модуля села: улица, переулок к
+      // башне, дорога к школе, Гребневая и Нижняя улицы, внешние дороги; площадки — развилки, смотровая, луг, разворот, карман
+      let RR = null, PD = null; try { RR = kd.mapRoads(); PD = typeof kd.mapPads === 'function' ? kd.mapPads() : null; } catch (e) { RR = null; }
+      if (RR) {
+        const disk = (col, k) => (PD || []).forEach(d => { c.fillStyle = col; c.beginPath(); c.arc(X(d.x), Y(d.z), Math.max(1, (d.r + k) * s), 0, TAU); c.fill(); });
+        RR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.w || 5) + 1.2, 'rgb(196,184,206)')); disk('rgb(196,184,206)', 0.6);
+        RR.forEach(r => polyline(c, r.pts, s, ox, oz, r.w || 5, 'rgb(214,205,222)')); disk('rgb(214,205,222)', 0);
+      }
+    }
     // двор свадьбы
     const WD = h && h.places && h.places.wedding;
     if (WD) rbox(c, s, ox, oz, WD.x, WD.z, WD.w || 20, WD.d || 12, WD.ry || 0, '#F8E6E4', 'rgba(217,113,142,.5)');
@@ -2035,13 +2061,24 @@
     const wall = Math.max(0.6, 0.55 * s);
     const drawHouse = (x, z, w, d, ry, col) => { rbox(c, s, ox, oz, x, z + wall / s, w, d, ry, shade(col, 0.82)); rbox(c, s, ox, oz, x, z, w, d, ry, col); };
     if (houses && houses.length) houses.forEach(q => { if (isFinite(q.x)) drawHouse(q.x, q.z, q.w, q.d, q.ry, ROOF_COL[q.roofMat] || '#E6D6C4'); });
-    if (h && h.colliders) h.colliders.forEach(cl => {
-      if (cl.type !== 'box') return; const id = String(cl.id || '');
-      if (houses && houses.length && /^h\d/.test(id)) return;
-      if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop|school(Annex)?\b)/.test(id) || /stair/.test(id)) return;
-      drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /museum/.test(id) ? '#DCD3EC' : /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');
-    });
-    else { [[kd.MUSEUM, '#DCD3EC'], [kd.BAKERY, '#F2D9B8']].forEach(([b, col]) => { if (b) drawHouse(b.x, b.z, b.w, b.d, b.ry, col); }); }
+    if (h && h.colliders) {
+      const lq = [];
+      h.colliders.forEach(cl => {
+        if (cl.type !== 'box') return; const id = String(cl.id || '');
+        if (houses && houses.length && /^h\d/.test(id)) return;
+        // волна 11: и дома Нижней улицы (lq…: ряды, дома-мосты, пристройки; без лестниц, труб и пролёта моста над дорогой)
+        if (/^lq(\d+a?|B\d|G)$/.test(id)) { lq.push({ x: cl.x, z: cl.z, w: cl.w, d: cl.d, ry: cl.ry || 0 }); drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, '#E6D6C4'); return; }
+        if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop|school(Annex)?\b)/.test(id) || /stair/.test(id)) return;
+        drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /museum/.test(id) ? '#DCD3EC' : /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');
+      });
+      if (lq.length) LQCACHE.list = lq;   // на сессию: большая карта из города потом рисует и их
+    } else {
+      [[kd.MUSEUM, '#DCD3EC'], [kd.BAKERY, '#F2D9B8']].forEach(([b, col]) => { if (b) drawHouse(b.x, b.z, b.w, b.d, b.ry, col); });
+      (LQCACHE.list || []).forEach(q => drawHouse(q.x, q.z, q.w, q.d, q.ry, '#E6D6C4'));   // волна 11: дома Нижней улицы — если село уже загружали
+    }
+    // волна 11: кофейня «Мархарай» — «этаж на крыше» рядовых домов у Гребневой улицы: тёплым кофейным цветом поверх них
+    const CF = (h && h.places && h.places.cafe) || kd.CAFE;
+    if (CF && isFinite(CF.x)) drawHouse(CF.x, CF.z, CF.w || 11.2, CF.d || 6.6, CF.ry || 0, '#E3B48C');
     // башня
     const TW = kd.TOWER;
     if (TW) {

@@ -2034,8 +2034,10 @@
     // вершина: трос зиплайна с горы подходит к площадке финиша с востока-северо-востока, низко — под ним (ниже 14 м) деревьев нет
     const ZIPC = (() => { try { if (!V.zipline || !V.zipline.route || !V.SUMMIT) return null; const R = V.zipline.route('macro', { landY: 0 }); return { ax: R.from.x, az: R.from.z, vx: R.to.x - R.from.x, vz: R.to.z - R.from.z, y0: R.from.y, y1: R.to.y, sag: R.sag }; } catch (e) { return null; } })();
     const underZip = (x, z, s) => { if (!ZIPC) return false; const L2 = ZIPC.vx * ZIPC.vx + ZIPC.vz * ZIPC.vz, t = clamp(((x - ZIPC.ax) * ZIPC.vx + (z - ZIPC.az) * ZIPC.vz) / L2, 0, 1), d = Math.hypot(x - ZIPC.ax - ZIPC.vx * t, z - ZIPC.az - ZIPC.vz * t), cy = ZIPC.y0 + (ZIPC.y1 - ZIPC.y0) * t - 4 * ZIPC.sag * t * (1 - t); return d < 2.5 + 1.6 * s && cy - G(x, z) < 14; };
+    const HSB = [];   // правка волны 11: доски щитов «Отель» (hotelSigns) — деревья в них не сажаем
     function addTree(x, z, s, kind, y, outer) {
       for (let i = 0; i < EXCL.length; i++) if (inRect(EXCL[i], x, z)) return;   // волна 4: не в лавках и не во дворе
+      for (let i = 0; i < HSB.length; i++) if (inRect(HSB[i], x, z, 0.4 + 1.1 * s)) return;   // правка волны 11: ни стволом, ни кроной в щит «Отель»
       if (inRect(CAFE, x, z, 1.0 + 1.1 * s)) return;   // волна 10: и не у кофейни (ни в ней, ни кроной в окна)
       if (underZip(x, z, s)) return;
       if (laneDist(x, z) < 2.0 + 1.2 * s) return;   // и не над коровьей тропой (камера за героиней не упирается в кроны)
@@ -2780,6 +2782,10 @@
         cafe_front: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // фасад, как на фото
         cafe_window: W9.cafeViews.cafe_window_b, shop_cafe: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // старые имена (тесты, стенд)
       });
+      // волна 11: с улицы — «🪧 Вывеска «Мархарай»» напротив левой витрины (не в проходе к двери, 2,6 м левее), лицом к фасаду; вид —
+      // cafe_front (фасад как на фото). Сюда же ведёт «Поехать сюда» с карты (poi: 'cafe', ry): она встаёт лицом к кофейне
+      { const p = F.p(-2.2, 0, hd + 1.2); spotsList.push({ id: 'cafe_sign', poi: 'cafe', x: p[0], y: 0, z: p[2], r: 1.0, ry: c.ry + PI, icon: '🪧', label: named ? 'Вывеска «Мархарай»' : 'Вывеска кофейни',
+        action: 'Посмотреть на вывеску', use: () => ({ id: 'cafe_sign', kind: 'view', view: 'cafe_front' }) }); }
       W9.cafe = { x: c.x, z: c.z, ry: c.ry, w: W, d: D, door: F.p(0.4, 0, hd + 0.6).concat([c.ry + PI]), inside, order, seats: ['cafe_win_a', 'cafe_win_b', 'cafe_win_c', 'cafe_table', 'cafe_sofa'], barista: bar.id, inner: { x: xi, z0: zi0, z1: zi1, H } };
     }
     // лисичка-бариста: рыжая, белая грудка, тёмный фартук, белая чашечка в лапке
@@ -3489,29 +3495,89 @@
       const km = d => d < 950 ? Math.round(d / 50) * 50 + ' м' : (Math.round(d / 100) / 10).toFixed(1).replace('.', ',').replace(',0', '') + ' км';
       // щит: на траве справа по ходу (за обочиной), чуть повёрнут к полотну; если там другая дорога или откос — сдвигаемся по ходу
       W6.hsB = new K.Baker('vc'); W6.hotelSigns = []; const hb = W6.hsB, BR = rgb('#6B4329'), WH = rgb('#F4EEDF'), POST = rgb('#7D7F82');
+      // правка волны 11 («первая вывеска упирается прямо в дом и заходит внутрь»): свободной раньше проверялась только середина щита
+      // (0,35 м от стены), а доска большого щита — 2,6 м шириной: у домов вдоль дороги она уходила в стену (у парковки — в лавку
+      // фруктов, на улице — в дом h082, у башни — в стену свадебного двора, у гребневой — в дом, на Нижней — в дома-террасы и опору
+      // дома-моста). Теперь — щит целиком: доска по всей ширине и столбики — не ближе CLR к стенам домов (с галереями; если карниз
+      // выше низа доски — и свес кровли), к кофейне, лавкам, двору свадьбы и к прочим постройкам из коллайдеров (лестницы, пристройки,
+      // ограды, опоры, фонари, деревья); не над чужим полотном и площадью. Не встал справа — слева, дальше по пути, ближе к полотну
+      // (у бровки), а большой щит — и поменьше; деревья потом не сажаем в щит (addTree)
+      const CLR = 0.5, EAVE = 0.45, OBS = colliders.filter(c => c.id !== 'edge' && c.id !== 'sign' && !c.cam && (c.type === 'box' || c.type === 'circle'));
+      const BLD = HB.concat(HB2, [CAFE, SHOPS.craft, SHOPS.food, WED.out].map(o => ({ x: o.x, z: o.z, w: o.w, d: o.d, ry: o.ry || 0, top: 1e9 })));
+      const gapRect = (b, x, z) => { const c = Math.cos(b.ry || 0), s = Math.sin(b.ry || 0), dx = x - b.x, dz = z - b.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
+        return Math.hypot(Math.max(0, Math.abs(lx) - b.w / 2), Math.max(0, Math.abs(lz) - b.d / 2)); };
+      // щит в (x, yy, z), доска лицом по ry: ширина bw, середина на высоте by, высота bh; столбики — на ±0,36 bw
+      const signFree = (x, yy, z, ry, bw, by, bh, Rid) => {
+        const c = Math.cos(ry), s = Math.sin(ry), hw = bw / 2 + 0.04, yb = yy + by - bh / 2 - 0.04, yt = yy + by + bh / 2 + 0.04, N = 8;
+        for (let k = -N; k <= N; k++) {
+          const l = k / N * hw, px = x + l * c, pz = z - l * s, post = Math.abs(Math.abs(l) - bw * 0.36) <= hw / N;
+          for (let j = 0; j < BLD.length; j++) { const b = BLD[j]; if (Math.abs(b.x - px) > 30 || Math.abs(b.z - pz) > 30) continue;
+            const g = gapRect(b, px, pz);
+            if (b.top <= yy + 0.25) { if (g < 0.3) return false; continue; }   // дом ниже щита (крыша вровень с дорогой) — только не на его крыше
+            if (g < CLR + (b.top > yb ? EAVE : 0)) return false; }
+          for (let j = 0; j < OBS.length; j++) { const o = OBS[j], dx = px - o.x, dz = pz - o.z; if (dx > 12 || dx < -12 || dz > 12 || dz < -12) continue;
+            if ((o.y1 !== undefined && o.y1 < yy + 0.15) || (o.y0 !== undefined && o.y0 > yt)) continue;   // целиком ниже щита или выше доски
+            const low = o.y1 !== undefined && o.y1 < yb; if (low && !post) continue;   // низкое (бортик, ограда, скамья) — только столбикам
+            const g = o.type === 'circle' ? Math.hypot(dx, dz) - o.r : gapRect(o, px, pz); if (g < (low ? 0.15 : 0.35)) return false; }
+          if (inPlaza(px, pz, 0.3) || W6.signs.some(p => Math.hypot(px - p.x, pz - p.z) < 1.2)) return false;   // и не в указатель у развилки
+          const q = model.roadNear(px, pz); if (q && (q.id !== Rid ? q.o < 0.3 : q.o < -0.35)) return false;   // доска не над чужим полотном (над своим — не дальше 0,35 м от края)
+        }
+        return true;
+      };
+      // щит виден издали целиком: от середины полотна за 9 и 17 м до места (A) до краёв и середины доски — ни дома, ни стены выше
+      // низа доски поперёк (иначе с подъезда доска «выходит из стены» — так и выглядел щит у парковки из-за лавки фруктов)
+      const segHit = (b, ax, az, px, pz) => { const c = Math.cos(b.ry || 0), s = Math.sin(b.ry || 0), L = (x, z) => [(x - b.x) * c - (z - b.z) * s, (x - b.x) * s + (z - b.z) * c];
+        const [x0, z0] = L(ax, az), [x1, z1] = L(px, pz), dx = x1 - x0, dz = z1 - z0, hw = b.w / 2 + 0.1, hd = b.d / 2 + 0.1; let t0 = 0.02, t1 = 0.98;
+        for (const [p0, dp, lo, hi] of [[x0, dx, -hw, hw], [z0, dz, -hd, hd]]) { if (Math.abs(dp) < 1e-9) { if (p0 < lo || p0 > hi) return false; continue; }
+          let u = (lo - p0) / dp, w = (hi - p0) / dp; if (u > w) { const q = u; u = w; w = q; } t0 = Math.max(t0, u); t1 = Math.min(t1, w); if (t0 > t1) return false; }
+        return true; };
+      const signSeen = (x, yy, z, ry, bw, by, bh, A) => { const c = Math.cos(ry), s = Math.sin(ry), hw = bw / 2, yb = yy + by - bh / 2;
+        for (const [ax, az] of A) for (const l of [-hw, 0, hw]) { const px = x + l * c, pz = z - l * s;
+          for (let j = 0; j < BLD.length; j++) { const b = BLD[j]; if (b.top < yb - 0.2 || Math.abs(b.x - px) > 40 || Math.abs(b.z - pz) > 40) continue; if (segHit(b, ax, az, px, pz)) return false; } }
+        return true; };
+      // точки подъезда к месту w (по оси его дороги назад от «куда едем» e): за 9 и 17 м
+      const approach = (w, e) => { const [R, i] = roadOf(w), re = roadOf(e); let d = re[0] === R ? Math.sign(re[1] - i) : 0;
+        if (!d) { const th = Math.atan2(X[e] - X[w], Z[e] - Z[w]), j = Math.min(R.n - 1, i + 1), k = Math.max(0, j - 1); d = (R.x[j] - R.x[k]) * Math.sin(th) + (R.z[j] - R.z[k]) * Math.cos(th) >= 0 ? 1 : -1; }
+        const out = []; let acc = 0, m = i;
+        for (const D of [9, 17]) { while (acc < D && m - d >= 0 && m - d < R.n) { acc += Math.hypot(R.x[m] - R.x[m - d], R.z[m] - R.z[m - d]); m -= d; } if (acc > 5) out.push([R.x[m], R.z[m]]); }
+        return out; };
       const place = (v, text, big) => {
-        const seq = []; for (let w = v; w >= 0 && seq.length < 12; w = nx[w]) if (w < a0) seq.push(w);   // точки осей дальше по пути (площадки — насквозь)
-        for (let t = 0, side = 1; t + 3 < seq.length; side = side > 0 ? -1 : (t++, 1)) {
+        const seq = []; for (let w = v; w >= 0 && seq.length < 16; w = nx[w]) if (w < a0) seq.push(w);   // точки осей дальше по пути (площадки — насквозь)
+        // места щита по пути: точка оси w и e — на 3 дальше (куда едем); сначала по ходу (как раньше), правка волны 11: потом — назад
+        // от v по той же дороге до 30 м (щит раньше развилки: впереди у самой дороги дома или его не видно из-за них)
+        const cand = []; for (let t = 0; t + 3 < seq.length; t++) cand.push([seq[t], seq[t + 3]]);
+        { const [R0, i0] = roadOf(v), b0 = v - i0, d = nx[v] === v + 1 ? -1 : nx[v] === v - 1 ? 1 : 0;
+          for (let m = 1; d && m <= 30; m++) { const ib = i0 + d * m; if (ib < 0 || ib >= R0.n) break; cand.push([b0 + ib, m >= 3 ? b0 + ib - 3 * d : seq[Math.min(seq.length - 1, 3 - m)]]); } }
+        // правка волны 11: сначала — место, откуда щит виден целиком (strict), иначе — просто свободное; большой щит не встал — поменьше
+        for (const strict of [true, false]) for (const sz of big ? [true, false] : [false]) {
+        for (let t = 0, side = 1; t < cand.length; side = side > 0 ? -1 : (t++, 1)) {
           // справа по ходу; волна 10: если справа дом (у гребневой — крыши ряда 0) или кофейня — слева, потом — дальше по пути
-          const w = seq[t], e = seq[t + 3], [R, i] = roadOf(w), th = Math.atan2(X[e] - X[w], Z[e] - Z[w]);   // куда едем — по пути к отелю
-          const rx = -Math.cos(th) * side, rz = Math.sin(th) * side, y = R.y[i];
-          let x = 0, z = 0, gy = 0, hit = true;
-          // волна 10: у Нижней улицы дома стоят у самого тротуара — если за обочиной дом, щит ближе к полотну (на тротуаре)
-          for (const off of R.outer ? [R.hw + VERGE + 1.25, R.hw + VERGE + 0.3] : [R.hw + VERGE + 0.75]) {
+          const [w, e] = cand[t], [R, i] = roadOf(w), th = Math.atan2(X[e] - X[w], Z[e] - Z[w]);   // куда едем — по пути к отелю
+          const rx = -Math.cos(th) * side, rz = Math.sin(th) * side, y = R.y[i], hx = Math.sin(th), hz = Math.cos(th);
+          const bw = sz ? 2.6 : 1.7, bh = sz ? 1.2 : 0.95, by = sz ? 2.3 : 2.0;   // крупно: читается с ходу
+          let x = 0, z = 0, gy = 0, ry = 0, hit = true;
+          // волна 10: у Нижней улицы дома стоят у самого тротуара — если за обочиной дом, щит ближе к полотну (на тротуаре);
+          // правка волны 11: и у проездов села — у самой бровки, если дальше от полотна щит не помещается
+          for (const off of R.outer ? [R.hw + VERGE + 1.25, R.hw + VERGE + 0.3] : [R.hw + VERGE + 0.75, R.hw + VERGE + 0.35]) {
             x = R.x[i] + rx * off; z = R.z[i] + rz * off; gy = G(x, z);
             const q = model.roadNear(x, z); if ((q && q.id !== R.id && q.o < 0.9) || Math.abs(gy - y) > 0.7 || AR.some(A => inA(A, x, z, 1)) || inPlaza(x, z, 1.2)) break;   // не на чужом полотне, откосе и площадке (волна 9: и не на расширенной площади)
+            if (q && q.o < VERGE + 0.2) continue;   // правка волны 11: и не на своём — на крутом повороте (переулок к башне) сбоку бывает другой его кусок
             if (houseHit(x, z, 0.4, -1e9) || inRect(CAFE, x, z, 1.0)) continue;   // волна 10: не на крышах и у стен домов, не у кофейни
+            ry = Math.atan2(-hx * 0.97 - rx * 0.26 * side, -hz * 0.97 - rz * 0.26 * side);
+            if (!signFree(x, Math.min(gy, y), z, ry, bw, by, bh, R.id)) continue;   // правка волны 11: весь щит — не в доме и не у стены
+            if (strict && !signSeen(x, Math.min(gy, y), z, ry, bw, by, bh, approach(w, e))) continue;
             hit = false; break; }
           if (hit) continue;
           if (W6.hotelSigns.some(h => Math.hypot(h.x - x, h.z - z) < 4)) return;   // тот же щит с другого пути
-          const yy = Math.min(gy, y), hx = Math.sin(th), hz = Math.cos(th), ry = Math.atan2(-hx * 0.97 - rx * 0.26 * side, -hz * 0.97 - rz * 0.26 * side), F = new K.Frame(x, yy, z, ry);
-          const bw = big ? 2.6 : 1.7, bh = big ? 1.2 : 0.95, by = big ? 2.3 : 2.0;   // крупно: читается с ходу
+          const yy = Math.min(gy, y), F = new K.Frame(x, yy, z, ry);
           [-1, 1].forEach(sx => hb.box(F, sx * bw * 0.36, (by - bh / 2 + 0.3) / 2 - 0.3, -0.04, 0.07, by - bh / 2 + 0.3, 0.07, { col: POST }));
           hb.box(F, 0, by, -0.01, bw + 0.08, bh + 0.08, 0.04, { col: WH }); hb.box(F, 0, by, 0.012, bw, bh, 0.02, { col: BR });
           props.signs.push({ text, p: F.p(0, by, 0.024), ry, h: bh * 0.86, fitW: bw * 0.94, bg: '#6B4329', fg: '#FFFFFF', size: 72, r: 6, pad: 22 });
           [-1, 1].forEach(sx => { const p = F.p(sx * bw * 0.36, 0, -0.04); colliders.push({ type: 'circle', x: p[0], z: p[2], r: 0.08, y0: yy - 1, y1: yy + by + bh, id: 'sign' }); });
-          W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big, road: R.id, rem: Math.round(dist[w]) });
-          return; } };
+          W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big: sz, road: R.id, rem: Math.round(dist[w]), bw, by, bh, seen: strict });
+          HSB.push({ x, z, w: bw + 0.1, d: 0.2, ry });
+          return; } }
+        W6.signMiss = (W6.signMiss || 0) + 1; };   // правка волны 11: щит не встал нигде (для тестов: должно быть 0)
       sg.jn.forEach(s => place(s.v, s.ar === '→' ? 'Отель →' : s.ar + ' Отель', true));
       sg.conf.forEach(s => place(s.v, '↑ Отель\n' + km(dist[s.v]), false));
       sg.rem.forEach(s => place(s.v, '↑ Отель\n' + km(dist[s.v]), false));
@@ -5280,7 +5346,8 @@
         ground: (x, z) => model.y(x, z),
         colliders: carColliders,                       // V.drive.create({ colliders })
         dynamic: DYN,                                  // V.drive.create({ dynamic }) — коробка машины для ходьбы (handle.collide её учитывает)
-        hotelSigns: W6.hotelSigns || [],             // щиты «Отель» по пути к воротам: { text, x, y, z, ry, th — куда едет водитель, big, road, rem — м до отеля }
+        hotelSigns: W6.hotelSigns || [],             // щиты «Отель» по пути к воротам: { text, x, y, z, ry, th — куда едет водитель, big, road, rem — м до отеля; волна 11: bw, by, bh — доска }
+        signMiss: W6.signMiss || 0,                  // волна 11: сколько щитов не нашли места без домов (должно быть 0)
         carSpawns: CAR_SPAWNS,                         // { parking, square, tower, school, hotel; волна 7: ledge, serpTop, meadow, north, ridge } — { x, y, z, ry }
         start: fromHotel ? 'hotel' : 'parking',
         heroInCar: fromHotel,                          // из отеля приезжает за рулём (как на серпантине)
@@ -5411,7 +5478,14 @@
     id: 'kubachi', build, distant, distantFull: true,
     title: named => (named === false || (named === undefined && V.named === false) ? 'Горное село мастеров' : 'Кубачи'),
     // общие данные для соседнего региона (серпантин) и интегратора
-    data: { CZ, ST, ROWS, SPAN, TOWER, SQUARE, MUSEUM, BAKERY, PARK, ROAD, P, polar, OPP, road: () => OPP.road(), exitToRoad: { x: 62, y: 0, z: -10 }, houses: () => unpackHouses() },   // 4B: houses — для карты (NEEDS MAP)
+    data: { CZ, ST, ROWS, SPAN, TOWER, SQUARE, MUSEUM, BAKERY, PARK, ROAD, P, polar, OPP, road: () => OPP.road(), exitToRoad: { x: 62, y: 0, z: -10 },
+      houses: () => unpackHouses().filter(h => !PLAZA.drop.includes(h.id)),   // 4B: houses — для карты (NEEDS MAP); волна 11: без h083/h084 (там восточная половина площади)
+      // волна 11: для карты, пока села не загружали (большая карта из города) — кофейня «Мархарай» (рамка CAFE) и настоящая сеть
+      // проездов: ключи осей (как в сборке — без сглаживания), ширина полотна; площадки — развилки, смотровая, луг, разворот, карман
+      CAFE,
+      mapRoads: () => VR_DEF.map(R => ({ id: R.id, w: R.w, pts: R.pts })).concat(OR_DEF.filter(R => R.id !== 'summit').map(R => ({ id: R.id, w: R.w, pts: R.pts, outer: true })), [{ id: 'lower', w: LOWER.w, pts: LOWER.pts, outer: true }]),
+      mapPads: () => OR_PADS.filter(D => D.r && isFinite(D.x) && !D.foot).map(D => ({ id: D.id, x: D.x, z: D.z, r: D.r })).concat([Object.assign({ id: 'turn' }, TURN), Object.assign({ id: 'bay' }, BAY), { id: 'park', x: PARK.x, z: PARK.z, r: 5.4 }]),
+      plaza: PLAZA.rects },
     _test: { unpackHouses, makeModel, buildWalk, houseColliders, makeCollider },
   };
 })();
