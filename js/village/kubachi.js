@@ -2581,12 +2581,18 @@
         gl.quadF(F.p(bx0 + 0.42, y1, z0), F.p(bx0 + 0.42, y1, z1), F.p(bx1 - 0.08, y1, z1), F.p(bx1 - 0.08, y1, z0), glass, 0, UP); }
       ib.box(F, bxc, (FY + 1.05) / 2, (2.50 + zi1) / 2, bx1 - bx0, 1.05 - FY, zi1 - 2.50, { col: wood, cols: { py: woodL }, skip: { ny: 1 } });   // торец стойки до стены (закуток закрыт)
       // полки за стойкой: банки, крафтовые пакеты без надписей, чашки; над ними — доска меню с одними картинками-чашками
-      [1.4, 1.85, 2.3].forEach((y, si) => { ib.box(F, xi - 0.16, y, -0.95, 0.3, 0.04, 4.1, { col: woodL });
-        for (let k = 0; k < 9; k++) { const lz = -2.85 + k * 0.47, p = F.p(xi - 0.16, 0, lz), kind = (k + si * 2) % 4;
-          if (kind === 0) ib.box(F, xi - 0.16, y + 0.13, lz, 0.12, 0.22, 0.16, { col: rgb('#B98A5E'), cols: { py: rgb('#A87B50') } });
-          else if (kind === 1) { ib.cyl(p[0], y + 0.02, p[2], 0.06, 0.06, 0.18, { seg: 8, col: rgb('#D8E6EC') }); ib.cyl(p[0], y + 0.2, p[2], 0.062, 0.062, 0.03, { seg: 8, col: rgb('#3A2E2A') }); }
-          else if (kind === 2) { ib.cyl(p[0], y + 0.02, p[2], 0.045, 0.05, 0.1, { seg: 8, col: white }); ib.cyl(p[0], y + 0.12, p[2], 0.045, 0.05, 0.1, { seg: 8, col: white }); }
-          else ib.cyl(p[0], y + 0.02, p[2], 0.05, 0.06, 0.14, { seg: 8, col: rgb(['#C9963A', '#8E2B2B', '#3D3A6B'][si]) }); } });
+      // правка волны 10: полки плотно, как на фото (ряды бутылок, крафтовых пакетов, красных пачек, стопок чашек) — коробками без
+      // задней и нижней граней (≈ 10 треуг. на вещь; прежние цилиндры — ≈ 40)
+      { const SK = { skip: { px: 1, ny: 1 } }, bag = rgb('#B98A5E'), bagT = rgb('#A87B50'), red = rgb('#A8322C'), redT = rgb('#7E2420'), gl = rgb('#D8E6EC'), cap = rgb('#3A2E2A'), amb = rgb('#9A6A2E'), lbl = rgb('#F2E6CC');
+        [1.4, 1.85, 2.3].forEach((y, si) => { ib.box(F, xi - 0.16, y, -0.95, 0.3, 0.04, 4.1, { col: woodL });
+          let lz = -2.93; const R = rng(77 + si);
+          while (lz < 1.0) { const kind = Math.floor(R() * 5), x = xi - 0.16;
+            if (kind === 0) { ib.box(F, x, y + 0.13, lz + 0.08, 0.12, 0.22, 0.15, Object.assign({ col: bag, cols: { py: bagT } }, SK)); lz += 0.19; }   // пакет зёрен
+            else if (kind === 1) { for (let q = 0; q < 3; q++) { const c = q === 1 ? amb : gl; ib.box(F, x - 0.04 + (q % 2) * 0.06, y + 0.14, lz + 0.035, 0.055, 0.24, 0.055, Object.assign({ col: c, cols: { py: cap } }, SK)); ib.box(F, x - 0.04 + (q % 2) * 0.06 - 0.029, y + 0.12, lz + 0.035, 0.002, 0.07, 0.05, { col: lbl }); lz += 0.07; } lz += 0.04; }   // бутылки сиропа
+            else if (kind === 2) { ib.box(F, x, y + 0.1, lz + 0.07, 0.1, 0.16, 0.13, Object.assign({ col: red, cols: { py: redT } }, SK)); ib.box(F, x - 0.051, y + 0.11, lz + 0.07, 0.002, 0.06, 0.08, { col: lbl }); lz += 0.17; }   // красная пачка
+            else if (kind === 3) { ib.box(F, x, y + 0.11, lz + 0.05, 0.1, 0.18, 0.1, Object.assign({ col: white }, SK)); lz += 0.14; }   // стопка чашек
+            else { ib.box(F, x, y + 0.09, lz + 0.06, 0.11, 0.14, 0.11, Object.assign({ col: rgb(['#C9963A', '#8E2B2B', '#3D3A6B'][si]), cols: { py: cap } }, SK)); lz += 0.15; }   // банка
+          } }); }
       { const x = xi - 0.02, y0 = 2.6, y1 = 3.15, z0 = -2.3, z1 = -0.2, ink = rgb('#ECEAE4');
         ib.box(F, x, (y0 + y1) / 2, (z0 + z1) / 2, 0.03, y1 - y0, z1 - z0, { col: rgb('#26272A') });
         [-1.95, -1.25, -0.55].forEach((zc, k) => { const xx = x - 0.018, s = [1, 0.8, 0.65][k], yb = 2.72, ht = 0.22 * s, wt = 0.2 * s, wb2 = 0.14 * s;   // чашка (трапеция), блюдце, ручка, пар
@@ -2618,8 +2624,8 @@
         [[0, 0.62, 0, 0.26], [0.1, 0.85, 0.06, 0.2], [-0.08, 0.8, -0.07, 0.19], [0.02, 1.05, -0.02, 0.15]].forEach(([dx, y, dz, r]) => ib.sph(p[0] + dx, y, p[2] + dz, r, r * 1.1, r, rgb(y > 0.9 ? '#5E9A4E' : '#4C8A44'), { seg: 7, rings: 4 })); }
       // лампы-подвесы (ночью тёплые; низ выше 3,15 — над камерой): над стойкой три, над столиками и над столиком у диванчика
       [[3.83, -2.2], [3.83, -0.9], [3.83, 0.4], [-1.9, TZ], [-4.55, TZ], [-4.55, 1.95]].forEach(([x, z]) => { ib.box(F, x, H - 0.1, z, 0.015, 0.2, 0.015, { col: iron }); { const q = F.p(x, 0, z); ib.cyl(q[0], H - 0.42, q[2], 0.175, 0.04, 0.2, { seg: 10, col: rgb('#151517') }); } glowB.sph(...F.p(x, H - 0.4, z), 0.07, 0.07, 0.07, rgb('#FFE2A8'), { seg: 6, rings: 4 }); NIGHT.lamps.push(F.p(x, H - 0.4, z)); });
-      // тёплый свет изнутри (видно с улицы и со склона; вечером и ночью — ярче, общий материал фонарей)
-      [[-1.8, hd - 0.4, 2.9, 0.04, 0.2], [0, -hd + 0.35, W - 1.2, 0.04, 0.2]].forEach(([x, z, w, h, d]) => lantB.box(F, x, 3.0, z, w, h, d, { col: rgb('#FFE7B8') }));
+      // правка волны 10: прежние тёплые планки под потолком (общий материал фонарей) ночью шли яркой жёлтой полосой поперёк каждого
+      // вида у окна — убраны: свет в зале дают лампы-подвесы и тёплый тон зала ночью (update), с улицы — светящиеся «карточки»
       // издали (зал спрятан) — за каждым стеклом тёплая «карточка»: днём тёмная, ночью светится (материал 'window')
       { const cw = rgb('#3E3833'), card = (pts, n) => lb.quadF(F.p(...pts[0]), F.p(...pts[1]), F.p(...pts[2]), F.p(...pts[3]), cw, 0, n);
         PANES.forEach(([x0, x1]) => card([[x0, 0.45, zb + 0.09], [x1, 0.45, zb + 0.09], [x1, 3.1, zb + 0.09], [x0, 3.1, zb + 0.09]], [-F.s, 0, -F.c]));
@@ -2651,20 +2657,29 @@
       const lim = (v, a, b) => (v < a ? a : v > b ? b : v);
       const clampIn = (v, door) => { const dx = v.x - c.x, dz = v.z - c.z, lx0 = dx * F.c - dz * F.s, lz0 = dx * F.s + dz * F.c;
         if (door && lz0 > zi1 + 0.05 && lx0 > -0.15 && lx0 < 0.95) return v;   // уже за порогом, в створе двери
-        const lx = lim(lx0, -xi + 0.15, xi - 0.15), lz = lim(lz0, zi0 + 0.15, zi1 - 0.15);
+        const lx = lim(lx0, -xi + 0.15, 3.25), lz = lim(lz0, zi0 + 0.15, zi1 - 0.15);   // правка волны 10: не за стойку (она с x 3,48) — к баристе и в полки
         v.x = c.x + lx * F.c + lz * F.s; v.z = c.z - lx * F.s + lz * F.c; if (v.y > H - 0.15) v.y = H - 0.15; return v; };
-      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, clamp: v => clampIn(v, false) }, ZONE_DOOR = Object.assign({}, ZONE, { clamp: v => clampIn(v, true) });
+      // правка волны 10: у двери (первые 1,5 м зала) камера выше и кадр шире: спиной к стене на улицу она в 1,5 м за героиней —
+      // сверху видно зал и окна, а не капюшон во весь экран
+      // peek — стена за спиной ближе 2,6 м: камера выше (не выше peekTop — ниже балок потолка) и смотрит мимо неё в зал (regions.js updCamera, зеркало — village.html)
+      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, peek: 2.6, peekTop: H - 0.32, clamp: v => clampIn(v, false) }, ZONE_DOOR = Object.assign({}, ZONE, { hgt: 2.85, fov: 10, clamp: v => clampIn(v, true) });
       W9.camZone = (x, z, y) => { if (y !== undefined && y > 2) return null; const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
         if (Math.abs(lx) > xi || lz < zi0) return null; if (lz <= zi1 - 1.5) return ZONE; return lz <= zi1 || (lx > -0.3 && lx < 1.1 && lz <= hd + 0.3) ? ZONE_DOOR : null; };
       // ===== жители: лисичка-бариста за стойкой (лицом к гостям, −x), ёжик с капучино за столиком у окна, зайчиха на табурете =====
-      const bar = placeNpc('barista_fox', ...(() => { const p = F.p(4.6, 0, -0.4); return [p[0], p[2]]; })(), c.ry - PI / 2, { y: 0, make: W9.makeBarista, headY: 1.15, talkR: 2.6, name: 'Лисичка-бариста' });
-      bar.paw = { color: '#D9783A', height: 0.66, meetY: 1.04 }; bar.cafe = true;
+      // правка волны 10: бариста стоит на подиуме за стойкой (верх 0,5) и чуть крупнее — голова и плечи над стойкой (1,055): при заказе
+      // её видно целиком выше пояса, а не одни уши
+      ib.box(F, (bx1 + xi - 0.31) / 2, (FY + 0.5) / 2, (zi0 + 1.25) / 2, xi - 0.31 - bx1, 0.5 - FY, 1.25 - zi0, { col: rgb('#4A3A30'), cols: { py: rgb('#5A4636') }, skip: { ny: 1 } });
+      const bar = placeNpc('barista_fox', ...(() => { const p = F.p(4.6, 0, -0.4); return [p[0], p[2]]; })(), c.ry - PI / 2, { y: 0.5, scale: 1.12, make: W9.makeBarista, headY: 1.2, talkR: 2.6 - 0.12 * 1.2, name: 'Лисичка-бариста' });
+      bar.paw = { color: '#D9783A', height: 0.55, meetY: 1.04 }; bar.cafe = true;
       { const p = F.p(-1.9, 0, -0.95), n = placeNpc('cafe_hedgehog', p[0], p[2], c.ry, { y: 0.47, make: W9.makeCafeHedgehog, scale: 0.86, headY: 0.85, talkR: 1.9, name: 'Ёжик с капучино', seatYaw: 0.5 }); n.cafe = true; n.noGreet = true; }
-      { const p = F.p(-4.3, 0, SZ), n = placeNpc('cafe_hare', p[0], p[2], c.ry + PI, { y: 0.79, make: W9.makeCafeHare, scale: 0.84, headY: 0.95, talkR: 1.7, name: 'Зайчиха у окна', seatYaw: 0.6 }); n.cafe = true; n.noGreet = true; }
+      // правка волны 10: зайчиха — на крайнем табурете у стойки баристы (+2,2): виды с мест у окна смотрят к селу, в сторону −x, и
+      // прежде она (на −4,3) стояла посреди вида с табурета A
+      { const p = F.p(2.2, 0, SZ), n = placeNpc('cafe_hare', p[0], p[2], c.ry + PI, { y: 0.79, make: W9.makeCafeHare, scale: 0.84, headY: 0.95, talkR: 1.7, name: 'Зайчиха у окна', seatYaw: 0.6 }); n.cafe = true; n.noGreet = true; }
       // заказ — подойти к стойке и нажать («☕ Заказать кофе»; вторая кнопка — «💬 Лисичка-бариста»): лавка без перехода (walkIn) —
       // ни шторки, ни прыжка; монетка → стаканчик из лап; стаканчик остаётся в руке (глоток — кнопкой, сидя — «☕ Глоток»)
       const order = F.p(2.9, 0, -0.4), inside = order.concat([c.ry + PI / 2]);
-      const shop = { id: 'cafe', walkIn: true, activity: 'shop_cafe', title: named ? 'Мархарай' : 'Кофейня', seller: bar.id, items: [], inside, door: inside.slice(), view: null, counter: F.p(bxc, 1.1, -0.4), paw: bar.paw, thanks: 'shopThanks_cafe' };
+      // camYaw — правка волны 10: у стойки камера встаёт за правым плечом героини, лицом к баристе и кофемашине
+      const shop = { id: 'cafe', walkIn: true, activity: 'shop_cafe', title: named ? 'Мархарай' : 'Кофейня', seller: bar.id, items: [], inside, door: inside.slice(), view: null, counter: F.p(bxc, 1.1, -0.4), paw: bar.paw, thanks: 'shopThanks_cafe', camYaw: c.ry + PI / 2 + 0.32 };
       const sp = { id: 'cafe_order', x: order[0], y: 0, z: order[2], r: 0.9, icon: '☕', label: named ? 'Кофейня «Мархарай»' : 'Кофейня', action: 'Заказать кофе', play: true, cafe: true, shop };
       sp.use = () => { if (bar.hop) bar.hop(); return { id: 'cafe_order', kind: 'sheet', activity: 'shop_cafe', npc: bar.id, shop }; };
       spotsList.push(sp);
@@ -2673,15 +2688,18 @@
       // (она — справа в кадре, вид не заслоняет), выше на up; палец — оглядеться (pan); ≥ 1 м от неё (не прячется)
       const view = (id, head, br, pt, back, side, up, o = {}) => { const h0 = F.p(...head), b = br * PI / 180, q = pt * PI / 180, sb = Math.sin(b), cb = Math.cos(b);
         const p = [h0[0] - sb * back + cb * side, h0[1] + up, h0[2] - cb * back - sb * side];
-        W9.cafeViews[id] = Object.assign({ pos: p, target: [p[0] + sb * Math.cos(q) * 30, p[1] + Math.sin(q) * 30, p[2] + cb * Math.cos(q) * 30], fov: 55, aspect: 1.6, pan: [0.75, -0.42, 0.3] }, o); };
+        W9.cafeViews[id] = Object.assign({ pos: p, target: [p[0] + sb * Math.cos(q) * 30, p[1] + Math.sin(q) * 30, p[2] + cb * Math.cos(q) * 30], fov: 55, aspect: 1.6, pan: [0.3, -0.3, 0.2] }, o); };   // правка волны 10: оглядеться — в пределах домов (±17°)
       W9.cafeViews = {};
       const seatAt = (id, label, icon, seat, stand, ry, vid, text) => spotsList.push({ id, x: stand[0], y: 0, z: stand[2], r: 0.75, icon, label, action: label, seat, ry, cafe: true,
         use: () => ({ id, kind: 'sit', seat, ry, view: vid, text }) });
       const winText = named ? 'Внизу — крыши Кубачи ступеньками, дальше — горы в дымке. Веди пальцем — оглядись.' : 'Внизу — крыши села ступеньками, дальше — горы в дымке. Веди пальцем — оглядись.';
-      [['a', -3.0, 64], ['b', -0.4, 62], ['c', 2.2, 60]].forEach(([k, lx, br]) => { view('cafe_window_' + k, [lx, 1.5, SZ], br, -13, 1.9, 0.55, 0.75);
+      // правка волны 10: виды — на каскад крыш (пеленг 72°, ≈ +47° от «прямо в окно»: прямо в окно — долина, дома правее), наклон −21°,
+      // камера выше и левее — героиня у правого края, на телефоне (кадр ≈ 31° в ширину) крыши — середина и низ кадра
+      [['a', -3.0], ['b', -0.4], ['c', 0.9]].forEach(([k, lx]) => { view('cafe_window_' + k, [lx, 1.5, SZ], 72, -21, 1.5, 0.7, 1.0);
         seatAt('cafe_win_' + k, 'Сесть у окна', '🪟', F.p(lx, 0.76, SZ), F.p(lx, 0, SZ + 0.6), c.ry + PI, 'cafe_window_' + k, winText); });
-      view('cafe_table', [-1.9, 1.2, 0.35], 27, -19, 1.45, 0.3, 1.0); seatAt('cafe_table', 'Сесть за столик', '🪑', F.p(-1.9, 0.45, 0.35), F.p(-1.9, 0, 0.95), c.ry + PI, 'cafe_table', named ? 'Ёжик за столиком кивает: тут самый вкусный капучино.' : 'Ёжик за столиком кивает: тут самый вкусный капучино.');
-      view('cafe_sofa', [-4.0, 1.2, 2.78], 40, -8, 0.0, -1.15, 0.4); seatAt('cafe_sofa', 'Посидеть на диванчике', '🛋️', F.p(-4.0, 0.45, 2.78), F.p(-3.6, 0, 2.05), c.ry + PI, 'cafe_sofa', 'Тепло, пахнет кофе, за стеклом — горы.');
+      // правка волны 10: столик и диванчик — вид на дома: в торцевое окно и в угол стекла (столик), через торцевое окно (диванчик)
+      view('cafe_table', [-1.9, 1.2, 0.35], 60, -15, 1.1, 0.75, 1.25); seatAt('cafe_table', 'Сесть за столик', '🪑', F.p(-1.9, 0.45, 0.35), F.p(-1.9, 0, 0.95), c.ry + PI, 'cafe_table', named ? 'Ёжик за столиком кивает: тут самый вкусный капучино.' : 'Ёжик за столиком кивает: тут самый вкусный капучино.');
+      view('cafe_sofa', [-4.0, 1.2, 2.78], 64, -24, 0.3, -2.0, 1.6); seatAt('cafe_sofa', 'Посидеть на диванчике', '🛋️', F.p(-4.0, 0.45, 2.78), F.p(-3.6, 0, 2.05), c.ry + PI, 'cafe_sofa', 'Тепло, пахнет кофе, за стеклом — горы.');
       Object.assign(W9.cafeViews, {
         cafe_front: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // фасад, как на фото
         cafe_window: W9.cafeViews.cafe_window_b, shop_cafe: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // старые имена (тесты, стенд)
@@ -3355,6 +3373,12 @@
         if (!ins.some(Boolean)) { [0, R.n - 1].forEach(i => { if (inA(AR[j], R.x[i], R.z[i], 7)) c++; }); return; }
         if (!ins[0]) c++; if (!ins[R.n - 1]) c++; }); return c; };
       const isJ = AR.map((A, j) => A.j || branches(j) >= 3);
+      // правка волны 10: курсы всех веток наружу от площадки j (для стрелки: маршрут — самая прямая ветка, остальные круче — «↑»)
+      const exitHeads = j => { const A = AR[j], hs = [], hd = (R, a, b) => Math.atan2(R.x[b] - R.x[a], R.z[b] - R.z[a]);
+        RS.forEach(R => { const ins = []; for (let i = 0; i < R.n; i++) ins.push(inA(A, R.x[i], R.z[i], 0.5));
+          if (!ins.some(Boolean)) { if (inA(A, R.x[0], R.z[0], 7)) hs.push(hd(R, 0, Math.min(R.n - 1, 6))); if (inA(A, R.x[R.n - 1], R.z[R.n - 1], 7)) hs.push(hd(R, R.n - 1, Math.max(0, R.n - 7))); return; }
+          for (let i = 0; i < R.n - 1; i++) { if (ins[i] && !ins[i + 1]) hs.push(hd(R, i + 1, Math.min(R.n - 1, i + 7))); if (!ins[i] && ins[i + 1]) hs.push(hd(R, i, Math.max(0, i - 6))); } });
+        return hs; };
       const sg = { jn: new Map(), conf: new Map(), rem: new Map() }, routes = [];
       starts.forEach(([sx, sz]) => { let v = nearV(sx, sz); if (dist[v] > 1e8) return; const path = [v]; while (nx[v] >= 0) { v = nx[v]; path.push(v); } routes.push(path); });
       routes.forEach(path => {
@@ -3370,7 +3394,12 @@
           const hOut = (() => { const a = pts[out], b = pts[Math.min(pts.length - 1, out + 6)]; return Math.atan2(X[b] - X[a], Z[b] - Z[a]); })();
           if (pre >= 0) { const v = pts[pre], u = pre < inn ? pts[inn] : pts[inn], v0 = pre < inn ? v : pts[inn - 1], hIn = Math.atan2(X[u] - X[v0], Z[u] - Z[v0]), rel = Math.atan2(Math.sin(hOut - hIn), Math.cos(hOut - hIn)), a = Math.abs(rel);
             const key = A.id + '|' + roadOf(v)[0].id + '|' + Math.round(hIn * 2);   // одна ветка подъезда — один щит
-            if (!sg.jn.has(key)) sg.jn.set(key, { v, ar: a < 0.6 ? '↑' : rel < 0 ? '→' : '←', at: A.id }); }
+            // правка волны 10: дорога сама плавно поворачивает сквозь площадку (≤ 60°), а другие ветки уходят круче — «↑ Отель» (держаться
+            // дороги), а не «← Отель», который читается как поворот на крутую соседнюю ветку (смотровая: Нижняя → гребневая, налево — западная)
+            let ar = a < 0.6 ? '↑' : rel < 0 ? '→' : '←';
+            if (ar !== '↑' && a < 1.05) { const oth = exitHeads(j).map(h => Math.atan2(Math.sin(h - hIn), Math.cos(h - hIn))).filter(r => Math.abs(r) < 2.6 && Math.abs(r - rel) > 0.25);
+              if (oth.every(r => Math.abs(r) > a + 0.35 && Math.abs(r - rel) > 0.6)) ar = '↑'; }
+            if (!sg.jn.has(key)) sg.jn.set(key, { v, ar, at: A.id }); }
           if (post < pts.length - 1 && !sg.conf.has(pts[post])) sg.conf.set(pts[post], { v: pts[post], at: A.id }); });
       });
       // подтверждение не ставим, если щит следующей развилки ближе 45 м дальше по пути (две площадки рядом: карман у школы и развилка)
@@ -4423,6 +4452,11 @@
     // отрезок a → b задевает короб WHB (метод плит)
     const segHitsWHB = (a, b) => { let t0 = 0, t1 = 1; for (const [k, lo, hi] of [[0, WHB.x0, WHB.x1], [1, WHB.y0, WHB.y1], [2, WHB.z0, WHB.z1]]) { const d = b[k] - a[k]; if (Math.abs(d) < 1e-9) { if (a[k] < lo || a[k] > hi) return false; continue; } let u = (lo - a[k]) / d, v = (hi - a[k]) / d; if (u > v) { const w = u; u = v; v = w; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) return false; } return true; };
     // рамка меша — один раз (у толпы с запасом 0,25 м: гости танцуют), проверка — по всем 8 углам
+    const wedBB = e => { if (!e.bb) { const g = e.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); e.m.updateMatrixWorld(true); const b = g.boundingBox.clone().applyMatrix4(e.m.matrixWorld); const m = e.crowd ? 0.25 : 0; e.bb = [[b.min.x - m, b.max.x + m], [b.min.y, b.max.y + m], [b.min.z - m, b.max.z + m]]; } return e.bb; };
+    // правка волны 10: сетка двора вне пирамиды камеры (рамка + 1 м) — не рисуется: камера-следилка на площади у южной стены двора
+    // (в пределах «yardSeen»), лицом на юг, рисовала толпу, столы и галерею за спиной (≈ 33 тыс. треуг.)
+    const wedFr = e => { if (!CCULL.ok || CCULL.noFr || e.fr0 === false) return true; if (e.fr0 === undefined) { const n = e.m.name || (e.m.parent && e.m.parent.name) || ''; e.fr0 = /^wedding:(crowd|crowdTex|props|yard|lights|flags\d*)$/.test(n); if (!e.fr0) return true; }   // только сетки двора (не то, что надевают героине)
+      const b = wedBB(e), B = e.box || (e.box = new T.Box3()); B.min.set(b[0][0] - 1, b[1][0] - 1, b[2][0] - 1); B.max.set(b[0][1] + 1, b[1][1] + 1.5, b[2][1] + 1); return CCULL.FR.intersectsBox(B); };
     const wedOccl = (e, c) => {
       if (!e.bb) { const g = e.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); e.m.updateMatrixWorld(true); const b = g.boundingBox.clone().applyMatrix4(e.m.matrixWorld); const m = e.crowd ? 0.25 : 0; e.bb = [[b.min.x - m, b.max.x + m], [b.min.y, b.max.y + m], [b.min.z - m, b.max.z + m]]; }
       const a = [c.x, c.y, c.z];
@@ -4448,8 +4482,34 @@
     // кроны у троп, свадьба, базар, куски ближних террас дальше 200 м (ступени на склонах остаются — шейдер фона). Выключается
     // слой камеры (layers), своя видимость модулей (свадьба, базар) не трогается; list — в конце сборки
     const VFAR = { r: 250, on: false, list: [], names: /^(props|trailDetail|schoolDetail|yardBall|lanterns|glazing|pipes|crownsNear|crownsNearLo|springLid|wedding:.*|bazaar:.*)$/, dist: [] };   // dist — куски ближних террас: прячутся, только если и они дальше 200 м (на горе свои остаются)
+    // правка волны 10: клеточное отсечение (cellCull — в конце сборки; ccUpdate — каждый кадр из modGuard). FR — пирамида камеры
+    // с запасом: тангенс полуугла × 1,15 (кадр не «догоняет» клетки на краю при повороте); рамки клеток — Box3
+    const CCULL = { list: [], FR: new T.Frustum(), FR2: new T.Frustum(), PM: new T.Matrix4(), v: new T.Vector3() };   // FR2 — шире (×1,35): клетка гаснет, только выйдя и из неё (реже пересборки индекса на повороте)
+    function cellCull(m, key, far) {
+      const g = m && m.geometry; if (!g || !g.attributes.position || m.isSkinnedMesh || m.isInstancedMesh || (g.groups && g.groups.length) || g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return;
+      if (m.castShadow) return;   // high: тень бросают и клетки за кадром
+      m.updateMatrixWorld(true); if (!m.matrixWorld.equals(new T.Matrix4())) return;   // сетки села — в мировых координатах
+      const P = g.attributes.position.array, nV = g.attributes.position.count, I = g.index ? g.index.array : null, nI = I ? g.index.count : nV, cells = new Map();
+      for (let t = 0; t + 2 < nI; t += 3) { const a = I ? I[t] : t, b = I ? I[t + 1] : t + 1, c = I ? I[t + 2] : t + 2, k = key((P[a * 3] + P[b * 3] + P[c * 3]) / 3, (P[a * 3 + 2] + P[b * 3 + 2] + P[c * 3 + 2]) / 3);
+        let L = cells.get(k); if (!L) cells.set(k, L = []); L.push(a, b, c); }
+      if (cells.size < 3) return;
+      const Arr = nV > 65535 ? Uint32Array : Uint16Array, full = new Arr(nI - (nI % 3)), C = [], v = CCULL.v; let o = 0;
+      cells.forEach(L => { const s0 = o, bb = new T.Box3(); for (let q = 0; q < L.length; q++) { const i = L[q]; full[o++] = i; bb.expandByPoint(v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2])); } C.push({ s0, n: L.length, bb, on: true }); });
+      g.setIndex(new T.BufferAttribute(new Arr(full.length), 1)); g.index.setUsage(T.DynamicDrawUsage);
+      const E = { m, g, full, C, far }; CCULL.list.push(E); ccFill(E);
+    }
+    function ccFill(E) { const a = E.g.index.array; let n = 0; for (const c of E.C) if (c.on) { a.set(E.full.subarray(c.s0, c.s0 + c.n), n); n += c.n; } E.g.setDrawRange(0, n); E.g.index.needsUpdate = true; }
+    function ccUpdate(cam) {
+      CCULL.ok = false; if (!cam.isPerspectiveCamera || CCULL.off) return;
+      cam.updateMatrixWorld(); CCULL.ok = true; const top = cam.near * Math.tan(D2R * 0.5 * cam.fov) / (cam.zoom || 1) * 1.15, w = top * cam.aspect;
+      CCULL.PM.makePerspective(-w, w, top, -top, cam.near, cam.far); CCULL.FR.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse));
+      { const k = 1.35 / 1.15; CCULL.PM.makePerspective(-w * k, w * k, top * k, -top * k, cam.near, cam.far); CCULL.FR2.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse)); }
+      const cp = cam.position;
+      for (const E of CCULL.list) { const fd = E.far ? E.far() : 0; let ch = false; for (const c of E.C) { const on = (CCULL.noFr || (c.on ? CCULL.FR2 : CCULL.FR).intersectsBox(c.bb)) && (!fd || c.bb.distanceToPoint(cp) < fd); if (on !== c.on) { c.on = on; ch = true; } } if (ch) ccFill(E); }
+    }
     function modGuard(hx, hz, cam) {
       if (!cam || !cam.position) return;
+      ccUpdate(cam);
       const c = cam.position, dW = Math.hypot(c.x - WED.x, c.z - WED.z), inYard = Math.abs(hx - WED.x) < WED.w / 2 + WED.gal + 3 && Math.abs(hz - WED.z) < WED.d / 2 + 4;
       // W4A: двор за стенами и галереями — снаружи и снизу толпу не видно (кадр с площади: −16…32 тыс. треуг.); видно, если камера
       // у двора (±10 м от стен) или выше крыш галерей (с башни, с крыши-террасы, общий вид)
@@ -4469,7 +4529,15 @@
         // выше −3 м или ближе 85 м) — и издалека с плато (дальше 120 м, выход — ближе 115): мелочь села оттуда тоже меньше пикселя;
         // ночью фонари и окна остаются — огни села видно снизу и издалека
         const dA = Math.hypot(c.x - 4.8, c.z - 27.8), bl = VFAR.below ? (c.y < -3 && dA > 85) || dA > 115 : (c.y < -6 && dA > 90) || dA > 120, nk = NIGHT.t > 0.35;
-        if (vf !== VFAR.on || bl !== VFAR.below || nk !== VFAR.night) { VFAR.on = vf; VFAR.below = bl; VFAR.night = nk; VFAR.list.forEach(e => { e.o.layers.mask = vf || (bl && !(nk && e.lit)) ? 0 : e.mask; }); }
+        if (vf !== VFAR.on || bl !== VFAR.below || nk !== VFAR.night) { VFAR.on = vf; VFAR.below = bl; VFAR.night = nk; VFAR.dirty = true; }
+        // правка волны 10: снизу (below) прячутся только куски дальше 50 м от камеры (по их сфере) — у самой камеры остаются стожки на
+        // полянке (иначе — невидимые препятствия), кронштейны фонарей, трубы, фонарь на доме-мосту; сетки на всё село (стёкла фонарей,
+        // r ≥ 60 м) — не прячутся (окна села снизу — клетками, ccUpdate). Сверху (VFAR.on) — как было, всё
+        if (VFAR.dirty || bl) { VFAR.dirty = false;
+          for (const e of VFAR.list) { let hid = vf;
+            if (!hid && bl && !(nk && e.lit)) { if (e.r === undefined) { const g = e.o.geometry; if (g && g.attributes && g.attributes.position && !g.boundingSphere) g.computeBoundingSphere(); const bs = g && g.boundingSphere; if (bs) { e.o.updateMatrixWorld(true); const v = bs.center.clone().applyMatrix4(e.o.matrixWorld); e.cx = v.x; e.cy = v.y; e.cz = v.z; e.r = bs.radius; } else e.r = -1; }
+              hid = e.r >= 0 && e.r < 60 && Math.hypot(c.x - e.cx, c.y - e.cy, c.z - e.cz) - e.r > 50; }
+            const m = hid ? 0 : e.mask; if (e.o.layers.mask !== m) e.o.layers.mask = m; } }
         // куски ближних террас: дальше 200 м — прятать, ближе — показать; в кадре кусок меняется, только если он совсем далеко
         // (> 320 м, пара пикселей) или уже близко (< 90 м) — иначе ждёт, пока уйдёт из кадра (ступени не «перещёлкиваются» на глазах)
         const fr = RF_LOD.force ? null : RF_LOD.FR;
@@ -4482,7 +4550,7 @@
       const behindH = c.z < WHB.z0 && c.y < WHB.y1 + 12;
       for (const e of MODG.wd) {
         if (e.cast0) e.m.castShadow = inYard && !e.crowd;   // W4A: толпа без теней (≈ 32 тыс. треуг. в проходе теней на high)
-        const hide = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen)) || (behindH && wedOccl(e, c));
+        const hide = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen)) || (behindH && wedOccl(e, c)) || !wedFr(e);
         if (hide && e.m.visible) { e.m.visible = false; e.hid = true; } else if (!hide && e.hid) { e.m.visible = true; e.hid = false; }
       }
       const nearSq = Math.hypot(hx - SQUARE.x, hz - SQUARE.z) < 24;
@@ -4569,7 +4637,7 @@
     // теплее, см. update; без теней на high — не мрачно; прячется дальше 35 м), стёкла, «карточки» за стёклами (видны, пока зал
     // спрятан), вывеска
     if (W9.cafeB) { const mat = W9.cafeMat = K.keep(K.vcMat.clone()); mat.userData.dn = 'none';
-      const m = W9.cafeB.mesh(mat); if (m) { m.name = 'cafeInside'; add(litMesh(m), { cast: false, receive: false }); W9.cafeIn = m; }
+      const m = W9.cafeB.mesh(mat); if (m) { m.name = 'cafeInside'; add(litMesh(m), { cast: false, receive: false }); W9.cafeIn = m; if (LIT.length && LIT[LIT.length - 1].col === m.geometry.attributes.color) LIT[LIT.length - 1].indoor = true; }
       const g = W9.cafeGlass.build(); if (g) { const gm = new T.Mesh(g, K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false }))); gm.name = 'cafeGlass'; gm.renderOrder = 5; gm.userData.noRay = true; root.add(gm); }
       const cg = W9.cafeCards.build(); if (cg) { const cm = K.keep(new T.MeshBasicMaterial({ vertexColors: true })); cm.userData.dn = 'window'; const lm = new T.Mesh(cg, cm); lm.name = 'cafeCards'; lm.visible = false; lm.userData.noRay = true; root.add(lm); W9.cafeCardM = lm; }
       const sm = cafeSignMesh(); if (sm) root.add(sm); }
@@ -4676,7 +4744,13 @@
       // издалека (со смотровой, ~430 м) стены светлеют в дымке — как на p3: село читается светлой мозаикой с тёмными точками окон
       const HZ = FAR ? (WIN ? [0.9, 0.93, 0.96] : [0.86, 0.88, 0.91]) : null, HK = WIN ? 0.24 : 0.2;   // polish: дымка светлее и теплее — не серит мозаику
       const o3 = [0, 0, 0];
+      // правка волны 10: зал кофейни (L.indoor) — всегда «дневной» свет (настроение day, солнце сверху-сбоку), не лунный синий: ночью
+      // в зале горит свет, тёплый тон даёт материал (update)
+      const MD = VK.MOODS.day, hsD = new T.Color(MD.hs), hgD = new T.Color(MD.hg), scD = new T.Color(MD.sun), dI = new T.Vector3(0.35, 0.8, 0.48).normalize();
+      const litIn = (nx, ny, nz, out) => { const hk = ny * 0.5 + 0.5, L = nx * dI.x + ny * dI.y + nz * dI.z, ramp = r0 + r1 * sst(0.0, 0.18, L) + (1 - r0 - r1) * sst(0.42, 0.72, L);
+        out[0] = (hgD.r + (hsD.r - hgD.r) * hk) * MD.hi + scD.r * MD.si * ramp; out[1] = (hgD.g + (hsD.g - hgD.g) * hk) * MD.hi + scD.g * MD.si * ramp; out[2] = (hgD.b + (hsD.b - hgD.b) * hk) * MD.hi + scD.b * MD.si * ramp; return out; };
       LIT.forEach(L => {
+        if (L.indoor) { const c = L.col.array, n = L.nor.array; for (let i = 0; i < c.length; i += 3) { litIn(n[i], n[i + 1], n[i + 2], o3); c[i] = L.alb[i] * o3[0]; c[i + 1] = L.alb[i + 1] * o3[1]; c[i + 2] = L.alb[i + 2] * o3[2]; } L.col.needsUpdate = true; return; }
         if (L.inst) { const a = L.inst.instanceColor.array; for (let i = 0; i < L.dirs.length; i++) { const [nx, ny, nz] = L.dirs[i]; lit(nx, ny, nz, o3); a[i * 3] = L.alb[i * 3] * o3[0]; a[i * 3 + 1] = L.alb[i * 3 + 1] * o3[1]; a[i * 3 + 2] = L.alb[i * 3 + 2] * o3[2]; if (HZ) for (let q = 0; q < 3; q++) a[i * 3 + q] += (HZ[q] - a[i * 3 + q]) * HK; } L.inst.instanceColor.needsUpdate = true; return; }
         const c = L.col.array, n = L.nor.array; for (let i = 0; i < c.length; i += 3) { lit(n[i], n[i + 1], n[i + 2], o3); c[i] = L.alb[i] * o3[0]; c[i + 1] = L.alb[i + 1] * o3[1]; c[i + 2] = L.alb[i + 2] * o3[2]; if (HZ) for (let q = 0; q < 3; q++) c[i + q] += (HZ[q] - c[i + q]) * HK; } L.col.needsUpdate = true;
       });
@@ -4881,6 +4955,20 @@
 
     if (!FAR) root.traverse(o => { if (!(o.isMesh || o.isPoints || o.isSprite || o.isLine)) return; for (let p = o; p && p !== root; p = p.parent) { if (VFAR.names.test(p.name || '')) { VFAR.list.push({ o, mask: o.layers.mask, lit: /^(lanterns|glazing)$/.test(p.name) }); return; }
       if (/^(terraces|terraceWalls)$/.test(p.name || '') && o.geometry) { const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); VFAR.dist.push({ o, mask: o.layers.mask, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, sph: g.boundingSphere, hid: false }); return; } if (VOCC.names.test(p.name || '')) { VOCC.list.push({ o, mask: o.layers.mask }); return; } } });   // вершина: мелочь села — прятать с горы, дома — когда за бровкой
+    // правка волны 10 (бюджет ≤ 200 тыс.): большие неподвижные сетки — фон до горизонта, голые деревья зимой, плато со школой, окна
+    // села, кроны вдали, ступени террас, листы крыш — обходят камеру со всех сторон, и их сфера всегда «в кадре»: рисовались целиком,
+    // в том числе за спиной (до 45 тыс. треуг. в кадрах с площади, у спавна, на Нижней улице и в кофейне). Теперь треугольники такой
+    // сетки разложены по клеткам (по центру треугольника), и в индексе — только клетки, чья рамка в пирамиде камеры (с запасом 15 %
+    // по углу); сетка и вызов прежние, индекс пересобирается, лишь когда набор клеток меняется. Только вид: земля, ходьба, лучи тапа
+    // (они в кадре) — прежние. На high тени бросают и клетки за кадром — отбрасывающие тень сетки там не трогаем
+    if (!FAR) {
+      const CK = (s) => (x, z) => Math.floor(x / s) + ',' + Math.floor(z / s);
+      const bgKey = (x, z) => { const r = Math.hypot(x - OPP.TX, z - OPP.TZ), s = r < 320 ? 64 : r < 700 ? 160 : 320; return s + ':' + Math.floor(x / s) + ',' + Math.floor(z / s); };
+      if (BG.terrain) cellCull(BG.terrain, bgKey);
+      // окна села снизу (с Нижней улицы, VFAR.below) днём — только ближе 90 м (прежде прятались все разом; ночью окна горят — все)
+      const glzFar = () => (VFAR.below && !VFAR.night ? 90 : 0);
+      root.children.forEach(m => { if (!m.isMesh) return; const k = { bareTrees: 48, upland: 32, glazing: 32, crownsFar: 48, terraces: 48, terracesFar: 96, roofSheets: 40 }[m.name]; if (k) cellCull(m, CK(k), m.name === 'glazing' ? glzFar : null); });
+    }
 
     /* ============== 5.15 ОБНОВЛЕНИЕ КАДРА ============== */
     let tAll = 0, catFollow = 0;
@@ -4897,7 +4985,9 @@
       if (W9.cafeIn && cam) { const cp = cam.position; camCafe = cp.y < 4.2 && inRect(CAFE, cp.x, cp.z, 0.1); const near = camCafe || Math.hypot(cp.x - CAFE.x, cp.z - CAFE.z) < 35;
         if (W9.cafeIn.visible !== near) { W9.cafeIn.visible = near; if (W9.cafeCardM) W9.cafeCardM.visible = !near; } }
       W9.camCafe = camCafe;
-      if (W9.cafeMat && W9.cafeTint !== NIGHT.t) { const k = W9.cafeTint = NIGHT.t; W9.cafeMat.color.setRGB(1 - 0.06 * k, 1 - 0.14 * k, 1 - 0.3 * k); }   // ночью свет ламп — теплее
+      // ночью свет ламп — теплее (правка волны 10: на low зал освещён «днём» всегда — см. relight, L.indoor; на high — тёплое свечение
+      // поверх синего лунного света сцены)
+      if (W9.cafeMat && W9.cafeTint !== NIGHT.t) { const k = W9.cafeTint = NIGHT.t; W9.cafeMat.color.setRGB(1 - 0.04 * k, 1 - 0.12 * k, 1 - 0.27 * k); if (W9.cafeMat.emissive && !K.BAKED) W9.cafeMat.emissive.setRGB(0.3 * k, 0.2 * k, 0.09 * k); }
       if (W9.cafeSignM) { const nt = NIGHT.t > 0.45; if (nt !== W9.signNight) { W9.signNight = nt; const k = nt ? 1 : 0; if (!W9.signTex[k]) W9.signTex[k] = W9.signMake(nt); W9.cafeSignM.material.map = W9.signTex[k]; W9.cafeSignM.material.needsUpdate = true; } }
       // волна 10: дома Нижней улицы — участок дальше 110 м от камеры (назад — ближе 100 м) рисуется дальней сеткой
       // участок — ближней сеткой, пока камера ближе 110 м к любому его дому (обратно — 100 м); до края описанной сферы
@@ -5126,6 +5216,7 @@
       terraces: { bands: TERR.bands, stacks: TERR.stacks, trees: TERR.trees, cows: TERR.cows, shrubs: TERR.nShrubs || 0 },   // волна 6: + кусты вдоль откосов
       stats: () => ({ chunks: chunks.size, chunkTris, colliders: allColliders.length, autoEdges: walk.auto.length, glazing: glaz.length, trees: crowns.length + bare.length, npcs: npcs.length, buildMs, school: W6.cnt || null, refill: BG.refill || null }),
       // волна 7: для проверок внешних дорог (стенд, тесты): врезка, решётка фона, вырез
+      _ccull: (on) => { CCULL.off = on === false; CCULL.noFr = on === 'nofr'; if (CCULL.off) CCULL.list.forEach(E => { E.C.forEach(c => { c.on = true; }); ccFill(E); }); return { n: CCULL.list.length, cells: CCULL.list.reduce((s, E) => s + E.C.length, 0), off: !!CCULL.off }; },   // правка волны 10: проверка клеточного отсечения
       _lod: (mode) => { RF_LOD.force = mode === 'near' || mode === 'far' ? mode : null; if (mode === 'far?') return { vfar: VFAR.on, vocc: VOCC.on, nf: VFAR.list.length, no: VOCC.list.length, nt: VOCC.T ? VOCC.T.length : 0 }; return [...RF_LOD.map.entries()].map(([k, L]) => ({ k, far: L.isFar, inV: L.inV, s: L.sph ? [L.sph.center.x, L.sph.center.y, L.sph.center.z, L.sph.radius].map(v => +v.toFixed(1)) : null, g: L.gs.size })); },   // вершина: дальний план — 'near' | 'far' | авто
       _outer: OUTR ? { near: (x, z) => OUTR.near(x, z, {}), vis: (x, z) => BGL.vis(x, z), cell: (x, z) => BGL.cell(x, z), cutAt: (x, z) => { const Tq = BGL.tri(x, z)[0]; return !!(BG.rfCut && BG.rfCut.has((Tq[1][0] - 1) * BGL.NA + Tq[1][1])); }, gIn: (x, z) => model.yIn(x, z), bgY: (x, z) => bgY(x, z), rhos: BGL.rhos, NA: BGL.NA } : null,   // cutAt — по нарисованному треугольнику ((i+1, j) — у обоих в клетке (i, j))
       dispose() {

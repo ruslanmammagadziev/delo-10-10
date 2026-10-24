@@ -2003,6 +2003,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         S.inShop = shop;   // шажок — без джойстика
         await new Promise(res => { const st = () => { const u = Math.min(1, (performance.now() - t0) / 300), e = u * u * (3 - 2 * u); S.px = x0 + (x1 - x0) * e; S.pz = z0 + (z1 - z0) * e; S.py = S.h.ground(S.px, S.pz); S.ang += angDiff(ins[3], S.ang) * 0.25; if (u < 1 && S.active) requestAnimationFrame(st); else res(); }; st(); }); }
       S.inShop = shop; S.ang = ins[3]; if (hero && hero.rig) hero.rig.prev = null;
+      if (shop.camYaw != null) S.yaw = shop.camYaw;   // правка волны 10: камера — за плечом, лицом к баристе и кофемашине
       if (seller) { seller.faceHero = 4; if (seller.hop) seller.hop(); }
       await sleep(250);
       return shopMenu(shop);
@@ -3077,6 +3078,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (want.y > cap && cap >= h.ground(want.x, want.z) + 0.6) want.y = cap;
       }
       if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале — камера не выходит из зала (в дверь, сквозь стекло)
+      // правка волны 10: в зале стена за спиной (камера ближе zn.peek м по горизонтали) — камера выше, взгляд мимо героини в зал:
+      // капюшон не во весь экран, видно зал и окна (сразу за дверью, у стены на улицу)
+      let peekK = 0; if (zn && zn.peek && zn.clamp) { const hz1 = Math.hypot(want.x - lookP.x, want.z - lookP.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk; if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(lookP, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
+      S.peekK = (S.peekK || 0) + (peekK - (S.peekK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 5) : 1);
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
@@ -3091,6 +3096,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const thE = Math.min(th, Math.atan2(lookP.y - 0.35 - camPos.y, Math.max(0.5, hz)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
         lk.copy(lookP); lk.y = Math.max(lookP.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(lk);
       }
+      else if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK; lk.set(lookP.x + hx / hl * 2.4 * k, lookP.y - 0.4 * k, lookP.z + hz2 / hl * 2.4 * k); cam.lookAt(lk); }
       else cam.lookAt(lookP);
       const fovT = (cam.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk : 0); if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
     }
