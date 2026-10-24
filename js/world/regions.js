@@ -190,6 +190,7 @@
 .wr-ws .bar{width:min(70vw,250px);height:10px;border-radius:99px;background:#F2DCE2;overflow:hidden}
 .wr-ws .bar i{display:block;height:100%;width:0;background:var(--cherry,#C2405B);border-radius:99px}
 .wr-ws .hint{font-size:14px;font-weight:800;color:var(--ink-2,#6E6272);text-align:center}
+body.wr-road-quiet .hud-coach,body.wr-road-quiet .toast:not(.road-keep){display:none!important}
 .wr-ws .step{font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:var(--cherry,#C2405B)}
 .wr-tap{position:absolute;left:calc(var(--hud-joy-cx,50%) - 52px);bottom:var(--hud-joy-b,16px);top:auto;right:auto;width:104px;height:104px;border:0;border-radius:50%;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-size:21px;font-weight:900;box-shadow:var(--hud-shadow-act,0 6px 0 #9E2F47);touch-action:none;transition:transform .08s;z-index:22;cursor:pointer}
 .wr-tap.beat{transform:scale(1.1)}
@@ -262,8 +263,16 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     const lite = refs.quality === 'lite';
     const say = refs.say || (G_() && G_().say ? lines => G_().say(lines) : null);
     const sheetFn = refs.sheet || (window.Town && Town.sheet ? o => Town.sheet(o) : ownSheet);
+    // волна 11 (желание автора: «во время серпантина надписи — про облака и прочее — мешают обзору, не надо про это писать»): на
+    // горной дороге (за рулём и пешком) — ни тостов, ни облачков-реплик сами по себе (и без их голоса): фразы в облаке, «Дорога
+    // наверх», подсказка про руль, «Смотровая: посиди минутку», «Вид из-за руля», ночь, лёгкий режим, записка с карты, жители
+    // и героиня. Остаются: кнопки-решения (выйти, сесть, посидеть, поговорить), руль и педали, полоса HUD (цель, скорость, ☰),
+    // щиты на дороге, шторка перехода, разговор, который начала сама (лист реплик), ответ на нажатие (o.keep / keep: «здесь не
+    // выйти», «Руки заняты», меню ☰, «Помахать», «Бум!»). Что не показали — S.quietLog (QA: __region.quiet())
+    const roadQuiet = () => S.rid === 'serpentine';
+    const hush = (k, t) => { (S.quietLog = S.quietLog || []).push(k + ': ' + t); if (S.quietLog.length > 60) S.quietLog.shift(); };
     // HUD v2: один тост за раз, под полосой, очередью (HUD.toast → G.toast); kind: 'place' | 'sticker'
-    const toast = (t, ms, o) => { if (!t) return; (S.toastLog = S.toastLog || []).push(t); if (S.toastLog.length > 30) S.toastLog.shift(); const H = HUD_(); if (refs.toast) refs.toast(t, ms, o); else if (H && H.toast && G_() && G_().toast) H.toast(t, ms, o); else if (G_() && G_().toast) G_().toast(t, ms); else ownToast(t, ms); };
+    const toast = (t, ms, o) => { if (!t) return; if (roadQuiet()) { if (!(o && o.keep)) { hush('toast', t); return; } o = Object.assign({}, o, { kind: o.kind || 'road-keep' }); } (S.toastLog = S.toastLog || []).push(t); if (S.toastLog.length > 30) S.toastLog.shift(); const H = HUD_(); if (refs.toast) refs.toast(t, ms, o); else if (H && H.toast && G_() && G_().toast) H.toast(t, ms, o); else if (G_() && G_().toast) G_().toast(t, ms); else ownToast(t, ms); };
     const voice = refs.voice || (G_() && G_().voiceLine ? (w, t, o) => G_().voiceLine(w, t, o) : null);
     const haptic = k => { try { if (refs.haptic) refs.haptic(k); else if (G_()) G_().haptic(k); } catch (e) { /* нет */ } };
     const sfx = (k, o) => { try { if (refs.sfx) refs.sfx(k, o); else if (G_()) G_().sfx(k, o); } catch (e) { /* нет */ } };
@@ -302,8 +311,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     /* ---------- облачка, тост, лист-запас ---------- */
     const bubbles = [];
     const tmpV = new T.Vector3();
-    function bubble(getPos, text, title, ms, cls) {
+    function bubble(getPos, text, title, ms, cls, keep) {
       if (!ui || !text) return;
+      if (roadQuiet() && !keep) { hush('say', (title ? title + ': ' : '') + text); return; }   // волна 11: на горной дороге — без облачков
       S.said.push((title ? title + ': ' : '') + text); if (S.said.length > 40) S.said.shift();
       // над ряженым свадьбы — одно облачко: новая строка встаёт в то же облачко (приветствие и «Звяк-звяк!» ложились друг на друга)
       const own = getPos.npc && getPos.npc.paltar ? getPos.npc : null;
@@ -330,7 +340,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
     }
     // голос облачка: запись из voice/ или «лепет» (G.voiceLine), как у жителей города
-    function voiceBubble(who, text) {
+    function voiceBubble(who, text, keep) {
+      if (roadQuiet() && !keep) return;   // волна 11: на горной дороге реплики, которых не видно, и не звучат (без «лепета» в облаке)
       if (text && who) { (S.voiceLog = S.voiceLog || []).push(who + '|' + text); if (S.voiceLog.length > 200) S.voiceLog.shift(); }
       if (!voice || !text || !who) return;
       try { const v = voice(who, text, { mode: 'bubble' }); const ep = S.epoch; if (typeof v === 'function') for (let i = 0; i < text.length; i++) setTimeout(() => { if (ep === S.epoch) v(i); }, 120 + i * 38); } catch (e) { /* без голоса */ }
@@ -441,14 +452,14 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // «🌙 Время суток» в меню: «Сейчас вечер · 21:40» и «В утро» / «Как на часах» (бывшая кнопка .wr-dn); у города своя — тогда не дублируем
     function dnMenuItem() {
       const D = window.DayNight; if (!D) return null;
-      if (D.menuItem) { try { const it = D.menuItem({ onSet: (to, line) => toast(line, 2400, { replace: true }) }); if (it) return Object.assign({}, it, { id: 'r-dn', order: 40, when: () => S.active }); } catch (e) { /* ниже — своя */ } }
+      if (D.menuItem) { try { const it = D.menuItem({ onSet: (to, line) => toast(line, 2400, { replace: true, keep: true }) }); if (it) return Object.assign({}, it, { id: 'r-dn', order: 40, when: () => S.active }); } catch (e) { /* ниже — своя */ } }
       const hhmm = h => { const m = Math.round((((h % 24) + 24) % 24) * 60); return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
       return {
         id: 'r-dn', order: 40, tint: 'sun', label: 'Время суток', when: () => S.active,
         icon: () => { const p = D.phase(); return p === 'night' || p === 'evening' ? '🌙' : p === 'golden' ? '🌇' : '☀️'; },
         sub: () => 'Сейчас ' + ((D.PHASE_RU && D.PHASE_RU[D.phase()]) || '') + ' · ' + hhmm(D.hour()),
         value: () => (D.override() !== null ? '🕗 Как на часах' : '☀️ В утро'),
-        onTap: () => { const to = D.override() !== null ? null : 'morning'; D.set(to); toast(to ? D.LINES.toMorning : D.LINES.toClock, 2400, { replace: true }); },
+        onTap: () => { const to = D.override() !== null ? null : 'morning'; D.set(to); toast(to ? D.LINES.toMorning : D.LINES.toClock, 2400, { replace: true, keep: true }); },
       };
     }
     // текст «кнопки» дня/ночи для отладки: значение строки меню (или прежней кнопки без HUD)
@@ -926,7 +937,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     function freeItem(k) { const it = k && k.userData && k.userData.it; if (it && it.def && it.def.parts && /^item:/.test(k.name || '') && it.dispose) { try { it.dispose(); } catch (e) { /* ok */ } } }
     function iaDrop() { if (!IA || !IA.drop) return null; let k = null; try { k = IA.drop(); } catch (e) { /* ok */ } freeItem(k); return k; }
-    const iaOn = n => { iaSweep(false); S.iaEv.push(n); if (S.iaEv.length > 80) S.iaEv.shift(); const k = IA_SFX[n]; if (k) sfx(k, k === 'step' ? { surface: 'stone' } : undefined); if (n === 'busy') toast('Руки заняты', 1200); };
+    const iaOn = n => { iaSweep(false); S.iaEv.push(n); if (S.iaEv.length > 80) S.iaEv.shift(); const k = IA_SFX[n]; if (k) sfx(k, k === 'step' ? { surface: 'stone' } : undefined); if (n === 'busy') toast('Руки заняты', 1200, { keep: true }); };
     function iaStop() { if (!IA) return; S.iaGen++; try { IA.cancel(); } catch (e) { /* ok */ } }
     // цепочка действий рук: alive() — не отменили (палец на джойстике), регион тот же
     function iaRun(fn) {
@@ -979,7 +990,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const cr = c.root || c, V = V_();
       if (id === 'serpentine' && V.drive) {
         scene.add(cr);
-        drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: driveCfgOf(c) });
+        // волна 11: на горной дороге своя скорость и руль для телефона (h.carCfg: седан 21 м/с, кабриолет 23; руль — скоростью
+        // поворота, лёгкое замедление перед крутыми поворотами) — поверх размеров машины и CAB_DRIVE
+        const roadCfg = h.carCfg ? h.carCfg(c.kind === 'sedan' || wantSedan() ? 'sedan' : 'cabrio') : null;
+        drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: Object.assign(driveCfgOf(c), roadCfg) });
         chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
         if (from === 'kubachi' || from === 'hotel') placeCarTop(); else placeCarStart();   // W8: с отеля (с карты) — сверху, как из села: ветки нет
         if (hero) { if (drv.heroIn) drv.heroIn(hero, { instant: true }); else heroToCar(); }
@@ -1040,7 +1054,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // «Выйти» где угодно (машина сама дотормаживает), «Сесть за руль» у стоящей машины
     async function getOut() {
       if (S.mode !== 'drive' || !drv || !drv.heroOut || !drv.canExit() || S.busy) return false;
-      if (outBlocked()) { toast(OUT_NO, 3800, { replace: true }); haptic('light'); return false; }   // кнопка остаётся: тап — подсказка
+      if (outBlocked()) { toast(OUT_NO, 3800, { replace: true, keep: true }); haptic('light'); return false; }   // кнопка остаётся: тап — подсказка
       ckSet(false); S.busy = true; let r = null;
       try { r = await drv.heroOut(hero, scene, {}); } catch (e) { console.warn('region heroOut', e); }
       S.busy = false;
@@ -1277,7 +1291,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     const kazRowOn = () => !!(S.active && S.rid === 'kubachi' && kazOk() && S.mode === 'walk' && !S.dance && !S.zip);
     const kazRowLabel = () => (kazWorn() ? 'Снять ' : 'Надеть ') + kazWord();
     function updKazBtn() { const H = HUD_(); if (H && H.menu && H.menu.isOpen && H.menu.isOpen() && H.menu.redraw) H.menu.redraw(); }
-    function kazBtn() { if (S.busy || (IA && IA.busy())) return kazWorn(); if (kazWorn()) { kazRemove(); toast('Сняла и бережно сложила.', 1600); } else kazWear({}); return kazWorn(); }
+    function kazBtn() { if (S.busy || (IA && IA.busy())) return kazWorn(); if (kazWorn()) { kazRemove(); toast('Сняла и бережно сложила.', 1600, { keep: true }); } else kazWear({}); return kazWorn(); }
     // место у мышки-вышивальщицы (kubachi.js: spot 'kaz_try' → { kind:'kaz', npc:'mouse' })
     async function kazSpot(d) {
       const m = npcBy(d.npc || 'mouse');
@@ -1349,6 +1363,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // кортах (football_court, padel_court, golf_green) — туда ведут точки карты; «⚽ Сыграть» у енота (sports_look, hotel.js) — выбор игры
       if (id === 'hotel' && V.sports && V.sports.spotsFor) { try { V.sports.spotsFor(h).forEach(sp => h.spots.push(sp)); } catch (e) { console.warn('region sports spots', e); } }
       if (id === 'serpentine') fogReset();
+      document.body.classList.toggle('wr-road-quiet', id === 'serpentine');   // волна 11: на горной дороге — без подсказок у кнопок HUD и без тостов, оставшихся от прошлого места (кроме ответа на нажатие)
       if (hero && hero.root.parent !== scene) scene.add(hero.root);
       if (id !== 'serpentine') {
         S.mode = 'walk';
@@ -1374,7 +1389,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       ui.root.classList.toggle('drive', S.mode === 'drive');
       S.buildMs = Math.round(performance.now() - t0);
       setHud();
-      { const t = placeTitle(); afterCurtain(250, () => { const H = HUD_(); if (H && H.arrive && t) H.arrive(t); }); }
+      { const t = placeTitle(); afterCurtain(250, () => { const H = HUD_(); if (H && H.arrive && t && !roadQuiet()) H.arrive(t); else if (t && roadQuiet()) hush('arrive', t); }); }   // волна 11: «Дорога наверх» — без тоста
       emit('region:enter', { id, from, buildMs: S.buildMs });
       resize();
       radarMount();
@@ -1613,8 +1628,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (window.DayNight) {
         try {
           dn = DayNight.create({ THREE: T, scene, renderer, camera: cam, preset: 'village', quality: regionQ });
-          dnOff = dn.onChange(e => { if (e.lamps && (e.phase === 'evening' || e.phase === 'night') && !WORLD._dnHinted) { WORLD._dnHinted = true; toast(DayNight.LINES.nightHint, 3500); try { const H = HUD_(); if (H && H.menu) H.menu.news('r-dn', true); } catch (x) { /* ok */ } } });
-          if (!HUD_() && DayNight.mountToggle) dnToggle = DayNight.mountToggle(ui.root, { className: 'wr-dn', onSet: (to, line) => toast(line, 2400) });
+          dnOff = dn.onChange(e => { if (e.lamps && (e.phase === 'evening' || e.phase === 'night') && !WORLD._dnHinted && !roadQuiet()) { WORLD._dnHinted = true; toast(DayNight.LINES.nightHint, 3500); try { const H = HUD_(); if (H && H.menu) H.menu.news('r-dn', true); } catch (x) { /* ok */ } } });
+          if (!HUD_() && DayNight.mountToggle) dnToggle = DayNight.mountToggle(ui.root, { className: 'wr-dn', onSet: (to, line) => toast(line, 2400, { keep: true }) });
         } catch (e) { console.warn('region daynight', e); dn = null; }
       }
       hudBegin();
@@ -1646,6 +1661,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       cancelAnimationFrame(raf); raf = 0;
       bindInput(false);
       hudEnd();
+      document.body.classList.remove('wr-road-quiet');
       if (S.ck) { try { S.ck.on(false); } catch (e) { /* ok */ } S.ck = null; }
       const kazBack = kazRemove();
       unload();
@@ -1738,7 +1754,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const text = nextLine(n), who = n.speaker || n.id;
       n.hop && n.hop(); n.faceHero = 1e9; S.lastGreet[n.id] = performance.now(); if (n.greetOnce) S.onceGreet.add(n.id);
       emit('region:talk', { npc: n.id, text });
-      if (say) { bubbles.forEach(b => { b.until = 0; }); await runBusy(() => say([{ who, text }])); } else { bubble(npcHead(n), text, n.name, 3600); voiceBubble(who, text); }
+      if (say) { bubbles.forEach(b => { b.until = 0; }); await runBusy(() => say([{ who, text }])); } else { bubble(npcHead(n), text, n.name, 3600, null, true); voiceBubble(who, text, true); }
       n.faceHero = 1.5;
     }
     // точка в кадре? (облачко над жителем, которого не видно, — тостом)
@@ -1752,10 +1768,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function heroSay(line, ms) { bubble(heroHead, line.text, '', ms || 2400, 'hero'); voiceBubble('hero', line.text); }
     function heroSay2(text, ms) { if (text) bubble(heroHead, text, '', ms || 2200, 'hero'); }   // без голоса (строки волны 4)
     // реплика жителя с голосом: { who, text } (литерал модуля) над npc (или тостом, если его не видно)
-    function npcLine(n, line, ms) {
+    function npcLine(n, line, ms, keep) {
       if (!line || !line.text) return;
-      if (n && onScreen(npcHead(n)())) { n.hop && n.hop(); n.faceHero = 2.5; bubble(npcHead(n), line.text, n.name, ms || 3000); } else toast((n ? n.name + ': ' : '') + line.text, ms || 3000);
-      voiceBubble(line.who || (n && (n.speaker || n.id)), line.text);
+      if (n && onScreen(npcHead(n)())) { n.hop && n.hop(); n.faceHero = 2.5; bubble(npcHead(n), line.text, n.name, ms || 3000, null, keep); } else toast((n ? n.name + ': ' : '') + line.text, ms || 3000, keep ? { keep: true } : undefined);
+      voiceBubble(line.who || (n && (n.speaker || n.id)), line.text, keep);
     }
     function npcSayEvent(id, evId, ms) {
       const ev = V_().eventLine && V_().eventLine(evId, named);
@@ -2483,7 +2499,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           moveHero: (dx, dz) => { const h = S.h; if (!h) return; let x = S.px + dx, z = S.pz + dz; if (h.collide) [x, z] = h.collide(x, z, 0.3, S.py); if (h.walkable && !h.walkable(x, z)) return; S.px = x; S.pz = z; },
           ground: (x, z) => (S.h && S.h.ground ? S.h.ground(x, z) : S.py),
           season: () => season,
-          say: (n, text, who) => { if (!text) return; if (n && n.root) bubble(npcHead(n), text, n.name, 2400); voiceBubble(who || (n && (n.speaker || n.id)), text); },
+          say: (n, text, who) => { if (!text) return; if (n && n.root) bubble(npcHead(n), text, n.name, 2400, null, true); voiceBubble(who || (n && (n.speaker || n.id)), text, true); },   // ответ на «Бум!»
           buttonsHost: ui.root,
           on: (name, data) => pfOn(name, data),
           keys: { bonk: 'KeyF', toss: 'KeyG' },
@@ -2540,7 +2556,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       try { if (g && g.wave) r = g.wave({ where: 'region', npc: spk }) || r; } catch (e) { /* без движка */ }
       const intro = !!(r.first || (nn && !S.greeted.has(nn.id)));
       const hi = intro ? (r.hi || 'Hi!') : HI_AGAIN[S.waveN++ % HI_AGAIN.length];
-      bubble(heroHead, hi, '', 2200, 'hero'); voiceBubble('hero', hi);
+      bubble(heroHead, hi, '', 2200, 'hero', true); voiceBubble('hero', hi, true);   // ответ на нажатие «Помахать» — и на дороге
       S.waveLog.push({ npc: nn ? nn.id : null, hi });
       // все рядом поворачиваются; зверята радуются
       h.npcs.forEach(n => { if (!n.root.visible) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 7) { n.faceHero = Math.max(n.faceHero || 0, 2.2); if (d < 4.5 && n.hop) setTimeout(() => { try { n.hop(); } catch (e) { /* ok */ } }, 300 + d * 60); } });
@@ -2553,7 +2569,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (typeof r.reply === 'string' && r.reply) line = { who: spk, text: r.reply };
       const text = line.text.replace('{name}', nm);
       if (!useName && /\{name\}/.test(line.text)) return true;
-      later(950, () => { if (!S.h || !nn.root) return; nn.hop && nn.hop(); nn.faceHero = 2.5; npcLine(nn, { who: line.who || spk, text }, 2600); S.waveLog.push({ npc: nn.id, reply: text }); });
+      later(950, () => { if (!S.h || !nn.root) return; nn.hop && nn.hop(); nn.faceHero = 2.5; npcLine(nn, { who: line.who || spk, text }, 2600, true); S.waveLog.push({ npc: nn.id, reply: text }); });
       return true;
     }
 
@@ -2914,6 +2930,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       momentLook = null; momentW = 0; const h = S.h; if (!h || !drv) return;
       (h.moments || []).forEach(m => { if (!m.done && drv.S.s > m.s0 && drv.S.s < m.s1 && drv.S.v > 0.5 && S.dir === 'up') { m.done = true; m.t = 0; if (m.id === 'emerge' && !S.sim) fogSay('emerge', 2800, 'out'); } if (m.t != null && m.t < m.dur) { m.t += dt; momentLook = m.look; momentW = Math.min(1, m.t / 1.2, (m.dur - m.t) / 1.2); } });
     }
+    // телефон: кнопки руля (HUD.driveCtl → st) и педали → ввод машины; та же функция — у QA-бота «палец на кнопках» (__region.touchIn)
+    function touchDriveInput(st, gas, brk) { return V_().drive.touchInput({ jx: canInput() ? st.str : 0, jy: 0, gas: !!gas, brake: !!brk, v: drv.S.v }); }
     // без помощников: газ, тормоз и руль — только от игрока (drive.touchInput); автопилот — только для отладки и тестов
     function driveInput(dt) {
       // кнопки руля (HUD.driveCtl) — каждый кадр, даже если ввод сейчас не наш: отпущенный руль сам возвращается к центру
@@ -2923,7 +2941,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (keys.u || keys.d || keys.l || keys.r) return { thr: (keys.u ? 1 : 0) - (keys.d ? 1 : 0), str: (keys.r ? 1 : 0) - (keys.l ? 1 : 0), brake: ped.brk };
       const V = V_();
       // телефон: руль — «‹‹» «››» (джойстика за рулём нет), газ и тормоз — педали
-      if (st && V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? st.str : 0, jy: 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
+      if (st && V && V.drive && V.drive.touchInput) return touchDriveInput(st, ped.gas, ped.brk);
       // палец на экране — руль и газ без кривой джойстика (у touchInput своя: мёртвая зона 8 % и степень 1,35); отладка — joy.x/y
       const lv = joy.live && ui && ui.J;
       if (V && V.drive && V.drive.touchInput) return V.drive.touchInput({ jx: canInput() ? (lv ? joy.lx : joy.x) : 0, jy: canInput() ? (lv ? joy.ly : joy.y) : 0, gas: ped.gas, brake: ped.brk, v: drv.S.v });
@@ -3452,6 +3470,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         hay: () => (hay ? { visible: hay.group.visible, x: +hay.group.position.x.toFixed(2), z: +hay.group.position.z.toFixed(2) } : null),
         // ввод как палец игрока: педали и джойстик (руль в машине / ходьба / руль параплана)
         input: o => { o = o || {}; if (o.gas !== undefined) ped.gas = !!o.gas; if (o.brake !== undefined) ped.brk = !!o.brake; if (o.jx !== undefined) joy.x = o.jx; if (o.jy !== undefined) joy.y = o.jy; return true; },
+        // QA-бот «палец на кнопках»: сама машина (drive.js), кнопки руля HUD.driveCtl, тот же ввод, что в игре; sim(true) — петля
+        // кадров машину не трогает (как simDrive)
+        drvCtl: () => drv, steerCtl: () => (ui && ui.steer) || null, touchIn: (st, gas, brk) => (drv ? touchDriveInput(st || { str: 0 }, gas, brk) : null),
+        sim: on => { S.sim = !!on; return S.sim; },
         drvS: () => (drv ? { x: drv.S.x, z: drv.S.z, y: drv.S.y, ry: drv.S.ry, v: drv.S.v, s: drv.S.s, sb: drv.S.sb, rid: drv.S.rid, steer: drv.S.steer, mode: drv.S.mode, edges: drv.S.edges, dir: S.dir } : null),
         voiceLog: () => S.voiceLog.slice(),
         // езда настоящими «педалями и рулём» (как палец игрока): газ/тормоз и руль −1…1, sec — игровых секунд
@@ -3466,6 +3488,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         bubbles: () => bubbles.filter(b => b.until > performance.now()).map(b => b.el.textContent),
         said: () => S.said.slice(),   // все облачка поездки (кто: текст) — тестам не нужно ловить облачко в его 2–3 секунды
         toasts: () => (S.toastLog || []).slice(),   // и все тосты
+        quiet: () => (S.quietLog || []).slice(),   // волна 11: что на горной дороге не показали (тосты и облачки)
         lastUse: () => S.lastUse || null,
       };
     }

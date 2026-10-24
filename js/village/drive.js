@@ -21,6 +21,8 @@
      W6: tap(k 0..1) — лёгкий толчок подвески (камушек со скалы; то же — collider.tap), скорость не меняет;
          cfg.wMaxHi — предел рыскания на полном ходу; pilot (QA) сам притормаживает перед крутыми поворотами (inp.brakes:false — нет)
      reversing, brakeLabel() → 'назад' | 'тормоз'
+     W11 (горная дорога с телефона): cfg.yawSteer — руль скоростью поворота (aLat0 / aLat / adapt, rIn0 / rIn1 / rOut, yawTau),
+         cfg.assist — машина сама слегка сбавляет ход перед крутым поворотом (S.assist, S.vA); по умолчанию выкл. (см. CFG)
      ГЕРОИНЯ: mode — 'drive' | 'stopping' | 'exit' | 'parked' | 'enter'
        heroIn(hero, { instant }) → Promise<true> — от места, где стоит героиня, к двери и на сиденье (0,8 с); hero.root — в car.body
        heroOut(hero, scene, { instant }) → Promise<{x, y, z, ry}> — дотормозить, выйти к двери (на полотно, не за край)
@@ -58,11 +60,23 @@
   // волна 8 («в горах медленно — в 2 раза быстрее»): было 40 м/с — «чересчур быстро, надо поменьше»: волна 9 — 28 м/с (~100 км/ч, ×1,4 к волне 7),
   // vCap 31, разгон и тормоз ×1,4 — чтобы до скорости доходить так же быстро;
   // в поворотах скорость по-прежнему ограничивает vSafe (по кривизне дороги)
+  // волна 11 (горная дорога с телефона: «на серпантине седан и кабриолет неуправляемые»): своё руление и подстраховка — только
+  // если регион их включил (cfg.yawSteer / cfg.assist; серпантин — handle.carCfg(kind)); село и город — как были.
+  //   yawSteer — кнопка руля задаёт не угол колёс, а скорость поворота машины: не больше aEff / v (боковое ускорение ≤ aEff м/с²)
+  //     и не больше wLow; на малом ходу — колёса до упора, как раньше (развернуться на месте можно). aEff: на прямой — aLat0
+  //     (на 21 м/с — 0,19 рад/с: тап — лёгкая поправка, машина не виляет), к повороту впереди — сколько этому повороту нужно на
+  //     этой скорости с запасом adapt, не больше aLat. Руль доворачивается плавно (rIn0 → rIn1 в секунду: на ходу медленнее,
+  //     удержание — полный поворот за ~0,3 с), отпустила — сам к центру (rOut в секунду); кузов догоняет за yawTau.
+  //     Колёса и руль в руках героини — как раньше (S.steer = доля руля × предел угла).
+  //   assist — лёгкое замедление перед крутым поворотом (м/с² вбок, на которые рассчитана скорость в повороте; 0 — нет): газ
+  //     держат или отпустили, а машина входит в поворот слишком быстро — сама сбрасывает скорость не резче assistBrake м/с²
+  //     (горят стоп-огни); тормоз игрока и задний ход — как были, руль машина сама не крутит
   const CFG = {
     vmax: 28, vrev: 3.5, acc: 11, brake: 15.5, roll: 1.5, gravK: 0.3, vCap: 31,
     wb: 2.17, track: 0.72, wf: 1.05, wr: -1.12, steerMax: 0.6, steerHi: 0.36, steerRate: 7, wMax: 1.6, wMaxHi: 1.15, wMaxV0: 9,
     halfW: 0.86, halfL: 1.9, wheelR: 0.31, edgePad: 0.06, creep: 0.7, exitV: 3.0,
     susK: 230, susZ: 0.42, tiltK: 190, tiltZ: 0.45, lift: 0.12,
+    yawSteer: false, aLat: 9, wLow: 1.5, rIn0: 7, rIn1: 3.5, rOut: 7, yawTau: 0.07, aLat0: 0, adapt: 1.3, assist: 0, assistBrake: 6,
   };
 
   /* ---------- машина: своя фабрика (волна 4: седан), городская (если есть car.js + kit.js) или запасная ---------- */
@@ -232,6 +246,7 @@
       x: 0, y: 0, z: 0, ry: 0, v: 0, steer: 0, spin: 0, yb: 0, pitchG: 0, rollG: 0, bp: 0, br: 0, squash: 0, sq: 0,
       sy: 0, svy: 0, sp: 0, svp: 0, sr: 0, svr: 0, odo: 0,
       s: 0, e: 0, sb: 0, rid: 0, along: 1, stuckT: 0, bumpT: 9, edgeT: 9, onRoad: false, unstickT: 0, unstickDir: -1, reversing: false,
+      u: 0, w: 0, assist: 0, vA: 0,   // W11: руль 0…±1 (yawSteer), скорость поворота, рад/с; подстраховка: 1 — сбавляет сама, vA — до какой скорости
       mode: 'drive', hero: null, tween: null, kind: 'gravel', wet: 0, edges: 0, splashT: 0, dustT: 0, lastPuddle: false,
     };
     const pos = new T.Vector3();
@@ -319,7 +334,7 @@
       } else if (t && typeof t === 'object') {
         S.x = t.x; S.z = t.z; S.ry = t.ry || 0; if (road) { const p = road.project(S.x, S.z); S.s = p.s; S.e = p.e; S.along = Math.cos(angDiff(S.ry, p.th)) >= 0 ? 1 : -1; S.rid = 0; }
       }
-      S.v = 0; S.steer = 0; S.stuckT = 0; S.unstickT = 0; S.squash = 0; S.sq = 0; S.bp = 0; S.br = 0; S.sy = S.svy = S.sp = S.svp = S.sr = S.svr = 0;
+      S.v = 0; S.steer = 0; S.u = 0; S.w = 0; S.assist = 0; S.stuckT = 0; S.unstickT = 0; S.squash = 0; S.sq = 0; S.bp = 0; S.br = 0; S.sy = S.svy = S.sp = S.svp = S.sr = S.svr = 0;
       sampleWheels(false); const pl = planeOf(WH.g); S.yb = S.y = pl[0]; S.pitchG = pl[1]; S.rollG = pl[2];
       apply();
     }
@@ -339,14 +354,38 @@
       if (thr > 0 && inp.brakes !== false && road.kmax && !back) {
         const v = Math.abs(S.v), Lb = v * v / (2 * cfg.brake * 0.8) + 6;
         const k = al0 > 0 ? road.kmax(P.s, Lb) : road.kmax(Math.max(0, P.s - Lb), Lb);
-        const vSafe = k > 1e-4 ? Math.min(cfg.vmax, Math.sqrt(8.5 / k), (cfg.wMaxHi || cfg.wMax) * 0.95 / k + 2) : cfg.vmax;
+        const vSafe = k > 1e-4 ? Math.min(cfg.vmax, Math.sqrt((cfg.yawSteer ? Math.min(8.5, cfg.aLat * 0.85) : 8.5) / k), cfg.yawSteer ? 99 : (cfg.wMaxHi || cfg.wMax) * 0.95 / k + 2) : cfg.vmax;
         if (v > vSafe + 1.2) { thr2 = 0; brk = true; } else if (v > vSafe) thr2 = 0;
       }
-      return { thr: thr2, str: clamp(-delta / smax, -1, 1) * (back ? -1 : 1), brake: brk };
+      // W11: руль «скоростью поворота» (yawSteer) — та же кривизна дуги, пересчитанная в долю предела yawCap()
+      const st = cfg.yawSteer ? Math.abs(S.v) * Math.tan(delta) / cfg.wb / Math.max(1e-3, yawCap()) : delta / smax;
+      return { thr: thr2, str: clamp(-st, -1, 1) * (back ? -1 : 1), brake: brk };
     }
     const steerLimit = () => cfg.steerMax + (cfg.steerHi - cfg.steerMax) * sm(3, cfg.vmax, Math.abs(S.v));
     // W6: предел рыскания от скорости (на 18 м/с — 1,15 рад/с вместо 1,6): быстрая машина остаётся послушной
     const yawLimit = () => (cfg.wMaxHi == null ? cfg.wMax : cfg.wMax + (cfg.wMaxHi - cfg.wMax) * sm(cfg.wMaxV0 || 9, cfg.vmax, Math.abs(S.v)));
+    // W11 (yawSteer): полный руль — такая скорость поворота: колёса до упора на малом ходу, не больше wLow и бокового aLat на ходу
+    const yawCap = () => { const av = Math.abs(S.v); return Math.min(av / cfg.wb * Math.tan(cfg.steerMax), cfg.wLow, (S.aEff || cfg.aLat) / Math.max(av, 0.1)); };
+    // W11: сила руля по дороге (cfg.aLat0 > 0): на прямой — мягче (aLat0, поправки без виляния), к повороту впереди — сколько нужно
+    // этому повороту на этой скорости с запасом adapt (не больше aLat)
+    function aEffOf() {
+      if (!(cfg.aLat0 > 0) || !road || !road.kmax) return cfg.aLat;
+      const av = Math.abs(S.v), L = 4 + 0.6 * av, k = S.along > 0 ? road.kmax(Math.max(0, S.s - 2), L) : road.kmax(Math.max(0, S.s - L), L + 2);
+      return clamp(cfg.aLat0 + (cfg.adapt || 1.4) * av * av * k, cfg.aLat0, cfg.aLat);
+    }
+    // W11 (assist): до какой скорости машина сама сбавит ход перед поворотом впереди — кривая торможения (не резче assistBrake)
+    // до скорости, с которой поворот проходится с боковым ускорением cfg.assist; впереди по ходу носа (S.along) на тормозной путь
+    function assistV() {
+      const v = Math.abs(S.v), aB = cfg.assistBrake, L = Math.min(70, v * v / (2 * aB) + 10), al = S.along;
+      let vA = 1e9;
+      for (let d = 0; d <= L; d += 3) {
+        const s1 = al > 0 ? S.s + d : S.s - d - 3; if (s1 < -3 || s1 > road.len) break;
+        const k = road.kmax(Math.max(0, s1), 3); if (k < 1e-4) continue;
+        const vc = Math.sqrt(cfg.assist / k), dd = Math.max(0, d - 4);
+        vA = Math.min(vA, Math.sqrt(vc * vc + 2 * aB * dd));
+      }
+      return vA;
+    }
 
     /* --- героиня: посадка, выход, поза --- */
     const v3 = () => new T.Vector3();
@@ -463,7 +502,14 @@
         if (inp.str) steerIn = -clamp(inp.str, -1, 1);
       }
       if (inp.brake) { target = 0; brake = true; }
-      S.braking = brake && Math.abs(S.v) > 0.2;
+      // W11: подстраховка на горной дороге (cfg.assist): едет вперёд быстрее, чем пройдёт поворот впереди, — сбавит сама
+      const thrPlayer = target;   // мотор звучит по педали игрока, а не по подстраховке
+      S.assist = 0;
+      if (cfg.assist > 0 && driving && road && road.kmax && !brake && S.v > 3 && target >= 0) {
+        const vA = assistV(); S.vA = vA;
+        if (S.v > vA) { S.assist = 1; target = Math.min(target || vA, vA); }
+      }
+      S.braking = (brake && Math.abs(S.v) > 0.2) || (S.assist && S.v > S.vA + 0.6);
       // не застрять: газ упёрся (в камень, лавочку или носом в край) дольше 1,5 с и машина не двигается — сама откатывается
       // назад ~0,9 с, ПРЯМО (руль не трогает); дальше снова игрок
       const nearEnd = road && (S.s < 4 || S.s > road.len - 4);
@@ -473,7 +519,14 @@
       S.reversing = driving && !unsticking && !inp.auto && (target < -0.1 || S.v < -0.3 && !(inp.thr > 0));
       /* --- руль: плавно, острота от скорости, сам возвращается в центр, когда отпустили --- */
       const smax = steerLimit();
-      S.steer += (clamp(steerIn, -1, 1) * smax - S.steer) * damp(cfg.steerRate, dt);
+      if (cfg.yawSteer) {
+        S.aEff = aEffOf();
+        // W11: руль доворачивается плавно (на ходу медленнее), к центру — быстрее; смена стороны — сначала через центр
+        const tIn = clamp(steerIn, -1, 1), grow = Math.abs(tIn) > Math.abs(S.u) && (Math.abs(S.u) < 1e-4 || Math.sign(tIn) === Math.sign(S.u));
+        const rate = grow ? cfg.rIn0 + (cfg.rIn1 - cfg.rIn0) * sm(4, 18, Math.abs(S.v)) : cfg.rOut;
+        S.u += clamp(tIn - S.u, -rate * dt, rate * dt);
+        S.steer = S.u * smax;   // колёса, руль в руках героини, камера — как раньше
+      } else S.steer += (clamp(steerIn, -1, 1) * smax - S.steer) * damp(cfg.steerRate, dt);
       /* --- скорость: газ, тормоз, естественный накат; уклон --- */
       let a;
       if (brake) a = cfg.brake;
@@ -483,13 +536,19 @@
       const goal = brake ? 0 : target === 0 ? 0 : (Math.abs(target) > Math.abs(S.v) || Math.sign(target) !== Math.sign(S.v) ? target : S.v);
       let dv = clamp(goal - S.v, -a * dt, a * dt);
       if (!brake && target === 0) dv = -Math.sign(S.v) * Math.min(Math.abs(S.v), cfg.roll * dt);
+      if (S.assist) dv = clamp(S.vA - S.v, -cfg.assistBrake * dt, 0);   // W11: сбавляет сама — не резче assistBrake
       // мотор тянет в гору чуть слабее, под гору чуть бодрее; стоим без газа — ручник: не катимся
       const moving = Math.abs(S.v) > 0.25 || Math.abs(target) > 0.1;
       const gAcc = moving && !brake ? -9.8 * Math.sin(S.pitchG) * cfg.gravK : 0;
       S.v += dv + gAcc * dt;
       S.v = clamp(S.v, -cfg.vrev * 1.2, cfg.vCap);
       if (Math.abs(target) < 0.05 && Math.abs(S.v) < 0.06) S.v = 0;
-      const wLim = yawLimit(); let w = S.v / cfg.wb * Math.tan(S.steer); w = clamp(w, -wLim, wLim);
+      let w;
+      if (cfg.yawSteer) {
+        // W11: скорость поворота — доля руля от предела yawCap() (назад — в другую сторону, как у настоящей машины); кузов догоняет за yawTau
+        const wT = S.u * yawCap() * Math.sign(S.v);
+        S.w += (wT - S.w) * damp(1 / cfg.yawTau, dt); w = S.w;
+      } else { const wLim = yawLimit(); w = S.v / cfg.wb * Math.tan(S.steer); w = clamp(w, -wLim, wLim); S.w = w; }
       let ry = S.ry + w * dt, nx = S.x + Math.sin(ry) * S.v * dt, nz = S.z + Math.cos(ry) * S.v * dt;
 
       /* --- мягкий край: ни ограждений, ни обрыва — машина в «мягком щебне» у края гасит скорость и ползёт вдоль --- */
@@ -591,7 +650,7 @@
       apply();
       emitFx(dt, edgeAt);
       // звук мотора: за рулём (и пока дотормаживает перед выходом) — обороты от скорости и газа; вышла — мотор глохнет
-      if (window.EngineSound) { ES.speed = S.v; ES.throttle = driving ? Math.abs(target) / cfg.vmax : 0; ES.braking = !!S.braking; ES.driving = driving || S.mode === 'stopping'; EngineSound.update(ES, dt); }
+      if (window.EngineSound) { ES.speed = S.v; ES.throttle = driving ? Math.abs(S.assist ? Math.min(thrPlayer, S.v * 0.5) : target) / cfg.vmax : 0; ES.braking = !!S.braking; ES.driving = driving || S.mode === 'stopping'; EngineSound.update(ES, dt); }
       if (S.mode === 'stopping' && Math.abs(S.v) < 0.05 && S.onStop) S.onStop();
       return { bumped, edge, s: S.s, e: S.e, onRoad, surface: kind, rid: S.rid };
     }
@@ -644,7 +703,7 @@
       canExit() { return S.mode === 'drive' && Math.abs(S.v) < cfg.exitV; },
       canEnter(x, z) { return S.mode === 'parked' && Math.hypot(x - S.x, z - S.z) < 3.3; },
       pilot,
-      info() { return { s: +S.s.toFixed(2), e: +S.e.toFixed(2), v: +S.v.toFixed(2), kmh: Math.round(Math.abs(S.v) * 3.6), x: +S.x.toFixed(2), y: +S.y.toFixed(2), z: +S.z.toFixed(2), ry: +S.ry.toFixed(3), pitch: +S.pitchG.toFixed(3), roll: +S.rollG.toFixed(3), stuck: S.stuckT > 3, mode: S.mode, rid: S.rid, sb: +S.sb.toFixed(1), surface: S.kind, wet: +S.wet.toFixed(2), steer: +S.steer.toFixed(3), sus: +S.sy.toFixed(3), edges: S.edges }; },
+      info() { return { s: +S.s.toFixed(2), e: +S.e.toFixed(2), v: +S.v.toFixed(2), kmh: Math.round(Math.abs(S.v) * 3.6), x: +S.x.toFixed(2), y: +S.y.toFixed(2), z: +S.z.toFixed(2), ry: +S.ry.toFixed(3), pitch: +S.pitchG.toFixed(3), roll: +S.rollG.toFixed(3), stuck: S.stuckT > 3, mode: S.mode, rid: S.rid, sb: +S.sb.toFixed(1), surface: S.kind, wet: +S.wet.toFixed(2), steer: +S.steer.toFixed(3), u: +S.u.toFixed(3), w: +S.w.toFixed(3), assist: S.assist, vA: S.assist ? +S.vA.toFixed(1) : null, sus: +S.sy.toFixed(3), edges: S.edges }; },
       reset() { if (road) teleport(S.s); },
       dispose() {
         if (blob) { blob.parent && blob.parent.remove(blob); blob.userData.own.forEach(x => x.dispose()); blob = null; }
@@ -933,5 +992,5 @@
     return { on, update, refresh() { st.hero = null; }, get active() { return st.on; }, get blend() { return st.k; }, st, dispose() { on(false); } };
   }
 
-  V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 6, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: false, cockpit: true } };
+  V.drive = { create, makeCar, chase, cockpit, touchInput, CFG, pushOut, version: 7, FEATURES: { assists: false, softEdge: true, suspension: true, heroSeat: true, exitAnywhere: true, branch: false, cockpit: true, yawSteer: true, roadAssist: true } };
 })();
