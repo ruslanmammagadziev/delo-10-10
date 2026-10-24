@@ -16,6 +16,8 @@
              root? — корень сеток региона (h.root): по нему строится карта высот препятствий (растр треугольников, по кусочку
                      за кадр, ≈ 0,2 с всего на ПК); exclude? — объекты, которые не считать (жители: h.npcs[i].root);
                      скрытое не считается, include?(mesh) → true — считать и скрытое (толпа большого базара, видна только вблизи),
+                     спрятанное регионом только для вида (mesh.userData.ccHidden / lodHidden) — считается; индекс сетки —
+                     geometry.userData.fullIndex, если есть (клеточное отсечение: в index.array — только клетки в кадре),
              colliders?, camColliders?, obstacles? — коробки/круги { type:'box'|'circle', x, z, w, d, ry | r, y1 } (верх → в карту),
              rayHit?(a, b) — луч камеры региона (h.rayHit), npcs? — жители (на них не садимся),
              bounds { x, z, r — мягкая граница (разворот), rMax — жёсткая, ceil — потолок, м },
@@ -115,6 +117,11 @@
       if (i < 0 || j < 0 || i >= NX || j >= NZ) return;
       const q = j * NX + i; if (y > H[q]) H[q] = y;
     }
+    // индекс сетки целиком: у сеток с клеточным отсечением (kubachi.js, cellCull) в index.array — только клетки в кадре,
+    // вся сетка — в userData.fullIndex (иначе карта зависела бы от того, куда смотрит камера)
+    const fullIdx = g => (g.userData && g.userData.fullIndex) || (g.index ? g.index.array.subarray(0, g.index.count) : null);
+    // спрятано только для вида (регион: userData.ccHidden — вне пирамиды камеры, lodHidden — далеко от камеры) — считаем
+    const viewHidden = m => !!(m.isMesh && m.userData && (m.userData.ccHidden || m.userData.lodHidden));
     function okMesh(m) {
       const mt = m.material, g = m.geometry;
       if (!g || !g.attributes || !g.attributes.position || m.isSkinnedMesh) return false;
@@ -128,13 +135,13 @@
       root.updateMatrixWorld(true);
       const ex = new Set((exclude || []).filter(Boolean));
       const walk = obj => {
-        if (ex.has(obj) || (!obj.visible && !(o.include && obj.isMesh && o.include(obj)))) return;   // скрытое (лавки большого базара не в базарный день, товар в лавках) — не считаем; o.include(mesh) — что считать, даже если скрыто
+        if (ex.has(obj) || (!obj.visible && !viewHidden(obj) && !(o.include && obj.isMesh && o.include(obj)))) return;   // скрытое (лавки большого базара не в базарный день, товар в лавках) — не считаем; o.include(mesh) — что считать, даже если скрыто
         if (obj.isMesh && okMesh(obj)) {
           const g = obj.geometry; if (!g.boundingBox) g.computeBoundingBox();
           bb.copy(g.boundingBox).applyMatrix4(obj.matrixWorld);
           const inst = obj.isInstancedMesh ? obj.count : 1;
           if (bb.max.x >= X0 && bb.min.x <= XM && bb.max.z >= Z0 && bb.min.z <= ZM && bb.max.y - bb.min.y < 600) {
-            const n = (g.index ? g.index.count : g.attributes.position.count) / 3 | 0;
+            const fI = fullIdx(g), n = (fI ? fI.length : g.attributes.position.count) / 3 | 0;
             jobs.push({ m: obj, n, inst, k: 0 }); total += n * inst; ready = false;
           }
         }
@@ -199,7 +206,7 @@
       if (ready) return true;
       const t0 = performance.now();
       while (ji < jobs.length) {
-        const J = jobs[ji], m = J.m, g = m.geometry, pa = g.attributes.position, idx = g.index ? g.index.array : null;
+        const J = jobs[ji], m = J.m, g = m.geometry, pa = g.attributes.position, idx = fullIdx(g);
         const arr = pa.isInterleavedBufferAttribute ? pa.data.array : pa.array, st = pa.isInterleavedBufferAttribute ? pa.data.stride : 3, off = pa.isInterleavedBufferAttribute ? pa.offset : 0;
         const total3 = J.n * 3;
         while (J.k < J.inst) {

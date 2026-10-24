@@ -1129,10 +1129,12 @@
         g.setIndex(new T.BufferAttribute(g.attributes.position.count > 65535 ? new Uint32Array(full.length) : new Uint16Array(full.length), 1));
         ranges.forEach(([k, s0, c, v]) => { if (!v) return; let L = this.map.get(k); if (!L) this.map.set(k, L = { gs: new Set(), bb: [1e9, -1e9, 1e9, -1e9, 1e9, -1e9], isFar: false, inV: true }); L.gs.add(F);
           for (let q = s0; q < s0 + c; q++) { const w = full[q] * 3; for (let d = 0; d < 3; d++) { L.bb[d * 2] = Math.min(L.bb[d * 2], p[w + d]); L.bb[d * 2 + 1] = Math.max(L.bb[d * 2 + 1], p[w + d]); } } });
+        // правка 2: для карты высот параплана — вся сетка в подробном виде (всегда + «вблизи»), от камеры не зависит (userData.fullIndex)
+        { let n = 0; ranges.forEach(r => { if (r[3] !== 2) n += r[2]; }); const gi = new Uint32Array(n); let o = 0; ranges.forEach(([, s0, c, v]) => { if (v !== 2) { gi.set(full.subarray(s0, s0 + c), o); o += c; } }); g.userData.fullIndex = gi; }
         this.groups.push(F); this.fill(F); },
       fill(F) { const a = F.m.geometry.index.array; let n = 0;
         F.ranges.forEach(([k, s0, c, v]) => { const L = v && this.map.get(k); if (!v || (L.inV && L.isFar === (v === 2))) { a.set(F.full.subarray(s0, s0 + c), n); n += c; } });
-        F.m.geometry.setDrawRange(0, n); F.m.geometry.index.needsUpdate = true; F.m.visible = n > 0; F.dirty = false; },
+        F.m.geometry.setDrawRange(0, n); F.m.geometry.index.needsUpdate = true; F.m.visible = n > 0; F.m.userData.ccHidden = n === 0; F.dirty = false; },
       update(c, cam) {
         let fr = null; if (!this.force && cam && cam.projectionMatrix) { cam.updateMatrixWorld(); fr = this.FR.setFromProjectionMatrix(this.PM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); }
         for (const L of this.map.values()) {
@@ -4455,7 +4457,8 @@
     const wedBB = e => { if (!e.bb) { const g = e.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); e.m.updateMatrixWorld(true); const b = g.boundingBox.clone().applyMatrix4(e.m.matrixWorld); const m = e.crowd ? 0.25 : 0; e.bb = [[b.min.x - m, b.max.x + m], [b.min.y, b.max.y + m], [b.min.z - m, b.max.z + m]]; } return e.bb; };
     // правка волны 10: сетка двора вне пирамиды камеры (рамка + 1 м) — не рисуется: камера-следилка на площади у южной стены двора
     // (в пределах «yardSeen»), лицом на юг, рисовала толпу, столы и галерею за спиной (≈ 33 тыс. треуг.)
-    const wedFr = e => { if (!CCULL.ok || CCULL.noFr || e.fr0 === false) return true; if (e.fr0 === undefined) { const n = e.m.name || (e.m.parent && e.m.parent.name) || ''; e.fr0 = /^wedding:(crowd|crowdTex|props|yard|lights|flags\d*)$/.test(n); if (!e.fr0) return true; }   // только сетки двора (не то, что надевают героине)
+    // правка 2: на high сетка, бросающая тень (героиня во дворе), рисуется и вне пирамиды — её тень может падать в кадр
+    const wedFr = e => { if (!CCULL.ok || CCULL.noFr || e.fr0 === false || (HI && e.m.castShadow)) return true; if (e.fr0 === undefined) { const n = e.m.name || (e.m.parent && e.m.parent.name) || ''; e.fr0 = /^wedding:(crowd|crowdTex|props|yard|lights|flags\d*)$/.test(n); if (!e.fr0) return true; }   // только сетки двора (не то, что надевают героине)
       const b = wedBB(e), B = e.box || (e.box = new T.Box3()); B.min.set(b[0][0] - 1, b[1][0] - 1, b[2][0] - 1); B.max.set(b[0][1] + 1, b[1][1] + 1.5, b[2][1] + 1); return CCULL.FR.intersectsBox(B); };
     const wedOccl = (e, c) => {
       if (!e.bb) { const g = e.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); e.m.updateMatrixWorld(true); const b = g.boundingBox.clone().applyMatrix4(e.m.matrixWorld); const m = e.crowd ? 0.25 : 0; e.bb = [[b.min.x - m, b.max.x + m], [b.min.y, b.max.y + m], [b.min.z - m, b.max.z + m]]; }
@@ -4496,10 +4499,16 @@
       const Arr = nV > 65535 ? Uint32Array : Uint16Array, full = new Arr(nI - (nI % 3)), C = [], v = CCULL.v; let o = 0;
       cells.forEach(L => { const s0 = o, bb = new T.Box3(); for (let q = 0; q < L.length; q++) { const i = L[q]; full[o++] = i; bb.expandByPoint(v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2])); } C.push({ s0, n: L.length, bb, on: true }); });
       g.setIndex(new T.BufferAttribute(new Arr(full.length), 1)); g.index.setUsage(T.DynamicDrawUsage);
+      // правка 2: в индексе — только клетки в кадре (хвост — старое); кому нужна вся сетка (карта высот параплана), читают
+      // userData.fullIndex — все треугольники, от камеры не зависит
+      g.userData.fullIndex = full;
       const E = { m, g, full, C, far }; CCULL.list.push(E); ccFill(E);
     }
     function ccFill(E) { const a = E.g.index.array; let n = 0; for (const c of E.C) if (c.on) { a.set(E.full.subarray(c.s0, c.s0 + c.n), n); n += c.n; } E.g.setDrawRange(0, n); E.g.index.needsUpdate = true; }
-    function ccUpdate(cam) {
+    function ccUpdate(cam, hx, hz) {
+      // правка 2: камера-следилка (≤ 30 м от героини: пешком, в машине, на скамейке из-за плеча) — или вид издалека (уступ → «Посидеть»
+      // с p1, общие виды): окна села снизу днём режутся по 90 м только у следилки (Нижняя улица, полянка — бюджет), издалека — все
+      CCULL.fol = hx !== undefined && Math.hypot(cam.position.x - hx, cam.position.z - hz) < 30;
       CCULL.ok = false; if (!cam.isPerspectiveCamera || CCULL.off) return;
       cam.updateMatrixWorld(); CCULL.ok = true; const top = cam.near * Math.tan(D2R * 0.5 * cam.fov) / (cam.zoom || 1) * 1.15, w = top * cam.aspect;
       CCULL.PM.makePerspective(-w, w, top, -top, cam.near, cam.far); CCULL.FR.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse));
@@ -4509,7 +4518,7 @@
     }
     function modGuard(hx, hz, cam) {
       if (!cam || !cam.position) return;
-      ccUpdate(cam);
+      ccUpdate(cam, hx, hz);
       const c = cam.position, dW = Math.hypot(c.x - WED.x, c.z - WED.z), inYard = Math.abs(hx - WED.x) < WED.w / 2 + WED.gal + 3 && Math.abs(hz - WED.z) < WED.d / 2 + 4;
       // W4A: двор за стенами и галереями — снаружи и снизу толпу не видно (кадр с площади: −16…32 тыс. треуг.); видно, если камера
       // у двора (±10 м от стен) или выше крыш галерей (с башни, с крыши-террасы, общий вид)
@@ -4518,7 +4527,10 @@
       // за галереи не заглядывает: толпа видна из двора (+1,5 м), со стороны ворот (юг, ±7 м от оси) и сверху
       const yardSeen = (Math.abs(cwx) < WED.w / 2 + WED.gal + 1.5 && Math.abs(cwz) < WED.d / 2 + 1.5) || (cwz > 0 && Math.abs(cwx) < 7 && cwz < WED.d / 2 + 12) || c.y > WED.y + 7.5;
       for (const L of CROWNLOD) { const near = Math.hypot(c.x - L.x, c.z - L.z) - L.r < 30; if (L.m1.visible !== near) { L.m1.visible = near; L.m0.visible = !near; } }
-      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < (W9.camCafe && L.cafe ? L.cafe : L.max); if (L.m.visible !== on) L.m.visible = on; }   // волна 10: камера в кофейне — мелочь ближе (L.cafe)
+      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < (W9.camCafe && L.cafe ? L.cafe : L.max); if (L.m.visible !== on) L.m.visible = on;   // волна 10: камера в кофейне — мелочь ближе (L.cafe)
+        // правка 2: куски, что до волны 10 были целыми сетками (реквизит, трубы, мебель свадьбы), прячутся только для вида —
+        // карта высот параплана их считает (userData.lodHidden), как прежде
+        if (L.grid === undefined) L.grid = /^(props|pipes|wedding:props)$/.test(L.m.name || ''); if (L.grid) L.m.userData.lodHidden = !on; }
       // вершина: дальний план заливки фона и ленты внешних дорог — кусок грубый, пока камера дальше RF_LOD.D от его края
       RF_LOD.update(c, cam);
       // порог по высоте камеры 28 ± 2 м (было 20): по дороге к отелю мелочь села включается/прячется на первой ноге серпантина, где
@@ -4528,7 +4540,8 @@
         // волна 10: и снизу — с Нижней улицы на юго-западном склоне (камера ниже −6 м и дальше 90 м от середины амфитеатра, выход —
         // выше −3 м или ближе 85 м) — и издалека с плато (дальше 120 м, выход — ближе 115): мелочь села оттуда тоже меньше пикселя;
         // ночью фонари и окна остаются — огни села видно снизу и издалека
-        const dA = Math.hypot(c.x - 4.8, c.z - 27.8), bl = VFAR.below ? (c.y < -3 && dA > 85) || dA > 115 : (c.y < -6 && dA > 90) || dA > 120, nk = NIGHT.t > 0.35;
+        // правка 2: только у камеры-следилки (CCULL.fol, ≤ 30 м от героини) — в видах издалека (p1/p4 с уступа, p3) всё как прежде
+        const dA = Math.hypot(c.x - 4.8, c.z - 27.8), bl = CCULL.fol && (VFAR.below ? (c.y < -3 && dA > 85) || dA > 115 : (c.y < -6 && dA > 90) || dA > 120), nk = NIGHT.t > 0.35;
         if (vf !== VFAR.on || bl !== VFAR.below || nk !== VFAR.night) { VFAR.on = vf; VFAR.below = bl; VFAR.night = nk; VFAR.dirty = true; }
         // правка волны 10: снизу (below) прячутся только куски дальше 50 м от камеры (по их сфере) — у самой камеры остаются стожки на
         // полянке (иначе — невидимые препятствия), кронштейны фонарей, трубы, фонарь на доме-мосту; сетки на всё село (стёкла фонарей,
@@ -4536,7 +4549,8 @@
         if (VFAR.dirty || bl) { VFAR.dirty = false;
           for (const e of VFAR.list) { let hid = vf;
             if (!hid && bl && !(nk && e.lit)) { if (e.r === undefined) { const g = e.o.geometry; if (g && g.attributes && g.attributes.position && !g.boundingSphere) g.computeBoundingSphere(); const bs = g && g.boundingSphere; if (bs) { e.o.updateMatrixWorld(true); const v = bs.center.clone().applyMatrix4(e.o.matrixWorld); e.cx = v.x; e.cy = v.y; e.cz = v.z; e.r = bs.radius; } else e.r = -1; }
-              hid = e.r >= 0 && e.r < 60 && Math.hypot(c.x - e.cx, c.y - e.cy, c.z - e.cz) - e.r > 50; }
+              if (e.crown === undefined) e.crown = /^crownsNear/.test(e.o.name || '');   // правка 2: кроны у троп снизу не прячем — стволы (до 90 м) стояли голыми
+              hid = !e.crown && e.r >= 0 && e.r < 60 && Math.hypot(c.x - e.cx, c.y - e.cy, c.z - e.cz) - e.r > 50; }
             const m = hid ? 0 : e.mask; if (e.o.layers.mask !== m) e.o.layers.mask = m; } }
         // куски ближних террас: дальше 200 м — прятать, ближе — показать; в кадре кусок меняется, только если он совсем далеко
         // (> 320 м, пара пикселей) или уже близко (< 90 м) — иначе ждёт, пока уйдёт из кадра (ступени не «перещёлкиваются» на глазах)
@@ -4550,8 +4564,9 @@
       const behindH = c.z < WHB.z0 && c.y < WHB.y1 + 12;
       for (const e of MODG.wd) {
         if (e.cast0) e.m.castShadow = inYard && !e.crowd;   // W4A: толпа без теней (≈ 32 тыс. треуг. в проходе теней на high)
-        const hide = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen)) || (behindH && wedOccl(e, c)) || !wedFr(e);
+        const h0 = (e.ol && dW > (HI ? 18 : 30)) || (e.crowd && (dW > 55 || !yardSeen)) || (behindH && wedOccl(e, c)), fr = !h0 && !wedFr(e), hide = h0 || fr;
         if (hide && e.m.visible) { e.m.visible = false; e.hid = true; } else if (!hide && e.hid) { e.m.visible = true; e.hid = false; }
+        e.m.userData.ccHidden = !!(e.hid && fr);   // правка 2: спрятано только вне пирамиды камеры — для карты высот параплана сетка есть
       }
       const nearSq = Math.hypot(hx - SQUARE.x, hz - SQUARE.z) < 24;
       for (const m of MODG.stalls) m.castShadow = nearSq;
@@ -4965,8 +4980,9 @@
       const CK = (s) => (x, z) => Math.floor(x / s) + ',' + Math.floor(z / s);
       const bgKey = (x, z) => { const r = Math.hypot(x - OPP.TX, z - OPP.TZ), s = r < 320 ? 64 : r < 700 ? 160 : 320; return s + ':' + Math.floor(x / s) + ',' + Math.floor(z / s); };
       if (BG.terrain) cellCull(BG.terrain, bgKey);
-      // окна села снизу (с Нижней улицы, VFAR.below) днём — только ближе 90 м (прежде прятались все разом; ночью окна горят — все)
-      const glzFar = () => (VFAR.below && !VFAR.night ? 90 : 0);
+      // окна села снизу (с Нижней улицы, VFAR.below) днём — только ближе 90 м (прежде прятались все разом; ночью окна горят — все);
+      // правка 2: только у камеры-следилки (CCULL.fol) — в видах издалека (p1 с уступа, p3, p4) окна и стёкла галерей как прежде
+      const glzFar = () => (VFAR.below && !VFAR.night && CCULL.fol ? 90 : 0);
       root.children.forEach(m => { if (!m.isMesh) return; const k = { bareTrees: 48, upland: 32, glazing: 32, crownsFar: 48, terraces: 48, terracesFar: 96, roofSheets: 40 }[m.name]; if (k) cellCull(m, CK(k), m.name === 'glazing' ? glzFar : null); });
     }
 
