@@ -2050,7 +2050,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         later(900, () => heroSay2(it.hero, 2200)); await sleep(1600);
       }
       S.bag.push(it.id); S.shopBuy = null; S.buys++;
-      if (S.cup) later(600, () => toast('☕ ' + it.title + ' в руке. Садись у окна — оттуда видно всё село!', 3200)); else toast('В сумке: ' + it.title, 1800);
+      if (S.cup) later(600, () => toast('☕ ' + it.title + ' в руке. Садись у окна — вид оттуда чудесный!', 3200)); else toast('В сумке: ' + it.title, 1800);
     }
     // волна 10: стаканчик кофе — в руке, пока она в кофейне и рядом (до 3 м за стенами); дальше, в машине, на лестнице, у другого
     // занятия — «в сумку». Глоток — «☕ Глоток» (сидя — вторая кнопка; гуляя — вторая, если рядом никого)
