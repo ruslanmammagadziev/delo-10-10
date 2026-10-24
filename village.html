@@ -118,6 +118,7 @@
   <script src="js/village/vkit.js"></script>
   <script src="js/village/lines.js"></script>
   <script src="js/village/summit.js" onerror="void 0"></script>
+  <script src="js/village/markharai_sign.js" onerror="void 0"></script>
   <script src="js/village/kubachi.js"></script>
   <script src="js/village/serpentine.js" onerror="void 0"></script>
   <script src="js/village/drive.js" onerror="void 0"></script>
@@ -602,6 +603,9 @@
     /* ---------- волна 4: лавки — войти, выбрать, заплатить, взять из лап, съесть / полюбоваться, выйти ---------- */
     async function enterShop(shop) {
       const h = S.region, seller = npcBy(shop.seller);
+      // волна 10: кофейня «без перехода» — как в игре: шажок к месту заказа, лицом к баристе, лист заказа (без шторки и кадра)
+      if (shop.walkIn) { const ins = shop.inside, d = Math.hypot(ins[0] - S.px, ins[2] - S.pz); if (d > 0.3) { const k = Math.min(1, 1 / d); S.px += (ins[0] - S.px) * k; S.pz += (ins[2] - S.pz) * k; S.py = h.ground(S.px, S.pz); }
+        S.inShop = shop; S.ang = ins[3]; S.vx = S.vz = 0; if (seller) seller.faceHero = 4; await sleep(250); return shopMenu(shop); }
       if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
       await fade('Заходим в лавку…', () => { S.inShop = shop; S.px = shop.inside[0]; S.pz = shop.inside[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.inside[3]; S.vx = S.vz = 0; setView(shop.view, false); if (hero && hero.rig) hero.rig.prev = null; });
       if (seller) { seller.faceHero = 3; if (seller.lines && seller.lines[0]) bubble(npcHead(seller), seller.lines[0], seller.name, 3000); }
@@ -614,6 +618,7 @@
       const pick = await card(A.title || shop.title || 'Лавка', (A.text || []).concat(S.bag.length ? ['В сумке: ' + S.bag.length] : []), items.map((it, i) => ({ t: it.title, v: i, main: i === 0 })).concat([{ t: 'Выйти', v: -1 }]));
       if (pick === -1 || pick === undefined || !items[pick]) return leaveShop(shop);
       await buy(shop, items[pick]);
+      if (shop.walkIn) { S.inShop = null; return; }   // волна 10: кофейня — купила и снова гуляет
       return shopMenu(shop);
     }
     async function buy(shop, it) {
@@ -622,22 +627,26 @@
       if (IA && seller && window.Interact) {
         const from = pawOf(seller, shop.paw);
         let item = it.item;
-        if (V.bazaar && V.bazaar.ITEMS && V.bazaar.ITEMS.includes(item) && Interact.items && Interact.items.wrap) { const m = V.bazaar.makeItem(T, item); item = Interact.items.wrap(m.mesh, m.hold); }
+        const native = !!(Interact.items && Interact.items.defs && Interact.items.defs[item]);   // волна 10: кофе — свой предмет рук (с глотком)
+        if (!native && V.bazaar && V.bazaar.ITEMS && V.bazaar.ITEMS.includes(item) && Interact.items && Interact.items.wrap) { const m = V.bazaar.makeItem(T, item); item = Interact.items.wrap(m.mesh, m.hold); }
+        if (shop.walkIn && S.cup && IA.drop) { IA.drop(); S.cup = null; }
         seller.faceHero = 6;
         const left = () => S.inShop !== shop;   // вышла из лавки посреди покупки — дальше не играем
         try { await IA.play('pay', { to: from, approach: false }); if (!left()) await IA.play('takeFrom', { item, from, approach: false }); } catch (e) { console.warn('village: shop interact', e); }
         if (left()) { if (IA.drop) IA.drop(); S.shopBuy = null; return; }
         if (thanks) bubble(npcHead(seller), thanks.text, seller.name, 2400);
-        try { if (it.use === 'eat') { await IA.play('eat', {}); if (!left()) { heroSay(it.hero, 2200); await IA.play('eat', {}); } } else { await IA.play('admire', {}); if (!left()) heroSay(it.hero, 2200); } } catch (e) { /* ok */ }
-        if (!left()) await sleep(500); if (IA.drop) IA.drop();   // в «сумку»
+        try { if (it.use === 'eat') { await IA.play('eat', {}); if (!left()) { heroSay(it.hero, 2200); await IA.play('eat', {}); } } else if (it.use === 'drink' && native) { await IA.play('drink', {}); if (!left()) heroSay(it.hero, 2200); } else { await IA.play('admire', {}); if (!left()) heroSay(it.hero, 2200); } } catch (e) { /* ok */ }
+        if (!left()) await sleep(500);
+        if (shop.walkIn && IA.holding && IA.holding()) S.cup = { item: it.item, id: it.id }; else if (IA.drop) IA.drop();   // в «сумку»; кофейня — стаканчик в руке
       } else {
         if (seller && thanks) bubble(npcHead(seller), thanks.text, seller.name, 2400);
         later(900, () => heroSay(it.hero, 2200)); await sleep(1600);
       }
       S.bag.push(it.id); S.shopBuy = null;
-      toast('В сумке: ' + it.title, 1800);
+      toast(S.cup ? '☕ ' + it.title + ' в руке. Садись у окна — оттуда видно всё село!' : 'В сумке: ' + it.title, S.cup ? 3200 : 1800);
     }
     async function leaveShop(shop) {
+      if (shop && shop.walkIn) { S.inShop = null; return; }   // волна 10: кофейня — остаётся где стоит
       const h = S.region; if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
       await fade('', () => { S.inShop = null; setView(null); S.px = shop.door[0]; S.pz = shop.door[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.door[3]; S.yaw = shop.door[3]; S.camInit = false; if (hero && hero.rig) hero.rig.prev = null; });
     }
@@ -1010,7 +1019,7 @@
       const sp = Math.hypot(S.vx, S.vz); S.walking = sp > 0.25;
       if (sp > 0.25) { S.ang += angDiff(Math.atan2(S.vx, S.vz), S.ang) * Math.min(1, dt * 11); S.moveT += dt; } else S.moveT = 0;
       // жители здороваются сами, когда подходишь
-      h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || !n.lines || !n.lines.length) return; const d = Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz); if (d < 2.6 && Math.abs(n.root.position.y - S.py) < 2.5 && performance.now() - (S.lastGreet[n.id] || -1e9) > 25000) talk(n, true); });
+      h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; const d = Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz); if (d < 2.6 && Math.abs(n.root.position.y - S.py) < 2.5 && performance.now() - (S.lastGreet[n.id] || -1e9) > 25000) talk(n, true); });
     }
     const camPos = new T.Vector3(), look = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3();
     function updCamera(dt) {
@@ -1045,7 +1054,14 @@
       if (keys.q) { S.yaw += dt * 1.8; S.manualT = 2.5; } if (keys.e) { S.yaw -= dt * 1.8; S.manualT = 2.5; }
       S.manualT = Math.max(0, S.manualT - dt);
       if (S.manualT <= 0 && S.walking && S.moveT > 0.6) { const e = angDiff(S.ang, S.yaw); if (Math.abs(e) < 2.3) S.yaw += clamp(e, -1.2 * dt, 1.2 * dt); }
-      const top = S.level === 'top', dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      const top = S.level === 'top';
+      let dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      // волна 10: зона камеры (зал кофейни, h.camZone) — как в игре (js/world/regions.js): ближе, ниже, кадр чуть шире; плавно
+      const zn = !top && h.camZone ? h.camZone(S.px, S.pz, S.py) : null;
+      if (zn) S.zone = zn; S.zoneIn = !!zn;
+      S.zoneK = !S.camInit ? (zn ? 1 : 0) : (S.zoneK || 0) + ((zn ? 1 : 0) - (S.zoneK || 0)) * (1 - Math.exp(-6 * dt));
+      const zk = S.zone ? S.zoneK : 0;
+      if (zk > 1e-3) { dist += (S.zone.dist - dist) * zk; hgt += (S.zone.hgt - hgt) * zk; }
       look.set(S.px, S.py + 1.35, S.pz);
       want.set(S.px - Math.sin(S.yaw) * dist, S.py + hgt, S.pz - Math.cos(S.yaw) * dist);
       const gy = h.ground(want.x, want.z); if (want.y < gy + 1.2) want.y = gy + 1.2;
@@ -1059,22 +1075,23 @@
           const full = look.distanceTo(want), k = Math.max(0, t - 0.07);
           if (k * full < 1.2) {
             const hx = want.x - look.x, hz = want.z - look.z, hl = Math.hypot(hx, hz) || 1;
-            camUp.set(look.x - hx / hl * 0.7, look.y + 3.2, look.z - hz / hl * 0.7);
+            camUp.set(look.x - hx / hl * 0.7, look.y + (zk > 0.5 ? 1.6 : 3.2), look.z - hz / hl * 0.7);   // волна 10: в зале — под потолком
             if (h.rayHit(look, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); else want.lerpVectors(look, want, Math.max(0.03, k));
           } else {
             want.lerpVectors(look, want, k);
             const d = k * full;
-            if (d < 4) { camUp.copy(want); camUp.y += (4 - d) * 0.9; if (h.rayHit(look, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); }
+            if (d < 4) { camUp.copy(want); camUp.y += (4 - d) * (zk > 0.5 ? 0.12 : 0.9); if (h.rayHit(look, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); }
           }
         }
       }
+      if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале кофейни — камера не выходит из зала (как в игре)
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
       // сглаживание не протаскивает камеру сквозь дома и землю
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
       if (h.rayHit && !top) { const t2 = h.rayHit(look, camPos); if (t2 < 1) camPos.lerpVectors(look, camPos, Math.max(0.03, t2 - 0.07)); }
       camera.position.copy(camPos); camera.lookAt(look);
-      const fovT = camera.aspect < 0.8 ? 58 : 48; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
+      const fovT = (camera.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk : 0); if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
     }
     // «вау»-момент серпантина: один раз за поездку вверх камера показывает село через долину
     let momentLook = null, momentW = 0;

@@ -989,7 +989,7 @@
       for (let i = Math.floor(minx / CELLG); i <= Math.floor(maxx / CELLG); i++) for (let j = Math.floor(minz / CELLG); j <= Math.floor(maxz / CELLG); j++) {
         const L = cells.get(key(i, j)); if (!L) continue;
         for (const c of L) {
-          if (seen.has(c) || c.type !== 'box' || c.y1 === undefined) continue; seen.add(c);
+          if (seen.has(c) || c.type !== 'box' || c.y1 === undefined || c.noCam) continue; seen.add(c);   // волна 10: noCam — не для луча камеры
           const co = Math.cos(c.ry || 0), si = Math.sin(c.ry || 0);
           const loc = p => { const dx = p.x - c.x, dz = p.z - c.z; return [dx * co - dz * si, p.y, dx * si + dz * co]; };
           const A = loc(a), Bq = loc(b), d = [Bq[0] - A[0], Bq[1] - A[1], Bq[2] - A[2]];
@@ -2481,107 +2481,212 @@
     // кофейня «Мархарай» (CAFE, по фото автора). Волна 10: «этаж на крыше» рядовых h002 + h003 вровень с гребневой улицей
     // (рамка CAFE: +z — к улице, −z — к виду на село, пол y 0). Фасад к улице — три постройки, как на фото: слева жёлтый
     // кирпичный сосед с красными ставнями, посередине витрина (рольставня поднята — открыто: два панорамных окна и стеклянная
-    // дверь, створка открыта внутрь), справа серый гараж; над витриной — тёмная вывеска, над соседями — красный профлист.
-    // Со стороны села — стекло во всю стену. Внутри — оболочка: тёмный пол и потолок, светлые стены, стойка с ковровым фасадом
-    // у правой стены (кофемашина, витрина), стойка у окна с высокими табуретами; проходы свободные (ходить внутри)
+    // дверь, створка открыта внутрь), справа серый гараж; над витриной — вывеска (свои векторные буквы, markharai_sign.js).
+    // Со стороны села — стекло во всю стену, в торце к площади — окно на башню. Внутри — зал 10,8 × 6,3 м, по нему ходят
+    // свободно: стойка с ковровым фасадом у правой стены (бариста — в закрытом закутке за ней), стойка у окна с шестью
+    // табуретами, два столика, диванчик в углу, цветок; проходы ≥ 1 м, щелей 0,6–0,95 м нет. Кофе — подойти к стойке и нажать;
+    // сесть — у окна (три табурета), за столик или на диванчик: вид на крыши села, палец — оглядеться
     function cafeGeo() {
       const c = CAFE, F = new K.Frame(c.x, 0, c.z, c.ry), W = c.w, D = c.d, H = c.H, HT = c.h, hw = W / 2, hd = D / 2, bk = chunk(c.x, c.z);
-      const ib = W9.cafeB = new K.Baker('vc'), gl = W9.cafeGlass = new K.Baker('vc');
-      const yel = rgb('#D9C089'), grey = rgb('#A3A8AB'), dark = rgb('#2A2B2E'), fr = rgb('#232428'), inner = rgb('#E8E4DC'), wood = rgb('#6B4A32'), woodL = rgb('#B0825A'), iron = rgb('#2E2E33');
-      const zs = hd - 0.11, T0 = -0.3;   // стена на улицу (середина толщи 0,22) и низ стен (крыши h002/h003 — y 0)
+      const ib = W9.cafeB = new K.Baker('vc'), gl = W9.cafeGlass = new K.Baker('vc'), lb = W9.cafeCards = new K.Baker('vc');
+      const yel = rgb('#D9C089'), grey = rgb('#A3A8AB'), dark = rgb('#2A2B2E'), fr = rgb('#232428'), inner = rgb('#E8E4DC'), wood = rgb('#6B4A32'), woodL = rgb('#B0825A'), iron = rgb('#2E2E33'), glass = rgb('#CFE4EE'), white = rgb('#F7F4EE');
+      const zs = hd - 0.11, T0 = -0.3, FY = 0.12;   // стена на улицу (середина толщи 0,22), низ стен (крыши h002/h003 — y 0), пол зала (над плитами крыш-дворов, 0,1)
+      const xi = hw - 0.22, zi0 = -hd + 0.12, zi1 = hd - 0.22;   // зал изнутри: x ±5,38, z −3,18…+3,08
       const wb = (x0, x1, y0, y1, z, d, col, s) => bk.box(F, (x0 + x1) / 2, (y0 + y1) / 2, z, x1 - x0, y1 - y0, d, { col, s });
+      const nOut = [F.s, 0, F.c], nIn = [-F.s, 0, -F.c], nXm = [-F.c, 0, F.s], nXp = [F.c, 0, -F.s], UP = [0, 1, 0], DN = [0, -1, 0];   // нормали: на улицу (+z), в зал от стены на улицу, к −x, к +x
       // ===== фасад на улицу (+z) =====
       wb(-hw, -3.3, T0, HT, zs, 0.22, yel, S.ASHLAR);                         // жёлтый кирпичный сосед
       wb(-4.95, -3.85, 0.6, 2.2, hd + 0.01, 0.06, rgb('#9C3B33'));             // его красная стальная ставня
       wb(1.1, hw, T0, HT, zs, 0.22, grey, S.PLASTER);                          // серый гараж
       wb(4.2, 5.15, 0, 2.1, hd + 0.01, 0.06, rgb('#9EA4A8')); wb(4.95, 5.0, 0.95, 1.1, hd + 0.05, 0.04, rgb('#5A5E62'));   // его серая дверь с ручкой
       wb(2.0, 3.3, 0.9, 2.1, hd + 0.01, 0.05, rgb('#8E9396'));                 // зашитый проём
+      [[1.6, 2.3, 0.4], [3.7, 1.7, 0.25], [5.35, 2.6, 0.3]].forEach(([x, y1, w]) => bk.quadF(F.p(x - w / 2, 0.15, hd + 0.012), F.p(x + w / 2, 0.15, hd + 0.012), F.p(x + w / 2, y1, hd + 0.012), F.p(x - w / 2, y1, hd + 0.012), rgb('#8F9599'), S.PLASTER, nOut));   // потёки на штукатурке
       wb(-3.3, -0.3, T0, 0.35, zs, 0.22, fr);                                  // цоколь под окнами
       wb(-3.3, 1.1, 2.75, HT, zs, 0.22, dark); wb(-0.3, 1.1, 2.35, 2.75, zs, 0.22, fr);   // над витриной (вывеска) и над дверью
       // рамы окон и двери (тёмный алюминий), стёкла — отдельной полупрозрачной сеткой
       const frameV = (x, y0, y1) => bk.box(F, x, (y0 + y1) / 2, zs, 0.08, y1 - y0, 0.24, { col: fr }), frameH = (x0, x1, y) => bk.box(F, (x0 + x1) / 2, y, zs, x1 - x0, 0.08, 0.24, { col: fr });
       [-3.3, -1.8, -0.3].forEach(x => frameV(x, 0.35, 2.75)); frameH(-3.3, -0.3, 0.35); frameH(-3.3, -0.3, 2.75);
       [-0.3, 1.1].forEach(x => frameV(x, 0, 2.35)); frameH(-0.3, 1.1, 2.35);
-      [[-3.26, -1.84, 0.39, 2.71], [-1.76, -0.34, 0.39, 2.71]].forEach(([x0, x1, y0, y1]) => gl.box(F, (x0 + x1) / 2, (y0 + y1) / 2, zs, x1 - x0, y1 - y0, 0.01, { col: rgb('#CFE4EE') }));
+      [[-3.26, -1.84, 0.39, 2.71], [-1.76, -0.34, 0.39, 2.71]].forEach(([x0, x1, y0, y1]) => gl.box(F, (x0 + x1) / 2, (y0 + y1) / 2, zs, x1 - x0, y1 - y0, 0.01, { col: glass }));
       // створка двери открыта внутрь — к серой стене (x 1,1…2,5), ручка-штанга
-      { const z = zs - 0.16; bk.box(F, 1.8, 1.175, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 0.03, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 2.32, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 2.47, 1.175, z, 0.06, 2.35, 0.05, { col: fr });
-        gl.box(F, 1.78, 1.175, z, 1.32, 2.25, 0.01, { col: rgb('#CFE4EE') }); bk.box(F, 1.25, 1.1, z - 0.06, 0.03, 0.9, 0.03, { col: rgb('#B9BDC2') }); }
+      { const z = zs - 0.16; bk.box(F, 1.8, 1.175, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 0.03 + FY, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 2.32, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 2.47, 1.175, z, 0.06, 2.35, 0.05, { col: fr });
+        gl.box(F, 1.78, 1.2, z, 1.32, 2.2, 0.01, { col: glass }); bk.box(F, 1.25, 1.1, z - 0.06, 0.03, 0.9, 0.03, { col: rgb('#B9BDC2') }); }
       // поднятая рольставня: короб над проёмом и направляющие у краёв
       bk.box(F, -1.1, 2.925, hd + 0.11, 4.4, 0.18, 0.22, { col: rgb('#3A3B3F') }); [-3.3, 1.1].forEach(x => bk.box(F, x, 1.425, hd + 0.03, 0.06, 2.85, 0.06, { col: rgb('#4A4B4F') }));
-      // вывеска: тёмная доска над витриной (буквы — своей текстурой, W9.cafeSign)
+      // вывеска: тёмная доска над витриной (буквы — своей текстурой, W9.cafeSign); под верхней кромкой — две тёплые планки (ночью светится)
       bk.box(F, -1.1, 3.425, hd + 0.06, 4.4, 0.95, 0.08, { col: dark });
       W9.cafeSign = { p: F.p(-1.1, 3.425, hd + 0.105), ry: c.ry, w: 4.4, h: 0.945 };
-      // навесы из красного профлиста над соседями: от стены (3,15) наружу на 0,7 м (2,85)
-      const canopy = (x0, x1) => { const a = F.p(x0, 3.15, hd), b = F.p(x1, 3.15, hd), cc = F.p(x1, 2.85, hd + 0.7), d = F.p(x0, 2.85, hd + 0.7); bk.quadF(a, b, cc, d, rgb('#9A3A2E'), S.ROOF, [0, 1, 0]); bk.quadF(a, b, cc, d, rgb('#6E2A22'), S.ROOF, [0, -1, 0]); };
+      [-2.4, 0.2].forEach(x => { bk.box(F, x, 3.93, hd + 0.12, 0.6, 0.05, 0.14, { col: rgb('#2E2F33') }); lantB.box(F, x, 3.9, hd + 0.16, 0.5, 0.012, 0.05, { col: rgb('#FFE7B8') }); });   // светильники над доской
+      // навесы из красного профлиста над соседями: от стены (3,15) наружу на 0,7 м (2,85), с рёбрами
+      const canopy = (x0, x1) => { const a = F.p(x0, 3.15, hd), b = F.p(x1, 3.15, hd), cc = F.p(x1, 2.85, hd + 0.7), d = F.p(x0, 2.85, hd + 0.7); bk.quadF(a, b, cc, d, rgb('#9A3A2E'), S.ROOF, [0, 1, 0]); bk.quadF(a, b, cc, d, rgb('#6E2A22'), S.ROOF, [0, -1, 0]);
+        for (let x = x0 + 0.2; x < x1 - 0.1; x += 0.36) bk.quadF(F.p(x - 0.03, 3.17, hd), F.p(x + 0.03, 3.17, hd), F.p(x + 0.03, 2.87, hd + 0.7), F.p(x - 0.03, 2.87, hd + 0.7), rgb('#7E2E25'), S.ROOF, [0, 1, 0]); };
       canopy(-hw, -3.3); canopy(1.1, hw);
-      // бетонная отмостка перед витриной
-      bk.quadF(F.p(-3.4, 0.03, hd), F.p(1.2, 0.03, hd), F.p(1.2, 0.03, hd + 0.75), F.p(-3.4, 0.03, hd + 0.75), rgb('#B9B6AE'), S.SLAB, [0, 1, 0]);
+      // бетонная отмостка перед витриной (4,6 × 1,0)
+      bk.quadF(F.p(-3.4, 0.03, hd), F.p(1.2, 0.03, hd), F.p(1.2, 0.03, hd + 1.0), F.p(-3.4, 0.03, hd + 1.0), rgb('#B9B6AE'), S.SLAB, [0, 1, 0]);
       // ===== стена к виду (−z): стекло во всю ширину — подоконник 0,45, перемычка 3,1…3,6, стойки =====
-      const zb = -hd + 0.06;
+      const zb = -hd + 0.06, PANES = [[-hw + 0.12, -3.34], [-3.22, -1.19], [-1.07, 0.96], [1.08, 3.11], [3.23, hw - 0.12]];
       wb(-hw, hw, T0, 0.45, zb, 0.12, dark); wb(-hw, hw, 3.1, HT, zb, 0.12, dark);
       [-hw + 0.06, -3.28, -1.13, 1.02, 3.17, hw - 0.06].forEach(x => bk.box(F, x, 1.775, zb, 0.12, 2.65, 0.14, { col: rgb('#1E1F22') }));
-      [[-hw + 0.12, -3.34], [-3.22, -1.19], [-1.07, 0.96], [1.08, 3.11], [3.23, hw - 0.12]].forEach(([x0, x1]) => gl.box(F, (x0 + x1) / 2, 1.775, zb, x1 - x0, 2.65, 0.01, { col: rgb('#CFE4EE') }));
-      // торцы и крыша (тёмная мембрана, низкий парапет)
-      [-1, 1].forEach(sd => bk.box(F, sd * (hw - 0.11), (T0 + HT) / 2, 0, 0.22, HT - T0, D, { col: sd > 0 ? grey : yel, s: sd > 0 ? S.PLASTER : S.ASHLAR }));
+      PANES.forEach(([x0, x1]) => gl.box(F, (x0 + x1) / 2, 1.775, zb, x1 - x0, 2.65, 0.01, { col: glass }));
+      // торцы: +x (к смотровой) — глухой серый; −x (к площади) — жёлтый, с окном z −2,9…+0,8 (подоконник 0,8, перемычка 3,0): из зала видна башня
+      bk.box(F, hw - 0.11, (T0 + HT) / 2, 0, 0.22, HT - T0, D, { col: grey, s: S.PLASTER });
+      { const x = -hw + 0.11, ew = (z0, z1, y0, y1) => bk.box(F, x, (y0 + y1) / 2, (z0 + z1) / 2, 0.22, y1 - y0, z1 - z0, { col: yel, s: S.ASHLAR });
+        ew(-hd, hd, T0, 0.8); ew(-hd, hd, 3.0, HT); ew(-hd, -2.9, 0.8, 3.0); ew(0.8, hd, 0.8, 3.0);
+        [0.8, 3.0].forEach(y => bk.box(F, x, y, -1.05, 0.24, 0.07, 3.7, { col: fr })); [-2.9, -1.05, 0.8].forEach(z => bk.box(F, x, 1.9, z, 0.24, 2.2, 0.07, { col: fr }));
+        [[-2.87, -1.09], [-1.01, 0.77]].forEach(([z0, z1]) => gl.box(F, x, 1.9, (z0 + z1) / 2, 0.01, 2.14, z1 - z0, { col: glass })); }
+      // крыша: тёмная мембрана, низкий парапет, две вытяжки
       bk.box(F, 0, H + (HT - H) / 2, 0, W, HT - H, D, { col: rgb('#3B3D42'), s: S.FLAT });
       [[0, hd - 0.08, W, 0.16], [0, -hd + 0.08, W, 0.16], [-hw + 0.08, 0, 0.16, D], [hw - 0.08, 0, 0.16, D]].forEach(([x, z, w, d]) => bk.box(F, x, HT + 0.075, z, w, 0.15, d, { col: rgb('#4A4C51'), s: S.FLAT }));
-      // ===== внутри (своя сетка, прячется вдали): пол, потолок, светлые стены =====
+      [[-2.6, 0.9], [2.8, -1.1]].forEach(([x, z]) => { bk.box(F, x, HT + 0.2, z, 0.34, 0.4, 0.34, { col: rgb('#6A6E74') }); bk.box(F, x, HT + 0.44, z, 0.46, 0.06, 0.46, { col: rgb('#55595F') }); });
+      // ===== внутри (своя сетка W9.cafeB, свой материал; прячется дальше 35 м) =====
       const q4 = (pts, col, n) => ib.quadF(F.p(...pts[0]), F.p(...pts[1]), F.p(...pts[2]), F.p(...pts[3]), col, 0, n);
-      const xi = hw - 0.22, zi0 = -hd + 0.12, zi1 = hd - 0.22;
-      q4([[-xi, 0.01, zi0], [xi, 0.01, zi0], [xi, 0.01, zi1], [-xi, 0.01, zi1]], rgb('#4A3A30'), [0, 1, 0]);   // пол — тёмные доски
-      q4([[-xi, H - 0.01, zi0], [xi, H - 0.01, zi0], [xi, H - 0.01, zi1], [-xi, H - 0.01, zi1]], rgb('#2B2B30'), [0, -1, 0]);   // тёмный потолок
-      [-3, 0, 3].forEach(x => ib.box(F, x, H - 0.1, (zi0 + zi1) / 2, 0.16, 0.2, zi1 - zi0, { col: rgb('#1E1E22') }));   // балки
-      [-1, 1].forEach(sd => q4([[sd * (xi - 0.005), 0, zi0], [sd * (xi - 0.005), 0, zi1], [sd * (xi - 0.005), H, zi1], [sd * (xi - 0.005), H, zi0]], inner, [-sd * F.c, 0, sd * F.s]));
-      const nIn = [-F.s, 0, -F.c], wallIn = (x0, x1, y0, y1) => q4([[x0, y0, zi1 - 0.005], [x1, y0, zi1 - 0.005], [x1, y1, zi1 - 0.005], [x0, y1, zi1 - 0.005]], inner, nIn);
+      // пол — тёмные доски (над плитами крыш-дворов), порог в дверном проёме
+      { const n = 24, pw = 2 * xi / n, sh = ['#4A3A30', '#53423A', '#45362D', '#4E3D33'].map(rgb);
+        for (let i = 0; i < n; i++) { const x0 = -xi + i * pw, x1 = x0 + pw; q4([[x0, FY, zi0], [x1, FY, zi0], [x1, FY, zi1], [x0, FY, zi1]], sh[(i * 7) % 4], UP); }
+        q4([[-0.3, FY, zi1], [1.1, FY, zi1], [1.1, FY, hd + 0.02], [-0.3, FY, hd + 0.02]], rgb('#3A3B3F'), UP); }
+      q4([[-xi, H - 0.01, zi0], [xi, H - 0.01, zi0], [xi, H - 0.01, zi1], [-xi, H - 0.01, zi1]], rgb('#2B2B30'), DN);   // тёмный потолок
+      [-3, 0, 3].forEach(x => ib.box(F, x, H - 0.1, (zi0 + zi1) / 2, 0.16, 0.2, zi1 - zi0, { col: rgb('#1E1E22'), skip: { py: 1 } }));   // балки (низ 3,40)
+      // светлые стены изнутри: торец +x целиком, торец −x — вокруг окна, стена на улицу — вокруг витрины и двери
+      q4([[xi - 0.005, 0, zi0], [xi - 0.005, 0, zi1], [xi - 0.005, H, zi1], [xi - 0.005, H, zi0]], inner, nXm);
+      { const x = -xi + 0.005, ew = (z0, z1, y0, y1) => q4([[x, y0, z0], [x, y0, z1], [x, y1, z1], [x, y1, z0]], inner, nXp);
+        ew(zi0, zi1, 0, 0.8); ew(zi0, zi1, 3.0, H); ew(zi0, -2.9, 0.8, 3.0); ew(0.8, zi1, 0.8, 3.0); }
+      const wallIn = (x0, x1, y0, y1) => q4([[x0, y0, zi1 - 0.005], [x1, y0, zi1 - 0.005], [x1, y1, zi1 - 0.005], [x0, y1, zi1 - 0.005]], inner, nIn);
       wallIn(-xi, -3.3, 0, H); wallIn(-3.3, -0.3, 0, 0.35); wallIn(-3.3, -0.3, 2.75, H); wallIn(-0.3, 1.1, 2.35, H); wallIn(1.1, xi, 0, H);
-      // стойка бариста у правой стены (+x): деревянный верх, фасад к гостям — «ковёр» (ромбы рядами), кофемашина, витрина
-      const bx0 = 3.48, bx1 = 4.18, bz0 = zi0, bz1 = 1.30, bxc = (bx0 + bx1) / 2, bzc = (bz0 + bz1) / 2, bl = bz1 - bz0;
-      ib.box(F, bxc, 0.5, bzc, bx1 - bx0, 1.0, bl, { col: wood }); ib.box(F, bxc - 0.05, 1.03, bzc, bx1 - bx0 + 0.1, 0.05, bl + 0.06, { col: woodL });
-      const rugC = ['#8E2B2B', '#3D3A6B', '#C9963A', '#E8DCC0'].map(rgb);
-      for (let i = 0; i < 18; i++) for (let j = 0; j < 4; j++) ib.box(F, bx0 - 0.006, 0.18 + j * 0.22, bz0 + (i + 0.5) * bl / 18, 0.012, 0.18, bl / 18 - 0.02, { col: rugC[(i + j) % 4] });
-      { const p = [bxc + 0.05, 1.06, -2.0]; ib.box(F, p[0], p[1] + 0.24, p[2], 0.5, 0.48, 0.7, { col: rgb('#B9BEC4'), cols: { nx: rgb('#1E1F22') } }); ib.box(F, p[0] - 0.3, p[1] + 0.12, p[2], 0.08, 0.06, 0.4, { col: rgb('#3A3A40') }); }   // кофемашина
-      ib.box(F, bxc, 0.62, 1.9, bx1 - bx0, 1.25, 1.2, { col: wood }); ib.box(F, bxc, 1.12, 1.9, bx1 - bx0 - 0.08, 0.26, 1.12, { col: rgb('#DCEAF0') });   // витрина с выпечкой
-      for (let k = 0; k < 4; k++) { const q = F.p(bxc - 0.05, 1.08, 1.45 + k * 0.28); ib.sph(q[0], q[1], q[2], 0.07, 0.04, 0.07, rgb(k % 2 ? '#D9A55A' : '#C47A3E'), { seg: 6, rings: 3 }); }
-      ib.box(F, bxc, 0.525, 2.79, bx1 - bx0, 1.05, 0.58, { col: wood });   // торец стойки у стены на улицу
-      [1.4, 1.85, 2.3].forEach((y, si) => { ib.box(F, xi - 0.18, y, bzc, 0.3, 0.04, bl, { col: woodL }); for (let k = 0; k < 7; k++) { const p = F.p(xi - 0.18, y + 0.11, bz0 + 0.3 + k * (bl - 0.6) / 6); ib.cyl(p[0], p[1] - 0.09, p[2], 0.05, 0.05, 0.18, { seg: 6, col: rgb(['#C9963A', '#E8DCC0', '#8E2B2B', '#F4F1EA', '#3D3A6B'][(k + si) % 5]) }); } });
-      // стойка у окна во всю ширину и высокие табуреты (сесть — у трёх: A, B, C)
-      ib.box(F, (-5.10 + 3.48) / 2, 1.03, (zi0 + -2.73) / 2, 3.48 + 5.10, 0.05, -2.73 - zi0, { col: woodL }); [-4.6, -0.4, 3.0].forEach(x => ib.box(F, x, 0.5, zi0 + 0.2, 0.05, 1.0, 0.05, { col: iron }));
+      // ===== стойка бариста у правой стены (+x): деревянный верх, фасад к гостям — «ковёр» (ромбы рядами) =====
+      const bx0 = 3.48, bx1 = 4.18, bz0 = zi0, bz1 = 1.30, bxc = (bx0 + bx1) / 2, bzc = (bz0 + bz1) / 2, bl = bz1 - bz0, BT = 1.055;
+      ib.box(F, bxc, (FY + 1.03) / 2, bzc, bx1 - bx0, 1.03 - FY, bl, { col: wood, skip: { ny: 1 } }); ib.box(F, bxc - 0.04, 1.03, bzc, bx1 - bx0 + 0.12, 0.05, bl + 0.04, { col: woodL });
+      { const NZ = 16, NY = 4, cz = bl / NZ, cy = 0.8 / NY, x = bx0 - 0.006, rug = ['#8E2B2B', '#3D3A6B', '#C9963A', '#E8DCC0'].map(rgb);
+        q4([[x, FY + 0.04, bz0], [x, FY + 0.04, bz1], [x, 0.2, bz1], [x, 0.2, bz0]], rug[1], nXm); q4([[x, 0.96, bz0], [x, 0.96, bz1], [x, 1.0, bz1], [x, 1.0, bz0]], rug[1], nXm);   // кайма
+        for (let i = 0; i < NZ; i++) for (let j = 0; j < NY; j++) { const z0 = bz0 + i * cz, y0 = 0.16 + j * cy, zc = z0 + cz / 2, yc = y0 + cy / 2;
+          q4([[x, y0, z0], [x, y0, z0 + cz], [x, y0 + cy, z0 + cz], [x, y0 + cy, z0]], rug[j % 2 ? 1 : 0], nXm);
+          q4([[x - 0.003, yc - cy * 0.44, zc], [x - 0.003, yc, zc + cz * 0.44], [x - 0.003, yc + cy * 0.44, zc], [x - 0.003, yc, zc - cz * 0.44]], rug[2 + ((i + j) % 2)], nXm);
+          q4([[x - 0.005, yc - cy * 0.18, zc], [x - 0.005, yc, zc + cz * 0.18], [x - 0.005, yc + cy * 0.18, zc], [x - 0.005, yc, zc - cz * 0.18]], rug[j % 2 ? 0 : 1], nXm); } }
+      const cup = (lx, lz, y, s = 1) => { const p = F.p(lx, 0, lz); ib.cyl(p[0], y, p[2], 0.065 * s, 0.065 * s, 0.012, { seg: 10, col: white }); ib.cyl(p[0], y + 0.012, p[2], 0.03 * s, 0.042 * s, 0.07 * s, { seg: 8, col: white }); };
+      // кофемашина (хром и чёрный, 0,7 × 0,5 × 0,45) — к баристе, на ней чашки; рядом кофемолка; у места заказа — чашки на блюдцах
+      { const x = bxc + 0.04, z = -1.95;
+        ib.box(F, x, BT + 0.23, z, 0.45, 0.46, 0.7, { col: rgb('#B9BEC4'), cols: { px: rgb('#1E1F22') }, skip: { ny: 1 } }); ib.box(F, x, BT + 0.48, z, 0.47, 0.04, 0.72, { col: rgb('#1E1F22') });
+        [-0.18, 0.18].forEach(dz => { ib.box(F, x + 0.27, BT + 0.3, z + dz, 0.1, 0.06, 0.07, { col: rgb('#8A9096') }); ib.box(F, x + 0.3, BT + 0.02, z + dz, 0.14, 0.03, 0.14, { col: rgb('#2A2B2E') }); });
+        [-0.2, 0, 0.2].forEach(dz => cup(x, z + dz, BT + 0.5, 0.8)); }
+      { const p = F.p(bxc + 0.08, 0, -1.25); ib.box(F, bxc + 0.08, BT + 0.17, -1.25, 0.2, 0.34, 0.2, { col: rgb('#1E1F22'), skip: { ny: 1 } }); ib.cyl(p[0], BT + 0.34, p[2], 0.05, 0.1, 0.2, { seg: 8, col: rgb('#6B4A3A') }); }
+      cup(bx0 + 0.16, -0.75, BT); cup(bx0 + 0.16, -0.05, BT); cup(bx0 + 0.3, -0.4, BT, 0.85);
+      // витрина с выпечкой: низ из дерева, сверху — гнутое стекло к гостям; на светлой полке чуду, булочки, кусочки торта
+      { const z0 = bz1, z1 = 2.50, zc = (z0 + z1) / 2, L = z1 - z0, y0 = 0.85, y1 = 1.25;
+        ib.box(F, bxc, (FY + y0) / 2, zc, bx1 - bx0, y0 - FY, L, { col: wood, skip: { ny: 1 } }); ib.box(F, bxc + 0.27, (y0 + y1) / 2, zc, 0.16, y1 - y0, L, { col: rgb('#5A4030') });
+        ib.box(F, bxc, y0 + 0.01, zc, bx1 - bx0 - 0.04, 0.02, L - 0.04, { col: rgb('#FFF4DC') }); ib.box(F, bxc + 0.05, y1 - 0.02, zc, bx1 - bx0 - 0.14, 0.02, L - 0.06, { col: rgb('#FFF6E4') });   // подсвеченная полка и свет сверху
+        for (let k = 0; k < 3; k++) { const p = F.p(bxc - 0.12, 0, z0 + 0.22 + k * 0.38); ib.cyl(p[0], y0 + 0.02, p[2], 0.13, 0.13, 0.025, { seg: 10, col: rgb(k === 1 ? '#C99A5A' : '#B97E44') }); }   // чуду
+        for (let k = 0; k < 4; k++) { const p = F.p(bxc + 0.12, 0, z0 + 0.15 + k * 0.3); ib.sph(p[0], y0 + 0.07, p[2], 0.06, 0.045, 0.06, rgb(k % 2 ? '#D9A55A' : '#C47A3E'), { seg: 7, rings: 3 }); }   // булочки
+        [0.3, 0.75].forEach(dz => ib.box(F, bxc - 0.12, y0 + 0.1, z0 + dz + 0.08, 0.12, 0.12, 0.08, { col: rgb('#F2E2CC'), cols: { py: rgb('#7A4A33') } }));   // торт
+        const arc = 5; for (let k = 0; k < arc; k++) { const a0 = k / arc * PI / 2, a1 = (k + 1) / arc * PI / 2, P0 = [bx0 + 0.42 - 0.42 * Math.cos(a0), y0 + 0.4 * Math.sin(a0)], P1 = [bx0 + 0.42 - 0.42 * Math.cos(a1), y0 + 0.4 * Math.sin(a1)];
+          gl.quadF(F.p(P0[0], P0[1], z0), F.p(P0[0], P0[1], z1), F.p(P1[0], P1[1], z1), F.p(P1[0], P1[1], z0), glass, 0, [-F.c, 0.6, F.s]); }
+        gl.quadF(F.p(bx0 + 0.42, y1, z0), F.p(bx0 + 0.42, y1, z1), F.p(bx1 - 0.08, y1, z1), F.p(bx1 - 0.08, y1, z0), glass, 0, UP); }
+      ib.box(F, bxc, (FY + 1.05) / 2, (2.50 + zi1) / 2, bx1 - bx0, 1.05 - FY, zi1 - 2.50, { col: wood, cols: { py: woodL }, skip: { ny: 1 } });   // торец стойки до стены (закуток закрыт)
+      // полки за стойкой: банки, крафтовые пакеты без надписей, чашки; над ними — доска меню с одними картинками-чашками
+      [1.4, 1.85, 2.3].forEach((y, si) => { ib.box(F, xi - 0.16, y, -0.95, 0.3, 0.04, 4.1, { col: woodL });
+        for (let k = 0; k < 9; k++) { const lz = -2.85 + k * 0.47, p = F.p(xi - 0.16, 0, lz), kind = (k + si * 2) % 4;
+          if (kind === 0) ib.box(F, xi - 0.16, y + 0.13, lz, 0.12, 0.22, 0.16, { col: rgb('#B98A5E'), cols: { py: rgb('#A87B50') } });
+          else if (kind === 1) { ib.cyl(p[0], y + 0.02, p[2], 0.06, 0.06, 0.18, { seg: 8, col: rgb('#D8E6EC') }); ib.cyl(p[0], y + 0.2, p[2], 0.062, 0.062, 0.03, { seg: 8, col: rgb('#3A2E2A') }); }
+          else if (kind === 2) { ib.cyl(p[0], y + 0.02, p[2], 0.045, 0.05, 0.1, { seg: 8, col: white }); ib.cyl(p[0], y + 0.12, p[2], 0.045, 0.05, 0.1, { seg: 8, col: white }); }
+          else ib.cyl(p[0], y + 0.02, p[2], 0.05, 0.06, 0.14, { seg: 8, col: rgb(['#C9963A', '#8E2B2B', '#3D3A6B'][si]) }); } });
+      { const x = xi - 0.02, y0 = 2.6, y1 = 3.15, z0 = -2.3, z1 = -0.2, ink = rgb('#ECEAE4');
+        ib.box(F, x, (y0 + y1) / 2, (z0 + z1) / 2, 0.03, y1 - y0, z1 - z0, { col: rgb('#26272A') });
+        [-1.95, -1.25, -0.55].forEach((zc, k) => { const xx = x - 0.018, s = [1, 0.8, 0.65][k], yb = 2.72, ht = 0.22 * s, wt = 0.2 * s, wb2 = 0.14 * s;   // чашка (трапеция), блюдце, ручка, пар
+          q4([[xx, yb, zc - wb2 / 2], [xx, yb, zc + wb2 / 2], [xx, yb + ht, zc + wt / 2], [xx, yb + ht, zc - wt / 2]], ink, nXm);
+          q4([[xx, yb - 0.03, zc - wt * 0.75], [xx, yb - 0.03, zc + wt * 0.75], [xx, yb - 0.01, zc + wt * 0.75], [xx, yb - 0.01, zc - wt * 0.75]], ink, nXm);
+          q4([[xx, yb + ht * 0.35, zc + wt / 2 - 0.01], [xx, yb + ht * 0.35, zc + wt / 2 + 0.05 * s], [xx, yb + ht * 0.75, zc + wt / 2 + 0.05 * s], [xx, yb + ht * 0.75, zc + wt / 2 - 0.01]], ink, nXm);
+          [-0.04, 0.04].forEach(dz => q4([[xx, yb + ht + 0.03, zc + dz * s], [xx, yb + ht + 0.03, zc + dz * s + 0.012], [xx, yb + ht + 0.12 * s, zc + dz * s + 0.03], [xx, yb + ht + 0.12 * s, zc + dz * s + 0.018]], ink, nXm)); }); }
+      // ===== стойка у окна во всю ширину и шесть высоких табуретов (сесть — у трёх: A −3,0, B −0,4, C +2,2) =====
+      ib.box(F, (-5.10 + 3.48) / 2, 1.03, (zi0 + -2.73) / 2, 3.48 + 5.10, 0.05, -2.73 - zi0, { col: woodL, cols: { py: rgb('#B9875A') } });
+      [-4.6, -2.0, 0.6, 3.0].forEach(x => { ib.box(F, x, (FY + 1.0) / 2, zi0 + 0.06, 0.05, 1.0 - FY, 0.05, { col: iron, skip: { ny: 1 } }); ib.box(F, x, 0.98, zi0 + 0.22, 0.05, 0.05, 0.36, { col: iron }); });
       const STOOL = [-4.3, -3.0, -1.7, -0.4, 0.9, 2.2], SZ = -2.35;
-      STOOL.forEach(x => { const p = F.p(x, 0, SZ); ib.cyl(p[0], 0.73, p[2], 0.19, 0.19, 0.06, { seg: 10, col: dark }); ib.cyl(p[0], 0.0, p[2], 0.03, 0.03, 0.73, { seg: 5, col: iron }); ib.cyl(p[0], 0.0, p[2], 0.17, 0.17, 0.03, { seg: 8, col: iron }); });
-      // лампы-подвесы над стойкой (ночью тёплые; низ выше 3,15 — над камерой)
-      [[3.83, -2.2], [3.83, -0.9], [3.83, 0.4], [-1.9, -0.3], [-4.55, -0.3]].forEach(([x, z]) => { ib.box(F, x, H - 0.12, z, 0.015, 0.24, 0.015, { col: iron }); { const q = F.p(x, 0, z); ib.cyl(q[0], H - 0.42, q[2], 0.175, 0.04, 0.18, { seg: 10, col: rgb('#151517') }); } glowB.sph(...F.p(x, H - 0.4, z), 0.07, 0.07, 0.07, rgb('#FFE2A8'), { seg: 6, rings: 4 }); NIGHT.lamps.push(F.p(x, H - 0.4, z)); });
+      STOOL.forEach(x => { const p = F.p(x, 0, SZ); ib.cyl(p[0], 0.73, p[2], 0.19, 0.19, 0.06, { seg: 10, col: dark }); ib.cyl(p[0], FY, p[2], 0.03, 0.03, 0.73 - FY, { seg: 5, col: iron, cap: false }); ib.cyl(p[0], FY, p[2], 0.17, 0.17, 0.03, { seg: 8, col: iron }); ib.cyl(p[0], 0.32, p[2], 0.13, 0.13, 0.02, { seg: 8, col: iron, cap: false }); });
+      // ===== столики T1, T2 (дерево, 0,8 × 0,8) и чёрные стулья вдоль z; столик у окна смотрит стулом B на стекло =====
+      const TBL = [-4.55, -1.9], TZ = -0.3, chairCol = rgb('#2A2A2E');
+      const chair = (cx, cz, face) => { ib.box(F, cx, 0.45, cz, 0.42, 0.04, 0.42, { col: chairCol }); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => ib.box(F, cx + a * 0.18, (FY + 0.45) / 2, cz + b * 0.18, 0.03, 0.45 - FY, 0.03, { col: iron, skip: { ny: 1, py: 1 } }));
+        ib.box(F, cx, 0.72, cz - face * 0.2, 0.42, 0.38, 0.03, { col: chairCol }); [-0.19, 0.19].forEach(a => ib.box(F, cx + a, 0.6, cz - face * 0.2, 0.03, 0.3, 0.03, { col: iron, skip: { ny: 1, py: 1 } })); };
+      TBL.forEach(tx => { const p = F.p(tx, 0, TZ); ib.box(F, tx, 0.735, TZ, 0.8, 0.04, 0.8, { col: rgb('#8A5A3C'), cols: { py: rgb('#9A6644') } }); ib.cyl(p[0], FY, p[2], 0.04, 0.04, 0.715 - FY, { seg: 6, col: iron, cap: false });
+        ib.box(F, tx, FY + 0.02, TZ, 0.55, 0.04, 0.08, { col: iron, skip: { ny: 1 } }); ib.box(F, tx, FY + 0.02, TZ, 0.08, 0.04, 0.55, { col: iron, skip: { ny: 1 } });
+        chair(tx, -0.95, 1); chair(tx, 0.35, -1); });
+      cup(-1.9, -0.55, 0.755); cup(-4.55, -0.25, 0.755, 0.9);   // капучино ёжика; чашка на T1
+      // ===== уголок с диванчиком у стены на улицу: коврики-подушки, плед; круглый столик; цветок в кадке =====
+      { const x0 = -xi, x1 = -3.40, z0 = 2.53, z1 = zi1, xc = (x0 + x1) / 2, L = x1 - x0, sofa = rgb('#5E5A57');
+        ib.box(F, xc, (FY + 0.4) / 2, (z0 + z1) / 2, L, 0.4 - FY, z1 - z0, { col: rgb('#3A3330'), skip: { ny: 1 } }); ib.box(F, xc, 0.43, (z0 + z1) / 2 - 0.02, L - 0.02, 0.07, z1 - z0 - 0.06, { col: sofa });
+        ib.box(F, xc, 0.68, z1 - 0.07, L, 0.48, 0.12, { col: sofa }); ib.box(F, x1 - 0.06, 0.55, (z0 + z1) / 2, 0.12, 0.3, z1 - z0, { col: rgb('#4E4A47') });
+        [[-4.95, '#8E2B2B'], [-4.45, '#3D3A6B'], [-3.75, '#8E2B2B']].forEach(([x, col], k) => { ib.box(F, x, 0.66, z1 - 0.2, 0.38, 0.32, 0.1, { col: rgb(col), rot: (k - 1) * 0.12 }); ib.box(F, x, 0.66, z1 - 0.255, 0.22, 0.18, 0.012, { col: rgb(k === 1 ? '#C9963A' : '#E8DCC0'), rot: (k - 1) * 0.12 }); });
+        ib.box(F, -5.05, 0.5, (z0 + z1) / 2, 0.6, 0.06, z1 - z0 - 0.04, { col: rgb('#B8B4AE') }); }   // плед
+      { const p = F.p(-4.55, 0, 1.95); ib.cyl(p[0], 0.52, p[2], 0.3, 0.3, 0.035, { seg: 14, col: rgb('#8A5A3C') }); ib.cyl(p[0], FY, p[2], 0.035, 0.035, 0.4, { seg: 6, col: iron, cap: false }); ib.cyl(p[0], FY, p[2], 0.18, 0.18, 0.025, { seg: 10, col: iron }); }
+      { const p = F.p(-5.0, 0, 1.05); ib.cyl(p[0], FY, p[2], 0.15, 0.19, 0.34, { seg: 9, col: rgb('#B5653C') });
+        [[0, 0.62, 0, 0.26], [0.1, 0.85, 0.06, 0.2], [-0.08, 0.8, -0.07, 0.19], [0.02, 1.05, -0.02, 0.15]].forEach(([dx, y, dz, r]) => ib.sph(p[0] + dx, y, p[2] + dz, r, r * 1.1, r, rgb(y > 0.9 ? '#5E9A4E' : '#4C8A44'), { seg: 7, rings: 4 })); }
+      // лампы-подвесы (ночью тёплые; низ выше 3,15 — над камерой): над стойкой три, над столиками и над столиком у диванчика
+      [[3.83, -2.2], [3.83, -0.9], [3.83, 0.4], [-1.9, TZ], [-4.55, TZ], [-4.55, 1.95]].forEach(([x, z]) => { ib.box(F, x, H - 0.1, z, 0.015, 0.2, 0.015, { col: iron }); { const q = F.p(x, 0, z); ib.cyl(q[0], H - 0.42, q[2], 0.175, 0.04, 0.2, { seg: 10, col: rgb('#151517') }); } glowB.sph(...F.p(x, H - 0.4, z), 0.07, 0.07, 0.07, rgb('#FFE2A8'), { seg: 6, rings: 4 }); NIGHT.lamps.push(F.p(x, H - 0.4, z)); });
       // тёплый свет изнутри (видно с улицы и со склона; вечером и ночью — ярче, общий материал фонарей)
       [[-1.8, hd - 0.4, 2.9, 0.04, 0.2], [0, -hd + 0.35, W - 1.2, 0.04, 0.2]].forEach(([x, z, w, h, d]) => lantB.box(F, x, 3.0, z, w, h, d, { col: rgb('#FFE7B8') }));
-      // ===== коллайдеры (рамка кофейни): стены (в двери — проход), стекло, торцы, перемычка двери, стойки, табуреты =====
+      // издали (зал спрятан) — за каждым стеклом тёплая «карточка»: днём тёмная, ночью светится (материал 'window')
+      { const cw = rgb('#3E3833'), card = (pts, n) => lb.quadF(F.p(...pts[0]), F.p(...pts[1]), F.p(...pts[2]), F.p(...pts[3]), cw, 0, n);
+        PANES.forEach(([x0, x1]) => card([[x0, 0.45, zb + 0.09], [x1, 0.45, zb + 0.09], [x1, 3.1, zb + 0.09], [x0, 3.1, zb + 0.09]], [-F.s, 0, -F.c]));
+        [[-3.3, -0.3, 0.35, 2.75], [-0.3, 1.1, FY, 2.35]].forEach(([x0, x1, y0, y1]) => card([[x0, y0, zs - 0.2], [x1, y0, zs - 0.2], [x1, y1, zs - 0.2], [x0, y1, zs - 0.2]], nOut));
+        card([[-hw + 0.3, 0.8, -2.9], [-hw + 0.3, 0.8, 0.8], [-hw + 0.3, 3.0, 0.8], [-hw + 0.3, 3.0, -2.9]], nXm); }
+      // ===== коллайдеры (рамка кофейни): стены (в двери — проход), стекло, торцы, перемычка двери, стойки, мебель =====
       const cb = (x0, x1, z0, z1, y0, y1, id, o = {}) => { const p = F.p((x0 + x1) / 2, 0, (z0 + z1) / 2); colliders.push(Object.assign({ type: 'box', x: p[0], z: p[2], w: x1 - x0, d: z1 - z0, ry: c.ry, y0, y1, id }, o)); };
+      const cc = (lx, lz, r, y1, id) => { const p = F.p(lx, 0, lz); colliders.push({ type: 'circle', x: p[0], z: p[2], r, y0: -0.5, y1, id, stand: false }); };
       cb(-hw, -0.3, hd - 0.22, hd, -0.5, 4.0, 'cafeWall'); cb(1.1, hw, hd - 0.22, hd, -0.5, 4.0, 'cafeWall');
       cb(-hw, hw, -hd, -hd + 0.12, -0.5, 4.0, 'cafeGlass'); cb(-hw, -hw + 0.22, -hd, hd, -0.5, 4.0, 'cafeWall'); cb(hw - 0.22, hw, -hd, hd, -0.5, 4.0, 'cafeWall');
-      cb(-0.3, 1.1, hd - 0.3, hd + 0.1, 2.35, 4.0, 'cafeLintel');
-      { const p = F.p(0.4, 0, hd - 0.1); camExtra.push({ type: 'box', x: p[0], z: p[2], w: 1.4, d: 0.4, ry: c.ry, y0: 2.35, y1: 4.0, id: 'camCafeDoor', cam: true }); }
-      cb(bx0, xi, zi0, zi1, -0.5, 1.1, 'cafeBar', { stand: false }); cb(-5.10, 3.48, zi0, -2.73, -0.5, 1.07, 'cafeCounter', { stand: false });
-      STOOL.forEach(x => { const p = F.p(x, 0, SZ); colliders.push({ type: 'circle', x: p[0], z: p[2], r: 0.19, y0: -0.5, y1: 0.78, id: 'cafeStool', stand: false }); });
-      { const p = F.p(0, 0, 0); camExtra.push({ type: 'box', x: p[0], z: p[2], w: W, d: D, ry: c.ry, y0: H, y1: HT + 0.3, id: 'camCafe', cam: true }); }
+      cb(-0.3, 1.1, 3.0, 3.4, 2.35, 4.0, 'cafeLintel');   // перемычка двери: прыжок в проёме упирается
+      { const p = F.p(0.4, 0, 3.2); camExtra.push({ type: 'box', x: p[0], z: p[2], w: 1.4, d: 0.4, ry: c.ry, y0: 2.35, y1: 4.0, id: 'camCafeDoor', cam: true }); }   // и для луча камеры (не уходит на улицу под перемычкой)
+      // и ещё для луча камеры: косяки двери (рамы выступают в проём), створка у серой стены, кофемашина и кофемолка над стойкой
+      const ce = (x0, x1, z0, z1, y0, y1, id) => { const p = F.p((x0 + x1) / 2, 0, (z0 + z1) / 2); camExtra.push({ type: 'box', x: p[0], z: p[2], w: x1 - x0, d: z1 - z0, ry: c.ry, y0, y1, id, cam: true }); };
+      ce(-0.36, -0.24, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.04, 1.16, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.1, 2.55, zi1 - 0.14, zi1, 0, 2.4, 'camCafeLeaf');
+      ce(bx0 + 0.15, bx1 + 0.05, -2.4, -1.5, 1.0, 1.65, 'camCafeMachine'); ce(bx0 + 0.3, bx1, -1.4, -1.1, 1.0, 1.65, 'camCafeMachine');
+      cb(bx0, xi, zi0, zi1, -0.5, 1.1, 'cafeBar', { stand: false });   // стойка с витриной и закутком — одной коробкой: за стойку не пройти и на неё не встать
+      cb(-5.10, 3.48, zi0, -2.73, -0.5, 1.07, 'cafeCounter', { stand: false });
+      TBL.forEach(tx => cb(tx - 0.4, tx + 0.4, -1.2, 0.6, -0.5, 0.8, 'cafeTable', { stand: false }));
+      cb(-xi, -3.40, 2.53, zi1, -0.5, 0.85, 'cafeSofa', { stand: false });
+      cc(-4.55, 1.95, 0.3, 0.55, 'cafeTable'); cc(-5.0, 1.05, 0.22, 1.2, 'cafePlant');
+      STOOL.forEach(x => cc(x, SZ, 0.19, 0.78, 'cafeStool'));
+      { const p = F.p(0, 0, 0); camExtra.push({ type: 'box', x: p[0], z: p[2], w: W, d: D, ry: c.ry, y0: H, y1: HT + 0.3, id: 'camCafe', cam: true }); }   // потолок — для луча камеры
       HB.push({ x: c.x, z: c.z, w: W, d: D, ry: c.ry, top: HT + 0.2 });
       W9.cafeRect = { x: c.x, z: c.z, w: W, d: D, ry: c.ry };
-      // лисичка-бариста за стойкой (лицом к гостям, −x)
+      // зона камеры в зале (js/world/regions.js updCamera; зеркало — village.html): ближе и ниже, без больших поворотов, без бега
+      // героиня в зале — камера не выходит из зала: clamp(v) ставит точку внутрь (зазор 0,15 м до стен и потолка); у двери (ближе
+      // 1,5 м к стене на улицу) — ещё и «коридор» сквозь проём: спиной к двери камера смотрит с улицы и плавно заходит следом
+      const lim = (v, a, b) => (v < a ? a : v > b ? b : v);
+      const clampIn = (v, door) => { const dx = v.x - c.x, dz = v.z - c.z, lx0 = dx * F.c - dz * F.s, lz0 = dx * F.s + dz * F.c;
+        if (door && lz0 > zi1 + 0.05 && lx0 > -0.15 && lx0 < 0.95) return v;   // уже за порогом, в створе двери
+        const lx = lim(lx0, -xi + 0.15, xi - 0.15), lz = lim(lz0, zi0 + 0.15, zi1 - 0.15);
+        v.x = c.x + lx * F.c + lz * F.s; v.z = c.z - lx * F.s + lz * F.c; if (v.y > H - 0.15) v.y = H - 0.15; return v; };
+      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, clamp: v => clampIn(v, false) }, ZONE_DOOR = Object.assign({}, ZONE, { clamp: v => clampIn(v, true) });
+      W9.camZone = (x, z, y) => { if (y !== undefined && y > 2) return null; const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
+        if (Math.abs(lx) > xi || lz < zi0) return null; if (lz <= zi1 - 1.5) return ZONE; return lz <= zi1 || (lx > -0.3 && lx < 1.1 && lz <= hd + 0.3) ? ZONE_DOOR : null; };
+      // ===== жители: лисичка-бариста за стойкой (лицом к гостям, −x), ёжик с капучино за столиком у окна, зайчиха на табурете =====
       const bar = placeNpc('barista_fox', ...(() => { const p = F.p(4.6, 0, -0.4); return [p[0], p[2]]; })(), c.ry - PI / 2, { y: 0, make: W9.makeBarista, headY: 1.15, talkR: 2.6, name: 'Лисичка-бариста' });
-      bar.paw = { color: '#D9783A', height: 0.66, meetY: 1.04 };
-      // заказ — у стойки (лавка, как на базаре: монетка → стаканчик из лап); «вход» и «выход» лавки — здесь же (без перехода)
-      const order = F.p(2.9, 0, -0.4), inside = order.concat([c.ry + PI / 2]), door = inside.slice();
-      const shop = { id: 'cafe', activity: 'shop_cafe', title: 'Мархарай', seller: bar.id, items: [], inside, door, view: 'shop_cafe', counter: F.p(bxc, 1.1, -0.4), paw: bar.paw, thanks: 'shopThanks_cafe' };
-      const sp = { id: 'cafe', x: order[0], y: 0, z: order[2], r: 0.9, icon: '☕', label: 'Кофейня «Мархарай»', action: 'Заказать кофе', shop };
-      sp.use = () => { if (bar.hop) bar.hop(); return { id: 'cafe', kind: 'sheet', activity: 'shop_cafe', npc: bar.id, shop }; };
+      bar.paw = { color: '#D9783A', height: 0.66, meetY: 1.04 }; bar.cafe = true;
+      { const p = F.p(-1.9, 0, -0.95), n = placeNpc('cafe_hedgehog', p[0], p[2], c.ry, { y: 0.47, make: W9.makeCafeHedgehog, scale: 0.86, headY: 0.85, talkR: 1.9, name: 'Ёжик с капучино', seatYaw: 0.5 }); n.cafe = true; n.noGreet = true; }
+      { const p = F.p(-4.3, 0, SZ), n = placeNpc('cafe_hare', p[0], p[2], c.ry + PI, { y: 0.79, make: W9.makeCafeHare, scale: 0.84, headY: 0.95, talkR: 1.7, name: 'Зайчиха у окна', seatYaw: 0.6 }); n.cafe = true; n.noGreet = true; }
+      // заказ — подойти к стойке и нажать («☕ Заказать кофе»; вторая кнопка — «💬 Лисичка-бариста»): лавка без перехода (walkIn) —
+      // ни шторки, ни прыжка; монетка → стаканчик из лап; стаканчик остаётся в руке (глоток — кнопкой, сидя — «☕ Глоток»)
+      const order = F.p(2.9, 0, -0.4), inside = order.concat([c.ry + PI / 2]);
+      const shop = { id: 'cafe', walkIn: true, activity: 'shop_cafe', title: named ? 'Мархарай' : 'Кофейня', seller: bar.id, items: [], inside, door: inside.slice(), view: null, counter: F.p(bxc, 1.1, -0.4), paw: bar.paw, thanks: 'shopThanks_cafe' };
+      const sp = { id: 'cafe_order', x: order[0], y: 0, z: order[2], r: 0.9, icon: '☕', label: named ? 'Кофейня «Мархарай»' : 'Кофейня', action: 'Заказать кофе', play: true, cafe: true, shop };
+      sp.use = () => { if (bar.hop) bar.hop(); return { id: 'cafe_order', kind: 'sheet', activity: 'shop_cafe', npc: bar.id, shop }; };
       spotsList.push(sp);
-      // «Сесть у окна»: высокий табурет B, вид на крыши Кубачи и горы
-      const seat = F.p(-0.4, 0.76, SZ), stand = F.p(-0.4, 0, SZ + 0.6);
-      spotsList.push({ id: 'cafe_window', x: stand[0], y: 0, z: stand[2], r: 0.75, icon: '🪟', label: 'Сесть у окна', action: 'Сесть у окна', seat, ry: c.ry + PI,
-        use: () => ({ id: 'cafe_window', kind: 'sit', seat, ry: c.ry + PI, view: 'cafe_window', text: 'Внизу — крыши Кубачи, дальше — горы в дымке.' }) });
-      W9.cafeViews = {
-        shop_cafe: { pos: F.p(-1.2, 1.95, 1.8), target: F.p(3.6, 1.05, -1.0), fov: 62 },
-        cafe_window: { pos: [-39.00, 1.75, 12.20], target: [-13.65, -4.0, 28.16], fov: 55 },   // через стекло — на крыши села к востоку и долину
-        cafe_front: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },
-      };
-      W9.cafe = { x: c.x, z: c.z, ry: c.ry, w: W, d: D, door, inside, seat, barista: bar.id };
+      // места: три табурета у окна, стул B у столика (лицом к окну), диванчик; встаёт там, откуда садилась (0,6 м за сиденьем)
+      // вид с места: от головы сидящей (head — в рамке кофейни) назад вдоль взгляда (пеленг br°, наклон pt°) на back м, влево на side
+      // (она — справа в кадре, вид не заслоняет), выше на up; палец — оглядеться (pan); ≥ 1 м от неё (не прячется)
+      const view = (id, head, br, pt, back, side, up, o = {}) => { const h0 = F.p(...head), b = br * PI / 180, q = pt * PI / 180, sb = Math.sin(b), cb = Math.cos(b);
+        const p = [h0[0] - sb * back + cb * side, h0[1] + up, h0[2] - cb * back - sb * side];
+        W9.cafeViews[id] = Object.assign({ pos: p, target: [p[0] + sb * Math.cos(q) * 30, p[1] + Math.sin(q) * 30, p[2] + cb * Math.cos(q) * 30], fov: 55, aspect: 1.6, pan: [0.75, -0.42, 0.3] }, o); };
+      W9.cafeViews = {};
+      const seatAt = (id, label, icon, seat, stand, ry, vid, text) => spotsList.push({ id, x: stand[0], y: 0, z: stand[2], r: 0.75, icon, label, action: label, seat, ry, cafe: true,
+        use: () => ({ id, kind: 'sit', seat, ry, view: vid, text }) });
+      const winText = named ? 'Внизу — крыши Кубачи ступеньками, дальше — горы в дымке. Веди пальцем — оглядись.' : 'Внизу — крыши села ступеньками, дальше — горы в дымке. Веди пальцем — оглядись.';
+      [['a', -3.0, 64], ['b', -0.4, 62], ['c', 2.2, 60]].forEach(([k, lx, br]) => { view('cafe_window_' + k, [lx, 1.5, SZ], br, -13, 1.9, 0.55, 0.75);
+        seatAt('cafe_win_' + k, 'Сесть у окна', '🪟', F.p(lx, 0.76, SZ), F.p(lx, 0, SZ + 0.6), c.ry + PI, 'cafe_window_' + k, winText); });
+      view('cafe_table', [-1.9, 1.2, 0.35], 27, -19, 1.45, 0.3, 1.0); seatAt('cafe_table', 'Сесть за столик', '🪑', F.p(-1.9, 0.45, 0.35), F.p(-1.9, 0, 0.95), c.ry + PI, 'cafe_table', named ? 'Ёжик за столиком кивает: тут самый вкусный капучино.' : 'Ёжик за столиком кивает: тут самый вкусный капучино.');
+      view('cafe_sofa', [-4.0, 1.2, 2.78], 40, -8, 0.0, -1.15, 0.4); seatAt('cafe_sofa', 'Посидеть на диванчике', '🛋️', F.p(-4.0, 0.45, 2.78), F.p(-3.6, 0, 2.05), c.ry + PI, 'cafe_sofa', 'Тепло, пахнет кофе, за стеклом — горы.');
+      Object.assign(W9.cafeViews, {
+        cafe_front: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // фасад, как на фото
+        cafe_window: W9.cafeViews.cafe_window_b, shop_cafe: { pos: [-42.92, 1.7, 1.70], target: [-39.96, 1.9, 8.04], fov: 50 },   // старые имена (тесты, стенд)
+      });
+      W9.cafe = { x: c.x, z: c.z, ry: c.ry, w: W, d: D, door: F.p(0.4, 0, hd + 0.6).concat([c.ry + PI]), inside, order, seats: ['cafe_win_a', 'cafe_win_b', 'cafe_win_c', 'cafe_table', 'cafe_sofa'], barista: bar.id, inner: { x: xi, z0: zi0, z1: zi1, H } };
     }
     // лисичка-бариста: рыжая, белая грудка, тёмный фартук, белая чашечка в лапке
     W9.makeBarista = () => K.npc('barista_fox', ({ n, body, P, face, M, GEO }) => {
@@ -2597,29 +2702,49 @@
       [-1, 1].forEach(sd => { P(head, GEO.cone, o, [sd * 0.11, 0.2, -0.02], [0.07, 0.13, 0.05], [0, 0, -sd * 0.25]); P(head, GEO.cone, dk, [sd * 0.115, 0.27, -0.02], [0.035, 0.06, 0.03], [0, 0, -sd * 0.25], false); });
       n.extra = t => { n.body.rotation.y = Math.sin(t * 0.9) * 0.12; };
     });
-    // вывеска «Мархарай»: своя текстура — тёмное поле, белые буквы с засечками (узкие, высокие), слева белая чашка линией, под ней «кофейня»
+    // гости кофейни (волна 10; молчат, пока не заговоришь): ёжик в полосатом шарфике за столиком у окна и зайчиха на табурете
+    // со стаканчиком в лапках — оба сидят (тело ниже, лапки на коленях)
+    W9.makeCafeHedgehog = () => K.npc('cafe_hedgehog', ({ n, body, P, face, M, GEO }) => {
+      const b = M('#B89474'), sp = M('#7E6250'), cr = M('#F2DCC4'), sc = M('#3D7A8C'), sc2 = M('#F4EEE2');
+      P(body, GEO.sph, b, [0, 0.3, 0], [0.24, 0.24, 0.22]); P(body, GEO.sph, cr, [0, 0.29, 0.12], [0.13, 0.14, 0.1], null, false);
+      [-1, 1].forEach(sd => { P(body, GEO.sph, sp, [sd * 0.1, 0.08, 0.16], [0.065, 0.05, 0.09]); P(body, GEO.sph, b, [sd * 0.15, 0.3, 0.2], [0.05, 0.05, 0.07], null, false); });
+      const up = new T.Vector3(0, 1, 0);
+      for (let i = 0; i < 26; i++) { const a = (i / 26) * PI * 2 * 3.1, k = i / 26, yy = -0.2 + k * 0.85, rr = Math.sqrt(Math.max(0.05, 1 - yy * yy)); const dir = new T.Vector3(Math.sin(a) * rr, yy, -Math.abs(Math.cos(a)) * rr - 0.25).normalize();
+        const c = P(body, GEO.cone, sp, [dir.x * 0.22, 0.34 + dir.y * 0.22, dir.z * 0.2], [0.05, 0.16, 0.05], null, false); c.quaternion.setFromUnitVectors(up, dir); }
+      P(body, GEO.torus, sc, [0, 0.52, 0.0], [0.15, 0.15, 0.2], [PI / 2, 0, 0], false); P(body, GEO.box, sc, [0.08, 0.42, 0.15], [0.07, 0.16, 0.03], [0.1, 0, 0.15], false); P(body, GEO.box, sc2, [0.08, 0.38, 0.166], [0.071, 0.03, 0.02], [0.1, 0, 0.15], false);   // шарфик
+      const head = new T.Group(); head.position.set(0, 0.68, 0.02); body.add(head); n.head = head;
+      P(head, GEO.sph, cr, [0, 0, 0], [0.2, 0.18, 0.18]);
+      face(head, { nose: '#2E2A3B', mouth: 'smile', ey: 356 }, [0.2, 0.18, 0.18]);
+      for (let i = 0; i < 14; i++) { const a = (i / 14) * PI * 2, dir = new T.Vector3(Math.cos(a) * 0.9, 0.5 + (i % 3) * 0.15, -0.6).normalize(); const c = P(head, GEO.cone, sp, [dir.x * 0.16, 0.05 + dir.y * 0.14, dir.z * 0.16 - 0.02], [0.05, 0.15, 0.05], null, false); c.quaternion.setFromUnitVectors(up, dir); }
+      n.extra = t => { n.body.rotation.x = Math.max(0, Math.sin(t * 0.7 + n.ph)) * 0.05; };
+    });
+    W9.makeCafeHare = () => K.npc('cafe_hare', ({ n, body, P, face, M, GEO, capG }) => {
+      const w = M('#E9E1D8'), pk = M('#F7B9C4'), sw = M('#B04A5A'), sw2 = M('#F4EEE2'), cup = M('#FFFDF9'), sl = M('#B98A5E'), lid = M('#3A2E2A');
+      P(body, GEO.sph, w, [0, 0.33, 0], [0.22, 0.26, 0.2]);
+      P(body, GEO.sph, sw, [0, 0.34, 0.01], [0.225, 0.2, 0.205], null, false); [0.28, 0.4].forEach(y => P(body, GEO.cyl, sw2, [0, y, 0.01], [0.228, 0.025, 0.21], null, false));   // свитер в полоску
+      [-1, 1].forEach(sd => { P(body, GEO.sph, w, [sd * 0.1, 0.07, 0.16], [0.07, 0.05, 0.12]); P(body, capG(0.05, 0.12), sw, [sd * 0.15, 0.36, 0.14], null, [1.2, 0, sd * 0.5]); });
+      const c0 = [0, 0.4, 0.23]; P(body, GEO.cyl, cup, c0, [0.04, 0.1, 0.04], null, false); P(body, GEO.cyl, sl, [c0[0], c0[1] - 0.005, c0[2]], [0.042, 0.045, 0.042], null, false); P(body, GEO.cyl, lid, [c0[0], c0[1] + 0.055, c0[2]], [0.043, 0.012, 0.043], null, false);   // стаканчик в лапках
+      const head = new T.Group(); head.position.set(0, 0.78, 0.02); body.add(head); n.head = head;
+      P(head, GEO.sph, w, [0, 0, 0], [0.21, 0.19, 0.19]);
+      face(head, { nose: '#E8798F', mouth: 'w', ey: 356, lash: true }, [0.21, 0.19, 0.19]);
+      const ears = new T.Group(); head.add(ears); n.extraDyn = [ears];
+      [-1, 1].forEach(sd => { const e = new T.Group(); e.position.set(sd * 0.08, 0.15, -0.04); e.rotation.z = -sd * 0.25; ears.add(e); P(e, GEO.sph, w, [0, 0.17, 0], [0.05, 0.18, 0.035]); P(e, GEO.sph, pk, [0, 0.17, 0.018], [0.025, 0.13, 0.02], null, false); });
+      n.extra = t => { ears.rotation.x = Math.sin(t * 1.1 + n.ph) * 0.07; };
+    });
+    // вывеска «МАРХАРАЙ» — по фото (js/village/markharai_sign.js: свои векторные буквы, чашка с филигранью, «КОФЕЙНЯ»):
+    // холст 2048 × 512 (доска — строки 0…439), мип-карты и анизотропия — чётко и вблизи, и под углом; ночью — свой «лайтбокс»
+    // (меняется в update по NIGHT.t); материал — 'lamp' для DayNight: днём как всё, ночью светится. Нейтральная сборка
+    // (named = false) — без большого названия: плашка с чашкой и «КОФЕЙНЯ»
     function cafeSignMesh() {
-      // волна 10: доска 4,4 × 0,95 м (как на фото, 4,66 : 1) — холст той же пропорции, буквы не растянуты: слева светлая плашка
-      // с тёмной чашкой и паром, под ней «КОФЕЙНЯ»; «МАРХАРАЙ» — высокие узкие белые буквы с засечками на 25…96 % ширины
       const sg = W9.cafeSign; if (!sg) return null;
-      const Wc = 1024, Hc = Math.round(Wc * sg.h / sg.w), [cv, cx] = K.cnv(Wc, Hc);
-      cx.fillStyle = '#2A2B2E'; cx.fillRect(0, 0, Wc, Hc);
-      cx.strokeStyle = '#55575C'; cx.lineWidth = Hc * 0.012; cx.strokeRect(Hc * 0.026, Hc * 0.026, Wc - Hc * 0.052, Hc - Hc * 0.052);
-      const px = 0.035 * Wc, py = 0.15 * Hc, pw = 0.177 * Wc, ph = 0.62 * Hc;
-      cx.fillStyle = '#ECEAE4'; cx.fillRect(px, py, pw, ph);
-      cx.fillStyle = '#2A2B2E'; cx.beginPath(); const c0 = px + 0.30 * pw, c1 = px + 1.0 * pw, cy0 = py + 0.42 * ph, cy1 = py + 0.96 * ph;
-      cx.moveTo(c0, cy0); cx.lineTo(c1, cy0); cx.bezierCurveTo(c1, cy0 + (cy1 - cy0) * 0.75, c1 - (c1 - c0) * 0.2, cy1, (c0 + c1) / 2, cy1); cx.bezierCurveTo(c0 + (c1 - c0) * 0.2, cy1, c0, cy0 + (cy1 - cy0) * 0.75, c0, cy0); cx.fill();
-      cx.strokeStyle = '#2A2B2E'; cx.lineWidth = Wc * 0.006; cx.beginPath(); cx.ellipse(px + 0.2 * pw, py + 0.62 * ph, 0.12 * pw, 0.15 * ph, 0, 0, TAU); cx.stroke();
-      [0.45, 0.63].forEach(f => { const x = px + f * pw; cx.beginPath(); cx.moveTo(x, cy0 - 2); cx.bezierCurveTo(x - 0.08 * pw, cy0 - 0.15 * ph, x + 0.08 * pw, cy0 - 0.28 * ph, x, py - 0.12 * Hc); cx.stroke(); });
-      cx.fillStyle = '#ECEAE4'; cx.font = `700 ${Math.round(0.13 * Hc)}px "DejaVu Sans", Arial, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'alphabetic';
-      { const m = cx.measureText('КОФЕЙНЯ'); cx.save(); cx.translate(px + pw / 2, 0.924 * Hc); cx.scale(Math.min(1.4, pw / m.width), 1); cx.fillText('КОФЕЙНЯ', 0, 0); cx.restore(); }
-      cx.fillStyle = '#F4F2EC'; cx.font = `400 ${Math.round(Hc)}px "DejaVu Serif", Georgia, "Times New Roman", serif`; cx.textAlign = 'left';
-      { const m = cx.measureText('МАРХАРАЙ'), capH = m.actualBoundingBoxAscent || Hc * 0.72, k = 0.786 * Hc / capH;
-        cx.save(); cx.translate(0.25 * Wc, 0.924 * Hc); cx.scale(0.708 * Wc / m.width, k); cx.fillText('МАРХАРАЙ', 0, 0); cx.restore(); }
-      const tex = K.tex(cv); tex.anisotropy = 4;
-      const g = new T.PlaneGeometry(sg.w, sg.h);
-      const m = new T.Mesh(K.keep(g), K.keep(new T.MeshBasicMaterial({ map: tex })));
+      const make = night => { const fn = window.markharaiSignCanvas; let cv;
+        if (fn) cv = fn({ width: 2048, height: 512, night, word: !!named });
+        else { const [cv2, cx] = K.cnv(1024, 256); cx.fillStyle = '#2A2B2E'; cx.fillRect(0, 0, 1024, 256); cv = cv2; }   // запас: без модуля вывески — тёмная доска
+        const t = K.tex(cv); t.anisotropy = 4; if (cv.height === 512) { t.repeat.set(1, 440 / 512); t.offset.y = 1 - 440 / 512; } return t; };
+      const mat = K.keep(new T.MeshBasicMaterial({ map: make(false) })); mat.userData.dn = 'lamp';
+      const m = new T.Mesh(K.keep(new T.PlaneGeometry(sg.w, sg.h)), mat);
       m.position.set(sg.p[0], sg.p[1], sg.p[2]); m.rotation.y = sg.ry; m.name = 'cafeSign'; m.userData.noRay = true;
+      W9.signNight = false; W9.signTex = [mat.map, null]; W9.signMake = make; W9.cafeSignM = m;
       return m;
     }
     function roadGeo() {
@@ -4333,7 +4458,7 @@
       // за галереи не заглядывает: толпа видна из двора (+1,5 м), со стороны ворот (юг, ±7 м от оси) и сверху
       const yardSeen = (Math.abs(cwx) < WED.w / 2 + WED.gal + 1.5 && Math.abs(cwz) < WED.d / 2 + 1.5) || (cwz > 0 && Math.abs(cwx) < 7 && cwz < WED.d / 2 + 12) || c.y > WED.y + 7.5;
       for (const L of CROWNLOD) { const near = Math.hypot(c.x - L.x, c.z - L.z) - L.r < 30; if (L.m1.visible !== near) { L.m1.visible = near; L.m0.visible = !near; } }
-      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < L.max; if (L.m.visible !== on) L.m.visible = on; }
+      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < (W9.camCafe && L.cafe ? L.cafe : L.max); if (L.m.visible !== on) L.m.visible = on; }   // волна 10: камера в кофейне — мелочь ближе (L.cafe)
       // вершина: дальний план заливки фона и ленты внешних дорог — кусок грубый, пока камера дальше RF_LOD.D от его края
       RF_LOD.update(c, cam);
       // порог по высоте камеры 28 ± 2 м (было 20): по дороге к отелю мелочь села включается/прячется на первой ноге серпантина, где
@@ -4440,9 +4565,13 @@
     if (!FAR) towerInside();
     weddingHouseGeo();
     const BZ = bazaarBuild(); if (BZ && BZ.castMeshes) MODG.stalls.push(...BZ.castMeshes);
-    // волна 9: кофейня — мелочь внутри (прячется издалека), стёкла, вывеска
-    if (W9.cafeB) { const m = W9.cafeB.mesh(K.vcMat); if (m) { m.name = 'cafeInside'; add(litMesh(m), { cast: false }); W9.cafeIn = m; }
+    // волна 9–10: кофейня — зал (своя сетка и свой материал: DayNight его не гасит — ночью в зале горит свет, цвета свои, чуть
+    // теплее, см. update; без теней на high — не мрачно; прячется дальше 35 м), стёкла, «карточки» за стёклами (видны, пока зал
+    // спрятан), вывеска
+    if (W9.cafeB) { const mat = W9.cafeMat = K.keep(K.vcMat.clone()); mat.userData.dn = 'none';
+      const m = W9.cafeB.mesh(mat); if (m) { m.name = 'cafeInside'; add(litMesh(m), { cast: false, receive: false }); W9.cafeIn = m; }
       const g = W9.cafeGlass.build(); if (g) { const gm = new T.Mesh(g, K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false }))); gm.name = 'cafeGlass'; gm.renderOrder = 5; gm.userData.noRay = true; root.add(gm); }
+      const cg = W9.cafeCards.build(); if (cg) { const cm = K.keep(new T.MeshBasicMaterial({ vertexColors: true })); cm.userData.dn = 'window'; const lm = new T.Mesh(cg, cm); lm.name = 'cafeCards'; lm.visible = false; lm.userData.noRay = true; root.add(lm); W9.cafeCardM = lm; }
       const sm = cafeSignMesh(); if (sm) root.add(sm); }
     const WD = FAR ? null : weddingBuild();
     // волна 10: мебель свадебного двора — не дальше 60 м от его края (с гребневой и Нижней улиц двор — точка; бюджет G1)
@@ -4490,7 +4619,7 @@
     if (!FAR) { snowify(detail); const m = add(litMesh(detail.mesh(K.atlasMatD)), { cast: false }); if (m) m.name = 'trailDetail'; }
     // волна 10: реквизит — кусками по 40 м: в пирамиде камеры — только видимые, дальше 80 м от камеры кусок не рисуется (скамьи,
     // столбы, ящики там меньше пары пикселей; стёкла фонарей — своей сеткой, светят)
-    snowify(pb); { const g = pb.build(); if (g) K.split(g, FAR ? () => 'a' : (x, z) => Math.floor(x / 40) + ',' + Math.floor(z / 40)).forEach(gg => { const m = add(litMesh(new T.Mesh(gg, K.vcMat)), { cast: true }); m.name = 'props'; if (!FAR) { const bs = gg.boundingSphere; DISTLOD.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius, max: 80 }); } }); }
+    snowify(pb); { const g = pb.build(); if (g) K.split(g, FAR ? () => 'a' : (x, z) => Math.floor(x / 40) + ',' + Math.floor(z / 40)).forEach(gg => { const m = add(litMesh(new T.Mesh(gg, K.vcMat)), { cast: true }); m.name = 'props'; if (!FAR) { const bs = gg.boundingSphere; DISTLOD.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius, max: 80, cafe: 30 }); } }); }
     // волна 6: мелочь двора школы и разворота (прутья ограды, сетки ворот, скамьи, цветы) — отдельной сеткой: дальше ~130 м
     // от камеры она меньше пикселя и прячется (update), как зверята в дальних кадрах
     if (W6.detB) { snowify(W6.detB); const m = add(litMesh(W6.detB.mesh(K.vcMat)), { cast: true }); if (m) { m.name = 'schoolDetail'; m.geometry.computeBoundingSphere(); W6.detMesh = m; } }
@@ -4515,7 +4644,7 @@
     const sheetM = add(litMesh(K.merged(sheetG, K.instMat, sheets))); if (sheetM) sheetM.name = 'roofSheets';
     const pipeG = (() => { const bk = new K.Baker('vc'); bk.cyl(0, 0, 0, 0.06, 0.06, 0.8, { seg: 6, col: rgb('#8E918C'), cap: false }); bk.cyl(0, 0.8, 0, 0.13, 0.0, 0.16, { seg: 6, col: rgb('#6E716D') }); return bk.build(); })();
     // волна 10: трубы — кусками по 40 м, дальше 55 м от камеры кусок не рисуется (тонкие, издалека меньше пикселя)
-    if (!FAR) { const pm = K.merged(pipeG, K.instMat, pipes); if (pm) K.split(pm.geometry, (x, z) => Math.floor(x / 40) + ',' + Math.floor(z / 40)).forEach(gg => { const m = litMesh(add(new T.Mesh(gg, K.instMat))); m.name = 'pipes'; const bs = gg.boundingSphere; DISTLOD.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius, max: 55 }); }); }
+    if (!FAR) { const pm = K.merged(pipeG, K.instMat, pipes); if (pm) K.split(pm.geometry, (x, z) => Math.floor(x / 40) + ',' + Math.floor(z / 40)).forEach(gg => { const m = litMesh(add(new T.Mesh(gg, K.instMat))); m.name = 'pipes'; const bs = gg.boundingSphere; DISTLOD.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius, max: 55, cafe: 30 }); }); }
     // кроны: у троп — гладкие (detail 1), вдали — проще (detail 0)
     // «у троп» — там, где ходит героиня (± 8 м): гладкие кроны; остальное (плечи, луг внизу, отрог) — 20-гранники
     const nearTrail = c => { const [r, ph] = polar(c.p[0], c.p[2]); if (r > 128 || r < 24 || ph < -0.8 || ph > 0.72) return false; for (let a = 0; a < 6; a++) { const x = c.p[0] + Math.sin(a) * 6, z = c.p[2] + Math.cos(a) * 6; if (allowedAt(x, z, model.info(x, z))) return true; } return false; };
@@ -4744,7 +4873,7 @@
       summit_top: { pos: [560, 113.5, -252], target: [40, -10, -40], fov: 50 },
       summit_bend: { pos: [178, 70, -380], target: [250, 55, -280], fov: 60 },   // шпилька 2 и ноги над ней — сверху, снаружи (было [250, 46, −300]: камера внутри горы)
     };
-    if (W9.cafeViews) Object.assign(views, W9.cafeViews);   // волна 9: кофейня — у стойки, у окна, фасад
+    if (W9.cafeViews) Object.assign(views, W9.cafeViews);   // волна 9–10: кофейня — фасад, у окна (три табурета), за столиком, на диванчике
 
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
@@ -4762,7 +4891,14 @@
       // волна 6: за рулём (героиня быстро едет) жители видны ближе (28 м вместо 46): кадр следилки над селом — меньше вызовов
       if (dt > 0) { const sp = Math.hypot(hx - (update.px === undefined ? hx : update.px), hz - (update.pz === undefined ? hz : update.pz)) / dt; update.fast = sp > 6 ? 1.2 : Math.max(0, (update.fast || 0) - dt); update.px = hx; update.pz = hz; }
       const visK = update.fast > 0 ? 28 / 46 : 1;
-      if (W9.cafeIn && cam) W9.cafeIn.visible = Math.hypot(cam.position.x - CAFE.x, cam.position.z - CAFE.z) < 60;   // волна 9: кофейня изнутри — только вблизи
+      // волна 10: кофейня — зал только вблизи (35 м) или изнутри, издали — тёплые «карточки» за стёклами; камера в зале — снег не
+      // идёт, жители снаружи дальше 30 м от камеры не рисуются (вид из окна на всё село — бюджет); вывеска ночью — «лайтбокс»
+      let camCafe = false;
+      if (W9.cafeIn && cam) { const cp = cam.position; camCafe = cp.y < 4.2 && inRect(CAFE, cp.x, cp.z, 0.1); const near = camCafe || Math.hypot(cp.x - CAFE.x, cp.z - CAFE.z) < 35;
+        if (W9.cafeIn.visible !== near) { W9.cafeIn.visible = near; if (W9.cafeCardM) W9.cafeCardM.visible = !near; } }
+      W9.camCafe = camCafe;
+      if (W9.cafeMat && W9.cafeTint !== NIGHT.t) { const k = W9.cafeTint = NIGHT.t; W9.cafeMat.color.setRGB(1 - 0.06 * k, 1 - 0.14 * k, 1 - 0.3 * k); }   // ночью свет ламп — теплее
+      if (W9.cafeSignM) { const nt = NIGHT.t > 0.45; if (nt !== W9.signNight) { W9.signNight = nt; const k = nt ? 1 : 0; if (!W9.signTex[k]) W9.signTex[k] = W9.signMake(nt); W9.cafeSignM.material.map = W9.signTex[k]; W9.cafeSignM.material.needsUpdate = true; } }
       // волна 10: дома Нижней улицы — участок дальше 110 м от камеры (назад — ближе 100 м) рисуется дальней сеткой
       // участок — ближней сеткой, пока камера ближе 110 м к любому его дому (обратно — 100 м); до края описанной сферы
       // участка (радиус ≈ 45 м) мерить грубо — с площади и башни ближними оставались все участки
@@ -4775,7 +4911,7 @@
         const d = Math.hypot(n.x - hx, n.z - hz) + Math.max(0, Math.abs(n.y - hy) - 6) * 0.5;
         // polish: и от камеры — в дальних кадрах (p1, p3, p4, общий вид) зверята меньше пары пикселей, а это ≈ 2,5 тыс. тр. каждый
         const dc = cam ? Math.hypot(n.root.position.x - cam.position.x, n.root.position.y - cam.position.y, n.root.position.z - cam.position.z) : 0;
-        const vis = n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK); n.root.visible = vis; if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция)
+        const vis = (n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK)) && !(camCafe && !n.cafe && dc > 30); n.root.visible = vis;   // волна 10: камера в кофейне — снаружи только ближние if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция)
         n.anim(t, dt, hx, hz); const ol = d < 20; n.outlines.forEach(m => { m.visible = ol; });
         if (n.id === 'pony' && n.faceHero > 0) n.wait = Math.max(n.wait, 0.6);   // лошадка останавливается поговорить
         if (n.id === 'eagle') eagleTick(n, t, dt);
@@ -4799,6 +4935,7 @@
             if (!on) { P_.setXYZ(q, 0, -999, 0); continue; }
             P_.setXYZ(q, sc.p[0] + Math.sin(ph[q] * 30 + t * 0.5) * 0.25 * life + life * 0.6, sc.p[1] + life * (sc.steam ? 1.6 : 3.2), sc.p[2] + Math.cos(ph[q] * 20) * 0.2 * life); } }
         P_.needsUpdate = true; }
+      if (snowPts) snowPts.visible = !camCafe;   // волна 10: в кофейне снег не идёт
       if (snowPts && cam) { const P_ = snowPts.geometry.attributes.position, a = P_.array; snowPts.position.set(cam.position.x, cam.position.y, cam.position.z);
         for (let i = 0; i < a.length; i += 3) { a[i + 1] -= dt * 0.7; a[i] += Math.sin(t * 0.7 + i) * dt * 0.25; if (a[i + 1] < -8) { a[i + 1] += 22; a[i] = Math.random() * 40 - 20; a[i + 2] = Math.random() * 40 - 20; } } P_.needsUpdate = true; }
       // небо и хребты «на бесконечности»: едут за камерой (внутри camera.far)
@@ -4912,6 +5049,8 @@
       moveColliders: () => moveCols(),
       // W5B: дома рядов (для проверок и подсказок): крыша — двор (walk), плоская высокая, скатная; top — карниз/двор, м
       roofRows: () => houses.filter(h => h.row >= 0).map(h => ({ id: h.id, row: h.row, phi: h.phi, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, storeys: h.storeys, roof: h.roof, walk: h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace') })),
+      // волна 10: зона камеры в зале кофейни (regions.js updCamera): { dist, hgt, fov, swing, run } | null
+      camZone: (x, z, y) => (W9.camZone ? W9.camZone(x, z, y) : null),
       camColliders: camColliders.concat(camExtra),   // кроны, галереи, свод арки, вывески, «метро»: только для луча камеры (rayHit их уже учитывает)
       ground: (x, z) => model.y(x, z),
       groundInfo: (x, z) => model.info(x, z),

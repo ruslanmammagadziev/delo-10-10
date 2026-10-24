@@ -289,6 +289,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // W7: взгляд пальцем вверх-вниз (pitch, рад, + вверх; pitchT — с последнего касания, с), за рулём — вокруг машины (dYaw);
       // вид «из-за руля» (ck — VILLAGE.drive.cockpit, ckLook — поворот головы)
       pitch: 0, pitchT: 99, dYaw: 0, ck: null, ckLook: { yaw: 0, pitch: 0 },
+      // волна 10: зона камеры (зал кофейни — h.camZone): zone — её значения, zoneK — 0…1 (плавный вход), zoneIn — сейчас внутри;
+      // cup — стаканчик кофе в руке (кофейня «без перехода»), sips — глотков
+      zone: null, zoneK: 0, zoneIn: false, cup: null, sips: 0,
     };
     let renderer = refs.renderer || null, ownR = false, canvas = null, host = refs.host || null, cam = null, scene = null;
     let ui = null, raf = 0, last = 0, cap = null, tripRes = null, drv = null, chase = null, blob = null, hidden = [], prevSpk = null, inCarNow = false;
@@ -713,6 +716,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       const p = look.get(e.pointerId); if (!p) return;
       const dx = x - p.x, dy = y - p.y; p.x = x; p.y = y; p.moved += Math.abs(dx) + Math.abs(dy);
+      // волна 10: сидя у окна (вид с v.pan) — палец поворачивает взгляд в пределах окна
+      if (S.view && S.view.v && S.view.v.pan) { if (p.moved > 6) { const P = S.view.v.pan, k = cam.fov / 55; S.view.py = clamp((S.view.py || 0) - dx * 0.006 * k, -P[0], P[0]); S.view.pp = clamp((S.view.pp || 0) - dy * 0.005 * k, P[1], P[2]); } return; }
       // W7 (желание 3): палец вверх — взгляд на небо, вниз — сверху; за рулём — ещё и вокруг машины; в виде из-за руля — голова
       if (p.moved > 6) {
         if (S.ck && S.ck.active) { S.ckLook.yaw = clamp(S.ckLook.yaw - dx * 0.006, -1.3, 1.3); S.ckLook.pitch = clamp(S.ckLook.pitch - dy * 0.005, -0.5, 0.75); }
@@ -1049,7 +1054,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     async function getIn() {
       if (S.mode !== 'walk' || !drv || !drv.heroIn || !drv.canEnter(S.px, S.pz) || S.busy) return false;
-      iaStop(); if (IA && IA.drop) iaDrop();
+      cupAway(); iaStop(); if (IA && IA.drop) iaDrop();
       S.busy = true; S.sitting = null; S.view = null;
       try { await drv.heroIn(hero, {}); } catch (e) { console.warn('region heroIn', e); }
       S.busy = false; if (!S.active) return false;
@@ -1336,7 +1341,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // большой базар — по средам (как в Кубачах); в предпросмотре автора (UNLOCK.all) — каждый день, чтобы его можно было увидеть
       const bazaar = window.CONFIG && CONFIG.UNLOCK && CONFIG.UNLOCK.all ? true : undefined;
       S.h = quiet(() => mod.build({ THREE: T, scene, named, season, quality: regionQ, clouds: !lite, from, bazaar }));
-      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.moveTo = null; S.exitArmed = {}; S.night = -1;
+      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.moveTo = null; S.exitArmed = {}; S.night = -1; S.zone = null; S.zoneK = 0; S.zoneIn = false; S.cup = null;
       const h = S.h;
       cam.near = (h.camera && h.camera.near) || 0.1; cam.far = (h.camera && h.camera.far) || 1600; cam.updateProjectionMatrix();
       registerSpeakers();
@@ -1796,6 +1801,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (!sp || S.busy || (IA && IA.busy()) || mvBusy() || S.sport || flyActive()) return;
       if (S.pf && S.pf.active && S.pf.active()) return;
       const A = ACT(), a = A[sp.id] || {}, h = S.h;
+      if (S.cup && !sp.cafe) cupAway();   // волна 10: стаканчик кофе — в сумку (руки нужны для другого)
       const d = sp.use ? sp.use({ named, flags: S.flags }) : { kind: 'toast', text: sp.label };
       S.lastUse = d;
       emit('region:spot', { id: sp.id, kind: d && d.kind });
@@ -1981,10 +1987,24 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     /* ---------- волна 4: лавки — войти, выбрать, заплатить монеткой, взять из лап, съесть / полюбоваться, выйти ---------- */
     async function enterShop(shop) {
       const h = S.h, seller = npcBy(shop.seller);
+      if (shop.walkIn) return enterWalkIn(shop, seller);
       iaStop();
       await fade('Заходим в лавку…', () => { S.inShop = shop; S.px = shop.inside[0]; S.pz = shop.inside[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.inside[3]; S.vx = S.vz = 0; S.iaDy = 0; setView(shop.view, false); if (hero && hero.rig) hero.rig.prev = null; });
       if (seller) { seller.faceHero = 3; if (seller.lines && seller.lines[0]) { bubble(npcHead(seller), seller.lines[0], seller.name, 3000); voiceBubble(seller.speaker || seller.id, seller.lines[0]); } }
       await sleep(600);
+      return shopMenu(shop);
+    }
+    // волна 10: лавка «без перехода» (кофейня «Мархарай»): ни шторки, ни прыжка, ни своего кадра — подошла к стойке и нажала.
+    // Дальше 0,3 м от места заказа — короткий шажок (не больше 1 м за 0,3 с), лицом к баристе, лист заказа; «Выйти» — стоит где стояла
+    async function enterWalkIn(shop, seller) {
+      const ins = shop.inside, d = Math.hypot(ins[0] - S.px, ins[2] - S.pz);
+      S.moveTo = null; S.vx = S.vz = 0;
+      if (d > 0.3) { const k = Math.min(1, 1.0 / d), x0 = S.px, z0 = S.pz, x1 = x0 + (ins[0] - x0) * k, z1 = z0 + (ins[2] - z0) * k, t0 = performance.now();
+        S.inShop = shop;   // шажок — без джойстика
+        await new Promise(res => { const st = () => { const u = Math.min(1, (performance.now() - t0) / 300), e = u * u * (3 - 2 * u); S.px = x0 + (x1 - x0) * e; S.pz = z0 + (z1 - z0) * e; S.py = S.h.ground(S.px, S.pz); S.ang += angDiff(ins[3], S.ang) * 0.25; if (u < 1 && S.active) requestAnimationFrame(st); else res(); }; st(); }); }
+      S.inShop = shop; S.ang = ins[3]; if (hero && hero.rig) hero.rig.prev = null;
+      if (seller) { seller.faceHero = 4; if (seller.hop) seller.hop(); }
+      await sleep(250);
       return shopMenu(shop);
     }
     async function shopMenu(shop) {
@@ -1997,6 +2017,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const i = typeof pick === 'string' && pick[0] === 'i' ? +pick.slice(1) : -1;
       if (i < 0 || !items[i]) return leaveShop(shop);
       await buy(shop, items[i]);
+      if (shop.walkIn) { if (S.inShop === shop) S.inShop = null; return; }   // кофейня: купила — снова гуляет (стаканчик в руке)
       if (S.inShop === shop) return shopMenu(shop);
     }
     async function buy(shop, it) {
@@ -2006,26 +2027,46 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (IA && seller && window.Interact) {
         const from = pawOf(seller, shop.paw);
         let item = it.item;
-        if (V.bazaar && V.bazaar.ITEMS && V.bazaar.ITEMS.includes(item) && Interact.items && Interact.items.wrap) { try { const m = V.bazaar.makeItem(T, item); item = Interact.items.wrap(m.mesh, m.hold); } catch (e) { item = 'box'; } }
+        const native = !!(Interact.items && Interact.items.defs && Interact.items.defs[item]);   // волна 10: свой предмет рук (кофе: с глотком) — без обёртки базара
+        if (!native && V.bazaar && V.bazaar.ITEMS && V.bazaar.ITEMS.includes(item) && Interact.items && Interact.items.wrap) { try { const m = V.bazaar.makeItem(T, item); item = Interact.items.wrap(m.mesh, m.hold); } catch (e) { item = 'box'; } }
+        if (shop.walkIn && S.cup) cupAway(true);   // второй стаканчик — первый в сумку
         seller.faceHero = 6;
         await iaRun(async alive => {
           await IA.play('pay', { to: from, approach: false }); if (!alive() || left()) return;
           await IA.play('takeFrom', { item, from, approach: false }); if (!alive() || left()) return;
           if (thanks) npcLine(seller, thanks, 2400);
           if (it.use === 'eat') { await IA.play('eat', {}); if (!alive() || left()) return; heroSay2(it.hero, 2200); await IA.play('eat', {}); }
+          else if (it.use === 'drink' && native) { await IA.play('drink', {}); S.sips++; if (!alive() || left()) return; heroSay2(it.hero, 2200); }   // волна 10: глоток
           else { await IA.play('admire', {}); if (!alive() || left()) return; heroSay2(it.hero, 2200); }
           await sleep(500);
         });
-        if (IA.drop) iaDrop();   // в «сумку»
-        if (left()) { S.shopBuy = null; return; }
+        if (shop.walkIn && IA.holding && IA.holding()) S.cup = { item: it.item, id: it.id, title: it.title };   // кофейня: стаканчик остаётся в руке
+        else if (IA.drop) iaDrop();   // в «сумку»
+        if (left() && !shop.walkIn) { S.shopBuy = null; return; }
       } else {
         if (thanks) npcLine(seller, thanks, 2400);
         later(900, () => heroSay2(it.hero, 2200)); await sleep(1600);
       }
       S.bag.push(it.id); S.shopBuy = null; S.buys++;
-      toast('В сумке: ' + it.title, 1800);
+      if (S.cup) later(600, () => toast('☕ ' + it.title + ' в руке. Садись у окна — оттуда видно всё село!', 3200)); else toast('В сумке: ' + it.title, 1800);
     }
+    // волна 10: стаканчик кофе — в руке, пока она в кофейне и рядом (до 3 м за стенами); дальше, в машине, на лестнице, у другого
+    // занятия — «в сумку». Глоток — «☕ Глоток» (сидя — вторая кнопка; гуляя — вторая, если рядом никого)
+    const cupHeld = () => !!(S.cup && IA && IA.holding && IA.holding());
+    function cupAway(quiet) { if (!S.cup) return; S.cup = null; if (IA && IA.holding && IA.holding()) { iaStop(); iaDrop(); } if (!quiet) toast('☕ Кофе — в сумке', 1600); }
+    function cupTick() {
+      if (!S.cup) return; if (!cupHeld() && !(IA && IA.busy())) { S.cup = null; return; }
+      const C = S.h && S.h.places && S.h.places.cafe; if (!C) return;
+      const dx = S.px - C.x, dz = S.pz - C.z, c = Math.cos(C.ry), s = Math.sin(C.ry), lx = dx * c - dz * s, lz = dx * s + dz * c;
+      if (S.mode !== 'walk' || Math.abs(lx) > C.w / 2 + 3 || Math.abs(lz) > C.d / 2 + 3) cupAway();
+    }
+    function sip() {
+      if (!cupHeld() || IA.busy()) return;
+      iaRun(async alive => { await IA.play('drink', {}); S.sips++; if (alive() && S.sips % 3 === 1) heroSay2(['Ммм, горячий!', 'Вкусно…', 'Как же тут красиво.'][Math.floor(S.sips / 3) % 3], 1800); });
+    }
+    async function leaveWalkIn(shop) { if (S.inShop === shop) S.inShop = null; }
     async function leaveShop(shop) {
+      if (shop && shop.walkIn) return leaveWalkIn(shop);   // волна 10: кофейня — без шторки, остаётся где стоит, стаканчик в руке
       const h = S.h; iaStop(); if (IA && IA.drop) iaDrop();
       if (!S.inShop) return;
       await fade('', () => { S.inShop = null; setView(null); S.px = shop.door[0]; S.pz = shop.door[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.door[3]; S.yaw = shop.door[3]; S.camInit = false; if (hero && hero.rig) hero.rig.prev = null; });
@@ -2609,7 +2650,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     const atTmp = {}, camW = new T.Vector3(), lookW = new T.Vector3();
     function startClimb(from) {
       const c = S.h.climb; if (!c || !c.at) return false;
-      iaStop();
+      cupAway(); iaStop();
       S.climb = { s: from === 'top' ? c.len : 0, dir: from === 'top' ? -1 : 1, auto: from === 'top' ? -1 : 1, camMode: null };
       S.mode = 'climb'; S.sitting = null; S.view = null; S.look = null; S.level = 'ground';
       blink(); const a = ACT().tower || {}; toast(a.climb || 'Винтовая лестница', 2600);
@@ -2744,8 +2785,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.dance) { endDance(S.dance.W.dance.stop()); return; }
       if (S.climb) { S.climb.auto = S.climb.auto < 0 ? 0 : -1; return; }
       if (S.inShop) { leaveShop(S.inShop); return; }
+      if (S.sitting && cupHeld()) { sip(); return; }   // волна 10: сидя со стаканчиком — глоток
       if (S.sitting || S.view) { standUp(); return; }
-      if (!S.near2) return;
+      if (!S.near2) { if (S.mode === 'walk' && cupHeld()) sip(); return; }
       if (S.near2.kind === 'npc') talk(S.near2.ref); else if (S.near2.kind === 'carIn') getIn(); else if (S.near2.kind === 'carOut') getOut();
     }
     // смотровая серпантина из машины: машина стоит, камера с лавочки плавно приближает (FOV 58 → 16), потом тур
@@ -2785,12 +2827,12 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.climb) { main(S.climb.auto > 0 ? '⏸ Стоп' : '⬆️ Вверх', true); second(S.climb.auto < 0 ? '⏸ Стоп' : '⬇️ Вниз'); return; }
       if (S.look) { main('Хватит смотреть', true); show(a2, false); return; }
       if (S.inShop) { main('🛍️ Купить', false); second('Выйти из лавки'); return; }
-      if (S.sitting || S.view) { main('Встать', true); show(a2, false); return; }
+      if (S.sitting || S.view) { main('Встать', true); if (S.sitting && cupHeld()) second('☕ Глоток'); else show(a2, false); return; }
       S.near = nearest();
       if (S.near) main(S.near.label, false);
       else if (S.mode === 'walk' && freeNow() && S.level !== 'top') main('👋 Помахать', true);   // без дела — помахать (бывшая кнопка 👋)
       else show(a, false);
-      if (S.near2) second(S.near2.label); else show(a2, false);
+      if (S.near2) second(S.near2.label); else if (S.mode === 'walk' && cupHeld() && freeNow()) second('☕ Глоток'); else show(a2, false);   // волна 10: стаканчик в руке
     }
     // нажатие P: в танце — закончить танец (Enter/пробел в танце — «Хоп!», как раньше); без дела — помахать; иначе — действие
     function actBtn() {
@@ -2854,7 +2896,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // не больше одного за 6 с (их много и они подходят сами — облачка не громоздятся)
     function greetNear() {
       const h = S.h, now = performance.now();
-      h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; if (n.paltar && now - (S.palGreetT || -1e9) < 6000) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) { if (n.paltar) S.palGreetT = now; greet(n); } });
+      h.npcs.forEach(n => { if (!n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; if (n.paltar && now - (S.palGreetT || -1e9) < 6000) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) { if (n.paltar) S.palGreetT = now; greet(n); } });
     }
     function arrive() {
       const m = S.moveTo; S.moveTo = null; if (!m || !m.thing) return;
@@ -2927,6 +2969,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.view) {
         const v = S.view.v; S.view.t += dt; const e = S.view.smooth ? Math.min(1, S.view.t / 1.4) : 1, ee = e * e * (3 - 2 * e);
         tp.set(v.pos[0], v.pos[1], v.pos[2]); tl.set(v.target[0], v.target[1], v.target[2]);
+        // волна 10: вид с места можно повернуть пальцем (v.pan: [±рыск, наклон вниз, вверх], рад) — у окна кофейни; мягко догоняет палец
+        if (v.pan) { const kk = 1 - Math.exp(-dt * 10); S.view.cy = (S.view.cy || 0) + ((S.view.py || 0) - (S.view.cy || 0)) * kk; S.view.cp = (S.view.cp || 0) + ((S.view.pp || 0) - (S.view.cp || 0)) * kk;
+          if (S.view.cy || S.view.cp) { const dx = tl.x - tp.x, dy = tl.y - tp.y, dz = tl.z - tp.z, hz = Math.hypot(dx, dz), Lq = Math.hypot(hz, dy), b = Math.atan2(dx, dz) + S.view.cy, q = clamp(Math.atan2(dy, hz) + S.view.cp, -1.2, 1.0);
+            tl.set(tp.x + Math.sin(b) * Math.cos(q) * Lq, tp.y + Math.sin(q) * Lq, tp.z + Math.cos(b) * Math.cos(q) * Lq); } }
         cam.position.lerpVectors(S.view.from, tp, ee); lk.lerpVectors(S.view.fromLook, tl, ee); cam.lookAt(lk);
         const fov = S.view.fov;
         if (S.view.zoom) { const k = Math.min(1, S.view.t / 2.6), e2 = k * k * (3 - 2 * k); S.view.fov0 = S.view.fov0 || cam.fov; cam.fov = S.view.fov0 + (fov - S.view.fov0) * e2; cam.updateProjectionMatrix(); }
@@ -2971,6 +3017,13 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       const top = S.level === 'top';
       let dist = top ? 6.0 : 7.2, hgt = top ? 3.2 : 4.4;
+      // волна 10: зона камеры (зал кофейни, h.camZone → { dist, hgt, fov, swing }): ближе и ниже, кадр чуть шире, вбок не больше
+      // swing; вход и выход — плавно (≈ 0,4 с); вне зоны — как всегда. Луч до камеры (rayHit) остаётся страховкой
+      const zn = !top && h.camZone ? h.camZone(S.px, S.pz, S.py) : null;
+      if (zn) S.zone = zn; S.zoneIn = !!zn;
+      S.zoneK = !S.camInit ? (zn ? 1 : 0) : S.zoneK + ((zn ? 1 : 0) - S.zoneK) * (1 - Math.exp(-6 * dt));
+      const zk = S.zone ? S.zoneK : 0;
+      if (zk > 1e-3) { dist += (S.zone.dist - dist) * zk; hgt += (S.zone.hgt - hgt) * zk; }
       // W7 (желание 3): взгляд вверх-вниз пальцем — камера по дуге вокруг головы: вниз — выше, вверх — ниже и ближе (небо,
       // героиня внизу кадра; у земли камера не ниже 0,6 м — дальше поднимается сам взгляд, у cam.lookAt). Отпустила — на ходу
       // через 4 с, стоя через 10 с плавно к обычному
@@ -2993,6 +3046,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (t < 1 && t * lookP.distanceTo(want) < 2.6 && S.manualT <= 0) {
           let bestD = null, bestDa = t * lookP.distanceTo(want) + 0.8;
           for (const dy of [0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8, 2.3, -2.3, 2.8, -2.8]) {
+            if (zk > 0.5 && Math.abs(dy) > S.zone.swing + 1e-6) continue;   // волна 10: в зале — без больших поворотов (джойстик не «уезжает»)
             camAt(alt, S.yaw + dy, dist, hgt, false);
             const ta = h.rayHit(lookP, alt), da = ta * lookP.distanceTo(alt);
             if (da >= 3.2) { bestD = dy; break; }
@@ -3015,13 +3069,14 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           } else {
             want.lerpVectors(lookP, want, k);
             const d = k * full;
-            if (d < 4) { camUp.copy(want); camUp.y += (4 - d) * 0.35; if (h.rayHit(lookP, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); }
+            if (d < 4) { camUp.copy(want); camUp.y += (4 - d) * (zk > 0.5 ? 0.12 : 0.35); if (h.rayHit(lookP, camUp) >= 1 && camUp.y >= h.ground(camUp.x, camUp.z) + 0.6) want.copy(camUp); }   // волна 10: в зале — почти не поднимать (иначе сверху на макушку)
           }
         }
         // не круче ~50° вниз: камера над головой ниже, чем «сверху на макушку» (если земля позволяет)
         const hd = Math.hypot(want.x - lookP.x, want.z - lookP.z), cap = lookP.y + hd * 1.15 + 0.35;
         if (want.y > cap && cap >= h.ground(want.x, want.z) + 0.6) want.y = cap;
       }
+      if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале — камера не выходит из зала (в дверь, сквозь стекло)
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
@@ -3037,7 +3092,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         lk.copy(lookP); lk.y = Math.max(lookP.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(lk);
       }
       else cam.lookAt(lookP);
-      const fovT = cam.aspect < 0.8 ? 58 : 48; if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
+      const fovT = (cam.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk : 0); if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
     }
 
     /* ---------- кадр ---------- */
@@ -3066,7 +3121,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         blkTick = null; blkTick = blocked();
         // джойстик раз в кадр (сила и курс → joy.x/y, lx/ly) и бег — палец за краем кружка (только пешком: не в машине, не на
         // лестнице, не в полёте и не в игре)
-        joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive());
+        joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive() && !S.zoneIn);
+        if (S.zoneIn && S.mv && S.mv.run) S.mv.holdRun(false);   // волна 10: в зале кофейни не бегают (и Shift)
+        if (S.cup) cupTick();
         if (S.zip && S.mode === 'zip') {   // зиплайн: поездка сама ведёт героиню, руки и камеру
           S.zip.update(dt);
           if (hero) { hero.root.getWorldPosition(tmpV); S.px = tmpV.x; S.py = tmpV.y; S.pz = tmpV.z; }
