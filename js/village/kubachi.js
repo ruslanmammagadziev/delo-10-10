@@ -2510,11 +2510,21 @@
       [-3.3, -1.8, -0.3].forEach(x => frameV(x, 0.35, 2.75)); frameH(-3.3, -0.3, 0.35); frameH(-3.3, -0.3, 2.75);
       [-0.3, 1.1].forEach(x => frameV(x, 0, 2.35)); frameH(-0.3, 1.1, 2.35);
       [[-3.26, -1.84, 0.39, 2.71], [-1.76, -0.34, 0.39, 2.71]].forEach(([x0, x1, y0, y1]) => gl.box(F, (x0 + x1) / 2, (y0 + y1) / 2, zs, x1 - x0, y1 - y0, 0.01, { col: glass }));
-      // створка двери открыта внутрь — к серой стене (x 1,1…2,5), ручка-штанга
-      { const z = zs - 0.16; bk.box(F, 1.8, 1.175, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 0.03 + FY, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 1.8, 2.32, z, 1.4, 0.06, 0.05, { col: fr }); bk.box(F, 2.47, 1.175, z, 0.06, 2.35, 0.05, { col: fr });
-        gl.box(F, 1.78, 1.2, z, 1.32, 2.2, 0.01, { col: glass }); bk.box(F, 1.25, 1.1, z - 0.06, 0.03, 0.9, 0.03, { col: rgb('#B9BDC2') }); }
-      // поднятая рольставня: короб над проёмом и направляющие у краёв
-      bk.box(F, -1.1, 2.925, hd + 0.11, 4.4, 0.18, 0.22, { col: rgb('#3A3B3F') }); [-3.3, 1.1].forEach(x => bk.box(F, x, 1.425, hd + 0.03, 0.06, 2.85, 0.06, { col: rgb('#4A4B4F') }));
+      // правка r1: стеклянная створка открыта НАРУЖУ и отведена к серому гаражу (на 160° от закрытой, 20° к стене): с улицы и
+      // из машины видно «одно стеклянное окно-дверь» — рама, стекло, ручка-штанга; в проём и на дорогу (0,86 м тротуара) не
+      // выступает (0,5 м от стены). Петли — у косяка x 1,1; створка 1,4 × 2,35, рама 6 см
+      const LEAF = { a: 160 * PI / 180, w: 1.4, h: 2.35 }, ldx = -Math.cos(LEAF.a), ldz = Math.sin(LEAF.a), lry = Math.atan2(-ldz, ldx);   // направление от петли к свободному краю (в рамке кафе); lry — поворот рамки створки
+      { const lp = (u, y, n = 0) => F.p(1.1 + ldx * u - ldz * n, y, hd + 0.04 + ldz * u + ldx * n), LF = new K.Frame(...lp(0, 0), c.ry + lry);   // рамка створки: +x — вдоль створки от петли
+        const lb2 = (x, y, w, h, d, col) => bk.box(LF, x, y, 0, w, h, d, { col });
+        lb2(LEAF.w / 2, 0.07, LEAF.w, 0.08, 0.05, fr); lb2(LEAF.w / 2, LEAF.h - 0.03, LEAF.w, 0.06, 0.05, fr); lb2(LEAF.w / 2, 1.0, LEAF.w, 0.05, 0.05, fr);   // низ, верх, средний ригель
+        lb2(0.03, LEAF.h / 2, 0.06, LEAF.h, 0.05, fr); lb2(LEAF.w - 0.03, LEAF.h / 2, 0.06, LEAF.h, 0.05, fr);                   // стойки рамы
+        gl.box(LF, LEAF.w / 2, (0.11 + LEAF.h - 0.06) / 2, 0, LEAF.w - 0.1, LEAF.h - 0.17, 0.012, { col: glass });
+        [-1, 1].forEach(sd => { bk.box(LF, LEAF.w - 0.16, 1.15, sd * 0.06, 0.03, 0.95, 0.03, { col: rgb('#B9BDC2') }); [0.78, 1.52].forEach(y => bk.box(LF, LEAF.w - 0.16, y, sd * 0.04, 0.025, 0.025, 0.05, { col: rgb('#B9BDC2') })); });   // ручка-штанга с двух сторон
+        bk.box(LF, LEAF.w - 0.12, 0.04, -0.1, 0.07, 0.08, 0.07, { col: rgb('#3A3B3F') });   // упор створки (со стороны стены)
+        W9.cafeLeaf = { p0: lp(0, 0), p1: lp(LEAF.w, 0), ry: c.ry + lry }; }
+      // поднятая рольставня: короб над проёмом и направляющие у краёв. Правка r1: короб ниже вывески (верх 2,93 < низа доски 2,95)
+      // и мельче (12 см — лицо в 1,5 см перед плоскостью вывески): с улицы на уровне глаз и из машины буквы видны целиком
+      bk.box(F, -1.1, 2.85, hd + 0.06, 4.4, 0.16, 0.12, { col: rgb('#3A3B3F') }); [-3.3, 1.1].forEach(x => bk.box(F, x, 1.385, hd + 0.03, 0.06, 2.77, 0.06, { col: rgb('#4A4B4F') }));
       // вывеска: тёмная доска над витриной (буквы — своей текстурой, W9.cafeSign); под верхней кромкой — две тёплые планки (ночью светится)
       bk.box(F, -1.1, 3.425, hd + 0.06, 4.4, 0.95, 0.08, { col: dark });
       W9.cafeSign = { p: F.p(-1.1, 3.425, hd + 0.105), ry: c.ry, w: 4.4, h: 0.945 };
@@ -2537,7 +2547,9 @@
         [0.8, 3.0].forEach(y => bk.box(F, x, y, -1.05, 0.24, 0.07, 3.7, { col: fr })); [-2.9, -1.05, 0.8].forEach(z => bk.box(F, x, 1.9, z, 0.24, 2.2, 0.07, { col: fr }));
         [[-2.87, -1.09], [-1.01, 0.77]].forEach(([z0, z1]) => gl.box(F, x, 1.9, (z0 + z1) / 2, 0.01, 2.14, z1 - z0, { col: glass })); }
       // крыша: тёмная мембрана, низкий парапет, две вытяжки
-      bk.box(F, 0, H + (HT - H) / 2, 0, W, HT - H, D, { col: rgb('#3B3D42'), s: S.FLAT });
+      // правка r1: плита крыши на 3 см шире стен со всех сторон и на 2 см выше их верха — без общих плоскостей со стенами и
+      // соседями (полосы-«мерцание» по верху серого гаража в кадре погони)
+      bk.box(F, 0, H + (HT + 0.02 - H) / 2, 0, W + 0.06, HT + 0.02 - H, D + 0.06, { col: rgb('#3B3D42'), s: S.FLAT });
       [[0, hd - 0.08, W, 0.16], [0, -hd + 0.08, W, 0.16], [-hw + 0.08, 0, 0.16, D], [hw - 0.08, 0, 0.16, D]].forEach(([x, z, w, d]) => bk.box(F, x, HT + 0.075, z, w, 0.15, d, { col: rgb('#4A4C51'), s: S.FLAT }));
       [[-2.6, 0.9], [2.8, -1.1]].forEach(([x, z]) => { bk.box(F, x, HT + 0.2, z, 0.34, 0.4, 0.34, { col: rgb('#6A6E74') }); bk.box(F, x, HT + 0.44, z, 0.46, 0.06, 0.46, { col: rgb('#55595F') }); });
       // ===== внутри (своя сетка W9.cafeB, свой материал; прячется дальше 35 м) =====
@@ -2642,7 +2654,9 @@
       { const p = F.p(0.4, 0, 3.2); camExtra.push({ type: 'box', x: p[0], z: p[2], w: 1.4, d: 0.4, ry: c.ry, y0: 2.35, y1: 4.0, id: 'camCafeDoor', cam: true }); }   // и для луча камеры (не уходит на улицу под перемычкой)
       // и ещё для луча камеры: косяки двери (рамы выступают в проём), створка у серой стены, кофемашина и кофемолка над стойкой
       const ce = (x0, x1, z0, z1, y0, y1, id) => { const p = F.p((x0 + x1) / 2, 0, (z0 + z1) / 2); camExtra.push({ type: 'box', x: p[0], z: p[2], w: x1 - x0, d: z1 - z0, ry: c.ry, y0, y1, id, cam: true }); };
-      ce(-0.36, -0.24, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.04, 1.16, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.1, 2.55, zi1 - 0.14, zi1, 0, 2.4, 'camCafeLeaf');
+      ce(-0.36, -0.24, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.04, 1.16, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb');
+      // правка r1: створка снаружи, у серого гаража — коллайдер (сквозь стекло не пройти; и для луча камеры)
+      { const L = W9.cafeLeaf, m = [(L.p0[0] + L.p1[0]) / 2, (L.p0[2] + L.p1[2]) / 2]; colliders.push({ type: 'box', x: m[0], z: m[1], w: 1.4, d: 0.1, ry: L.ry, y0: -0.5, y1: 2.4, id: 'cafeLeaf', stand: false }); }
       ce(bx0 + 0.15, bx1 + 0.05, -2.4, -1.5, 1.0, 1.65, 'camCafeMachine'); ce(bx0 + 0.3, bx1, -1.4, -1.1, 1.0, 1.65, 'camCafeMachine');
       cb(bx0, xi, zi0, zi1, -0.5, 1.1, 'cafeBar', { stand: false });   // стойка с витриной и закутком — одной коробкой: за стойку не пройти и на неё не встать
       cb(-5.10, 3.48, zi0, -2.73, -0.5, 1.07, 'cafeCounter', { stand: false });
@@ -2658,13 +2672,71 @@
       // 1,5 м к стене на улицу) — ещё и «коридор» сквозь проём: спиной к двери камера смотрит с улицы и плавно заходит следом
       const lim = (v, a, b) => (v < a ? a : v > b ? b : v);
       const clampIn = (v, door) => { const dx = v.x - c.x, dz = v.z - c.z, lx0 = dx * F.c - dz * F.s, lz0 = dx * F.s + dz * F.c;
-        if (door && lz0 > zi1 + 0.05 && lx0 > -0.15 && lx0 < 0.95) return v;   // уже за порогом, в створе двери
+        if (door && lz0 > zi1 + 0.05 && lx0 > -0.15 && lx0 < 0.95 && v.y < 2.15) return v;   // уже за порогом, в створе двери и ниже перемычки (правка r1: выше — в зал, не «сквозь стену над дверью»)
         const lx = lim(lx0, -xi + 0.15, 3.25), lz = lim(lz0, zi0 + 0.15, zi1 - 0.15);   // правка волны 10: не за стойку (она с x 3,48) — к баристе и в полки
         v.x = c.x + lx * F.c + lz * F.s; v.z = c.z - lx * F.s + lz * F.c; if (v.y > H - 0.15) v.y = H - 0.15; return v; };
       // правка волны 10: у двери (первые 1,5 м зала) камера выше и кадр шире: спиной к стене на улицу она в 1,5 м за героиней —
       // сверху видно зал и окна, а не капюшон во весь экран
       // peek — стена за спиной ближе 2,6 м: камера выше (не выше peekTop — ниже балок потолка) и смотрит мимо неё в зал (regions.js updCamera, зеркало — village.html)
-      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, peek: 2.6, peekTop: H - 0.32, clamp: v => clampIn(v, false) }, ZONE_DOOR = Object.assign({}, ZONE, { hgt: 2.85, fov: 10, clamp: v => clampIn(v, true) });
+      // правка r1: «тесно» — она идёт на камеру к стене (угол витрины и стены на улицу, вдоль стены на улицу): прежде камера падала
+      // ей на макушку (вид сверху). Теперь, если камера ближе 1,3 м по горизонтали (выход — дальше 1,7 м), она встаёт в одну из
+      // точек вокруг неё: по кругу от направления камеры (0, ±0,6 … π) на 2,6 / 2,0 / 1,6 м, внутри зала, луч от головы свободен;
+      // берётся ближайшая по повороту (прежний выбор — с запасом, без дрожи) — вид через плечо, сбоку или наискосок, не сверху.
+      // Поворот камеры для джойстика (yaw) не меняется. fix(look, want, yaw, ray) → поворот выбранной точки (0 — не нужно)
+      const ALT = [0, 0.6, -0.6, 1.1, -1.1, 1.6, -1.6, 2.1, -2.1, 2.6, -2.6, PI], altP = new T.Vector3(), altB = new T.Vector3(), altB2 = new T.Vector3();
+      let altPrev = null;
+      const camFix = (look, want, yaw, ray, fresh) => {
+        if (fresh) altPrev = null;   // проверки: каждая поза сама по себе
+        const hd0 = Math.hypot(want.x - look.x, want.z - look.z), steep = want.y - look.y > hd0;   // близко или взгляд круче 45° (а «peek» поднимет ещё)
+        if (hd0 >= (altPrev === null ? 1.3 : 1.7) && !steep) { altPrev = null; return 0; }
+        let best = null, bs = -1e9;
+        for (const dy of ALT) for (const D of [2.6, 2.0, 1.6]) {
+          const b = yaw + dy; altP.set(look.x - Math.sin(b) * D, Math.min(look.y + 0.85, H - 0.3), look.z - Math.cos(b) * D); clampIn(altP, false);
+          const hdC = Math.hypot(altP.x - look.x, altP.z - look.z); if (hdC < 1.4) continue;
+          if (ray && ray(look, altP) < 1) continue;
+          // глубина кадра: насколько свободно за ней по линии камера → она (видно зал, а не стену вплотную)
+          altB2.set(look.x + (look.x - altP.x) / hdC * 6, look.y, look.z + (look.z - altP.z) / hdC * 6); const deep = ray ? 6 * ray(look, altB2) : 6;
+          const sc = Math.min(hdC, 2.6) - 0.55 * Math.abs(dy) + 0.18 * Math.min(deep, 6) + (altPrev !== null && Math.abs(dy - altPrev) < 1e-6 ? 0.6 : 0);
+          if (sc > bs) { bs = sc; best = dy; altB.copy(altP); }
+          break;   // для этого направления — самая дальняя свободная точка
+        }
+        if (best === null) { altPrev = null; return 0; }
+        altPrev = best; want.copy(altB); return best || 1e-6; };
+      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, peek: 2.6, peekTop: H - 0.32, clamp: v => clampIn(v, false), fix: camFix }, ZONE_DOOR = Object.assign({}, ZONE, { hgt: 2.45, fov: 10, clamp: v => clampIn(v, true) });   // правка r1: у двери не выше (вход ведёт «рельс»)
+      // правка r1: вход — камера «на рельсе» сквозь проём следом за ней. Пока она подходит к двери с улицы (и первые ~1,8 м зала) и
+      // камера смотрит внутрь, камера опускается и сужается: 1,6–2,0 м за ней в створе двери, на 1,8 м над землёй (ниже перемычки
+      // 2,35), взгляд — мимо неё в зал (видны зал, стойка и окна, а не тёмная стена над дверью). Дальше в зале — плавно обычная зона.
+      // camRail(x, z, y, yaw) → { k 0…1, pos, look } | null (regions.js updCamera; зеркало — village.html)
+      const sst = (a, b, x) => { const t = lim((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+      // смешать точку камеры want с точкой рельса p (доля k) — по кругу вокруг неё (пеленг, расстояние, высота), а не по прямой:
+      // между двумя хорошими точками по разные стороны камера не проходит у самой головы
+      const blend0 = new T.Vector3();
+      W9.camBlend = (want, look, p, k, ray) => { blend0.copy(want); const ha = Math.atan2(want.x - look.x, want.z - look.z), hb = Math.atan2(p[0] - look.x, p[2] - look.z);
+        let dh = hb - ha; while (dh > PI) dh -= 2 * PI; while (dh < -PI) dh += 2 * PI;
+        const da = Math.hypot(want.x - look.x, want.z - look.z), db = Math.hypot(p[0] - look.x, p[2] - look.z), h2 = ha + dh * k, d2 = da + (db - da) * k;
+        const lzA = (want.x - c.x) * F.s + (want.z - c.z) * F.c, lzB = (p[0] - c.x) * F.s + (p[2] - c.z) * F.c;
+        want.set(look.x + Math.sin(h2) * d2, want.y + (p[1] - want.y) * k, look.z + Math.cos(h2) * d2);
+        if (lzA < zi1 - 0.1 && lzB < zi1 - 0.1) clampIn(want, false);   // обе точки в зале — и дуга между ними в зале
+        // дуга задела косяк или стену — по прямой; и та заслонена — ближняя из двух точек (рельс, если его доля больше)
+        if (ray && ray(look, want) < 1) { want.copy(blend0).lerp(altP.set(p[0], p[1], p[2]), k); if (ray(look, want) < 1) { if (k > 0.5) want.copy(altP); else want.copy(blend0); } }
+        return want; };
+      W9.camRail = (x, z, y, yaw) => {
+        if (y !== undefined && y > 1.2) return null;
+        const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
+        const flz = Math.cos(yaw - c.ry);   // взгляд камеры в рамке кофейни: −1 — прямо в зал
+        // в зале — только в створе двери (±0,5 м от оси: луч к камере идёт сквозь проём), на улице — шире (подходит наискосок)
+        const lat = Math.abs(lx - 0.4), wo = sst(zi1 - 0.2, hd + 0.8, lz), latK = sst(0.72 + 1.48 * wo, 0.5 + 0.7 * wo, lat);
+        const k = sst(-0.35, -0.75, flz) * latK * sst(hd + 3.4, hd + 1.4, lz) * sst(zi1 - 2.8, zi1 - 1.3, lz);
+        if (k < 1e-3) return null;
+        // ближе к двери — ближе к ней (1,6 м; издали 2,0) и ниже (1,8 м над землёй): верх проёма (2,35) не попадает в кадр, как
+        // только она внутри; камера за правым плечом (+0,3 м, в створе проёма) — она левее середины кадра, справа видна стойка
+        const y0 = y || 0, dr = 1.6 + 0.4 * sst(hd + 0.5, hd + 2.0, lz), cz = Math.min(lz + dr, zi1 - 0.15 + Math.max(0, lz - (zi1 - 1.5)) * 3);   // глубже 1,5 м в зале — камера уже в зале
+        const band = Math.abs(cz - (zi1 + hd) / 2), hwB = 0.42 + Math.max(0, band - 0.3) * 1.0;   // у плоскости двери — в створе проёма
+        let cx = lim(lx + (0.4 - lx) * 0.6 + 0.3, 0.4 - hwB, 0.4 + hwB); if (cz < zi1) cx = lim(cx, -xi + 0.2, 3.25);
+        let cy = y0 + 1.8; if (band < 0.6) cy = Math.min(cy, 2.12);
+        const ax = lx + 0.3, az = lz - 2.4;   // взгляд — прямо в зал, чуть правее неё
+        return { k, fov: 16, pos: [c.x + cx * F.c + cz * F.s, cy, c.z - cx * F.s + cz * F.c], look: [c.x + ax * F.c + az * F.s, y0 + 1.0, c.z - ax * F.s + az * F.c] };   // fov — шире кадр на рельсе
+      };
       W9.camZone = (x, z, y) => { if (y !== undefined && y > 2) return null; const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
         if (Math.abs(lx) > xi || lz < zi0) return null; if (lz <= zi1 - 1.5) return ZONE; return lz <= zi1 || (lx > -0.3 && lx < 1.1 && lz <= hd + 0.3) ? ZONE_DOOR : null; };
       // ===== жители: лисичка-бариста за стойкой (лицом к гостям, −x), ёжик с капучино за столиком у окна, зайчиха на табурете =====
@@ -2673,6 +2745,8 @@
       ib.box(F, (bx1 + xi - 0.31) / 2, (FY + 0.5) / 2, (zi0 + 1.25) / 2, xi - 0.31 - bx1, 0.5 - FY, 1.25 - zi0, { col: rgb('#4A3A30'), cols: { py: rgb('#5A4636') }, skip: { ny: 1 } });
       const bar = placeNpc('barista_fox', ...(() => { const p = F.p(4.6, 0, -0.4); return [p[0], p[2]]; })(), c.ry - PI / 2, { y: 0.5, scale: 1.12, make: W9.makeBarista, headY: 1.2, talkR: 2.6 - 0.12 * 1.2, name: 'Лисичка-бариста' });
       bar.paw = { color: '#D9783A', height: 0.55, meetY: 1.04 }; bar.cafe = true;
+      // правка r1: сама здоровается один раз — когда героиня впервые ближе ~2 м к стойке (стойка в 1,1 м перед ней: 3,1 м до лисички), дальше — по нажатию
+      bar.greetOnce = true; bar.greetR = 3.1;
       { const p = F.p(-1.9, 0, -0.95), n = placeNpc('cafe_hedgehog', p[0], p[2], c.ry, { y: 0.47, make: W9.makeCafeHedgehog, scale: 0.86, headY: 0.85, talkR: 1.9, name: 'Ёжик с капучино', seatYaw: 0.5 }); n.cafe = true; n.noGreet = true; }
       // правка волны 10: зайчиха — на крайнем табурете у стойки баристы (+2,2): виды с мест у окна смотрят к селу, в сторону −x, и
       // прежде она (на −4,3) стояла посреди вида с табурета A
@@ -5157,6 +5231,9 @@
       roofRows: () => houses.filter(h => h.row >= 0).map(h => ({ id: h.id, row: h.row, phi: h.phi, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, storeys: h.storeys, roof: h.roof, walk: h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace') })),
       // волна 10: зона камеры в зале кофейни (regions.js updCamera): { dist, hgt, fov, swing, run } | null
       camZone: (x, z, y) => (W9.camZone ? W9.camZone(x, z, y) : null),
+      camRail: (x, z, y, yaw) => (W9.camRail ? W9.camRail(x, z, y, yaw) : null),   // правка r1: вход в кофейню — камера сквозь проём
+      camBlend: (want, look, p, k, ray) => (W9.camBlend ? W9.camBlend(want, look, p, k, ray) : want.lerp({ x: p[0], y: p[1], z: p[2] }, k)),   // смешать с рельсом по кругу вокруг неё
+      indoor: () => (W9.camCafe ? 1 : 0),   // правка r1: камера в зале кофейни (ночью жители и героиня — в тёплом свете зала)
       camColliders: camColliders.concat(camExtra),   // кроны, галереи, свод арки, вывески, «метро»: только для луча камеры (rayHit их уже учитывает)
       ground: (x, z) => model.y(x, z),
       groundInfo: (x, z) => model.info(x, z),

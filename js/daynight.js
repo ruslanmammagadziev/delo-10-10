@@ -42,6 +42,7 @@
      dn.set(ov|null, { persist?, instant? }) — ov: 'morning' | любая фаза | число-час; null — как на часах
      dn.override() → ov | null; dn.onChange(cb) → отписка; cb({ phase, prev, hour, override, lamps, night })
      dn.lampsOn() → bool; dn.night() → 0…1 (звёзды); dn.apply(preset) — сменить набор (плавно)
+     dn.actorWarm(k) — 0…1: жители и героиня в тёплом свете помещения (кофейня ночью), а не в лунном; плавно ~0,3 с
      dn.attach(root, { kind?, owner? }) — пропатчить материалы поддерева (вид сам: sky / lamp / glow / actor / world);
        userData.dn = 'world'|'actor'|'sky'|'window'|'lamp'|'glow'|'none' у объекта или материала — вид вручную
      dn.attachRegion(h) — регион села/дороги целиком: h.lights, h.npcs (как 'actor'), h.root, h.night (если есть)
@@ -297,6 +298,7 @@
     const cur = new Float32Array(L.N), tgt = new Float32Array(L.N);
     let first = true, snap = false, camera = opts.camera || null, disposed = false;
     const NS = new Float64Array(4);   // [0] время, [1] таймер досмотра сцены
+    const AW = new Float64Array(2);   // правка r1: «тёплый зал» для жителей и героини: [0] сейчас, [1] цель (dn.actorWarm(k))
     let sun = opts.sun || null, hemi = opts.hemi || null, fogOpt = opts.fog || null, groundFn = typeof opts.ground === 'function' ? opts.ground : null, groundOwner = null;
     const HI = opts.quality === 'high';
     const TAU = opts.tau || 0.8;
@@ -342,6 +344,13 @@
       UA.dnMul.value.x = 1 + (cur[0] - 1) * a; UA.dnMul.value.y = 1 + (cur[1] - 1) * a; UA.dnMul.value.z = 1 + (cur[2] - 1) * a;
       UA.dnAdd.value.x = cur[3] * a; UA.dnAdd.value.y = cur[4] * a; UA.dnAdd.value.z = cur[5] * a;
       UA.dnP.value.x = 1 + (cur[L.SAT] - 1) * a; UA.dnP.value.y = 1 + cur[L.EMIS] * a;
+      // правка r1: камера в тёплом зале (кофейня ночью) — жители и героиня не в синем лунном свете, а в тёплом от ламп-подвесов:
+      // грейд актёров плавно к тёплому (сила — свечение фазы: днём без изменений)
+      const w = AW[0];
+      if (w > 1e-3) { const g = cur[L.GLOW], mv = UA.dnMul.value, av = UA.dnAdd.value;   // цель: множитель (1; 0,88; 0,70), сдвиг (0,035; 0,02; 0) — к ночи
+        mv.x += (1 - mv.x) * w; mv.y += (1 - 0.12 * g - mv.y) * w; mv.z += (1 - 0.3 * g - mv.z) * w;
+        av.x += (0.035 * g - av.x) * w; av.y += (0.02 * g - av.y) * w; av.z -= av.z * w;
+        UA.dnP.value.x += (1 - 0.06 * g - UA.dnP.value.x) * w; }
       US.dnMul.value.x = cur[L.SHM]; US.dnMul.value.y = cur[L.SHM + 1]; US.dnMul.value.z = cur[L.SHM + 2];
       US.dnAdd.value.x = cur[L.SHA]; US.dnAdd.value.y = cur[L.SHA + 1]; US.dnAdd.value.z = cur[L.SHA + 2];
       US.dnMulZ.value.x = cur[L.SZM]; US.dnMulZ.value.y = cur[L.SZM + 1]; US.dnMulZ.value.z = cur[L.SZM + 2];
@@ -687,6 +696,7 @@ void main() {
       if (disposed) return;
       if (cam) camera = cam;
       NS[2] = dt > 0 ? (dt > 0.25 ? 0.25 : dt) : 0; NS[0] += NS[2];
+      AW[0] += (AW[1] - AW[0]) * (first || snap ? 1 : 1 - Math.exp(-NS[2] / 0.3)); if (Math.abs(AW[1] - AW[0]) < 1e-3) AW[0] = AW[1];
       effInto(); lookAtHB(P, tgt);
       if (first || snap) { cur.set(tgt); first = snap = false; } else { NS[3] = 1 - Math.exp(-NS[2] / TAU); blend(); }
       writeUniforms(); applyLights(); updateSkyObjects(); updateOverlays();
@@ -711,6 +721,7 @@ void main() {
       set: (ov, o) => setGlobal(ov, o), override: () => OVR,
       onChange: cb => { cbs.add(cb); return () => cbs.delete(cb); },
       lampsOn: () => cur[L.LAMP] > 0.5, night: () => cur[L.STAR], glow: () => cur[L.GLOW],
+      actorWarm: k => { AW[1] = k > 1 ? 1 : k > 0 ? +k : 0; return AW[0]; },   // правка r1: 0…1 — жители и героиня в тёплом свете зала (кофейня), плавно ~0,3 с
       apply: name => { P = compiledPreset(resolvePreset(name)); if (P.css && skyEl && !ovNight) makeOverlays(); return P.id; },
       preset: () => P.id,
       setLights: (s, hm) => { if (s !== undefined) { sun = s; SL.sunC.ref = SL.sunI.ref = null; } if (hm !== undefined) { hemi = hm; SL.hemC.ref = SL.hemG.ref = SL.hemI.ref = null; } },

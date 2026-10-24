@@ -327,7 +327,7 @@
       S.region = REG[id]().build({ THREE: T, scene, named, season, quality, mood: Q.get('mood') || undefined, clouds: Q.get('clouds') !== '0', from,
         bazaar: Q.get('bazaar') === '1' ? true : Q.get('bazaar') === '0' ? false : undefined });
       if (renderer.shadowMap.enabled) renderer.shadowMap.autoUpdate = true;
-      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.climb = null; S.look = null; S.inShop = null; S.iaDy = 0;
+      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.onceGreet = new Set(); S.railK = 0; S.climb = null; S.look = null; S.inShop = null; S.iaDy = 0;
       const h = S.region;
       if (h.camera && h.camera.far) { camera.far = h.camera.far; camera.near = h.camera.near || 0.1; camera.updateProjectionMatrix(); }
       if (hero && hero.root.parent !== scene) { scene.add(hero.root); } if (blob && blob.parent !== scene) scene.add(blob);
@@ -498,7 +498,7 @@
       if (n.id === 'granny_hedgehog' && S.flags.jug) { const ev = V.eventLine && V.eventLine('grannyThanks', named); text = ev ? ev.text : text; S.flags.jug = false; S.flags.granny = true; S.cheerT = 1.2; }
       if (n.id === 'granny_hedgehog' && i === 1) S.flags.askJug = true;
       bubble(npcHead(n), text, n.name, 3600);
-      n.hop && n.hop(); n.faceHero = 2.5; S.lastGreet[n.id] = performance.now();
+      n.hop && n.hop(); n.faceHero = 2.5; S.lastGreet[n.id] = performance.now(); if (n.greetOnce) (S.onceGreet = S.onceGreet || new Set()).add(n.id);
       if (window.G && G.voiceLine) { try { G.voiceLine(n.speaker || n.id, text); } catch (e) { /* без голоса */ } }
     }
     const npcSayEvent = (id, ev, ms = 2800) => { const n = S.region.npcs.find(q => q.id === id), l = V.eventLine && V.eventLine(ev, named); if (n && l) { bubble(npcHead(n), l.text, n.name, ms); n.faceHero = 2.5; n.hop && n.hop(); } return !!(n && l); };
@@ -605,7 +605,7 @@
       const h = S.region, seller = npcBy(shop.seller);
       // волна 10: кофейня «без перехода» — как в игре: шажок к месту заказа, лицом к баристе, лист заказа (без шторки и кадра)
       if (shop.walkIn) { const ins = shop.inside, d = Math.hypot(ins[0] - S.px, ins[2] - S.pz); if (d > 0.3) { const k = Math.min(1, 1 / d); S.px += (ins[0] - S.px) * k; S.pz += (ins[2] - S.pz) * k; S.py = h.ground(S.px, S.pz); }
-        S.inShop = shop; S.ang = ins[3]; S.vx = S.vz = 0; if (shop.camYaw != null) S.yaw = shop.camYaw; if (seller) seller.faceHero = 4; await sleep(250); return shopMenu(shop); }
+        S.inShop = shop; S.ang = ins[3]; S.vx = S.vz = 0; if (shop.camYaw != null) S.yaw = shop.camYaw; if (seller) { seller.faceHero = 4; if (seller.greetOnce) (S.onceGreet = S.onceGreet || new Set()).add(seller.id); } await sleep(250); return shopMenu(shop); }
       if (IA) { try { IA.cancel(); } catch (e) { /* ok */ } }
       await fade('Заходим в лавку…', () => { S.inShop = shop; S.px = shop.inside[0]; S.pz = shop.inside[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.inside[3]; S.vx = S.vz = 0; setView(shop.view, false); if (hero && hero.rig) hero.rig.prev = null; });
       if (seller) { seller.faceHero = 3; if (seller.lines && seller.lines[0]) bubble(npcHead(seller), seller.lines[0], seller.name, 3000); }
@@ -1019,9 +1019,12 @@
       const sp = Math.hypot(S.vx, S.vz); S.walking = sp > 0.25;
       if (sp > 0.25) { S.ang += angDiff(Math.atan2(S.vx, S.vz), S.ang) * Math.min(1, dt * 11); S.moveT += dt; } else S.moveT = 0;
       // жители здороваются сами, когда подходишь
-      h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; const d = Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz); if (d < 2.6 && Math.abs(n.root.position.y - S.py) < 2.5 && performance.now() - (S.lastGreet[n.id] || -1e9) > 25000) talk(n, true); });
+      h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; const d = Math.hypot(n.root.position.x - S.px, n.root.position.z - S.pz);
+        // правка r1 (как в игре): greetOnce (лисичка-бариста) — одно «привет» у стойки, дальше только по нажатию
+        if (n.greetOnce) { S.onceGreet = S.onceGreet || new Set(); if (!S.onceGreet.has(n.id) && !S.inShop && d < (n.greetR || 2.6) && Math.abs(n.root.position.y - S.py) < 2.5) { S.onceGreet.add(n.id); talk(n, true); } return; }
+        if (d < 2.6 && Math.abs(n.root.position.y - S.py) < 2.5 && performance.now() - (S.lastGreet[n.id] || -1e9) > 25000) talk(n, true); });
     }
-    const camPos = new T.Vector3(), look = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3();
+    const camPos = new T.Vector3(), look = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3(), railP = new T.Vector3(), railL = new T.Vector3(), railL2 = new T.Vector3();
     function updCamera(dt) {
       const h = S.region;
       if (S.view) {
@@ -1064,6 +1067,7 @@
       if (zk > 1e-3) { dist += (S.zone.dist - dist) * zk; hgt += (S.zone.hgt - hgt) * zk; }
       look.set(S.px, S.py + 1.35, S.pz);
       want.set(S.px - Math.sin(S.yaw) * dist, S.py + hgt, S.pz - Math.cos(S.yaw) * dist);
+      const rl = !top && h.camRail ? h.camRail(S.px, S.pz, S.py, S.yaw) : null; let rk = rl ? rl.k : 0;   // правка r1: вход в кофейню — «рельс»
       const gy = h.ground(want.x, want.z); if (want.y < gy + 1.2) want.y = gy + 1.2;
       // склон/бугор между героиней и камерой (рельеф, не коллайдер): поднять камеру над линией взгляда, не больше чем на 3,5 м
       if (!top) { let up = 0; for (const t of [0.5, 0.75]) { camUp.lerpVectors(look, want, t); const g = h.ground(camUp.x, camUp.z) + 0.35; if (camUp.y + up * t < g) up = (g - camUp.y) / t; } want.y += Math.min(3.5, up); }
@@ -1085,8 +1089,13 @@
         }
       }
       if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале кофейни — камера не выходит из зала (как в игре)
+      // правка r1 (как в игре): тесно — точка вокруг неё в зале, не на макушку; вход — камера «на рельсе» сквозь проём
+      if (zn && zn.fix && zk > 0.5) zn.fix(look, want, S.yaw, h.rayHit);
+      if (rk > 0) { railP.set(rl.pos[0], rl.pos[1], rl.pos[2]); const tr = h.rayHit ? h.rayHit(look, railP) : 1; if (tr < 1) { rk *= clamp((tr - 0.55) / 0.4, 0, 1); railP.lerpVectors(look, railP, Math.max(0.05, tr - 0.07)); } if (h.camBlend) h.camBlend(want, look, [railP.x, railP.y, railP.z], rk, h.rayHit); else want.lerp(railP, rk); railL.set(rl.look[0], rl.look[1], rl.look[2]);
+        if (rk > 0.3 && S.walking && S.manualT <= 0) S.yaw += angDiff(Math.atan2(S.px - railP.x, S.pz - railP.z), S.yaw) * Math.min(1, dt * 2) * rk; }
+      S.railK = (S.railK || 0) + (rk - (S.railK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 6) : 1);
       // правка волны 10 (как в игре): в зале стена за спиной (камера ближе zn.peek м) — камера выше, взгляд мимо героини в зал
-      let peekK = 0; if (zn && zn.peek && zn.clamp) { const hz1 = Math.hypot(want.x - look.x, want.z - look.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk; if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(look, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
+      let peekK = 0; if (zn && zn.peek && zn.clamp && rk < 0.5) { const hz1 = Math.hypot(want.x - look.x, want.z - look.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk * (1 - rk); if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(look, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
       S.peekK = (S.peekK || 0) + (peekK - (S.peekK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 5) : 1);
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
@@ -1094,8 +1103,9 @@
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
       if (h.rayHit && !top) { const t2 = h.rayHit(look, camPos); if (t2 < 1) camPos.lerpVectors(look, camPos, Math.max(0.03, t2 - 0.07)); }
       camera.position.copy(camPos);
-      if (S.peekK > 0.02) { const hx = look.x - camPos.x, hz = look.z - camPos.z, hl = Math.hypot(hx, hz) || 1, k = S.peekK; camera.lookAt(look.x + hx / hl * 2.4 * k, look.y - 0.4 * k, look.z + hz / hl * 2.4 * k); } else camera.lookAt(look);
-      const fovT = (camera.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk : 0); if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
+      if (S.railK > 0.02) { railL2.lerpVectors(look, railL, Math.min(1, S.railK)); camera.lookAt(railL2); }   // правка r1: на «рельсе» входа — взгляд мимо неё в зал
+      else if (S.peekK > 0.02) { const hx = look.x - camPos.x, hz = look.z - camPos.z, hl = Math.hypot(hx, hz) || 1, k = S.peekK; camera.lookAt(look.x + hx / hl * 2.4 * k, look.y - 0.4 * k, look.z + hz / hl * 2.4 * k); } else camera.lookAt(look);
+      const fovT = (camera.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk * (1 - S.railK) : 0) + (rl && rl.fov ? rl.fov * S.railK : 0); if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
     }
     // «вау»-момент серпантина: один раз за поездку вверх камера показывает село через долину
     let momentLook = null, momentW = 0;
@@ -1171,7 +1181,7 @@
       updCamera(dt);
       S.region.update(dt, { x: S.px, y: S.py, z: S.pz }, camera);
       pollEvents();
-      if (dn) { dn.update(dt, camera); const k = dn.lampsOn() ? Math.max(0.65, dn.night()) : dn.night() * 0.5; if (Math.abs(k - S.night) > 0.004 && S.region.setNight) { S.night = k; S.region.setNight(k); }
+      if (dn) { if (dn.actorWarm) dn.actorWarm(S.region.indoor ? S.region.indoor() : 0); dn.update(dt, camera); const k = dn.lampsOn() ? Math.max(0.65, dn.night()) : dn.night() * 0.5; if (Math.abs(k - S.night) > 0.004 && S.region.setNight) { S.night = k; S.region.setNight(k); }
         const lo = dn.lampsOn(); if (car && car.setNight && lo !== S.carLamps) { S.carLamps = lo; try { car.setNight(lo ? 1 : 0); } catch (e) { /* ok */ } } }
       renderer.info.reset();
       renderer.render(scene, camera);

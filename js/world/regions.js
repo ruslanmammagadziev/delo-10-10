@@ -285,7 +285,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       iaCancel: false, prankLog: [], evLog: [], said: [], sim: false, lastExit: null, camFix: 0, sat: 0, springs: 0, breads: 0, buys: 0, congrats: 0,
       // волна 5: бег и прыжки (Move), параплан, спорт отеля, «Бум!» (PlayFight), зиплайн «держись», фразы в тумане, «Помахать»
       mv: null, floor: null, camY: null, fly: null, flyLog: [], sport: null, sportLog: [], pf: null, pfLog: [], zipPts: 0, zipHoldKey: false, zipDrops: 0,
-      fogLog: [], waveN: 0, waveLog: [], greeted: new Set(), mvLog: [], voiceLog: [],
+      fogLog: [], waveN: 0, waveLog: [], greeted: new Set(), onceGreet: new Set(), greetLog: [], mvLog: [], voiceLog: [],
       // W7: взгляд пальцем вверх-вниз (pitch, рад, + вверх; pitchT — с последнего касания, с), за рулём — вокруг машины (dYaw);
       // вид «из-за руля» (ck — VILLAGE.drive.cockpit, ckLook — поворот головы)
       pitch: 0, pitchT: 99, dYaw: 0, ck: null, ckLook: { yaw: 0, pitch: 0 },
@@ -1341,7 +1341,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // большой базар — по средам (как в Кубачах); в предпросмотре автора (UNLOCK.all) — каждый день, чтобы его можно было увидеть
       const bazaar = window.CONFIG && CONFIG.UNLOCK && CONFIG.UNLOCK.all ? true : undefined;
       S.h = quiet(() => mod.build({ THREE: T, scene, named, season, quality: regionQ, clouds: !lite, from, bazaar }));
-      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.moveTo = null; S.exitArmed = {}; S.night = -1; S.zone = null; S.zoneK = 0; S.zoneIn = false; S.cup = null;
+      S.rid = id; S.level = 'ground'; S.sitting = null; S.view = null; S.camInit = false; S.lastGreet = {}; S.onceGreet = new Set(); S.railK = 0; S.moveTo = null; S.exitArmed = {}; S.night = -1; S.zone = null; S.zoneK = 0; S.zoneIn = false; S.cup = null;
       const h = S.h;
       cam.near = (h.camera && h.camera.near) || 0.1; cam.far = (h.camera && h.camera.far) || 1600; cam.updateProjectionMatrix();
       registerSpeakers();
@@ -1736,7 +1736,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     async function talk(n) {
       if (!n || !n.lines || !n.lines.length) return;
       const text = nextLine(n), who = n.speaker || n.id;
-      n.hop && n.hop(); n.faceHero = 1e9; S.lastGreet[n.id] = performance.now();
+      n.hop && n.hop(); n.faceHero = 1e9; S.lastGreet[n.id] = performance.now(); if (n.greetOnce) S.onceGreet.add(n.id);
       emit('region:talk', { npc: n.id, text });
       if (say) { bubbles.forEach(b => { b.until = 0; }); await runBusy(() => say([{ who, text }])); } else { bubble(npcHead(n), text, n.name, 3600); voiceBubble(who, text); }
       n.faceHero = 1.5;
@@ -1745,7 +1745,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function onScreen(p) { if (!cam) return false; tmpV.set(p.x, p.y, p.z).project(cam); return tmpV.z < 1 && Math.abs(tmpV.x) < 0.95 && Math.abs(tmpV.y) < 0.95; }
     function greet(n) {
       if (!n.lines || !n.lines.length) return;
-      const text = nextLine(n); n.hop && n.hop(); n.faceHero = 2.5; S.lastGreet[n.id] = performance.now();
+      const text = nextLine(n); n.hop && n.hop(); n.faceHero = 2.5; S.lastGreet[n.id] = performance.now(); S.greetLog.push(n.id); if (S.greetLog.length > 40) S.greetLog.shift();   // правка r1: кто здоровался сам (проверки)
       if (onScreen(npcHead(n)())) bubble(npcHead(n), text, n.name, 3600); else toast(n.name + ': ' + text, 3600);
       voiceBubble(n.speaker || n.id, text);
     }
@@ -1997,6 +1997,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // волна 10: лавка «без перехода» (кофейня «Мархарай»): ни шторки, ни прыжка, ни своего кадра — подошла к стойке и нажала.
     // Дальше 0,3 м от места заказа — короткий шажок (не больше 1 м за 0,3 с), лицом к баристе, лист заказа; «Выйти» — стоит где стояла
     async function enterWalkIn(shop, seller) {
+      if (seller && seller.greetOnce) S.onceGreet.add(seller.id);   // правка r1: заказала — бариста уже не здоровается сама
       const ins = shop.inside, d = Math.hypot(ins[0] - S.px, ins[2] - S.pz);
       S.moveTo = null; S.vx = S.vz = 0;
       if (d > 0.3) { const k = Math.min(1, 1.0 / d), x0 = S.px, z0 = S.pz, x1 = x0 + (ins[0] - x0) * k, z1 = z0 + (ins[2] - z0) * k, t0 = performance.now();
@@ -2897,7 +2898,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // не больше одного за 6 с (их много и они подходят сами — облачка не громоздятся)
     function greetNear() {
       const h = S.h, now = performance.now();
-      h.npcs.forEach(n => { if (!n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; if (n.paltar && now - (S.palGreetT || -1e9) < 6000) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz); if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) { if (n.paltar) S.palGreetT = now; greet(n); } });
+      h.npcs.forEach(n => { if (!n.root.visible || n.silent || n.noGreet || !n.lines || !n.lines.length) return; if (S.pf && S.pf.isReacting && S.pf.isReacting(n)) return; if (n.paltar && now - (S.palGreetT || -1e9) < 6000) return; const p = n.root.position, d = Math.hypot(p.x - S.px, p.z - S.pz);
+        // правка r1: greetOnce (лисичка-бариста) — одно мягкое «привет», когда она впервые подошла к стойке (greetR), дальше — только по
+        // нажатию; не повторяется (S.onceGreet — до конца поездки; нажатие и заказ тоже считаются)
+        if (n.greetOnce) { if (!S.onceGreet.has(n.id) && !S.inShop && d < (n.greetR || 2.6) && Math.abs(p.y - S.py) < 2.5) { S.onceGreet.add(n.id); greet(n); } return; }
+        if (d < 2.6 && Math.abs(p.y - S.py) < 2.5 && now - (S.lastGreet[n.id] || -1e9) > 25000) { if (n.paltar) S.palGreetT = now; greet(n); } });
     }
     function arrive() {
       const m = S.moveTo; S.moveTo = null; if (!m || !m.thing) return;
@@ -2937,7 +2942,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
 
     /* ---------- камера ---------- */
-    const camPos = new T.Vector3(), lookP = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3(), tp = new T.Vector3(), tl = new T.Vector3(), lk = new T.Vector3(), alt = new T.Vector3();
+    const camPos = new T.Vector3(), lookP = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3(), tp = new T.Vector3(), tl = new T.Vector3(), lk = new T.Vector3(), alt = new T.Vector3(), railP = new T.Vector3(), railL = new T.Vector3();
     // точка камеры за спиной по направлению yaw (с подъёмом над рельефом между головой и камерой)
     let camBase = 0;   // W5: высота, за которой идёт камера (в прыжке — сглаженная: камера не прыгает следом)
     function camAt(out, yaw, dist, hgt, top) {
@@ -3040,11 +3045,13 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       camBase = S.camY;
       lookP.set(S.px, camBase + 1.35, S.pz);
       camAt(want, S.yaw, dist, hgt, top);
+      // правка r1: вход в кофейню — «рельс» (h.camRail; считается до поворота вбок: на рельсе камеру вбок не крутим)
+      const rl = !top && h.camRail ? h.camRail(S.px, S.pz, S.py, S.yaw) : null; let rk = rl ? rl.k : 0;
       if (h.rayHit && !top) {
         let t = h.rayHit(lookP, want);
         // 4B: в тесноте (дом за спиной ближе 2,6 м) — сначала повернуть камеру вбок, где свободно (без ручного поворота),
         // и только потом «над плечом»: раньше камера уходила на +3,2 м прямо над головой и смотрела сверху вниз
-        if (t < 1 && t * lookP.distanceTo(want) < 2.6 && S.manualT <= 0) {
+        if (t < 1 && t * lookP.distanceTo(want) < 2.6 && S.manualT <= 0 && rk < 0.5) {
           let bestD = null, bestDa = t * lookP.distanceTo(want) + 0.8;
           for (const dy of [0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8, 2.3, -2.3, 2.8, -2.8]) {
             if (zk > 0.5 && Math.abs(dy) > S.zone.swing + 1e-6) continue;   // волна 10: в зале — без больших поворотов (джойстик не «уезжает»)
@@ -3078,9 +3085,18 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (want.y > cap && cap >= h.ground(want.x, want.z) + 0.6) want.y = cap;
       }
       if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале — камера не выходит из зала (в дверь, сквозь стекло)
+      // правка r1: тесно (идёт на камеру к стене) — не «сверху на макушку», а точка вокруг неё в зале: через плечо, сбоку, наискосок
+      if (zn && zn.fix && zk > 0.5) zn.fix(lookP, want, S.yaw, h.rayHit);
+      // правка r1: вход в кофейню — камера «на рельсе» сквозь проём следом за ней (h.camRail: ниже перемычки, взгляд мимо неё в зал)
+      if (rk > 0) {
+        railP.set(rl.pos[0], rl.pos[1], rl.pos[2]); const tr = h.rayHit ? h.rayHit(lookP, railP) : 1; if (tr < 1) { rk *= clamp((tr - 0.55) / 0.4, 0, 1); railP.lerpVectors(lookP, railP, Math.max(0.05, tr - 0.07)); }   // проём заслонён (косяк) — рельс слабее
+        if (h.camBlend) h.camBlend(want, lookP, [railP.x, railP.y, railP.z], rk, h.rayHit); else want.lerp(railP, rk); railL.set(rl.look[0], rl.look[1], rl.look[2]);
+        if (rk > 0.3 && S.walking && S.manualT <= 0) S.yaw += angDiff(Math.atan2(S.px - railP.x, S.pz - railP.z), S.yaw) * Math.min(1, dt * 2) * rk;   // джойстик — по кадру
+      }
+      S.railK = (S.railK || 0) + (rk - (S.railK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 6) : 1);
       // правка волны 10: в зале стена за спиной (камера ближе zn.peek м по горизонтали) — камера выше, взгляд мимо героини в зал:
       // капюшон не во весь экран, видно зал и окна (сразу за дверью, у стены на улицу)
-      let peekK = 0; if (zn && zn.peek && zn.clamp) { const hz1 = Math.hypot(want.x - lookP.x, want.z - lookP.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk; if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(lookP, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
+      let peekK = 0; if (zn && zn.peek && zn.clamp && rk < 0.5) { const hz1 = Math.hypot(want.x - lookP.x, want.z - lookP.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk * (1 - rk); if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(lookP, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
       S.peekK = (S.peekK || 0) + (peekK - (S.peekK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 5) : 1);
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
       camPos.lerp(want, 1 - Math.exp(-dt * 7));
@@ -3096,9 +3112,10 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const thE = Math.min(th, Math.atan2(lookP.y - 0.35 - camPos.y, Math.max(0.5, hz)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
         lk.copy(lookP); lk.y = Math.max(lookP.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(lk);
       }
+      else if (S.railK > 0.02) { lk.lerpVectors(lookP, railL, Math.min(1, S.railK)); if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK * (1 - S.railK); lk.x += hx / hl * 2.4 * k; lk.y -= 0.4 * k; lk.z += hz2 / hl * 2.4 * k; } cam.lookAt(lk); }   // правка r1: на «рельсе» входа — взгляд мимо неё в зал
       else if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK; lk.set(lookP.x + hx / hl * 2.4 * k, lookP.y - 0.4 * k, lookP.z + hz2 / hl * 2.4 * k); cam.lookAt(lk); }
       else cam.lookAt(lookP);
-      const fovT = (cam.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk : 0); if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
+      const fovT = (cam.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk * (1 - S.railK) : 0) + (rl && rl.fov ? rl.fov * S.railK : 0); if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
     }
 
     /* ---------- кадр ---------- */
@@ -3107,6 +3124,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     let isSoft = null;
     function nightStep(dt) {
       if (!dn || !S.h) return;
+      if (dn.actorWarm) dn.actorWarm(S.h.indoor ? S.h.indoor() : 0);   // правка r1: камера в зале кофейни — жители и героиня в тёплом свете зала, а не в лунном
       dn.update(dt, cam);
       const k = dn.lampsOn() ? Math.max(0.65, dn.night()) : dn.night() * 0.5;
       if (Math.abs(k - S.night) > 0.004 && S.h.setNight) { S.night = k; try { S.h.setNight(k); } catch (e) { /* ok */ } }

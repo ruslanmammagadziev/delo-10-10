@@ -362,70 +362,48 @@
       c.stroke();
     }
   }
-  // ячейки Вороного: многоугольник каждой точки в рамке box = [x0, y0, x1, y1]
-  function voronoi(P, box) {
-    var out = [];
-    for (var i = 0; i < P.length; i++) {
-      var poly = [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]];
-      for (var j = 0; j < P.length && poly.length; j++) {
-        if (i === j) continue;
-        var nx = P[j][0] - P[i][0], ny = P[j][1] - P[i][1];
-        if (nx * nx + ny * ny > 3600) continue;
-        var mx = (P[i][0] + P[j][0]) / 2, my = (P[i][1] + P[j][1]) / 2, np = [];
-        for (var k = 0; k < poly.length; k++) {
-          var a = poly[k], b = poly[(k + 1) % poly.length];
-          var da = (a[0] - mx) * nx + (a[1] - my) * ny, db = (b[0] - mx) * nx + (b[1] - my) * ny;
-          if (da <= 0) np.push(a);
-          if ((da <= 0) !== (db <= 0)) {
-            var f = da / (da - db);
-            np.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
-          }
-        }
-        poly = np;
-      }
-      out.push(poly);
-    }
-    return out;
-  }
-  // ячейка «мраморной» филиграни: гладкая замкнутая петля-капля с неровным краем
-  function blob(c, R, x, y, a, L, W) {
-    var n = 7, pts = [];
+  // правка r1: S-завиток арабески (вместо «мозаики» ячеек — как на фото: белые завитки и листья на тёмной чаше).
+  // Начало чуть изогнуто в одну сторону, дальше кривизна растёт в другую — конец закручивается спиралью и кончается
+  // точкой; по пути 1–2 листа-миндалины на разные стороны
+  function scroll(c, R, x, y, a, n, sgn, step, leaves) {
+    var pts = [[x, y]], l1 = Math.round(n * 0.28), l2 = Math.round(n * 0.52);
     for (var i = 0; i < n; i++) {
-      var t = i / n * Math.PI * 2, rr = 1 + (R() - 0.5) * 0.5;
-      var lx = Math.cos(t) * L * 0.5 * rr * (Math.cos(t) > 0 ? 1.15 : 0.85), ly = Math.sin(t) * W * 0.5 * rr;
-      pts.push([x + lx * Math.cos(a) - ly * Math.sin(a), y + lx * Math.sin(a) + ly * Math.cos(a)]);
+      var f = i / n;
+      a += sgn * (-0.1 * (1 - f) * (1 - f) + 0.42 * f * f);
+      x += Math.cos(a) * step; y += Math.sin(a) * step;
+      pts.push([x, y]);
+      if (leaves && (i === l1 || (leaves > 1 && i === l2))) {
+        var side = i === l1 ? -sgn : sgn;
+        leaf(c, x, y, a + side * (0.8 + R() * 0.45), 17 + R() * 11, 6.5 + R() * 3, R() < 0.75);
+      }
     }
     c.beginPath();
-    var m0 = [(pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2];
-    c.moveTo(m0[0], m0[1]);
-    for (var j = 0; j < n; j++) {
-      var p = pts[j], q = pts[(j + 1) % n];
-      c.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
-    }
-    c.closePath(); c.stroke();
+    c.moveTo(pts[0][0], pts[0][1]);
+    for (var j = 1; j < pts.length - 1; j++) c.quadraticCurveTo(pts[j][0], pts[j][1], (pts[j][0] + pts[j + 1][0]) / 2, (pts[j][1] + pts[j + 1][1]) / 2);
+    c.stroke();
+    c.beginPath(); c.arc(x, y, 3.2, 0, Math.PI * 2); c.fill();
   }
-  // филигрань: светлые контуры листьев и побегов на тёмной чаше — «дерево» из-под донышка,
-  // по краям — плотная сетка листьев по радиальному потоку (как на фото)
+  // филигрань: светлые завитки, побеги и листья на тёмной чаше — «дерево» из-под донышка (ствол и ветви),
+  // вокруг — плотное кружево S-завитков по потоку от донышка вверх и в стороны (как на фото)
   function filigree(c, col) {
     var R = rng(1987);
     c.save();
     cupPath(c); c.clip();
     c.strokeStyle = col; c.fillStyle = col; c.lineCap = 'round'; c.lineJoin = 'round';
-    // ствол и главные ветви поверх сети (сеть рисуется ниже, в этом же клипе)
+    // ствол и главные ветви — поверх кружева
     var trunk = function () {
-      c.lineWidth = 4.2;
+      c.lineWidth = 5.2;
       var tr = vine(c, R, 334, 356, -1.6, 28, 0.004, 0.03, -1, 0);
-      c.lineWidth = 3.6;
+      c.lineWidth = 4.6;
       vine(c, R, tr[0], tr[1], -2.35, 34, 0.01, 0.42, -1, 9);
       vine(c, R, tr[0], tr[1], -0.8, 38, 0.01, 0.40, 1, 9);
       vine(c, R, 334, 302, -2.9, 30, 0.02, 0.40, 1, 0);
       vine(c, R, 336, 296, -0.2, 34, 0.02, 0.42, -1, 0);
     };
-    // «мраморная» сеть: рёбра диаграммы Вороного по дротикам с шагом ~19 px, рёбра чуть изогнуты;
-    // в части ячеек — завиток или жилка листа (как филигрань на фото)
-    var P = [], tries = 0, D = 24;
-    while (P.length < 110 && tries++ < 9000) {
-      var y = RIM - 6 + R() * (352 - RIM), x = 150 + R() * (PAN.x1 + 8 - 150);
+    // зёрна завитков (диск Пуассона, шаг ~30 px); направление — от донышка наружу, с разбросом
+    var P = [], tries = 0, D = 27;
+    while (P.length < 120 && tries++ < 9000) {
+      var y = RIM - 4 + R() * (352 - RIM), x = CUPX(Math.min(y, 330)) - 6 + R() * (PAN.x1 + 10 - CUPX(Math.min(y, 330)));
       var ok = true;
       for (var i = 0; i < P.length && ok; i++) {
         var dx = P[i][0] - x, dy = P[i][1] - y;
@@ -433,33 +411,16 @@
       }
       if (ok) P.push([x, y]);
     }
-    var cells = voronoi(P, [140, RIM - 12, PAN.x1 + 14, 360]);
-    var hash = function (a, b) {
-      var h = Math.sin(Math.round(a[0] * 3 + b[0] * 3) * 12.9898 + Math.round(a[1] * 3 + b[1] * 3) * 78.233) * 43758.5453;
-      return h - Math.floor(h);
-    };
-    for (var j = 0; j < cells.length; j++) {
-      var poly = cells[j];
-      c.lineWidth = 3.9;
-      for (var k = 0; k < poly.length; k++) {
-        var a = poly[k], b = poly[(k + 1) % poly.length];
-        var ex = b[0] - a[0], ey = b[1] - a[1], el = Math.sqrt(ex * ex + ey * ey);
-        if (el < 0.5) continue;
-        // одинаковый S-изгиб у обеих соседних ячеек (зависит только от пары концов)
-        var hv = hash(a, b), w = (hv - 0.5) * 1.5 * Math.min(el, 22), w2 = (hash(b, a) - 0.5) * 1.3 * Math.min(el, 22);
-        var lo = a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]), A = lo ? a : b, Bp = lo ? b : a;
-        var fx = Bp[0] - A[0], fy = Bp[1] - A[1];
-        c.beginPath(); c.moveTo(A[0], A[1]);
-        c.bezierCurveTo(A[0] + fx / 3 - fy / el * w, A[1] + fy / 3 + fx / el * w,
-          A[0] + fx * 2 / 3 + fy / el * w2, A[1] + fy * 2 / 3 - fx / el * w2, Bp[0], Bp[1]);
-        c.stroke();
-      }
-      var q = P[j], r = R();
-      c.lineWidth = 3.5;
-      if (r < 0.45) vine(c, R, q[0] - 5, q[1] + 4, R() * 6.3, 9 + (R() * 6 | 0), 0.12, 1.0, R() < 0.5 ? 1 : -1, 0, 2.6);
-      else if (r < 0.7) leaf(c, q[0] - 8, q[1] + 2, Math.atan2(q[1] - 372, q[0] - 334) + (R() - 0.5), 16 + R() * 6, 5 + R() * 2, true);
-      else if (r < 0.8) { c.beginPath(); c.moveTo(poly[0][0], poly[0][1]); c.quadraticCurveTo(q[0] + 3, q[1] - 3, q[0] + (q[0] - poly[0][0]) * 0.3, q[1] + (q[1] - poly[0][1]) * 0.3); c.stroke(); }
-      else if (r < 0.88) { c.beginPath(); c.arc(q[0] + 3, q[1] - 2, 2.6, 0, Math.PI * 2); c.fill(); }
+    c.lineWidth = 4.3;
+    for (var j = 0; j < P.length; j++) {
+      var q = P[j], ang = Math.atan2(q[1] - 380, q[0] - 334) + (R() - 0.5) * 1.6, sg = R() < 0.5 ? 1 : -1;
+      scroll(c, R, q[0], q[1], ang, 18 + (R() * 12 | 0), sg, 3.2, R() < 0.85 ? (R() < 0.55 ? 2 : 1) : 0);
+    }
+    // мелкие завитки-«запятые» в просветах
+    c.lineWidth = 3.4;
+    for (var m2 = 0; m2 < 22; m2++) {
+      var yy = RIM + 6 + R() * (340 - RIM), xx = CUPX(Math.min(yy, 330)) + 4 + R() * (PAN.x1 - 4 - CUPX(Math.min(yy, 330)));
+      scroll(c, R, xx, yy, R() * 6.3, 9 + (R() * 5 | 0), R() < 0.5 ? 1 : -1, 2.6, 0);
     }
     // розетка справа (крупный цветок из лепестков, как на фото)
     c.lineWidth = 3.4;
