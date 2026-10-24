@@ -936,8 +936,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // кабриолет — быстрая машина (желание автора): на серпантине 21 м/с вместо 18, разгон 9,5 м/с², тормоз 12,5; седан — как был.
     // «чуть быстрее»: кабриолет 23 м/с, разгон 10, тормоз 13 (седан — 20 м/с в CFG drive.js)
     // Руль от скорости у drive.js свой (steerMax → steerHi к vmax) — растягивается сам
-    // «в 2 раза быстрее»: кабриолет 46 м/с, разгон 20, тормоз 26 (седан — 40 м/с в CFG drive.js)
-    const CAB_DRIVE = { vmax: 46, acc: 20, brake: 26, vCap: 50 };
+    // волна 9 («чересчур быстро — поменьше»): кабриолет 32 м/с (~115 км/ч), разгон 14, тормоз 18 (седан — 28 м/с в CFG drive.js)
+    const CAB_DRIVE = { vmax: 32, acc: 14, brake: 18, vCap: 35 };
     const driveCfgOf = c => Object.assign({}, c.driveCfg, c.kind === 'sedan' || wantSedan() ? null : CAB_DRIVE);
     function ensureCar() {
       if (car) return car;
