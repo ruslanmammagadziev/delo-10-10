@@ -2942,7 +2942,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
 
     /* ---------- камера ---------- */
-    const camPos = new T.Vector3(), lookP = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3(), tp = new T.Vector3(), tl = new T.Vector3(), lk = new T.Vector3(), alt = new T.Vector3(), railP = new T.Vector3(), railL = new T.Vector3();
+    const camPos = new T.Vector3(), lookP = new T.Vector3(), want = new T.Vector3(), camUp = new T.Vector3(), tp = new T.Vector3(), tl = new T.Vector3(), lk = new T.Vector3(), alt = new T.Vector3(), railP = new T.Vector3(), railL = new T.Vector3(), camPrev = new T.Vector3();
     // точка камеры за спиной по направлению yaw (с подъёмом над рельефом между головой и камерой)
     let camBase = 0;   // W5: высота, за которой идёт камера (в прыжке — сглаженная: камера не прыгает следом)
     function camAt(out, yaw, dist, hgt, top) {
@@ -3046,7 +3046,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       lookP.set(S.px, camBase + 1.35, S.pz);
       camAt(want, S.yaw, dist, hgt, top);
       // правка r1: вход в кофейню — «рельс» (h.camRail; считается до поворота вбок: на рельсе камеру вбок не крутим)
-      const rl = !top && h.camRail ? h.camRail(S.px, S.pz, S.py, S.yaw) : null; let rk = rl ? rl.k : 0;
+      const rl = !top && h.camRail ? h.camRail(S.px, S.pz, S.py, S.yaw, S.walking ? S.ang : null) : null; let rk = rl ? rl.k : 0;   // правка r2: и её курс на ходу (свернула в дверь)
       if (h.rayHit && !top) {
         let t = h.rayHit(lookP, want);
         // 4B: в тесноте (дом за спиной ближе 2,6 м) — сначала повернуть камеру вбок, где свободно (без ручного поворота),
@@ -3084,35 +3084,44 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const hd = Math.hypot(want.x - lookP.x, want.z - lookP.z), cap = lookP.y + hd * 1.15 + 0.35;
         if (want.y > cap && cap >= h.ground(want.x, want.z) + 0.6) want.y = cap;
       }
-      if (zn && zn.clamp) zn.clamp(want);   // волна 10: она в зале — камера не выходит из зала (в дверь, сквозь стекло)
+      if (zn && zn.clamp) zn.clamp(want, lookP);   // волна 10: она в зале — камера не выходит из зала (в дверь, сквозь стекло); r2: на пороге — камера с улицы остаётся на улице
       // правка r1: тесно (идёт на камеру к стене) — не «сверху на макушку», а точка вокруг неё в зале: через плечо, сбоку, наискосок
       if (zn && zn.fix && zk > 0.5) zn.fix(lookP, want, S.yaw, h.rayHit);
       // правка r1: вход в кофейню — камера «на рельсе» сквозь проём следом за ней (h.camRail: ниже перемычки, взгляд мимо неё в зал)
       if (rk > 0) {
         railP.set(rl.pos[0], rl.pos[1], rl.pos[2]); const tr = h.rayHit ? h.rayHit(lookP, railP) : 1; if (tr < 1) { rk *= clamp((tr - 0.55) / 0.4, 0, 1); railP.lerpVectors(lookP, railP, Math.max(0.05, tr - 0.07)); }   // проём заслонён (косяк) — рельс слабее
-        if (h.camBlend) h.camBlend(want, lookP, [railP.x, railP.y, railP.z], rk, h.rayHit); else want.lerp(railP, rk); railL.set(rl.look[0], rl.look[1], rl.look[2]);
+        if (h.camBlend) h.camBlend(want, lookP, railP, rk, h.rayHit); else want.lerp(railP, rk); railL.set(rl.look[0], rl.look[1], rl.look[2]);
         if (rk > 0.3 && S.walking && S.manualT <= 0) S.yaw += angDiff(Math.atan2(S.px - railP.x, S.pz - railP.z), S.yaw) * Math.min(1, dt * 2) * rk;   // джойстик — по кадру
       }
-      S.railK = (S.railK || 0) + (rk - (S.railK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 6) : 1);
       // правка волны 10: в зале стена за спиной (камера ближе zn.peek м по горизонтали) — камера выше, взгляд мимо героини в зал:
       // капюшон не во весь экран, видно зал и окна (сразу за дверью, у стены на улицу)
-      let peekK = 0; if (zn && zn.peek && zn.clamp && rk < 0.5) { const hz1 = Math.hypot(want.x - lookP.x, want.z - lookP.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk * (1 - rk); if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want); if (h.rayHit && h.rayHit(lookP, want) < 1) { want.y = y0; zn.clamp(want); peekK = 0; } } }
+      let peekK = 0; if (zn && zn.peek && zn.clamp && rk < 0.5) { const hz1 = Math.hypot(want.x - lookP.x, want.z - lookP.z); peekK = Math.max(0, Math.min(1, (zn.peek - hz1) / zn.peek)) * zk * (1 - rk); if (peekK > 0) { const y0 = want.y; want.y = Math.max(want.y, Math.min(want.y + peekK * zn.peek * 0.42, zn.peekTop || 1e9)); zn.clamp(want, lookP); if (h.rayHit && h.rayHit(lookP, want) < 1) { want.y = y0; zn.clamp(want, lookP); peekK = 0; } } }
+      // правка r2: страховка у кофейни (зал, порог, рельс; h.camGuard): точка камеры не ближе 1,3 м к ней и луч от головы свободен —
+      // иначе точка вокруг неё (в зале или на улице), ближняя по повороту к нынешней камере. Тогда и «рельс», и подъём — не в счёт
+      const gy = !top && h.camGuard ? h.camGuard(lookP, want, S.yaw, h.rayHit, S.camInit ? camPos : null, S.walking ? S.ang : null) : null;
+      if (gy) { rk = 0; peekK = 0; }
+      S.railK = (S.railK || 0) + (rk - (S.railK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 6) : 1);
       S.peekK = (S.peekK || 0) + (peekK - (S.peekK || 0)) * (S.camInit ? 1 - Math.exp(-dt * 5) : 1);
       if (!S.camInit) { camPos.copy(want); S.camInit = true; }
-      camPos.lerp(want, 1 - Math.exp(-dt * 7));
+      camPrev.copy(camPos); const camA = 1 - Math.exp(-dt * 7);
+      camPos.lerp(want, camA);
       const gc = h.ground(camPos.x, camPos.z); if (camPos.y < gc + 0.6) camPos.y = gc + 0.6;
       camOverCar(camPos);
       if (h.rayHit && !top) { const t2 = h.rayHit(lookP, camPos); if (t2 < 1) camPos.lerpVectors(lookP, camPos, Math.max(0.03, t2 - 0.07)); }
+      // правка r2: сглаживание провело камеру у самой головы или луч прижал её к ней — у кофейни по дуге вокруг неё, иначе сразу в want
+      if (gy !== null && h.camGuardPost && h.camGuardPost(lookP, camPos, camPrev, want, camA, h.rayHit)) S.camGuardN = (S.camGuardN || 0) + 1;
       cam.position.copy(camPos);
       // взгляд: если камера всё же над головой, смотреть чуть ниже груди — кадр не «сверху на макушку»
       const hz = Math.hypot(camPos.x - lookP.x, camPos.z - lookP.z), dyc = camPos.y - lookP.y;
       if (hz < 1.2 && dyc > 1.5) { lk.copy(lookP); lk.x += (lookP.x - camPos.x) * 0.8; lk.z += (lookP.z - camPos.z) * 0.8; cam.lookAt(lk); }
+      // правка r1: на «рельсе» входа — взгляд мимо неё в зал; r2: палец вверх-вниз (S.pitch) поднимает и опускает этот взгляд
+      else if (S.railK > 0.02) { lk.lerpVectors(lookP, railL, Math.min(1, S.railK)); if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK * (1 - S.railK); lk.x += hx / hl * 2.4 * k; lk.y -= 0.4 * k; lk.z += hz2 / hl * 2.4 * k; }
+        if (S.pitch) lk.y += Math.tan(clamp(S.pitch, -0.6, 0.6)) * Math.hypot(lk.x - camPos.x, lk.z - camPos.z) * Math.min(1, S.railK); cam.lookAt(lk); }
       // W7: героиня в кадре не ниже ~72 % высоты (над джойстиком): наклон вверх не больше угла до пояса + запас
       else if (S.pitch > 0.001) {
         const thE = Math.min(th, Math.atan2(lookP.y - 0.35 - camPos.y, Math.max(0.5, hz)) + Math.atan(0.44 * Math.tan(cam.fov * PI / 360)));
         lk.copy(lookP); lk.y = Math.max(lookP.y, camPos.y + hz * Math.tan(thE)); cam.lookAt(lk);
       }
-      else if (S.railK > 0.02) { lk.lerpVectors(lookP, railL, Math.min(1, S.railK)); if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK * (1 - S.railK); lk.x += hx / hl * 2.4 * k; lk.y -= 0.4 * k; lk.z += hz2 / hl * 2.4 * k; } cam.lookAt(lk); }   // правка r1: на «рельсе» входа — взгляд мимо неё в зал
       else if (S.peekK > 0.02) { const hx = lookP.x - camPos.x, hz2 = lookP.z - camPos.z, hl = Math.hypot(hx, hz2) || 1, k = S.peekK; lk.set(lookP.x + hx / hl * 2.4 * k, lookP.y - 0.4 * k, lookP.z + hz2 / hl * 2.4 * k); cam.lookAt(lk); }
       else cam.lookAt(lookP);
       const fovT = (cam.aspect < 0.8 ? 58 : 48) + (zk > 1e-3 ? (S.zone.fov || 0) * zk * (1 - S.railK) : 0) + (rl && rl.fov ? rl.fov * S.railK : 0); if (Math.abs(cam.fov - fovT) > 0.05) { cam.fov += (fovT - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }

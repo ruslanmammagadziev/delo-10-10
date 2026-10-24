@@ -2656,7 +2656,12 @@
       const ce = (x0, x1, z0, z1, y0, y1, id) => { const p = F.p((x0 + x1) / 2, 0, (z0 + z1) / 2); camExtra.push({ type: 'box', x: p[0], z: p[2], w: x1 - x0, d: z1 - z0, ry: c.ry, y0, y1, id, cam: true }); };
       ce(-0.36, -0.24, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb'); ce(1.04, 1.16, zi1 - 0.1, hd + 0.15, -0.5, 4.0, 'camCafeJamb');
       // правка r1: створка снаружи, у серого гаража — коллайдер (сквозь стекло не пройти; и для луча камеры)
-      { const L = W9.cafeLeaf, m = [(L.p0[0] + L.p1[0]) / 2, (L.p0[2] + L.p1[2]) / 2]; colliders.push({ type: 'box', x: m[0], z: m[1], w: 1.4, d: 0.1, ry: L.ry, y0: -0.5, y1: 2.4, id: 'cafeLeaf', stand: false }); }
+      { const L = W9.cafeLeaf, m = [(L.p0[0] + L.p1[0]) / 2, (L.p0[2] + L.p1[2]) / 2]; colliders.push({ type: 'box', x: m[0], z: m[1], w: 1.4, d: 0.1, ry: L.ry, y0: -0.5, y1: 2.4, id: 'cafeLeaf', stand: false });
+        // правка r2: и для луча камеры — толще (0,5 м): камера встаёт не ближе 0,25 м к стеклу, а не в его плоскости (справа вдоль фасада)
+        camExtra.push({ type: 'box', x: m[0], z: m[1], w: 1.5, d: 0.5, ry: L.ry, y0: -0.5, y1: 2.55, id: 'camCafeLeaf', cam: true }); }
+      // правка r2: красные навесы над соседями — для луча камеры (коробка с запасом по уклону 2,85…3,15 и на 0,15 м дальше края):
+      // у фасада камера встаёт под навес или перед ним, а не над ним (навес закрывал полкадра и героиню)
+      ce(-hw - 0.05, -3.3, hd - 0.05, hd + 0.85, 2.72, 3.35, 'camCafeCanopy'); ce(1.1, hw + 0.05, hd - 0.05, hd + 0.85, 2.72, 3.35, 'camCafeCanopy');
       ce(bx0 + 0.15, bx1 + 0.05, -2.4, -1.5, 1.0, 1.65, 'camCafeMachine'); ce(bx0 + 0.3, bx1, -1.4, -1.1, 1.0, 1.65, 'camCafeMachine');
       cb(bx0, xi, zi0, zi1, -0.5, 1.1, 'cafeBar', { stand: false });   // стойка с витриной и закутком — одной коробкой: за стойку не пройти и на неё не встать
       cb(-5.10, 3.48, zi0, -2.73, -0.5, 1.07, 'cafeCounter', { stand: false });
@@ -2671,8 +2676,13 @@
       // героиня в зале — камера не выходит из зала: clamp(v) ставит точку внутрь (зазор 0,15 м до стен и потолка); у двери (ближе
       // 1,5 м к стене на улицу) — ещё и «коридор» сквозь проём: спиной к двери камера смотрит с улицы и плавно заходит следом
       const lim = (v, a, b) => (v < a ? a : v > b ? b : v);
-      const clampIn = (v, door) => { const dx = v.x - c.x, dz = v.z - c.z, lx0 = dx * F.c - dz * F.s, lz0 = dx * F.s + dz * F.c;
+      const clampIn = (v, door, look) => { const dx = v.x - c.x, dz = v.z - c.z, lx0 = dx * F.c - dz * F.s, lz0 = dx * F.s + dz * F.c;
         if (door && lz0 > zi1 + 0.05 && lx0 > -0.15 && lx0 < 0.95 && v.y < 2.15) return v;   // уже за порогом, в створе двери и ниже перемычки (правка r1: выше — в зал, не «сквозь стену над дверью»)
+        // правка r2: она на пороге (последние 0,3 м зала, проём, ступень наружу), а камера снаружи — камера остаётся на улице (не ближе
+        // 0,6 м к стене, ниже навесов), а не «втягивается» в зал сквозь стену (там луч от головы упирался в косяк и камера падала
+        // ей на голову). Шла вдоль фасада и свернула в дверь — камеру дальше ведут страховка (camGuard) и «рельс»
+        if (door && look && lz0 > zi1 + 0.05) { const hz = (look.x - c.x) * F.s + (look.z - c.z) * F.c;
+          if (hz > zi1 - 0.3) { const lz = Math.max(lz0, hd + 0.6); v.x = c.x + lx0 * F.c + lz * F.s; v.z = c.z - lx0 * F.s + lz * F.c; if (v.y > 2.6) v.y = 2.6; return v; } }
         const lx = lim(lx0, -xi + 0.15, 3.25), lz = lim(lz0, zi0 + 0.15, zi1 - 0.15);   // правка волны 10: не за стойку (она с x 3,48) — к баристе и в полки
         v.x = c.x + lx * F.c + lz * F.s; v.z = c.z - lx * F.s + lz * F.c; if (v.y > H - 0.15) v.y = H - 0.15; return v; };
       // правка волны 10: у двери (первые 1,5 м зала) камера выше и кадр шире: спиной к стене на улицу она в 1,5 м за героиней —
@@ -2702,7 +2712,7 @@
         }
         if (best === null) { altPrev = null; return 0; }
         altPrev = best; want.copy(altB); return best || 1e-6; };
-      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, peek: 2.6, peekTop: H - 0.32, clamp: v => clampIn(v, false), fix: camFix }, ZONE_DOOR = Object.assign({}, ZONE, { hgt: 2.45, fov: 10, clamp: v => clampIn(v, true) });   // правка r1: у двери не выше (вход ведёт «рельс»)
+      const ZONE = { dist: 3.3, hgt: 2.3, fov: 4, swing: 0.6, run: false, peek: 2.6, peekTop: H - 0.32, clamp: v => clampIn(v, false), fix: camFix }, ZONE_DOOR = Object.assign({}, ZONE, { hgt: 2.45, fov: 10, clamp: (v, look) => clampIn(v, true, look) });   // правка r1: у двери не выше (вход ведёт «рельс»); r2: look — где она (порог)
       // правка r1: вход — камера «на рельсе» сквозь проём следом за ней. Пока она подходит к двери с улицы (и первые ~1,8 м зала) и
       // камера смотрит внутрь, камера опускается и сужается: 1,6–2,0 м за ней в створе двери, на 1,8 м над землёй (ниже перемычки
       // 2,35), взгляд — мимо неё в зал (видны зал, стойка и окна, а не тёмная стена над дверью). Дальше в зале — плавно обычная зона.
@@ -2711,23 +2721,44 @@
       // смешать точку камеры want с точкой рельса p (доля k) — по кругу вокруг неё (пеленг, расстояние, высота), а не по прямой:
       // между двумя хорошими точками по разные стороны камера не проходит у самой головы
       const blend0 = new T.Vector3();
-      W9.camBlend = (want, look, p, k, ray) => { blend0.copy(want); const ha = Math.atan2(want.x - look.x, want.z - look.z), hb = Math.atan2(p[0] - look.x, p[2] - look.z);
+      // правка r2: p — точка рельса (Vector3 или [x, y, z]): вызывающие передают свой railP, без нового массива каждый кадр
+      W9.camBlend = (want, look, p, k, ray) => { blend0.copy(want); const px = p.isVector3 ? p.x : p[0], py = p.isVector3 ? p.y : p[1], pz = p.isVector3 ? p.z : p[2];
+        const ha = Math.atan2(want.x - look.x, want.z - look.z), hb = Math.atan2(px - look.x, pz - look.z);
         let dh = hb - ha; while (dh > PI) dh -= 2 * PI; while (dh < -PI) dh += 2 * PI;
-        const da = Math.hypot(want.x - look.x, want.z - look.z), db = Math.hypot(p[0] - look.x, p[2] - look.z), h2 = ha + dh * k, d2 = da + (db - da) * k;
-        const lzA = (want.x - c.x) * F.s + (want.z - c.z) * F.c, lzB = (p[0] - c.x) * F.s + (p[2] - c.z) * F.c;
-        want.set(look.x + Math.sin(h2) * d2, want.y + (p[1] - want.y) * k, look.z + Math.cos(h2) * d2);
+        const da = Math.hypot(want.x - look.x, want.z - look.z), db = Math.hypot(px - look.x, pz - look.z), h2 = ha + dh * k, d2 = da + (db - da) * k;
+        const lzA = (want.x - c.x) * F.s + (want.z - c.z) * F.c, lzB = (px - c.x) * F.s + (pz - c.z) * F.c;
+        want.set(look.x + Math.sin(h2) * d2, want.y + (py - want.y) * k, look.z + Math.cos(h2) * d2);
         if (lzA < zi1 - 0.1 && lzB < zi1 - 0.1) clampIn(want, false);   // обе точки в зале — и дуга между ними в зале
         // дуга задела косяк или стену — по прямой; и та заслонена — ближняя из двух точек (рельс, если его доля больше)
-        if (ray && ray(look, want) < 1) { want.copy(blend0).lerp(altP.set(p[0], p[1], p[2]), k); if (ray(look, want) < 1) { if (k > 0.5) want.copy(altP); else want.copy(blend0); } }
+        if (ray && ray(look, want) < 1) { want.copy(blend0).lerp(altP.set(px, py, pz), k); if (ray(look, want) < 1) { if (k > 0.5) want.copy(altP); else want.copy(blend0); } }
         return want; };
-      W9.camRail = (x, z, y, yaw) => {
+      // правка r2: рельс включает и её ход — идёт в дверь (курс в зал), а камера смотрит вбок (шла вдоль фасада и свернула): камера
+      // по дуге заходит ей за спину, в створ двери (раньше рельс ждал, пока камера сама повернётся к залу, и на пороге камера
+      // падала ей на голову). head — её курс, пока идёт (null — стоит); камера, глядящая ей в лицо (из зала на улицу), так не
+      // разворачивается; идёт наружу, к камере, — рельс отпускает (а камера за спиной — рельс выхода, ниже). Ответ — один и тот же объект (без мусора каждый кадр): прочитать сразу
+      const railOut = { k: 0, fov: 16, pos: [0, 0, 0], look: [0, 0, 0] };
+      W9.camRail = (x, z, y, yaw, head) => {
         if (y !== undefined && y > 1.2) return null;
         const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
         const flz = Math.cos(yaw - c.ry);   // взгляд камеры в рамке кофейни: −1 — прямо в зал
+        const fh = head === undefined || head === null ? 0 : Math.cos(head - c.ry), kh = sst(-0.35, -0.75, fh) * sst(0.5, 0.0, flz);   // идёт в зал, камера не навстречу
+        const ko = sst(0.2, 0.6, fh);   // идёт наружу (камере навстречу) — рельс отпускает: камера отходит, а не держит лицо в 1,6 м
         // в зале — только в створе двери (±0,5 м от оси: луч к камере идёт сквозь проём), на улице — шире (подходит наискосок)
         const lat = Math.abs(lx - 0.4), wo = sst(zi1 - 0.2, hd + 0.8, lz), latK = sst(0.72 + 1.48 * wo, 0.5 + 0.7 * wo, lat);
-        const k = sst(-0.35, -0.75, flz) * latK * sst(hd + 3.4, hd + 1.4, lz) * sst(zi1 - 2.8, zi1 - 1.3, lz);
-        if (k < 1e-3) return null;
+        const k = Math.max(sst(-0.35, -0.75, flz), kh) * (1 - ko) * latK * sst(hd + 3.4, hd + 1.4, lz) * sst(zi1 - 2.8, zi1 - 1.3, lz);
+        // правка r2: и выход — идёт наружу в створе двери, камера за спиной (смотрит на улицу): камера следом по оси двери, сквозь
+        // проём ниже перемычки (раньше оставалась в зале у стены и снимала её сквозь дверь вполоборота — полкадра стены)
+        const kx = sst(0.35, 0.75, fh) * sst(0.0, 0.5, flz) * latK * sst(hd + 3.4, hd + 2.0, lz) * sst(zi1 - 2.8, zi1 - 1.3, lz);
+        if (k < 1e-3 && kx < 1e-3) return null;
+        if (kx > k) {
+          const y0 = y || 0, cz = Math.max(lz - 1.7, zi0 + 0.3), band = Math.abs(cz - (zi1 + hd) / 2), hwB = 0.42 + Math.max(0, band - 0.3) * 1.0;
+          let cx = lim(0.4 + (lx - 0.4) * 0.5, 0.4 - hwB, 0.4 + hwB); if (cz < zi1) cx = lim(cx, -xi + 0.2, 3.25);
+          let cy = y0 + 1.8; if (band < 0.6) cy = Math.min(cy, 2.12);
+          const az = lz + 2.4, o = railOut; o.k = kx; o.fov = 16;   // взгляд — вперёд, на улицу
+          o.pos[0] = c.x + cx * F.c + cz * F.s; o.pos[1] = cy; o.pos[2] = c.z - cx * F.s + cz * F.c;
+          o.look[0] = c.x + lx * F.c + az * F.s; o.look[1] = y0 + 1.1; o.look[2] = c.z - lx * F.s + az * F.c;
+          return o;
+        }
         // ближе к двери — ближе к ней (1,6 м; издали 2,0) и ниже (1,8 м над землёй): верх проёма (2,35) не попадает в кадр, как
         // только она внутри; камера за правым плечом (+0,3 м, в створе проёма) — она левее середины кадра, справа видна стойка
         const y0 = y || 0, dr = 1.6 + 0.4 * sst(hd + 0.5, hd + 2.0, lz), cz = Math.min(lz + dr, zi1 - 0.15 + Math.max(0, lz - (zi1 - 1.5)) * 3);   // глубже 1,5 м в зале — камера уже в зале
@@ -2735,8 +2766,59 @@
         let cx = lim(lx + (0.4 - lx) * 0.6 + 0.3, 0.4 - hwB, 0.4 + hwB); if (cz < zi1) cx = lim(cx, -xi + 0.2, 3.25);
         let cy = y0 + 1.8; if (band < 0.6) cy = Math.min(cy, 2.12);
         const ax = lx + 0.3, az = lz - 2.4;   // взгляд — прямо в зал, чуть правее неё
-        return { k, fov: 16, pos: [c.x + cx * F.c + cz * F.s, cy, c.z - cx * F.s + cz * F.c], look: [c.x + ax * F.c + az * F.s, y0 + 1.0, c.z - ax * F.s + az * F.c] };   // fov — шире кадр на рельсе
+        const o = railOut; o.k = k; o.fov = 16;   // fov — шире кадр на рельсе
+        o.pos[0] = c.x + cx * F.c + cz * F.s; o.pos[1] = cy; o.pos[2] = c.z - cx * F.s + cz * F.c;
+        o.look[0] = c.x + ax * F.c + az * F.s; o.look[1] = y0 + 1.0; o.look[2] = c.z - ax * F.s + az * F.c;
+        return o;
       };
+      // правка r2: страховка камеры у кофейни — зал, порог (изнутри и с улицы, 1,2 м от стены), рельс. Камера не ближе 1,3 м к ней
+      // по горизонтали, луч от головы свободен, взгляд не круче ~48°, не в толще стены на улицу и не вплотную к ней. Иначе (раньше луч «прижимал» её
+      // к голове: лицо, капюшон во весь кадр, камера в голове) — точка вокруг неё, как у camFix, но и на улице: от направления, где
+      // камера сейчас, по кругу (0, ±0,35 … π) на 2,6 / 2,1 / 1,7 м; в зале — внутрь зала (clampIn), в толще стены — только в створе
+      // двери ниже перемычки, на улице — ниже навесов (2,6 м); берётся ближняя по повороту, дальняя, за спиной у идущей, с простором
+      // за ней. camGuard(look, want, yaw, ray, from, head, fresh) → null — не у кофейни; 0 — want годится; иначе поворот выбранной точки
+      // (от yaw; want — уже она). camGuardPost — после сглаживания: камера всё же ближе 1,2 м или у самой стены на улицу (сглаживание
+      // провело её мимо головы или сквозь стену, луч укоротил) — по дуге вокруг неё от прежней точки, а если и та закрыта — сразу в want
+      const G_ALT = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4, 1.75, -1.75, 2.1, -2.1, 2.5, -2.5, 2.85, -2.85, PI];
+      const gP = new T.Vector3(), gB = new T.Vector3(), gD = new T.Vector3(); let gAct = false, gPrevB = null;
+      const angD = (a, b) => { let d = a - b; while (d > PI) d -= 2 * PI; while (d < -PI) d += 2 * PI; return d; };
+      const camOk = (look, p, ray, dMin) => { const hc = Math.hypot(p.x - look.x, p.z - look.z); if (hc < dMin || p.y - look.y > hc * 1.1) return false;
+        const lx = (p.x - c.x) * F.c - (p.z - c.z) * F.s, lz = (p.x - c.x) * F.s + (p.z - c.z) * F.c;
+        if (lz > zi1 - 0.12 && lz < hd + 0.12 && Math.abs(lx) < hw + 0.05 && !(lx > -0.25 && lx < 1.05 && p.y < 2.3)) return false;   // в толще стены на улицу или ближе 0,12 м к ней (ближняя плоскость срезала бы стену)
+        return !ray || ray(look, p) >= 1; };
+      W9.camGuard = (look, want, yaw, ray, from, head, fresh) => {
+        if (fresh) gPrevB = null;   // проверки: каждая поза сама по себе
+        const hx = (look.x - c.x) * F.c - (look.z - c.z) * F.s, hz = (look.x - c.x) * F.s + (look.z - c.z) * F.c;
+        gAct = look.y - (FY + 1.35) < 1.2 && ((Math.abs(hx) <= xi + 0.05 && hz >= zi0 && hz <= zi1) || (hz > zi1 - 0.05 && hz < hd + 1.2 && hx > -1.6 && hx < 2.4));
+        if (!gAct) { gPrevB = null; return null; }
+        if (camOk(look, want, ray, 1.3)) { gPrevB = null; return 0; }
+        const b0 = from && Math.hypot(from.x - look.x, from.z - look.z) > 0.6 ? Math.atan2(from.x - look.x, from.z - look.z) : yaw + PI;
+        let best = null, bs = -1e9;
+        for (const off of G_ALT) for (const D of [2.6, 2.1, 1.7]) {
+          const b = b0 + off; gP.set(look.x + Math.sin(b) * D, look.y + 0.6, look.z + Math.cos(b) * D);
+          const lx = (gP.x - c.x) * F.c - (gP.z - c.z) * F.s, lz = (gP.x - c.x) * F.s + (gP.z - c.z) * F.c;
+          if (lz < zi1 - 0.05) { gP.y = Math.min(look.y + 0.85, H - 0.3); clampIn(gP, false); }   // в зале
+          else if (lz < hd + 0.45) { if (lx < -0.15 || lx > 0.95) continue; gP.y = Math.min(gP.y, 2.1); }   // в проёме — только в створе, ниже перемычки
+          else if (lz < hd + 1.0) gP.y = Math.min(gP.y, 2.6);   // на улице у стены — ниже навесов
+          const hdC = Math.hypot(gP.x - look.x, gP.z - look.z); if (hdC < 1.4 || !camOk(look, gP, ray, 1.4)) continue;
+          gD.set(look.x + (look.x - gP.x) / hdC * 6, look.y, look.z + (look.z - gP.z) / hdC * 6); const deep = ray ? 6 * ray(look, gD) : 6;   // простор за ней (видно зал/улицу, а не стену)
+          const bb = Math.atan2(gP.x - look.x, gP.z - look.z);
+          const sc = Math.min(hdC, 2.6) * 0.6 - 0.55 * Math.abs(off) + 0.15 * Math.min(deep, 6) + (head !== undefined && head !== null ? 0.5 * Math.cos(angD(bb, head + PI)) : 0) + (gPrevB !== null && Math.abs(angD(bb, gPrevB)) < 0.3 ? 0.6 : 0);
+          if (sc > bs) { bs = sc; best = bb; gB.copy(gP); }
+          break;   // для этого направления — самая дальняя свободная точка
+        }
+        if (best === null) { gPrevB = null; return 0; }
+        gPrevB = best; want.copy(gB); return angD(best, yaw + PI) || 1e-6; };
+      W9.camGuardPost = (look, cam, prev, want, a, ray) => {
+        if (!gAct) return 0;
+        if (camOk(look, cam, null, 1.2)) return 0;   // не ближе 1,2 м, не круче, не у стены (луч камеры уже укоротил)
+        // по дуге: пеленг, расстояние и высота — от прежней точки к want (доля a)
+        const bp = Math.atan2(prev.x - look.x, prev.z - look.z), bw = Math.atan2(want.x - look.x, want.z - look.z), dp = Math.hypot(prev.x - look.x, prev.z - look.z), dw = Math.hypot(want.x - look.x, want.z - look.z);
+        const b = bp + angD(bw, bp) * a, d = dp + (dw - dp) * a; gP.set(look.x + Math.sin(b) * d, prev.y + (want.y - prev.y) * a, look.z + Math.cos(b) * d);
+        { const lx = (gP.x - c.x) * F.c - (gP.z - c.z) * F.s, lz = (gP.x - c.x) * F.s + (gP.z - c.z) * F.c; if (Math.abs(lx) < hw && lz > -hd && lz < zi1 - 0.05) clampIn(gP, false); }   // дуга в зале — в зале (не за стойку, не в стекло)
+        if (camOk(look, gP, ray, 1.2)) { cam.copy(gP); return 1; }
+        if (camOk(look, want, ray, 1.2)) { cam.copy(want); return 2; }
+        return 0; };
       W9.camZone = (x, z, y) => { if (y !== undefined && y > 2) return null; const dx = x - c.x, dz = z - c.z, lx = dx * F.c - dz * F.s, lz = dx * F.s + dz * F.c;
         if (Math.abs(lx) > xi || lz < zi0) return null; if (lz <= zi1 - 1.5) return ZONE; return lz <= zi1 || (lx > -0.3 && lx < 1.1 && lz <= hd + 0.3) ? ZONE_DOOR : null; };
       // ===== жители: лисичка-бариста за стойкой (лицом к гостям, −x), ёжик с капучино за столиком у окна, зайчиха на табурете =====
@@ -5091,7 +5173,8 @@
         const d = Math.hypot(n.x - hx, n.z - hz) + Math.max(0, Math.abs(n.y - hy) - 6) * 0.5;
         // polish: и от камеры — в дальних кадрах (p1, p3, p4, общий вид) зверята меньше пары пикселей, а это ≈ 2,5 тыс. тр. каждый
         const dc = cam ? Math.hypot(n.root.position.x - cam.position.x, n.root.position.y - cam.position.y, n.root.position.z - cam.position.z) : 0;
-        const vis = (n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK)) && !(camCafe && !n.cafe && dc > 30); n.root.visible = vis;   // волна 10: камера в кофейне — снаружи только ближние if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция)
+        const vis = (n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK)) && !(camCafe && !n.cafe && dc > 30); n.root.visible = vis;   // волна 10: камера в кофейне — снаружи только ближние
+        if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция); правка r2: скрытые жители снова без anim (оператор был в комментарии)
         n.anim(t, dt, hx, hz); const ol = d < 20; n.outlines.forEach(m => { m.visible = ol; });
         if (n.id === 'pony' && n.faceHero > 0) n.wait = Math.max(n.wait, 0.6);   // лошадка останавливается поговорить
         if (n.id === 'eagle') eagleTick(n, t, dt);
@@ -5231,8 +5314,11 @@
       roofRows: () => houses.filter(h => h.row >= 0).map(h => ({ id: h.id, row: h.row, phi: h.phi, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, storeys: h.storeys, roof: h.roof, walk: h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace') })),
       // волна 10: зона камеры в зале кофейни (regions.js updCamera): { dist, hgt, fov, swing, run } | null
       camZone: (x, z, y) => (W9.camZone ? W9.camZone(x, z, y) : null),
-      camRail: (x, z, y, yaw) => (W9.camRail ? W9.camRail(x, z, y, yaw) : null),   // правка r1: вход в кофейню — камера сквозь проём
-      camBlend: (want, look, p, k, ray) => (W9.camBlend ? W9.camBlend(want, look, p, k, ray) : want.lerp({ x: p[0], y: p[1], z: p[2] }, k)),   // смешать с рельсом по кругу вокруг неё
+      camRail: (x, z, y, yaw, head) => (W9.camRail ? W9.camRail(x, z, y, yaw, head) : null),   // правка r1: вход в кофейню — камера сквозь проём (r2: head — её курс на ходу)
+      camBlend: (want, look, p, k, ray) => (W9.camBlend ? W9.camBlend(want, look, p, k, ray) : want.lerp(p.isVector3 ? p : { x: p[0], y: p[1], z: p[2] }, k)),   // смешать с рельсом по кругу вокруг неё
+      // правка r2: страховка камеры у кофейни (не ближе 1,2–1,3 м, луч свободен) — до сглаживания и после (regions.js, village.html)
+      camGuard: (look, want, yaw, ray, from, head, fresh) => (W9.camGuard ? W9.camGuard(look, want, yaw, ray, from, head, fresh) : null),
+      camGuardPost: (look, cam, prev, want, a, ray) => (W9.camGuardPost ? W9.camGuardPost(look, cam, prev, want, a, ray) : 0),
       indoor: () => (W9.camCafe ? 1 : 0),   // правка r1: камера в зале кофейни (ночью жители и героиня — в тёплом свете зала)
       camColliders: camColliders.concat(camExtra),   // кроны, галереи, свод арки, вывески, «метро»: только для луча камеры (rayHit их уже учитывает)
       ground: (x, z) => model.y(x, z),
