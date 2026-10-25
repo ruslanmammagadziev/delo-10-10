@@ -161,6 +161,16 @@
       fallback: () => toast('нет WebGL'),
     });
   }
+  // ждать хранилища (G.loadCloud); дольше 1,2 с — подпись под значком, чтобы не казалось, что всё зависло
+  async function waitSave() {
+    const t = setTimeout(() => {
+      const b = document.querySelector('#stage .title-screen .case-badge.pulse');
+      if (b && !document.querySelector('#stage .save-wait')) b.insertAdjacentHTML('afterend', '<p class="muted tiny save-wait" style="margin-top:14px;font-weight:700">Достаю дело из архива…</p>');
+    }, 1200);
+    try { await G.loadCloud(); } finally { clearTimeout(t); }
+  }
+  // фаза запуска для позднего ответа облака: на титуле и в начале новой игры — вопрос «Нашлось твоё сохранение»
+  const phase = p => { if (G.setBootPhase) G.setBootPhase(p); };
   async function boot() {
     show(`<div class="grow col center title-screen"><div class="case-badge pulse">Дело №\u00A010/10</div></div>`);
     if (/debug=1/.test(location.search) && /[?&]free=1/.test(location.search) && window.City3D) { await G.loadCloud(); freeHarness(null); return; }
@@ -169,9 +179,10 @@
     if (G.wantsReset()) {
       G.markResetDone();
       const ok = await choose('Сбросить весь прогресс? (Режим проверки для сценариста.)', [{ label: 'Сбросить', value: true }, { label: 'Нет', value: false }]);
-      if (ok) { G.resetAll(); toast('Прогресс сброшен', 1500); }
-      else await G.loadCloud();
-    } else await G.loadCloud();
+      if (ok) { await G.resetAll(); toast('Прогресс сброшен', 1500); }
+      show(`<div class="grow col center title-screen"><div class="case-badge pulse">Дело №\u00A010/10</div></div>`);
+      await waitSave();
+    } else await waitSave();
     const st = S();
     const inv = G.readInvite();
     if (inv && !st.invite) await inviteWelcome(inv);
@@ -182,21 +193,31 @@
       await Looks.wardrobe({ mode: 'migrate', start: G.look() });
     }
     if (!e || !e.cp.length) {
+      phase('title');
       const mode = await Ep1.title();
+      phase('fresh');
       prewarm();
       await Ep1.run({ recap: mode === 'recap' });
     } else if (!e.done) {
+      phase('play');
       G.setHud({ hidden: true });
       show(`<div class="grow col center pad title-screen" style="gap:12px">
         <div class="case-badge">Дело №\u00A010/10</div>
         <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
         <div class="title h2">А вот и главная героиня</div>
         <p class="muted" style="font-weight:800">Твоё расследование на месте. Кот делает вид, что не ждал.</p></div>`);
-      const v = await choose('', [{ label: 'Продолжить', value: 'go' }, { label: 'Начать сначала', value: 'again' }]);
+      let v = 'again';
+      // «Начать сначала» стирает прохождение серии 1 — переспросить, как на финальной карточке
+      for (;;) {
+        v = await choose('', [{ label: 'Продолжить', value: 'go' }, { label: 'Начать сначала', value: 'again' }]);
+        if (v === 'go') break;
+        if (await choose('Начать серию\u00A01 сначала? Пройденные дела серии сотрутся, наклейки и находки останутся.', [{ label: 'Да, сначала', value: true }, { label: 'Нет', value: false }])) break;
+      }
       prewarm();
-      if (v === 'again') { st.eps[1] = { cp: [], done: false, start: Date.now(), time: 0 }; G.save(); const mode = await Ep1.title(); await Ep1.run({ recap: mode === 'recap' }); }
+      if (v === 'again') { G.restartEp(1, []); phase('title'); const mode = await Ep1.title(); phase('fresh'); await Ep1.run({ recap: mode === 'recap' }); }
       else await Ep1.run();
     } else {
+      phase('play');
       prewarm();
       if (window.Town && engine() === 'world') await cityStart();
       else seasonMenu();
