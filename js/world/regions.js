@@ -990,8 +990,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const cr = c.root || c, V = V_();
       if (id === 'serpentine' && V.drive) {
         scene.add(cr);
-        // волна 11: на горной дороге своя скорость и руль для телефона (h.carCfg: седан 21 м/с, кабриолет 23; руль — скоростью
-        // поворота, лёгкое замедление перед крутыми поворотами) — поверх размеров машины и CAB_DRIVE
+        // волна 12: на горной дороге своя скорость (h.carCfg: седан 24 м/с, кабриолет 27) — руль и разгон прежние, без
+        // самопритормаживания перед поворотами; поверх размеров машины и CAB_DRIVE
         const roadCfg = h.carCfg ? h.carCfg(c.kind === 'sedan' || wantSedan() ? 'sedan' : 'cabrio') : null;
         drv = V.drive.create({ THREE: T, car: c, ground: h.ground, colliders: h.colliders, road: h.road, start: h.carSpawn, blob: true, dynamic: h.dynamic, collide: h.collide, season, cfg: Object.assign(driveCfgOf(c), roadCfg) });
         chase = V.drive.chase({ THREE: T, camera: cam, ground: h.ground });
