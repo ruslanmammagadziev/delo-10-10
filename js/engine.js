@@ -364,10 +364,13 @@
   };
   const mainRaw = () => { const c = Object.assign({}, state); delete c.town; return JSON.stringify(c); };
   const parseTown = raw => { try { const t = raw ? JSON.parse(raw) : null; return t && typeof t === 'object' && !Array.isArray(t) ? t : null; } catch (e) { return null; } };
+  // что лежит в localStorage после нашего последнего чтения или записи: [основной, прогулка] (другая вкладка — другое)
+  let lastLocal = null;
   function readLocal() {
     let s = defaults();
     try {
       const raw = localStorage.getItem(KEY);
+      lastLocal = [raw, localStorage.getItem(KEY_TOWN)];
       if (raw) {
         let p = null;
         try { p = JSON.parse(raw); } catch (e) { p = null; }
@@ -404,13 +407,36 @@
       return isObj(p) ? p : null;
     } catch (e) { return null; }
   }
+  /* Игра открыта в двух вкладках браузера: после нашей последней записи localStorage переписала другая вкладка.
+     Её копия сначала объединяется с нашим состоянием (SaveStore.merge: прогресс — объединение, выборы — по меткам
+     времени), иначе вкладка, открытая раньше, стёрла бы чекпоинт, сделанный в другой. В Telegram вкладка одна. */
+  // → копия другой вкладки, если она была (null — localStorage с нашей последней записи не менялся)
+  function absorbOtherTab() {
+    if (!SS || !lastLocal) return null;
+    let cur, curT;
+    try { cur = localStorage.getItem(KEY); curT = localStorage.getItem(KEY_TOWN); } catch (e) { return null; }
+    if (cur === lastLocal[0] && curT === lastLocal[1]) return null;
+    lastLocal = [cur, curT];
+    let p = null;
+    try { p = cur ? JSON.parse(cur) : null; } catch (e) { p = null; }
+    if (!isObj(p)) return null;
+    if (!isObj(p._s)) p._s = legacyMeta(p);
+    const t = parseTown(curT); if (t) p.town = t;
+    track();
+    SS.applyInPlace(state, SS.merge([state, p], mopts({ scalars: 'local' })));
+    resync();
+    console.info('[save] объединила с сохранением из другой вкладки');
+    return p;
+  }
   function writeLocal() {
+    try { absorbOtherTab(); } catch (e) { console.warn('[save] другая вкладка:', e && e.message); }
     const raw = mainRaw(), rawT = townRaw();
     if (raw.length >= 3800) console.warn('save size', raw.length);
     if (rawT && rawT.length >= 3800) console.warn('save size (town)', rawT.length);
     try {
       localStorage.setItem(KEY, raw);
       if (rawT) localStorage.setItem(KEY_TOWN, rawT); else localStorage.removeItem(KEY_TOWN);
+      lastLocal = [raw, rawT || null];
       saveSt.local = 'ok';
     } catch (e) {
       if (saveSt.local !== 'error') console.warn('[save] localStorage не пишет:', e && e.name);
@@ -423,11 +449,11 @@
   function replaceIn(t, s) { Object.keys(t).forEach(k => { if (!(k in s)) delete t[k]; }); Object.assign(t, s); return t; }
 
   let state = readLocal();
-  { const stash = readStash(); if (stash && SS) { SS.applyInPlace(state, SS.merge([state, stash], mopts())); writeLocal(); } }
   // выборы игрока: что было на момент последней проверки; изменилось — метка времени (track перед записью и слиянием)
   let scal = null;
   const track = () => { if (SS) scal = SS.stampScalars(state, scal, Date.now()); };
   const resync = () => { if (SS) scal = SS.scalarVals(state); };
+  { const stash = readStash(); if (stash && SS) { SS.applyInPlace(state, SS.merge([state, stash], mopts())); writeLocal(); } }
   resync();
 
   // хранилища Telegram: по версии и платформе, а не по initData (у кнопки клавиатуры initData пустая)
@@ -458,6 +484,12 @@
     if (!ready) { dirty = true; if (flush) dirtyFlush = true; return; }
     rt.schedule({ flush });
   }
+  // другая вкладка записала сохранение (её запись могла лечь поверх нашей, не увидев её): объединить сразу и, если
+  // у нас есть прогресс, которого нет в её копии, дописать объединение (в самой записавшей вкладке событие не приходит)
+  window.addEventListener('storage', e => {
+    if (!SS || (e.key !== KEY && e.key !== KEY_TOWN)) return;
+    try { const p = absorbOtherTab(); if (p && SS.gained(p, state).length) writeLocal(); } catch (x) { console.warn('[save] другая вкладка:', x && x.message); }
+  });
   // свернули / закрывают: отправить сразу (на iOS после закрытия вызовы уже не уходят); вернулись — сверить облако
   const flushSave = () => { if (rt) rt.flushAll(); };
   document.addEventListener('visibilitychange', () => { if (!rt) return; if (document.hidden) rt.onHidden(); else rt.onVisible(); });
