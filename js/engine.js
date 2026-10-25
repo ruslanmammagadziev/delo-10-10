@@ -316,8 +316,29 @@
     layer.appendChild(m);
   }
 
-  /* ---------- Состояние ---------- */
+  /* ---------- Состояние и сохранения ----------
+     localStorage — как раньше (delo1010_v1 без прогулки + delo1010_v1_town), пишется сразу при каждом save().
+     В Telegram ещё два хранилища (js/save_store.js): DeviceStorage (на самом телефоне, Bot API 9.0) и CloudStorage
+     (облако Telegram: основные слоты a/b/c и быстрые x0..x3). Копии не заменяют друг друга, а объединяются
+     (SaveStore.merge): старая копия не стирает новый прогресс. Старт ждёт хранилища до 1 с, если прогресс уже есть
+     на телефоне, и до 6 с, если нет;
+     ответ, пришедший позже, всё равно объединяется (на титуле — с вопросом «Нашлось твоё сохранение»).
+     До первого удачного чтения облака основные слоты облака не пишутся: ошибка чтения — не «облако пустое».
+     Выборы игрока (имя, образ, команда, имена питомцев…) получают метку времени изменения при сохранении:
+     при слиянии побеждает изменённое позже — старая копия на другом устройстве их не откатывает. */
   const KEY = 'delo1010_v1';
+  const KEY_TOWN = KEY + '_town';
+  const SS = window.SaveStore || null;
+  if (!SS) console.error('[save] нет js/save_store.js — сохраняю только в этом браузере');
+  const isObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
+  const rndId = () => (Math.random().toString(36).slice(2, 10) + '00000000').slice(0, 8);
+  const DEV = (() => {
+    try {
+      let d = localStorage.getItem('delo1010_dev');
+      if (!d || !/^[a-z0-9]{8}$/.test(d)) { d = rndId(); localStorage.setItem('delo1010_dev', d); }
+      return d;
+    } catch (e) { return rndId(); }
+  })();
   const defaults = () => ({
     v: 1, sound: !!C.SOUND_DEFAULT,
     name: '', bow: '#F08FA8', coat: '#E9D4B6', hair: '#4A3128',
@@ -325,15 +346,16 @@
     look: null,
     team: { bunny: '', fox: '', hedgehog: '' },
     catHelper: null, drink: null, stickers: [], finds: [], versions: {}, ratings: {}, riddles: {},
-    eps: {}, // eps[1] = { cp: [...], done, start, time, recap }
+    eps: {}, // eps[1] = { cp: [...], done, start, time, recap, b: создана, g: «пройти заново» }
     invite: null, updated: 0,
     town: null, // прогулка «Город нараспашку» (js/town.js); хранится под своим ключом delo1010_town
+    // сохранения (js/save_store.js): ep — время последнего сброса, born — начало этой линии, at — запись, dev — устройство
+    _s: { ep: 0, born: Date.now(), seq: 0, at: 0, dev: DEV },
   });
-  let state = defaults();
-  let cloudRead = !inTG; // вне Telegram облака нет
-  const prog = s => { const e = s && s.eps && s.eps[1]; return e ? (e.done ? 100 : 0) + (e.cp || []).length : 0; };
-  const KEY_TOWN = KEY + '_town';
-  // прогулка пишется отдельно: основной сейв не съедает объём прогулки (лимит облака Telegram — 4096 символов на ключ)
+  // старое сохранение без _s — линия «с начала времён» (born 0): сброс, сделанный позже, его отменяет
+  const legacyMeta = p => ({ ep: 0, born: 0, seq: 0, at: +(p && p.updated) || 0, dev: DEV });
+  const saveSt = { local: 'ok', bad: false };
+  // прогулка пишется отдельно: основной сейв не съедает объём прогулки (так читают и старые сборки)
   const townRaw = () => {
     const t = state.town;
     if (!t || typeof t !== 'object') return null;
@@ -342,52 +364,259 @@
   };
   const mainRaw = () => { const c = Object.assign({}, state); delete c.town; return JSON.stringify(c); };
   const parseTown = raw => { try { const t = raw ? JSON.parse(raw) : null; return t && typeof t === 'object' && !Array.isArray(t) ? t : null; } catch (e) { return null; } };
-  const townProg = t => (t && typeof t === 'object' ? String(t.stp || '').length * 4 + String(t.s || '').length * 2 + String(t.f || '').length + (Array.isArray(t.seen) ? t.seen.filter(Boolean).length : 0) : -1);
-  function load() {
+  // что лежит в localStorage после нашего последнего чтения или записи: [основной, прогулка] (другая вкладка — другое)
+  let lastLocal = null;
+  function readLocal() {
+    let s = defaults();
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) state = Object.assign(defaults(), JSON.parse(raw));
+      lastLocal = [raw, localStorage.getItem(KEY_TOWN)];
+      if (raw) {
+        let p = null;
+        try { p = JSON.parse(raw); } catch (e) { p = null; }
+        if (isObj(p)) { s = Object.assign(defaults(), p); if (!isObj(p._s)) s._s = legacyMeta(p); }
+        else {
+          // битое сохранение: не молча с нуля — копия остаётся рядом
+          saveSt.bad = true;
+          console.error('[save] сохранение в этом браузере не читается — копия в delo1010_v1_bad');
+          try { localStorage.setItem(KEY + '_bad', raw); } catch (e) { /* ignore */ }
+        }
+      }
       const t = parseTown(localStorage.getItem(KEY_TOWN));
-      if (t) state.town = t;
-    } catch (e) { /* приватный режим */ }
+      if (t) s.town = t;
+    } catch (e) { saveSt.local = 'error'; }
+    return s;
   }
-  function save() {
-    state.updated = Date.now();
+  // перед перезагрузкой «Продолжить с сохранения» копия кладётся и в sessionStorage (на случай, если localStorage не пишет)
+  // рядом — что было известно о слотах облака (чтобы первая срочная запись после перезагрузки шла не вслепую)
+  function readStashView() {
+    try {
+      const raw = sessionStorage.getItem('delo1010_stash_v');
+      if (!raw) return null;
+      sessionStorage.removeItem('delo1010_stash_v');
+      const v = JSON.parse(raw);
+      return isObj(v) ? v : null;
+    } catch (e) { return null; }
+  }
+  function readStash() {
+    try {
+      const raw = sessionStorage.getItem('delo1010_stash');
+      if (!raw) return null;
+      sessionStorage.removeItem('delo1010_stash');
+      const p = JSON.parse(raw);
+      return isObj(p) ? p : null;
+    } catch (e) { return null; }
+  }
+  /* Игра открыта в двух вкладках браузера: после нашей последней записи localStorage переписала другая вкладка.
+     Её копия сначала объединяется с нашим состоянием (SaveStore.merge: прогресс — объединение, выборы — по меткам
+     времени), иначе вкладка, открытая раньше, стёрла бы чекпоинт, сделанный в другой. В Telegram вкладка одна. */
+  // → копия другой вкладки, если она была (null — localStorage с нашей последней записи не менялся)
+  function absorbOtherTab() {
+    if (!SS || !lastLocal) return null;
+    let cur, curT;
+    try { cur = localStorage.getItem(KEY); curT = localStorage.getItem(KEY_TOWN); } catch (e) { return null; }
+    if (cur === lastLocal[0] && curT === lastLocal[1]) return null;
+    lastLocal = [cur, curT];
+    let p = null;
+    try { p = cur ? JSON.parse(cur) : null; } catch (e) { p = null; }
+    if (!isObj(p)) return null;
+    if (!isObj(p._s)) p._s = legacyMeta(p);
+    const t = parseTown(curT); if (t) p.town = t;
+    track();
+    SS.applyInPlace(state, SS.merge([state, p], mopts({ scalars: 'local' })));
+    resync();
+    console.info('[save] объединила с сохранением из другой вкладки');
+    return p;
+  }
+  function writeLocal() {
+    try { absorbOtherTab(); } catch (e) { console.warn('[save] другая вкладка:', e && e.message); }
     const raw = mainRaw(), rawT = townRaw();
     if (raw.length >= 3800) console.warn('save size', raw.length);
     if (rawT && rawT.length >= 3800) console.warn('save size (town)', rawT.length);
-    try { localStorage.setItem(KEY, raw); if (rawT) localStorage.setItem(KEY_TOWN, rawT); } catch (e) { /* ignore */ }
     try {
-      if (inTG && TG.CloudStorage && cloudRead) {
-        if (raw.length < 4000) TG.CloudStorage.setItem(KEY, raw, () => {});
-        if (rawT && rawT.length < 4000) TG.CloudStorage.setItem(KEY_TOWN, rawT, () => {});
-      }
-    } catch (e) { /* ignore */ }
+      localStorage.setItem(KEY, raw);
+      if (rawT) localStorage.setItem(KEY_TOWN, rawT); else localStorage.removeItem(KEY_TOWN);
+      lastLocal = [raw, rawT || null];
+      saveSt.local = 'ok';
+    } catch (e) {
+      if (saveSt.local !== 'error') console.warn('[save] localStorage не пишет:', e && e.name);
+      saveSt.local = 'error';
+    }
   }
+  const validLook = id => { try { return !!(window.HeroLooks && HeroLooks.valid(id)); } catch (e) { return false; } };
+  const mopts = extra => Object.assign({ dev: DEV, validLook }, extra || {});
+  // заменить содержимое объекта, не меняя сам объект (на него держат ссылки)
+  function replaceIn(t, s) { Object.keys(t).forEach(k => { if (!(k in s)) delete t[k]; }); Object.assign(t, s); return t; }
+
+  let state = readLocal();
+  // выборы игрока: что было на момент последней проверки; изменилось — метка времени (track перед записью и слиянием)
+  let scal = null;
+  const track = () => { if (SS) scal = SS.stampScalars(state, scal, Date.now()); };
+  const resync = () => { if (SS) scal = SS.scalarVals(state); };
+  { const stash = readStash(); if (stash && SS) { SS.applyInPlace(state, SS.merge([state, stash], mopts())); writeLocal(); } }
+  resync();
+
+  // хранилища Telegram: по версии и платформе, а не по initData (у кнопки клавиатуры initData пустая)
+  const TGS = !!(TG && tgAt('6.9') && TG.platform && TG.platform !== 'unknown');
+  let ready = false, routed = false, dirty = false, dirtyFlush = false, lastSig = null, loadP = null, bootMs = 0;
+  let phase = 'boot', lateHandler = null, latePending = null, lateOpen = false;
+  const rt = SS && TGS ? SS.runtime({
+    TG, dev: DEV, validLook, view0: readStashView(),
+    useDS: !!(TG.DeviceStorage && tgAt('9.0')),
+    useCloud: !!TG.CloudStorage,
+    snapshot: () => state,
+    onCopy: (src, copy) => onCopy(src, copy),
+    log: (...a) => console.info('[save]', ...a),
+  }) : null;
+  ready = !rt;
+
+  let lastChoice = null;
+  const choiceSig = () => { try { return SS && SS.scalarVals ? JSON.stringify(SS.scalarVals(state)) : ''; } catch (e) { return ''; } };
+  function save(o) {
+    const now = Date.now();
+    state.updated = now;
+    if (!isObj(state._s)) state._s = legacyMeta(state);
+    track();
+    state._s.at = now; state._s.dev = DEV;
+    writeLocal();
+    if (!rt) return;
+    // выборы игрока (имя, команда, образ, клички) — тоже сразу, как и прогресс: иначе быстрое закрытие на iOS их откатывает
+    const sg = SS.sig(state), cs = choiceSig(), flush = !!(o && o.flush) || sg !== lastSig || cs !== lastChoice;
+    lastSig = sg; lastChoice = cs;
+    // хранилища ещё не прочитаны: только localStorage, остальное — сразу после чтения
+    if (!ready) { dirty = true; if (flush) dirtyFlush = true; return; }
+    rt.schedule({ flush });
+  }
+  // другая вкладка записала сохранение (её запись могла лечь поверх нашей, не увидев её): объединить сразу и, если
+  // у нас есть прогресс, которого нет в её копии, дописать объединение (в самой записавшей вкладке событие не приходит)
+  window.addEventListener('storage', e => {
+    if (!SS || (e.key !== KEY && e.key !== KEY_TOWN)) return;
+    try { const p = absorbOtherTab(); if (p && SS.gained(p, state).length) writeLocal(); } catch (x) { console.warn('[save] другая вкладка:', x && x.message); }
+  });
+  // свернули / закрывают: отправить сразу (на iOS после закрытия вызовы уже не уходят); вернулись — сверить облако
+  const flushSave = () => { if (rt) rt.flushAll(); };
+  document.addEventListener('visibilitychange', () => { if (!rt) return; if (document.hidden) rt.onHidden(); else rt.onVisible(); });
+  window.addEventListener('pagehide', flushSave);
+  try { if (rt && TG.onEvent) { TG.onEvent('deactivated', () => rt.onHidden()); TG.onEvent('activated', () => rt.onVisible()); } } catch (e) { /* ignore */ }
+
+  // копия из DeviceStorage или облака: до первого экрана — сразу в состояние, после — lateArrival
+  function onCopy(src, copy) {
+    if (!routed) { track(); SS.applyInPlace(state, SS.merge([state, copy], mopts())); resync(); writeLocal(); return; }
+    lateArrival(src, copy);
+  }
+  // loadCloud — имя прежнее: ждёт DeviceStorage и облако (не дольше 1 с с прогрессом на телефоне, 6 с — без него)
   function loadCloud() {
+    if (loadP) return loadP;
+    loadP = new Promise(res => {
+      const t0 = Date.now();
+      let over = false, iv = 0;
+      const finish = why => {
+        if (over) return; over = true; clearInterval(iv);
+        bootMs = Date.now() - t0; ready = true; routed = true;
+        lastSig = SS ? SS.sig(state) : null; lastChoice = choiceSig();
+        if (rt) {
+          console.info('[save] старт', bootMs + ' мс', why, JSON.stringify(rt.status()));
+          rt.activate();
+          if (dirty) rt.schedule({ flush: dirtyFlush });
+        }
+        dirty = dirtyFlush = false;
+        res();
+      };
+      if (!rt) { finish('local'); return; }
+      Promise.all([rt.readDS(), rt.readCloud()]).then(() => finish('all'), () => finish('error'));
+      iv = setInterval(() => {
+        const el = Date.now() - t0;
+        if (el >= 6000) finish('cap');
+        else if (el >= 1000 && SS.hasProgress(state)) finish('local');
+      }, 50);
+    });
+    return loadP;
+  }
+  /* ---------- Поздний ответ хранилища ----------
+     фаза: boot → title (титул) → fresh (новая игра до первого раскрытого дела) → play (продолжение, город, меню) */
+  const ROOM_CPS = ['cinema', 'bureau', 'sweets', 'roof'];
+  function phaseNow() {
+    if (phase === 'fresh') { const e = state.eps && state.eps[1]; if (e && Array.isArray(e.cp) && e.cp.some(c => ROOM_CPS.includes(c))) phase = 'play'; }
+    return phase;
+  }
+  const setBootPhase = p => { phase = p; };
+  const onSaveLate = fn => { lateHandler = typeof fn === 'function' ? fn : null; };
+  // прогресс — объединяется; выборы — по меткам времени (своё — только при равной метке, т. е. без меток)
+  function unionIn(copy) { track(); SS.applyInPlace(state, SS.merge([state, copy], mopts({ scalars: 'local' }))); resync(); writeLocal(); }
+  async function lateArrival(src, copy) {
+    if (lateOpen) { latePending = latePending ? SS.merge([latePending, copy]) : copy; return; }
+    track();
+    const merged = SS.merge([state, copy], mopts()), m0 = SS.meta(state);
+    // прогресс сбросили на другом устройстве, а эта копия начата раньше — начинаем с чистого
+    if (merged._s.ep > m0.ep && m0.born < merged._s.ep) {
+      console.info('[save] сброс прогресса с другого устройства');
+      SS.applyInPlace(state, merged); writeLocal();
+      if (rt) await rt.flushDS(800);
+      try { location.reload(); } catch (e) { /* ignore */ }
+      return;
+    }
+    const gain = SS.gained(state, merged);
+    if (!gain.length) { unionIn(copy); if (rt) rt.schedule({}); return; }
+    console.info('[save] поздний ответ', src, 'новое:', gain.slice(0, 6).join(' '));
+    const ph = phaseNow();
+    if (ph === 'boot' || ph === 'title' || ph === 'fresh') {
+      lateOpen = true;
+      let v = 'go';
+      try { v = await (lateHandler || foundModal)(SS.summary(merged)); } catch (e) { v = 'go'; }
+      lateOpen = false;
+      const extra = latePending; latePending = null;
+      const copies = [state, copy].concat(extra ? [extra] : []);
+      if (v !== 'new') { adoptAndReload(SS.merge(copies, mopts())); return; }
+      // «Начать заново»: найденная серия 1 не вернётся (метка перезапуска), наклейки и прогулка — объединяются
+      const e = ep(1), now = Date.now(); e.g = now; e.b = now;
+      unionIn(copy); if (extra) unionIn(extra);
+      save({ flush: true });
+      return;
+    }
+    // идёт игра: тихо добавить найденный прогресс (выборы и настройки — свои)
+    unionIn(copy);
+    toast('Подтянула прогресс из облака Telegram.', 2600);
+    save({ flush: true });
+  }
+  function foundModal(sum) {
     return new Promise(res => {
-      try {
-        if (!(inTG && TG.CloudStorage)) { cloudRead = true; return res(); }
-        let done = false;
-        const t = setTimeout(() => { if (!done) { done = true; res(); } }, 700);
-        TG.CloudStorage.getItem(KEY, (err, val) => {
-          let s = null;
-          try { s = !err && val ? JSON.parse(val) : null; } catch (e) { s = null; }
-          if (!done) {
-            done = true; clearTimeout(t); cloudRead = true;
-            if (s && (prog(s) > prog(state) || (prog(s) === prog(state) && (s.updated || 0) > (state.updated || 0)))) { const keepT = state.town, keepW = state.world; state = Object.assign(defaults(), s); if (!state.town) state.town = keepT; if (!state.world && keepW) state.world = keepW; }
-            res();
-          } else if (!s || prog(s) <= prog(state)) cloudRead = true; // иначе облако не трогаем до следующего запуска
-        });
-        // прогулка — отдельным ключом; берём облачную, если в ней больше прогресса
-        TG.CloudStorage.getItem(KEY_TOWN, (err, val) => {
-          const t = !err ? parseTown(val) : null;
-          if (t && townProg(t) > townProg(state.town)) state.town = t;
-        });
-      } catch (e) { res(); }
+      const m = document.createElement('div'); m.className = 'modal save-found';
+      const cap = sum.charAt(0).toUpperCase() + sum.slice(1);
+      const ask = () => {
+        m.innerHTML = `<div class="modal-card">
+          <div class="tiny muted" style="font-weight:900;letter-spacing:.12em;text-transform:uppercase">Telegram</div>
+          <div class="title h3" style="margin-top:8px">Нашлось твоё сохранение</div>
+          <p class="muted" style="margin-top:6px;font-weight:700">${esc(cap)}. Продолжим с того места?</p>
+          <button class="btn block" data-v="go" style="margin-top:16px">Продолжить с сохранения</button>
+          <button class="btn soft block" data-v="new" style="margin-top:10px">Начать заново</button></div>`;
+      };
+      const sure = () => {
+        m.innerHTML = `<div class="modal-card">
+          <div class="title h3">Точно заново?</div>
+          <p class="muted" style="margin-top:6px;font-weight:700">Найденное прохождение серии 1 не вернётся. Наклейки и находки останутся.</p>
+          <button class="btn block" data-v="go" style="margin-top:16px">Нет, продолжить с сохранения</button>
+          <button class="btn soft block" data-v="sure" style="margin-top:10px">Да, начать заново</button></div>`;
+      };
+      ask();
+      m.addEventListener('click', e => {
+        const b = e.target.closest('[data-v]'); if (!b) return;
+        haptic('light');
+        if (b.dataset.v === 'new') { sure(); return; }
+        m.remove(); res(b.dataset.v === 'sure' ? 'new' : 'go');
+      });
+      layer.appendChild(m); haptic('success');
     });
   }
-  load();
+  // «Продолжить с сохранения»: сохранить объединённое и начать запуск заново с ним
+  function adoptAndReload(merged) {
+    SS.applyInPlace(state, merged);
+    resync();
+    writeLocal();
+    try { sessionStorage.setItem('delo1010_stash', JSON.stringify(SS.forRemote(state))); } catch (e) { /* ignore */ }
+    try { const v = rt && rt.exportView(); if (v) sessionStorage.setItem('delo1010_stash_v', JSON.stringify(v)); } catch (e) { /* ignore */ }
+    const go = () => { try { location.reload(); } catch (e) { /* ignore */ } };
+    if (rt) rt.flushDS(1000).then(go, go); else go();
+  }
   // образ героини: всегда один из шести id (st.look, иначе ближайший по старым цветам, иначе образ по умолчанию)
   const LK = () => window.HeroLooks || null;
   // стенды: ?debug=1&look=<id> — показать образ, не трогая сейв (в --prod отладка вырезана)
@@ -402,11 +631,16 @@
     try { window.dispatchEvent(new CustomEvent('herolook', { detail: { id } })); } catch (e) { /* ignore */ }
     return true;
   }
-  function resetAll() {
-    state = defaults();
-    try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_TOWN); } catch (e) { /* ignore */ }
-    try { if (inTG && TG.CloudStorage) { TG.CloudStorage.removeItem(KEY, () => {}); TG.CloudStorage.removeItem(KEY_TOWN, () => {}); } } catch (e) { /* ignore */ }
-    cloudRead = true;
+  // сброс (режим проверки): метка времени сброса пишется везде, старые копии на других устройствах больше не вернутся
+  async function resetAll() {
+    const now = Date.now();
+    const fresh = defaults();
+    fresh._s = { ep: now, born: now, seq: 0, at: now, dev: DEV }; fresh.updated = now;
+    replaceIn(state, fresh);
+    resync();
+    writeLocal();
+    lastSig = SS ? SS.sig(state) : null; lastChoice = choiceSig();
+    if (rt) rt.resetWrite();   // не ждём: облако может долго молчать
   }
   function wantsReset() {
     try {
@@ -417,6 +651,26 @@
   function markResetDone() {
     try { sessionStorage.setItem('delo_reset_done', '1'); } catch (e) { /* ignore */ }
     try { if (!inTG) history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ }
+  }
+  /* ---------- Где лежит сохранение (строка внизу блокнота; по нажатию — подробности для скриншота) ---------- */
+  function saveInfo() {
+    const r = rt ? rt.status() : null;
+    let size = 0;
+    try { size = SS ? SS.encode(SS.forRemote(state)).length : mainRaw().length; } catch (e) { /* ignore */ }
+    return {
+      local: saveSt.local, ds: r ? r.ds : 'off', cloud: r ? r.cloud : 'off', cloudAt: r ? r.cloudAt : 0, size,
+      host: location.host, sdk: TG ? `${TG.version || '?'}/${TG.platform || '?'}` : 'нет', boot: bootMs, bad: saveSt.bad,
+    };
+  }
+  function saveLine() {
+    const i = saveInfo();
+    const hm = t => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    if (!rt) return i.local === 'error' ? 'Браузер не даёт сохранять: прогресс живёт до закрытия' : 'Сохранение только в этом браузере';
+    const phone = i.local === 'ok' || i.ds === 'ok';
+    if (i.cloud === 'synced') return `Сохранено: ${phone ? 'на телефоне ✓ · ' : ''}в Telegram ✓ ${i.cloudAt ? hm(i.cloudAt) : ''}`.trim();
+    if (i.cloud === 'too-big') return 'Сохранение большое: храню на телефоне';
+    if (i.cloud === 'off') return phone ? 'Сохранено на телефоне ✓' : 'Сохранение только до закрытия';
+    return 'Telegram пока не отвечает — сохраняю на телефоне';
   }
 
   const team = {
@@ -793,12 +1047,17 @@
         <p class="small muted" style="margin-top:20px;font-weight:700">Находки лежат на улице. Нажми на находку — прочитаешь подпись.</p>` : ''}
         ${(() => { try { return window.G.nbExtras ? window.G.nbExtras() || '' : ''; } catch (e) { console.warn('nbExtras', e); return ''; } })()}
         <button class="btn block powder" data-save style="margin-top:14px">Сохранить картинку блокнота</button>
+        <p class="tiny muted" data-diag style="margin-top:12px;text-align:center;font-weight:700;cursor:pointer">${esc(saveLine())}</p>
       </div>`;
     layer.appendChild(m);
     const close = () => { m.classList.add('out'); setTimeout(() => m.remove(), 250); };
     m.querySelector('[data-x]').addEventListener('click', close);
     m.addEventListener('click', e => { if (e.target === m) close(); });
     m.querySelector('[data-save]').addEventListener('click', () => { haptic('light'); exportNotebook(); });
+    m.querySelector('[data-diag]').addEventListener('click', () => {
+      const i = saveInfo();
+      toast(`${i.host} · ${i.sdk} · телефон: ${i.local}/${i.ds} · облако: ${i.cloud} · ${i.size} симв. · старт ${i.boot} мс`, 6000);
+    });
     m.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
       const f = FINDS.find(x => x.id === b.dataset.f); if (!f) return;
       haptic('light'); sparkleAt(b, { kind: 'heart', n: 5, dist: 30 }); toast(typeof f.cap === 'function' ? f.cap() : f.cap, 3600);
@@ -885,13 +1144,24 @@
   function fmtTime(ms) { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
   /* ---------- Чекпоинты серий ---------- */
-  function ep(n) { if (!state.eps[n]) state.eps[n] = { cp: [], done: false, start: 0, time: 0 }; return state.eps[n]; }
+  // b — когда эта копия серии началась (для слияния: копии старше «пройти заново» не возвращаются)
+  function ep(n) { if (!state.eps[n]) state.eps[n] = { cp: [], done: false, start: 0, time: 0, b: Date.now() }; return state.eps[n]; }
   async function step(n, id, fn) {
     const e = ep(n);
     if (e.cp.includes(id)) return;
     await fn();
     if (!e.cp.includes(id)) e.cp.push(id);
-    save();
+    save({ flush: true });
+  }
+  // дело раскрыто — чекпоинт сразу (до реплик, наклейки и бонусов после разгадки): закрыли приложение — дело не пропадёт
+  function mark(n, id) { const e = ep(n); if (!e.cp.includes(id)) e.cp.push(id); save({ flush: true }); return e; }
+  // «пройти заново»: та же серия (тот же объект), метка перезапуска g — старые копии серии при слиянии не вернутся
+  function restartEp(n, keep) {
+    const now = Date.now(), e = ep(n), cp = Array.isArray(e.cp) ? e.cp : [];
+    cp.splice(0, cp.length, ...(Array.isArray(keep) ? keep : []));
+    replaceIn(e, { cp, done: false, start: now, time: 0, g: now, b: now });
+    save({ flush: true });
+    return e;
   }
 
   /* ---------- Ссылки ---------- */
@@ -966,6 +1236,7 @@
 
   window.G = {
     C, TG, inTG, CFG_BAD, state: () => state, setState: s => { state = s; }, save, loadCloud, defaults, resetAll, wantsReset, markResetDone, look, setLook,
+    mark, restartEp, saveInfo, saveLine, onSaveLate, setBootPhase, flushSave,
     $, esc, wait, skipDialogs, isSkipping, untilNotSkipping, onSkip, show, tapOnce, say, choose, ask, toast, suspicion, sparkle, sparkleAt, confetti,
     haptic, sfx, audio, audioBus, babble: (who, ch) => babble(voiceOf(who), ch || 'а', {}), voiceLine, soundSheet, bindSoundBtn, toggleSound, soundIcon, setHud, giveSticker, registerFinds, giveFind, FINDS, notebook, exportNotebook, STICKERS, team, teamName, herName,
     addSpeakers, emojiAvatar, speakers, bumpNb, nbCount, nbExtras: null, nbBind: null, nbExtraCount: null, saveSizes: () => ({ main: mainRaw().length, town: (townRaw() || '').length }),

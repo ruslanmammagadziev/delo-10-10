@@ -1205,6 +1205,7 @@
               return false;
             });
             const solved = async skipped => {
+              G.mark(1, 'cinema');   // дело раскрыто: чекпоинт сразу, до реплик и наклейки
               endFocus(); solving = true;
               scr.showFrame(true);
               G.haptic('success'); confetti(); api.celebrate();
@@ -1325,6 +1326,7 @@
       const fp = framePuzzle(frame, kit, m, F, skipped => done(skipped));
       finishAll = skipped => fp.finishAll(skipped);
       async function done(skipped) {
+        G.mark(1, 'cinema');   // дело раскрыто: чекпоинт сразу, до реплик и наклейки
         G.setHud({ label: label('cinema') }); mem.cinema = null;
         G.haptic('success'); confetti();
         frame.querySelector('.frame-tag').textContent = '▶ кадр снова движется';
@@ -1389,6 +1391,7 @@
   }
   // после записки: P.P.S. «took off», вывод и подводка к шкафу (общая часть 2D и 3D)
   async function bureauAfter(skipped, noteEl) {
+    G.mark(1, 'bureau');   // записка переведена — дело раскрыто (шкаф и наклейка — уже после чекпоинта)
     await say({ who: 'parrot', text: skipped ? 'Ладно. Я всё-таки открою словарь. Без паники.' : 'Понял! Я бы и сам всё исправил. Примерно к декабрю.' });
     if (!skipped) suspicion(33, 'Попугай признал ошибку. Исторический момент.');
     if (noteEl && !noteEl.querySelector('.pps')) { noteEl.insertAdjacentHTML('beforeend', '<div class="pps">P.P.S. The sun just took off.</div>'); await wait(500); }
@@ -1511,6 +1514,7 @@
     }));
   }
   async function sweetsAfter() {
+    G.mark(1, 'sweets');   // бабл-ти признался — дело раскрыто (напиток и наклейка — уже после чекпоинта)
     await say([
       { who: 'bubbletea', text: 'Ладно, это я соврал. Но прежде чем осуждать, посмотрите на мои жемчужинки.' },
       { who: 'bunny', text: 'Ага! Значит, булочка сказала правду: солнце унесли на крышу.' },
@@ -1659,6 +1663,7 @@
   ];
   const ECHO_NYMPH = 'Эхо, кстати, в древних мифах была нимфой. И даже мифология не придумала, как заставить её ответить по существу.';
   async function roofAfterNote() {
+    G.mark(1, 'roof');   // записка на двери прочитана — дело раскрыто
     suspicion(99, 'У чашки чая на удивление много власти.');
     await G.giveSticker('note', 'Вместо подписи — чашка. У преступника явно свой стиль.');
     await say({ who: 'cat', text: 'Чай. Ну конечно. Это многое объясняет. Ничего не объясняет.' });
@@ -1858,8 +1863,7 @@
     resetMem();
     const old = G.ep(1), st = S();
     const keep = (old.recap || !st.name) ? [] : ['prologue', 'casting'];
-    st.eps[1] = { cp: keep, done: false, start: Date.now(), time: 0 };
-    G.save();
+    G.restartEp(1, keep);   // тот же объект серии + метка перезапуска: старые копии серии из облака не вернутся
   }
   function inviteModal() {
     const st = S();
@@ -1930,9 +1934,21 @@
     if (!f) return Promise.resolve('exit');
     return use3dRooms() && City3D.hasRoom(k) ? f[0]() : f[1]();
   }
+  // наклейка дела: чекпоинт ставится в момент разгадки (G.mark), наклейка — чуть позже; закрыли приложение между ними —
+  // при продолжении наклейка всё равно оказывается в блокноте (без карточки)
+  const ROOM_STICKERS = [['cinema', 'film'], ['bureau', 'scroll'], ['sweets', 'desserts'], ['roof', 'note']];
+  function stickersBack(e) {
+    const st = S();
+    if (e.recap || !Array.isArray(st.stickers)) return;
+    const lost = ROOM_STICKERS.filter(([c, k]) => e.cp.includes(c) && !st.stickers.includes(k));
+    if (!lost.length) return;
+    lost.forEach(([, k]) => st.stickers.push(k));
+    G.save();
+  }
   async function run(opts = {}) {
     const e = G.ep(1);
     if (!e.start) { e.start = Date.now(); G.save(); }
+    stickersBack(e);
     if (opts.recap) await recap();
     // «время расследования»: без боковых визитов в городе (оранжерея, ателье, лавки)
     const sideMs = () => (M() ? M().sideMs() : 0);
