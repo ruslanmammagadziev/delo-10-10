@@ -1,16 +1,21 @@
 /* =====================================================================
    СОХРАНЕНИЯ: слияние копий, счёт прогресса, кодирование, хранилища Telegram.
-   Чистая часть (без DOM, проверяется в Node): score, hasProgress, merge, applyInPlace, encode, fnv1a, split, assemble,
-   decodeCloud, gained, covers, sig, summary. Браузерная часть: SaveStore.runtime({...}) — DeviceStorage и CloudStorage
-   Telegram: чтение с тайм-аутами и повторами, очередь, запись с паузой, повторы с растущей паузой, A/B-слоты облака.
+   Чистая часть (без DOM, проверяется в Node): score, hasProgress, merge, applyInPlace, encode, fnv1a, split, packSlot,
+   readSlot, decodeCloud, gained, covers, sig, summary, scalarVals, stampScalars, legacyMain. Браузерная часть:
+   SaveStore.runtime({...}) — DeviceStorage и CloudStorage Telegram.
    Главное правило: копии не заменяют друг друга целиком. Прогресс (чекпоинты серий и миссий, наклейки, находки,
    штампы прогулки, флаги города) объединяется; намеренный сброс (_s.ep) и «пройти заново» (eps[n].g) — метки
    времени, слияние их не отменяет: копия, начатая раньше сброса или перезапуска серии, отбрасывается.
-   Облако: значение ключа ≤ 4096 символов, поэтому сохранение — ASCII-JSON кусками по 3800 в двух слотах (a/b).
-   Пишется всегда НЕ текущий слот, а оглавление d2m хранит длину и хеш обоих слотов: куски и оглавление уходят
-   одним заходом (одна задержка сети — важно, если приложение закрывают сразу после разгадки), и если долетела
-   только часть, недописанный слот не примется (длина и хеш не сойдутся) — читатель возьмёт второй, целый.
-   До первого удачного чтения облака сессия пишет только в отдельный слот u (его читают все и объединяют).
+   Выборы игрока (имя, образ, имена команды и питомцев, версии, оценки, выборы в сюжете) — с меткой времени
+   изменения в _s.t: побеждает изменённое позже, а не «своё» (старая копия на другом устройстве не откатывает образ).
+   Облако: значение ключа ≤ 4096 символов, поэтому сохранение — ASCII-JSON кусками по 3800. Каждый слот описывает
+   себя сам: в первом куске заголовок (число кусков, длина, хеш, seq, сессия); недописанный слот не примется
+   (длина и хеш не сойдутся), а слот из одного куска пишется за один вызов — целиком или никак. Общего оглавления
+   нет, поэтому запись одного устройства не может «потерять» слот, записанный другим.
+   Основные слоты a/b/c: пишется всегда не самый новый целый слот — последняя целая копия не трогается никогда.
+   Перед записью основного слота облако перечитывается, если читали больше 3 с назад (второе устройство могло
+   записать за это время). Срочная запись (чекпоинт, сворачивание) не ждёт ни чтения, ни ответа на прошлую запись:
+   она сразу уходит в быстрые слоты x0..x3 (их читают все и объединяют), основной слот — следом.
    ===================================================================== */
 (function (root, factory) {
   const api = factory();
@@ -21,20 +26,22 @@
 
   /* ---------- Ключи и пределы ---------- */
   const K = {
-    LS: 'delo1010_v1', LS_TOWN: 'delo1010_v1_town', LS_DEV: 'delo1010_dev', LS_BAD: 'delo1010_v1_bad', STASH: 'delo1010_stash',
-    DS: 'delo1010_v2', CM: 'd2m', CU: 'd2um', LEGACY: 'delo1010_v1', LEGACY_TOWN: 'delo1010_v1_town',
+    LS: 'delo1010_v1', LS_TOWN: 'delo1010_v1_town', LS_DEV: 'delo1010_dev', LS_BAD: 'delo1010_v1_bad', STASH: 'delo1010_stash', STASH_VIEW: 'delo1010_stash_v',
+    DS: 'delo1010_v2', LEGACY: 'delo1010_v1', LEGACY_TOWN: 'delo1010_v1_town', PFX: 'd3',
   };
-  const CHUNK = 3800, MAXN = 6;
-  const slotKeys = s => Array.from({ length: MAXN }, (_, i) => `d2${s}${i}`);
-  // одно чтение облака: оба оглавления, все куски трёх слотов и старые ключи (22 ключа из 1024)
-  const CLOUD_KEYS = [K.CM, K.CU].concat(slotKeys('a'), slotKeys('b'), slotKeys('u'), [K.LEGACY, K.LEGACY_TOWN]);
+  const CHUNK = 3800, MAXN = 4, XN = 3;
+  const MAIN = ['a', 'b', 'c'], XS = ['x0', 'x1', 'x2', 'x3'];
+  const slotKeys = (s, n) => Array.from({ length: n }, (_, i) => `${K.PFX}${s}${i}`);
+  // одно чтение облака: все куски основных и быстрых слотов и старые ключи (26 ключей из 1024)
+  const CLOUD_KEYS = [].concat(...MAIN.map(s => slotKeys(s, MAXN)), ...XS.map(s => slotKeys(s, XN)), [K.LEGACY, K.LEGACY_TOWN]);
   const T = {
-    DS_READ: 1500, DS_OP: 3000, CLOUD_READ: 10000, CLOUD_OP: 8000,
-    FLUSH: 150, DS_DEBOUNCE: 400, DS_MAXWAIT: 3000, CLOUD_DEBOUNCE: 2500, U_DEBOUNCE: 5000, CLOUD_MAXWAIT: 10000,
-    RECHECK: 300000, AWAY: 5000,
+    DS_READ: 1500, DS_OP: 3000, READ0: 1500, WRITE0: 4000,
+    FLUSH: 150, DS_DEBOUNCE: 400, DS_MAXWAIT: 3000, CLOUD_DEBOUNCE: 2500, X_DEBOUNCE: 4000, CLOUD_MAXWAIT: 10000,
+    FRESH: 3000, AWAY: 5000, VIEW_TTL: 120000,
   };
-  const READ_RETRY = [3000, 10000, 30000, 60000, 120000];
-  const CLOUD_RETRY = [2000, 5000, 15000, 30000, 60000];
+  // чтение: повтор сразу, потом с растущей паузой (на iOS ошибка — это тишина, ждём не дольше тайм-аута)
+  const READ_RETRY = [0, 1000, 3000, 10000, 30000, 60000];
+  const CLOUD_RETRY = [300, 2000, 5000, 15000, 30000, 60000];
   const DS_RETRY = [2000, 5000, 15000];
   const ROOMS1 = ['cinema', 'bureau', 'sweets', 'roof'];
 
@@ -44,6 +51,7 @@
   const clone = x => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
   const num = v => (typeof v === 'number' && isFinite(v) ? v : +v || 0);
   const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   // '' / null / 'null' / битый JSON — «значения нет»
   function parse(raw) {
     if (typeof raw !== 'string' || !raw || raw === 'null') return null;
@@ -65,7 +73,8 @@
   function bitList(s) { const out = []; String(s || '').split('').forEach((ch, i) => { const v = d32(ch); for (let b = 0; b < 5; b++) if (v & (1 << b)) out.push(i * 5 + b); }); return out; }
 
   /* ---------- Метаданные копии ---------- */
-  // _s = { ep: время последнего сброса, born: начало этой линии сохранений, seq, at: время записи, dev: устройство }
+  // _s = { ep: время последнего сброса, born: начало этой линии сохранений, seq, at: время записи, dev: устройство,
+  //        t: { путь выбора: секунда изменения } }
   function meta(s) {
     const m = isObj(s && s._s) ? s._s : {};
     return { ep: num(m.ep), born: num(m.born), seq: num(m.seq), at: Math.max(num(m.at), num(s && s.updated)), dev: typeof m.dev === 'string' ? m.dev : '' };
@@ -126,6 +135,70 @@
   }
   // что есть в b и нет в a
   function gained(a, b) { const A = progressKeys(a); return [...progressKeys(b)].filter(k => !A.has(k)); }
+
+  /* ---------- Выборы игрока с меткой времени ----------
+     Путь → значение: name, look (вместе с bow/coat/hair), team.<роль>, ver.<серия>, rat.<серия>, catHelper, drink,
+     syrnik, bouquet, invite, car (world.car), pet.<id> (world.pet.names). Метка — секунда изменения, «гибридные часы»:
+     не меньше самой поздней метки, которую копия уже видела, + 1 (смена после чтения чужой копии всегда новее неё). */
+  const SC_FIXED = ['name', 'look', 'catHelper', 'drink', 'syrnik', 'bouquet', 'invite'];
+  function scalarPaths(s) {
+    if (!isObj(s)) return [];
+    const out = SC_FIXED.filter(p => p === 'look' || has(s, p));
+    const sub = (o, pre) => { if (isObj(o)) Object.keys(o).forEach(k => out.push(pre + k)); };
+    sub(s.team, 'team.'); sub(s.versions, 'ver.'); sub(s.ratings, 'rat.');
+    if (isObj(s.world)) {
+      if (has(s.world, 'car')) out.push('car');
+      if (isObj(s.world.pet)) sub(s.world.pet.names, 'pet.');
+    }
+    return out;
+  }
+  function getS(s, p) {
+    if (!isObj(s)) return undefined;
+    if (p === 'look') return [s.look === undefined ? null : s.look, s.bow === undefined ? null : s.bow, s.coat === undefined ? null : s.coat, s.hair === undefined ? null : s.hair];
+    const dot = p.indexOf('.');
+    if (dot < 0) return p === 'car' ? (isObj(s.world) ? s.world.car : undefined) : s[p];
+    const pre = p.slice(0, dot), k = p.slice(dot + 1);
+    const box = pre === 'team' ? s.team : pre === 'ver' ? s.versions : pre === 'rat' ? s.ratings
+      : pre === 'pet' ? (isObj(s.world) && isObj(s.world.pet) ? s.world.pet.names : null) : null;
+    return isObj(box) ? box[k] : undefined;
+  }
+  function setS(o, p, v) {
+    v = clone(v);
+    if (p === 'look') { ['look', 'bow', 'coat', 'hair'].forEach((k, i) => { o[k] = Array.isArray(v) ? v[i] : null; }); return; }
+    const dot = p.indexOf('.');
+    if (dot < 0) { if (p === 'car') { if (!isObj(o.world)) o.world = {}; o.world.car = v; } else o[p] = v; return; }
+    const pre = p.slice(0, dot), k = p.slice(dot + 1);
+    let box;
+    if (pre === 'pet') { if (!isObj(o.world)) o.world = {}; if (!isObj(o.world.pet)) o.world.pet = {}; if (!isObj(o.world.pet.names)) o.world.pet.names = {}; box = o.world.pet.names; }
+    else { const key = pre === 'team' ? 'team' : pre === 'ver' ? 'versions' : 'ratings'; if (!isObj(o[key])) o[key] = {}; box = o[key]; }
+    box[k] = v;
+  }
+  // годится ли значение в победители (пустое имя и пустое имя в команде не побеждают никогда)
+  function okS(p, v, validLook) {
+    if (p === 'look') return Array.isArray(v) && validLook(v[0]);
+    if (p === 'name' || p.startsWith('team.') || p.startsWith('pet.')) return typeof v === 'string' && !!v.trim();
+    return isSet(v);
+  }
+  const stampsOf = s => (isObj(s) && isObj(s._s) && isObj(s._s.t) ? s._s.t : {});
+  function scalarVals(s) {
+    const out = {};
+    scalarPaths(s).forEach(p => { const v = getS(s, p); out[p] = v === undefined ? 'u' : JSON.stringify(v); });
+    return out;
+  }
+  // сравнить с прошлыми значениями и поставить метку изменённым; вернуть новые значения
+  function stampScalars(s, prev, nowMs) {
+    const vals = scalarVals(s);
+    if (!isObj(s) || !isObj(prev)) return vals;
+    const changed = Object.keys(vals).filter(p => prev[p] !== vals[p] && !(prev[p] === undefined && vals[p] === 'u'));
+    if (!changed.length) return vals;
+    if (!isObj(s._s)) s._s = {};
+    if (!isObj(s._s.t)) s._s.t = {};
+    const t = s._s.t;
+    const maxT = Math.max(0, ...Object.keys(t).map(k => num(t[k])));
+    const st = Math.max(Math.floor(num(nowMs || Date.now()) / 1000), maxT + 1);
+    changed.forEach(p => { t[p] = st; });
+    return vals;
+  }
 
   /* ---------- Слияние ---------- */
   function unionArr(arrs) {
@@ -240,8 +313,9 @@
     'engHint', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town'].concat(PREFS, FLAGS, CHOICE));
 
   /* merge(copies, opts) — copies[0] — своя (живое состояние этого устройства), дальше — чужие копии.
-     opts.dev — id этого устройства; opts.scalars === 'local' — выборы (имя, образ, настройки) остаются своими,
-     объединяется только прогресс; opts.validLook(id) — образ годится. Результат — новый объект (входы не меняются). */
+     opts.dev — id этого устройства; opts.scalars === 'local' — без меток времени выборы (имя, образ, настройки) остаются
+     своими; с метками побеждает изменённое позже (своё — только при равной метке); opts.validLook(id) — образ годится.
+     Результат — новый объект (входы не меняются). */
   function merge(copies, opts) {
     opts = opts || {};
     const validLook = typeof opts.validLook === 'function' ? opts.validLook : (x => typeof x === 'string' && !!x);
@@ -299,6 +373,20 @@
     if (w !== undefined) out.world = w;
     const t = mergeTown(ord, L0.town);
     if (t !== undefined) out.town = t;
+    // выборы с метками: побеждает самая поздняя метка с годным значением (при равных — порядок выше: новее / своё)
+    const paths = [];
+    ord.forEach(c => Object.keys(stampsOf(c)).forEach(p => { if (!paths.includes(p)) paths.push(p); }));
+    if (paths.length) {
+      const TT = {};
+      paths.forEach(p => {
+        const ranked = ord.map((c, i) => ({ c, i, t: num(stampsOf(c)[p]) })).filter(x => x.t > 0).sort((a, b) => (b.t - a.t) || (a.i - b.i));
+        if (!ranked.length) return;
+        TT[p] = ranked[0].t;
+        const win = ranked.find(x => okS(p, getS(x.c, p), validLook));
+        if (win) setS(out, p, getS(win.c, p));
+      });
+      if (Object.keys(TT).length) out._s.t = TT;
+    }
     return out;
   }
 
@@ -324,15 +412,28 @@
     return h.toString(16).padStart(8, '0');
   }
   function split(payload, size) { size = size || CHUNK; const out = []; for (let i = 0; i < payload.length; i += size) out.push(payload.slice(i, i + size)); return out.length ? out : ['']; }
-  // слот: куски prefix0..n-1, длина и хеш должны совпасть с оглавлением
-  function assemble(items, m, prefix) {
-    if (!isObj(items) || !isObj(m)) return null;
-    const n = num(m.n);
-    if (!(n >= 1 && n <= MAXN)) return null;
-    let s = '';
-    for (let i = 0; i < n; i++) { const v = items[prefix + i]; if (typeof v !== 'string' || !v) return null; s += v; }
-    if (s.length !== num(m.len) || fnv1a(s) !== m.h) return null;
-    return s;
+  /* Слот, описывающий сам себя: куски d3<слот>0..n-1; в первом — заголовок JSON и перевод строки (encode() перевода
+     строки не даёт, первый \n всегда конец заголовка). Заголовок: v:3, n, len, h (fnv1a всего), seq, at, sid, ep, sc. */
+  function packSlot(slot, payload, hdr) {
+    const parts = split(payload, CHUNK);
+    const h = Object.assign({ v: 3, n: parts.length, len: payload.length, h: fnv1a(payload) }, hdr || {});
+    return { hdr: h, pairs: parts.map((p, i) => [`${K.PFX}${slot}${i}`, i === 0 ? JSON.stringify(h) + '\n' + p : p]) };
+  }
+  // { st: 'none' | 'bad' | 'ok', hdr, copy }
+  function readSlot(items, slot, maxn) {
+    if (!isObj(items)) return { st: 'none' };
+    const c0 = items[`${K.PFX}${slot}0`];
+    if (typeof c0 !== 'string' || !c0) return { st: 'none' };
+    const nl = c0.indexOf('\n');
+    const hdr = nl > 0 ? parse(c0.slice(0, nl)) : null;
+    if (!hdr || hdr.v !== 3) return { st: 'bad' };
+    const n = num(hdr.n);
+    if (!(n >= 1 && n <= (maxn || MAXN))) return { st: 'bad', hdr };
+    let s = c0.slice(nl + 1);
+    for (let i = 1; i < n; i++) { const v = items[`${K.PFX}${slot}${i}`]; if (typeof v !== 'string' || !v) return { st: 'bad', hdr }; s += v; }
+    if (s.length !== num(hdr.len) || fnv1a(s) !== hdr.h) return { st: 'bad', hdr };
+    const copy = parse(s);
+    return copy ? { st: 'ok', hdr, copy } : { st: 'bad', hdr };
   }
   // копия для хранилищ вне localStorage: целиком, с прогулкой, но без того, что в руке
   function forRemote(s) { const c = clone(s); if (isObj(c) && isObj(c.town)) delete c.town.h; return c; }
@@ -349,79 +450,112 @@
     if (isObj(c.town)) { c.town = Object.assign({}, c.town); delete c.town.h; }
     return fnv1a(canon(c));
   }
-  // ответ getItems → одна копия (слоты a/b, слот u, старые ключи) + оглавление + что приняли
+  const hdrNewer = (a, b) => (num(b.seq) - num(a.seq)) || (num(b.at) - num(a.at)) || String(b.sid || '').localeCompare(String(a.sid || ''));
+  // ответ getItems → одна копия (основные и быстрые слоты, старые ключи) + что в каждом слоте
   function decodeCloud(items, opts) {
-    const info = { a: 'none', b: 'none', u: 'none', legacy: 'none' }, copies = [];
-    const m = isObj(items) ? parse(items[K.CM]) : null;
-    ['a', 'b'].forEach(s => {
-      if (!m || !isObj(m[s])) return;
-      const p = assemble(items, m[s], 'd2' + s);
-      const c = p ? parse(p) : null;
-      if (c) { copies.push(c); info[s] = 'ok'; } else info[s] = 'bad';
-    });
-    const um = isObj(items) ? parse(items[K.CU]) : null;
-    if (um) { const p = assemble(items, um, 'd2u'); const c = p ? parse(p) : null; if (c) { copies.push(c); info.u = 'ok'; } else info.u = 'bad'; }
+    const info = {}, slots = {}, mainOk = [], xOk = [];
+    MAIN.forEach(s => { const r = readSlot(items, s, MAXN); slots[s] = r; info[s] = r.st; if (r.st === 'ok') mainOk.push(r); });
+    XS.forEach(s => { const r = readSlot(items, s, XN); slots[s] = r; info[s] = r.st; if (r.st === 'ok') xOk.push(r); });
+    mainOk.sort((a, b) => hdrNewer(a.hdr, b.hdr));
+    xOk.sort((a, b) => num(b.hdr.at) - num(a.hdr.at));
     const lm = isObj(items) ? parse(items[K.LEGACY]) : null, lt = isObj(items) ? parse(items[K.LEGACY_TOWN]) : null;
-    if (lm || lt) {
-      const c = lm || {};
-      if (lt) c.town = lt;
-      copies.push(c); info.legacy = 'ok';
-    }
-    if (m && isObj(m[m.cur]) && info[m.cur] !== 'ok') info.curBad = true;
-    // сначала текущий слот (он новее), его выборы — основа
-    if (m && m.cur === 'b' && info.a === 'ok' && info.b === 'ok') copies.splice(0, 2, copies[1], copies[0]);
-    const copy = copies.length ? (copies.length === 1 ? copies[0] : merge(copies, Object.assign({}, opts || {}, { dev: undefined }))) : null;
-    return { copy, meta: m && (m.cur === 'a' || m.cur === 'b') ? m : null, info };
+    let legacy = null;
+    info.legacy = 'none';
+    if (lm || lt) { legacy = lm || {}; if (lt) legacy.town = lt; info.legacy = 'ok'; }
+    const mo = Object.assign({}, opts || {}, { dev: undefined });
+    const one = list => (!list.length ? null : list.length === 1 ? list[0] : merge(list, mo));
+    const mainList = mainOk.map(r => r.copy);
+    // сначала самый новый основной слот (его выборы — основа), потом быстрые слоты и старые ключи
+    const all = mainList.concat(xOk.map(r => r.copy), legacy ? [legacy] : []);
+    return { copy: one(all), mainCopy: one(mainList), slots, info, newest: mainOk.length ? mainOk[0].hdr : null };
   }
   // a уже содержит всё из b (кроме того, что в a отменено сбросом или перезапуском серии)
   function covers(a, b) { if (!isObj(b)) return true; return gained(a, merge([a, b], { scalars: 'local' })).length === 0; }
   function summary(s) {
     const e = isObj(s) && isObj(s.eps) ? s.eps[1] : null;
-    if (e && e.done) return 'серия 1 пройдена';
+    if (e && e.done) return 'серия 1 пройдена';
     const n = e && Array.isArray(e.cp) ? ROOMS1.filter(r => e.cp.includes(r)).length : 0;
-    if (n) return `серия 1, раскрыто дел: ${n} из ${ROOMS1.length}`;
-    if (e && Array.isArray(e.cp) && e.cp.length) return 'серия 1 начата';
+    if (n) return `серия 1, раскрыто дел: ${n} из ${ROOMS1.length}`;
+    if (e && Array.isArray(e.cp) && e.cp.length) return 'серия 1 начата';
     return 'наклейки и находки';
+  }
+  /* Старый ключ delo1010_v1 (его читают старые сборки и откат): без прогулки и меньше 3800 символов. Большое
+     сохранение ужимается: сначала незнакомые ключи, потом длинные тексты (версии, имена питомцев), метки выборов,
+     служебное; прогресс (чекпоинты, наклейки, находки, город) остаётся всегда. null — не влезает даже так. */
+  function legacyMain(snap) {
+    if (!isObj(snap)) return null;
+    const m = clone(snap); delete m.town;
+    const fits = () => encode(m).length < CHUNK;
+    const steps = [
+      () => Object.keys(m).forEach(k => { if (!HANDLED.has(k)) delete m[k]; }),
+      () => { if (isObj(m.versions)) Object.keys(m.versions).forEach(k => { if (typeof m.versions[k] === 'string' && m.versions[k].length > 40) m.versions[k] = m.versions[k].slice(0, 40); }); },
+      () => { if (isObj(m.world) && isObj(m.world.pet)) m.world.pet.names = {}; },
+      () => { if (isObj(m._s)) delete m._s.t; },
+      () => { delete m.hudSeen; delete m.riddles; if (isObj(m.eps)) Object.keys(m.eps).forEach(n => { if (isObj(m.eps[n])) { delete m.eps[n].cin; delete m.eps[n].bur; } }); },
+      () => { if (isObj(m.versions)) Object.keys(m.versions).forEach(k => { m.versions[k] = '…'; }); if (isObj(m.drink)) m.drink = { base: m.drink.base || null }; },
+      () => { if (isObj(m.bouquet) && Array.isArray(m.bouquet.f)) m.bouquet.f = m.bouquet.f.slice(0, 3); delete m.invite; },
+    ];
+    for (let i = 0; !fits() && i < steps.length; i++) steps[i]();
+    return fits() ? encode(m) : null;
   }
 
   /* =====================================================================
      Браузер: хранилища Telegram.
-     cfg = { TG, useDS, useCloud, dev, snapshot: () => живое состояние, onCopy(src, copy) — пришла копия,
+     cfg = { TG, useDS, useCloud, dev, sid, view0, snapshot: () => живое состояние, onCopy(src, copy) — пришла копия,
              validLook, log }
      ===================================================================== */
   function runtime(cfg) {
     const TG = cfg.TG, log = typeof cfg.log === 'function' ? cfg.log : function () {};
     const DSo = () => TG.DeviceStorage, CSo = () => TG.CloudStorage;
     let useDS = !!cfg.useDS, useCloud = !!cfg.useCloud;
-    const S = { ds: useDS ? 'reading' : 'off', cloud: useCloud ? 'reading' : 'off', dsAt: 0, cloudAt: 0, uAt: 0, err: '', slots: null, size: 0, writes: 0 };
-    let active = false, synced = false, remoteKnown = null, remoteMeta = null, checkedAt = 0, dsKnown = false;
-    let lastDS = '', lastCloud = '', lastU = '', lastLegacy = null, readTry = 0, readTimer = 0, readPending = false, dsReadTry = 0;
+    const SID = typeof cfg.sid === 'string' && /^[a-z0-9]{8}$/.test(cfg.sid) ? cfg.sid : (Math.random().toString(36).slice(2, 10) + '00000000').slice(0, 8);
+    const S = { ds: useDS ? 'reading' : 'off', cloud: useCloud ? 'reading' : 'off', dsAt: 0, cloudAt: 0, xAt: 0, err: '', slots: null, size: 0, writes: 0, reads: 0, rtt: 0 };
+    let active = false, dsKnown = false, lastDS = '', dsReadTry = 0;
     const mopts = () => ({ dev: cfg.dev, validLook: cfg.validLook });
     const unsupported = e => /unsupported/i.test(String(e || ''));
     const hidden = () => typeof document !== 'undefined' && !!document.hidden;
+    const now = () => Date.now();
 
     // вызов Telegram: всегда с тайм-аутом (на iOS при ошибке ответа нет вовсе); поздний ответ — в onLate
     function call(fn, ms, onLate) {
       return new Promise(res => {
         let done = false;
-        const t = setTimeout(() => { if (!done) { done = true; res({ err: 'TIMEOUT' }); } }, ms);
+        const t0 = now();
+        const t = setTimeout(() => { if (!done) { done = true; res({ err: 'TIMEOUT', ms: now() - t0 }); } }, ms);
         try {
           fn((err, val) => {
-            if (done) { if (onLate) { try { onLate(err, val); } catch (e) { log('late', e); } } return; }
-            done = true; clearTimeout(t); res({ err: err || null, val });
+            if (done) { if (onLate) { try { onLate(err, val, now() - t0); } catch (e) { log('late', e); } } return; }
+            done = true; clearTimeout(t); res({ err: err || null, val, ms: now() - t0 });
           });
-        } catch (e) { if (!done) { done = true; clearTimeout(t); res({ err: 'THROW ' + ((e && e.message) || e) }); } }
+        } catch (e) { if (!done) { done = true; clearTimeout(t); res({ err: 'THROW ' + ((e && e.message) || e), ms: 0 }); } }
       });
     }
-    // облако — одна очередь: чтение, запись, проверка оглавления не перекрываются
-    let queue = Promise.resolve();
-    function enqueue(fn) { const p = queue.then(() => fn()); queue = p.catch(() => {}); return p; }
-    const set = (k, v) => { S.writes++; return call(cb => CSo().setItem(k, v, cb), T.CLOUD_OP); };
+    // время ответа облака (скользящее): по нему — тайм-ауты чтения и записи
+    let rtt = 0;
+    const seen = ms => { if (!(ms > 0)) return; rtt = rtt ? Math.round(rtt * 0.7 + ms * 0.3) : ms; S.rtt = rtt; };
+    // (на iOS ошибка — тишина: ждём 2,5–3 времени ответа, но и не меньше медленного облака, иначе удачное — «ошибка»)
+    const readTO = () => (rtt ? clamp(rtt * 2.5, 1200, 15000) : T.READ0);
+    const writeTO = () => (rtt ? clamp(rtt * 3, 800, 15000) : T.WRITE0);
+    // облако сбоит (была ошибка за 2 мин): срочное — сразу в два быстрых слота
+    let lastFailAt = 0;
+    const flaky = () => lastFailAt && now() - lastFailAt < 120000;
     const failed = r => !!(r.err || r.val === false);
 
-    /* ---------- чтение ---------- */
+    /* ---------- что мы знаем об облаке ----------
+       view[слот] = { st: none|bad|ok|unk (запись не подтвердилась)|pend (пишется), hdr, t: когда узнали, cov: быстрый слот уже
+       в основном }. synced — облако хоть раз прочитано; readAt — когда пришёл последний ответ чтения. */
+    const view = {};
+    MAIN.concat(XS).forEach(s => { view[s] = { st: 'none', hdr: null, t: 0 }; });
+    let synced = false, viewKnown = false, readAt = 0, remoteKnown = null, mainHash = '', tooBig = false;
+    // перезагрузка «Продолжить с сохранения»: что знали о слотах до неё (выбор быстрого слота — не вслепую)
+    if (isObj(cfg.view0) && now() - num(cfg.view0.at) < T.VIEW_TTL && isObj(cfg.view0.slots)) {
+      MAIN.concat(XS).forEach(s => { const v = cfg.view0.slots[s]; if (isObj(v) && ['none', 'bad', 'ok', 'unk'].includes(v.st)) view[s] = { st: v.st, hdr: isObj(v.hdr) ? v.hdr : null, t: num(cfg.view0.at), cov: !!v.cov }; });
+      viewKnown = true;
+    }
+
+    /* ---------- DeviceStorage ---------- */
     function gotDS(val) {
-      dsKnown = true; S.ds = 'ok'; S.dsAt = Date.now();
+      dsKnown = true; S.ds = 'ok'; S.dsAt = now();
       const c = parse(val);
       if (c) { lastDS = contentHash(forRemote(c)); cfg.onCopy('ds', c); }
       if (active) schedule({});
@@ -436,37 +570,7 @@
         if (dsReadTry++ < 3) setTimeout(() => { if (!dsKnown && useDS) readDS(); }, [3000, 10000, 30000][dsReadTry - 1]);
       });
     }
-    function gotCloud(items) {
-      if (synced) return;
-      const d = decodeCloud(items, mopts());
-      synced = true; readTry = 0; clearTimeout(readTimer);
-      remoteKnown = d.copy; remoteMeta = d.meta; checkedAt = Date.now();
-      lastCloud = d.copy ? contentHash(forRemote(d.copy)) : '';
-      S.cloud = 'synced'; S.cloudAt = Date.now(); S.slots = d.info;
-      log('cloud read', JSON.stringify(d.info));
-      if (d.copy) cfg.onCopy('cloud', d.copy);
-      if (active) schedule({});
-    }
-    function readOnce() {
-      if (synced || !useCloud) return Promise.resolve();
-      if (!synced) S.cloud = 'reading';
-      return call(cb => CSo().getItems(CLOUD_KEYS, cb), T.CLOUD_READ, (err, val) => { if (!err && isObj(val)) gotCloud(val); }).then(r => {
-        if (synced) return;
-        if (!r.err && isObj(r.val)) { gotCloud(r.val); return; }
-        if (unsupported(r.err)) { useCloud = false; S.cloud = 'off'; log('cloud unsupported'); return; }
-        // ошибка чтения — это не «облако пустое»: писать в основные слоты нельзя, пробуем ещё
-        S.cloud = 'unsynced'; S.err = 'cloud ' + (r.err || 'bad reply'); log('cloud read', r.err);
-        const d = READ_RETRY[Math.min(readTry, READ_RETRY.length - 1)]; readTry++;
-        clearTimeout(readTimer);
-        readTimer = setTimeout(() => { if (hidden()) { readPending = true; return; } enqueue(readOnce); }, d);
-      });
-    }
-    const readCloud = () => (useCloud ? enqueue(readOnce) : Promise.resolve());
-
-    /* ---------- запись ---------- */
     const liveSnap = () => forRemote(cfg.snapshot());
-    // в облако — живое состояние, объединённое с последней прочитанной копией облака
-    const mainSnap = () => forRemote(remoteKnown ? merge([cfg.snapshot(), remoteKnown], Object.assign(mopts(), { scalars: 'local' })) : cfg.snapshot());
     async function dsWrite(force) {
       if (!useDS || (!dsKnown && !force)) return true;
       const snap = liveSnap(), h = contentHash(snap);
@@ -476,193 +580,322 @@
         if (unsupported(r.err)) { useDS = false; S.ds = 'unsupported'; return true; }
         S.ds = 'error'; S.err = 'ds ' + (r.err || 'false'); log('ds write', S.err); return false;
       }
-      lastDS = h; S.ds = 'ok'; S.dsAt = Date.now(); return true;
+      lastDS = h; S.ds = 'ok'; S.dsAt = now(); return true;
     }
-    // одна пачка setItem параллельно: [[ключ, значение], …]; ok — подтверждены все нужные (куски + оглавление),
-    // extraOk — и дополнительные (старые ключи: их сбой запись не отменяет, они уйдут со следующей)
+
+    /* ---------- чтение облака (своя очередь: записи его не ждут) ---------- */
+    let readBusy = false, readFails = 0, hardFails = 0, readNextAt = 0, readTimer = 0, readPending = false, lastApplied = 0;
+    let bootRes = null;
+    const bootDone = () => { if (bootRes) { const r = bootRes; bootRes = null; r(); } };
+    function applyRead(items, sentAt) {
+      if (sentAt < lastApplied) return;   // старое чтение ответило поздно — у нас уже свежее
+      lastApplied = sentAt;
+      const d = decodeCloud(items, mopts());
+      MAIN.concat(XS).forEach(s => {
+        const v = view[s], r = d.slots[s];
+        if (v.st === 'pend') return;   // пишем туда сейчас
+        // наша запись в этот слот могла быть позже, чем облако ответило на чтение
+        if (v.sent && v.sent >= sentAt - 1000) {
+          if (r.st === 'ok' && v.hdr && r.hdr.sid === v.hdr.sid && r.hdr.h === v.hdr.h) view[s] = Object.assign({}, v, { st: 'ok', t: now() });
+          return;
+        }
+        view[s] = { st: r.st, hdr: r.hdr || null, t: now(), cov: XS.includes(s) && r.st === 'ok' ? covers(d.mainCopy, r.copy) : false };
+      });
+      remoteKnown = d.copy;
+      mainHash = d.mainCopy ? contentHash(forRemote(d.mainCopy)) : '';
+      synced = true; viewKnown = true; readAt = now(); readFails = 0; hardFails = 0; readNextAt = 0;
+      S.cloud = tooBig ? 'too-big' : 'synced'; S.cloudAt = now(); S.slots = d.info;
+      log('cloud read', JSON.stringify(d.info));
+      if (d.copy) cfg.onCopy('cloud', d.copy);
+      bootDone(); kick();
+    }
+    function readOnce() {
+      readBusy = true; S.reads++;
+      const sentAt = now();
+      if (!synced) S.cloud = 'reading';
+      call(cb => CSo().getItems(CLOUD_KEYS, cb), readTO(), (err, val, ms) => { if (!err && isObj(val)) { seen(ms); applyRead(val, sentAt); } }).then(r => {
+        readBusy = false;
+        if (!r.err && isObj(r.val)) { seen(r.ms); applyRead(r.val, sentAt); return; }
+        if (unsupported(r.err)) { useCloud = false; S.cloud = 'off'; log('cloud unsupported'); bootDone(); return; }
+        // тайм-аут, а свежий ответ уже есть (пришёл ответ на это или более позднее чтение) — не ошибка
+        if (r.err === 'TIMEOUT' && synced && readAt >= sentAt) { kick(); return; }
+        // ошибка чтения — это не «облако пустое»: основные слоты без чтения не пишем, пробуем ещё
+        readFails++; lastFailAt = now();
+        S.err = 'cloud ' + (r.err || 'bad reply'); log('cloud read', S.err);
+        if (!synced) S.cloud = 'unsynced';
+        readNextAt = now() + READ_RETRY[Math.min(readFails - 1, READ_RETRY.length - 1)];
+        // три явных ошибки подряд — запуск дальше не ждёт; тишину (тайм-аут) ограничивает предел самого запуска
+        if (r.err !== 'TIMEOUT') { hardFails++; if (hardFails >= 3) bootDone(); }
+        if (!synced) requestRead();
+        kick();
+      });
+    }
+    function requestRead(force) {
+      if (!useCloud || readBusy) return;
+      const w = readNextAt - now();
+      if (w > 0) { if (!readTimer) readTimer = setTimeout(() => { readTimer = 0; requestRead(); }, w); return; }
+      if (hidden() && !force) { readPending = true; return; }
+      readOnce();
+    }
+    const readCloud = () => (useCloud ? new Promise(res => { bootRes = res; requestRead(true); }) : Promise.resolve());
+
+    /* ---------- запись облака ---------- */
+    // одна пачка setItem параллельно: [[ключ, значение], …]; ok — подтверждены все нужные; extraOk — и старые ключи
+    // (поздний ответ на запись тоже учит время ответа облака: следующие тайм-ауты будут по нему)
+    const set = (k, v) => { S.writes++; return call(cb => CSo().setItem(k, v, cb), writeTO(), (err, val, ms) => { if (!err) seen(ms); }); };
     async function writeBatch(pairs, extra) {
       extra = extra || [];
       const rs = await Promise.all(pairs.concat(extra).map(([k, v]) => set(k, v)));
+      rs.forEach(r => { if (!r.err) seen(r.ms); });
       const bad = rs.slice(0, pairs.length).find(failed);
-      if (bad) { S.err = 'cloud ' + (bad.err || 'false'); log('cloud write', S.err); return { ok: false }; }
+      if (bad) { lastFailAt = now(); S.err = 'cloud ' + (bad.err || 'false'); log('cloud write', S.err); return { ok: false }; }
       return { ok: true, extraOk: !rs.slice(pairs.length).some(failed) };
     }
-    const slotPairs = (prefix, payload) => split(payload, CHUNK).map((p, i) => [prefix + i, p]);
-    const slotMeta = (payload, n) => ({ n, len: payload.length, h: fnv1a(payload) });
+    // в основной слот — живое состояние, объединённое с последней прочитанной копией облака
+    const mainSnap = () => forRemote(remoteKnown ? merge([cfg.snapshot(), remoteKnown], Object.assign(mopts(), { scalars: 'local' })) : cfg.snapshot());
+    // куда писать основной: не в самый новый целый слот (последняя целая копия не трогается) и не туда, куда пишем;
+    // лучше всего — в пустой или битый, потом — в старый целый, в последнюю очередь — в неподтверждённый
+    function pickMain() {
+      const ok = MAIN.filter(s => view[s].st === 'ok' && view[s].hdr).sort((a, b) => hdrNewer(view[a].hdr, view[b].hdr));
+      const newest = ok[0];
+      const rank = s => (['none', 'bad'].includes(view[s].st) ? 0 : view[s].st === 'ok' ? 1 : 2);
+      const age = s => (view[s].hdr ? num(view[s].hdr.at) : num(view[s].sent));
+      return MAIN.filter(s => s !== newest && view[s].st !== 'pend').sort((a, b) => (rank(a) - rank(b)) || (age(a) - age(b)))[0] || null;
+    }
+    const maxSeq = () => Math.max(0, ...MAIN.map(s => (view[s].hdr ? num(view[s].hdr.seq) : 0)));
     // старые ключи (для старых сборок и отката): при изменении чекпоинтов и первой записи сессии
+    let lastLegacy = null;
     function legacyPairs(snap) {
-      const sg = sig(snap) + '|' + snap._s.ep;
+      const sg = sig(snap) + '|' + num(snap._s && snap._s.ep);
       if (sg === lastLegacy) return { pairs: [], sg };
-      const main = Object.assign({}, snap); delete main.town;
-      const raw = encode(main), rawT = isObj(snap.town) ? encode(snap.town) : '';
-      if (raw.length >= CHUNK || rawT.length >= CHUNK) { log('legacy skip', raw.length, rawT.length); return { pairs: [], sg, skip: true }; }
-      return { pairs: [[K.LEGACY, raw]].concat(rawT ? [[K.LEGACY_TOWN, rawT]] : []), sg };
+      const raw = legacyMain(snap), rawT = isObj(snap.town) ? encode(snap.town) : '';
+      if (!raw) log('legacy skip (too big)');
+      const pairs = (raw ? [[K.LEGACY, raw]] : []).concat(rawT && rawT.length < CHUNK ? [[K.LEGACY_TOWN, rawT]] : []);
+      return { pairs, sg };
     }
-    // вернулись в приложение: не записало ли облако другое устройство (сверка оглавления в фоне)
-    function recheck() {
-      if (!synced || !useCloud) return Promise.resolve();
-      return enqueue(async () => {
-        const r = await call(cb => CSo().getItem(K.CM, cb), T.CLOUD_OP);
-        if (r.err) return;
-        checkedAt = Date.now();
-        if (sameMeta(parse(r.val), remoteMeta)) return;
-        const rr = await call(cb => CSo().getItems(CLOUD_KEYS, cb), T.CLOUD_READ);
-        if (rr.err || !isObj(rr.val)) return;
-        const d = decodeCloud(rr.val, mopts());
-        remoteKnown = d.copy; remoteMeta = d.meta; S.slots = d.info;
-        log('cloud changed elsewhere', JSON.stringify(d.info));
-        if (d.copy) cfg.onCopy('cloud', d.copy);
-        schedule({});
-      });
-    }
-    const sameMeta = (a, b) => (!a && !b) || (isObj(a) && isObj(b) && a.cur === b.cur && isObj(a[a.cur]) && isObj(b[b.cur]) && a[a.cur].h === b[b.cur].h);
+    // срочность: uq растёт с каждым чекпоинтом / сворачиванием; закрыта, когда запись с ним подтвердилась или в пути
+    let uq = 0, uqAck = 0, ackLive = '';
+    // в пути: счётчики (одно и то же может лететь дважды — в два быстрых слота)
+    const bag = () => { const m = new Map(); return { add: k => m.set(k, (m.get(k) || 0) + 1), del: k => { const n = (m.get(k) || 0) - 1; if (n > 0) m.set(k, n); else m.delete(k); }, has: k => m.has(k), keys: () => [...m.keys()] }; };
+    const fly = bag();
+    const covered = () => Math.max(uqAck, ...fly.keys());
+    let mainBusy = false, mainAgain = false, mainFails = 0, mainTimer = 0;
     async function writeMain() {
-      let snap = mainSnap(), h = contentHash(snap);
-      if (h === lastCloud) return true;
-      // очень давно не сверялись с облаком (второе устройство могло записать): сначала оглавление
-      if (Date.now() - checkedAt > T.RECHECK) {
-        const r = await call(cb => CSo().getItem(K.CM, cb), T.CLOUD_OP);
-        if (!r.err) {
-          checkedAt = Date.now();
-          if (!sameMeta(parse(r.val), remoteMeta)) {
-            const rr = await call(cb => CSo().getItems(CLOUD_KEYS, cb), T.CLOUD_READ);
-            if (rr.err || !isObj(rr.val)) return false;
-            const d = decodeCloud(rr.val, mopts());
-            remoteKnown = d.copy; remoteMeta = d.meta; S.slots = d.info;
-            log('cloud changed elsewhere', JSON.stringify(d.info));
-            if (d.copy) cfg.onCopy('cloud', d.copy);
-            snap = mainSnap(); h = contentHash(snap);
-          }
-        }
+      const slot = pickMain();
+      if (!slot) return;
+      const snap = mainSnap(), h = contentHash(snap), live = contentHash(liveSnap()), myUq = uq;
+      if (h === mainHash) { if (myUq > uqAck && live === ackLive) uqAck = myUq; return; }
+      if (remoteKnown && !covers(snap, remoteKnown)) {
+        console.error('[save] guard: запись потеряла бы прогресс облака', gained(snap, remoteKnown).slice(0, 8));
+        readAt = 0; requestRead(); return;
       }
-      snap._s.seq = Math.max(num(snap._s.seq), remoteKnown ? meta(remoteKnown).seq : 0) + 1;
+      snap._s.seq = Math.max(num(snap._s.seq), maxSeq()) + 1;
       const payload = encode(snap);
       S.size = payload.length;
       if (payload.length > CHUNK * MAXN) {
-        if (S.cloud !== 'too-big') console.error('[save] сохранение не помещается в облако Telegram:', payload.length);
-        S.cloud = 'too-big'; lastCloud = h; return true;
+        if (!tooBig) console.error('[save] сохранение не помещается в облако Telegram:', payload.length);
+        tooBig = true; S.cloud = 'too-big'; return;
       }
-      if (remoteKnown && !covers(snap, remoteKnown)) {
-        console.error('[save] guard: запись потеряла бы прогресс облака', gained(snap, remoteKnown).slice(0, 8));
-        checkedAt = 0; return false;
-      }
-      // пишем НЕ текущий слот; оглавление сохраняет запись текущего — он остаётся целым при любом обрыве
-      const slot = remoteMeta && remoteMeta.cur === 'a' ? 'b' : 'a';
-      const parts = slotPairs('d2' + slot, payload);
-      const m2 = { v: 2, cur: slot, a: (remoteMeta && remoteMeta.a) || null, b: (remoteMeta && remoteMeta.b) || null, ep: snap._s.ep, sc: score(snap), dev: cfg.dev || '', at: Date.now() };
-      m2[slot] = Object.assign(slotMeta(payload, parts.length), { at: snap._s.at, seq: snap._s.seq });
+      const p = packSlot(slot, payload, { seq: snap._s.seq, at: now(), sid: SID, ep: num(snap._s.ep), sc: score(snap) });
       const leg = legacyPairs(snap);
-      const wr = await writeBatch(parts.concat([[K.CM, JSON.stringify(m2)]]), leg.pairs);
-      if (!wr.ok) return false;
-      remoteMeta = m2; remoteKnown = JSON.parse(payload); lastCloud = h;
+      const sent = now();
+      view[slot] = { st: 'pend', hdr: p.hdr, sent, t: sent };
+      mainBusy = true; fly.add(myUq);
+      let wr;
+      try { wr = await writeBatch(p.pairs, leg.pairs); } catch (e) { wr = { ok: false }; log('main write', e); }
+      mainBusy = false; fly.del(myUq);
+      if (!wr.ok) {
+        view[slot] = { st: 'unk', hdr: null, sent, t: now() };
+        mainFails++;
+        const d = CLOUD_RETRY[Math.min(mainFails - 1, CLOUD_RETRY.length - 1)];
+        clearTimeout(mainTimer); mainTimer = setTimeout(() => { mainTimer = 0; kick(); }, d);
+        kick();   // срочное — сразу в быстрый слот
+        return;
+      }
+      mainFails = 0;
+      view[slot] = { st: 'ok', hdr: p.hdr, sent, t: now() };
+      // всё, что знали к снимку, теперь в основном слоте: быстрые слоты можно переписывать
+      XS.forEach(x => { if (view[x].st === 'ok' && num(view[x].t) <= sent) view[x].cov = true; });
+      remoteKnown = JSON.parse(payload); mainHash = h;
       if (wr.extraOk) lastLegacy = leg.sg;
-      S.cloud = 'synced'; S.cloudAt = Date.now();
-      return true;
+      uqAck = Math.max(uqAck, myUq); ackLive = live;
+      S.cloud = 'synced'; S.cloudAt = now();
+      // пока писали, могло появиться новое: срочное — сразу, мелочи — обычной паузой
+      if (uq > covered()) kick(); else if (mainAgain) { mainAgain = false; arm('cloud', debounceC(), false); }
     }
-    // облако не прочитано: свой отдельный слот u (основные слоты не трогаем)
-    async function writeU() {
-      const live = cfg.snapshot();
-      if (!hasProgress(live)) return true;
-      const snap = forRemote(live), h = contentHash(snap);
-      if (h === lastU) return true;
+    // быстрый слот: у сессии до двух своих (пока один пишется — второй); с известным облаком — свободный или уже
+    // перенесённый в основной; облако ни разу не прочитано — два слота по номеру сессии
+    let ownX = [], lastOwnX = '', lastX = '', xBusy = 0, xFails = 0, xTimer = 0;
+    const xFly = bag();
+    const sidNum = () => parseInt(fnv1a(SID).slice(0, 6), 16);
+    function pickX() {
+      const free = s => view[s].st !== 'pend';
+      if (!viewKnown) {
+        const h = sidNum(), pair = [XS[h % XS.length], XS[(h + 1) % XS.length]];
+        return pair.filter(free).sort((a, b) => (a === lastOwnX) - (b === lastOwnX))[0] || null;
+      }
+      const cand = XS.filter(free).filter(s => ownX.length < 2 || ownX.includes(s));
+      const rank = s => {
+        const v = view[s];
+        if (ownX.includes(s)) return s === lastOwnX ? 4 : 0;
+        if (v.st === 'none' || v.st === 'bad') return 1;
+        if (v.st === 'ok' && v.cov) return 2;
+        if (v.st === 'unk') return 3;
+        return 5;   // чужой, ещё не в основном: его содержимое у нас уже есть (прочитали), но лучше не трогать
+      };
+      const age = s => (view[s].hdr ? num(view[s].hdr.at) : num(view[s].sent));
+      return cand.sort((a, b) => (rank(a) - rank(b)) || (age(a) - age(b)))[0] || null;
+    }
+    async function writeX(dup) {
+      const live0 = cfg.snapshot();
+      if (score(live0) <= 0) return;
+      const slot = pickX();
+      if (!slot) return;
+      const snap = forRemote(remoteKnown ? merge([live0, remoteKnown], Object.assign(mopts(), { scalars: 'local' })) : live0);
+      const h = contentHash(snap), live = contentHash(liveSnap()), myUq = uq;
+      if (h === lastX || (xFly.has(h) && !dup)) { if (myUq > uqAck && live === ackLive) uqAck = myUq; return; }
       const payload = encode(snap);
-      if (payload.length > CHUNK * MAXN) return true;
-      const parts = slotPairs('d2u', payload);
-      const um = Object.assign(slotMeta(payload, parts.length), { v: 2, at: snap._s ? snap._s.at : 0, ep: snap._s ? snap._s.ep : 0, dev: cfg.dev || '' });
-      if (!(await writeBatch(parts.concat([[K.CU, JSON.stringify(um)]]))).ok) return false;
-      lastU = h; S.uAt = Date.now(); return true;
+      if (payload.length > CHUNK * XN) { log('x skip (too big)', payload.length); return; }
+      const p = packSlot(slot, payload, { at: now(), sid: SID, ep: num(snap._s && snap._s.ep), sc: score(snap) });
+      const sent = now();
+      view[slot] = { st: 'pend', hdr: p.hdr, sent, t: sent };
+      if (!ownX.includes(slot)) ownX.push(slot);
+      lastOwnX = slot; xBusy++; fly.add(myUq); xFly.add(h);
+      let wr;
+      try { wr = await writeBatch(p.pairs); } catch (e) { wr = { ok: false }; log('x write', e); }
+      xBusy--; fly.del(myUq); xFly.del(h);
+      if (!wr.ok) {
+        view[slot] = { st: 'unk', hdr: null, sent, t: now() };
+        xFails++;
+        const d = CLOUD_RETRY[Math.min(xFails - 1, CLOUD_RETRY.length - 1)];
+        clearTimeout(xTimer); xTimer = setTimeout(() => { xTimer = 0; kick(); }, d);
+        return;
+      }
+      xFails = 0;
+      view[slot] = { st: 'ok', hdr: p.hdr, sent, t: now(), cov: false };
+      lastX = h; S.xAt = now();
+      uqAck = Math.max(uqAck, myUq); ackLive = live;
+      kick();
     }
-    function cloudWrite() { if (!useCloud) return true; return synced ? writeMain() : writeU(); }
+    /* Один шаг: основной слот — если облако прочитано недавно (иначе сначала чтение); срочное, которое основной
+       сейчас не возьмёт (чтение в пути, основной пишется, пауза после ошибки), — сразу в быстрый слот; пока облако
+       не читается — всё в быстрый слот. */
+    let kickT = 0;
+    function kick() { if (!kickT) kickT = setTimeout(() => { kickT = 0; pump(); }, 0); }
+    function pump() {
+      if (!active || !useCloud) return;
+      let mainGo = false;
+      if (synced && !tooBig) {
+        const dirty = contentHash(mainSnap()) !== mainHash;
+        if (!dirty && !mainBusy) uqAck = uq;   // всё уже в основном слоте — срочного нет
+        if (dirty && mainBusy) mainAgain = true;
+        if (dirty && !mainBusy && !mainTimer) {
+          if (now() - readAt < T.FRESH && pickMain()) { mainGo = true; writeMain(); }
+          else requestRead(true);
+        }
+      } else if (!synced) requestRead();
+      if (mainGo) return;
+      if (uq > covered() && contentHash(liveSnap()) === ackLive) uqAck = uq;   // срочно, но всё уже записано
+      const urgent = uq > covered();
+      const lazy = (!synced || readFails > 0) && !xBusy;   // «лениво» — по одной; срочное — сразу, хоть и вторым
+      if (!xTimer && (urgent || lazy)) { writeX(); if (urgent && flaky()) writeX(true); }
+    }
 
     /* ---------- расписание ---------- */
-    const timers = {}, busy = {}, again = {}, fails = {}, firstAt = {};
-    const enabled = k => (k === 'ds' ? useDS : useCloud);
-    const debounce = k => (k === 'ds' ? T.DS_DEBOUNCE : synced ? T.CLOUD_DEBOUNCE : T.U_DEBOUNCE);
+    const timers = {}, firstAt = {};
+    let dsBusy = false, dsAgain = false, dsFails = 0;
     function arm(k, ms, flush) {
-      if (busy[k]) { again[k] = flush ? 'flush' : (again[k] || 'normal'); return; }
-      if (fails[k] && timers[k]) return;   // пауза после ошибки: повтор возьмёт свежий снимок
-      const now = Date.now();
-      if (!firstAt[k]) firstAt[k] = now;
-      let due = Math.min(now + ms, firstAt[k] + (k === 'ds' ? T.DS_MAXWAIT : T.CLOUD_MAXWAIT));
+      const nw = now();
+      if (!firstAt[k]) firstAt[k] = nw;
+      const due = Math.min(nw + ms, firstAt[k] + (k === 'ds' ? T.DS_MAXWAIT : T.CLOUD_MAXWAIT));
       const cur = timers[k];
       if (cur) {
         if (cur.flush && !flush) return;
         if (flush && cur.due <= due) return;
         clearTimeout(cur.id);   // обычная запись: пауза отсчитывается от последнего сохранения (но не дольше MAXWAIT)
       }
-      timers[k] = { id: setTimeout(() => run(k), Math.max(0, due - now)), due, flush: !!flush };
+      timers[k] = { id: setTimeout(() => fire(k), Math.max(0, due - nw)), due, flush: !!flush };
     }
-    async function run(k) {
-      timers[k] = null;
-      if (!enabled(k)) return;
-      if (busy[k]) { again[k] = 'flush'; return; }
-      busy[k] = true; again[k] = false;
+    function fire(k) { timers[k] = null; firstAt[k] = 0; if (k === 'ds') runDS(); else pump(); }
+    async function runDS() {
+      if (!useDS) return;
+      if (dsBusy) { dsAgain = true; return; }
+      dsBusy = true; dsAgain = false;
       let ok = true;
-      try { ok = await (k === 'ds' ? dsWrite() : enqueue(cloudWrite)); } catch (e) { ok = false; log(k, 'write', e); }
-      busy[k] = false;
-      if (ok === false) {
-        fails[k] = (fails[k] || 0) + 1;
-        const B = k === 'ds' ? DS_RETRY : CLOUD_RETRY;
-        if (k === 'ds' && fails[k] > B.length) { fails[k] = 0; firstAt[k] = 0; return; }   // DS: три попытки, дальше — со следующим сохранением
-        const d = B[Math.min(fails[k] - 1, B.length - 1)];
-        timers[k] = { id: setTimeout(() => run(k), d), due: Date.now() + d, flush: true };
+      try { ok = await dsWrite(); } catch (e) { ok = false; log('ds write', e); }
+      dsBusy = false;
+      if (!ok) {
+        dsFails++;
+        if (dsFails > DS_RETRY.length) { dsFails = 0; return; }   // три попытки, дальше — со следующим сохранением
+        setTimeout(runDS, DS_RETRY[dsFails - 1]);
         return;
       }
-      fails[k] = 0; firstAt[k] = 0;
-      if (again[k]) { const f = again[k] === 'flush'; again[k] = false; arm(k, f ? T.FLUSH : debounce(k), f); }
+      dsFails = 0;
+      if (dsAgain) arm('ds', T.FLUSH, true);
     }
+    const debounceC = () => (synced ? T.CLOUD_DEBOUNCE : T.X_DEBOUNCE);
     function schedule(o) {
       o = o || {};
       if (!active) return;
-      ['ds', 'cloud'].forEach(k => { if (enabled(k)) arm(k, o.flush ? T.FLUSH : debounce(k), !!o.flush); });
+      if (o.flush) uq++;
+      if (useDS) arm('ds', o.flush ? T.FLUSH : T.DS_DEBOUNCE, !!o.flush);
+      if (useCloud) arm('cloud', o.flush ? T.FLUSH : debounceC(), !!o.flush);
     }
     // свернули / закрывают: отправить сейчас (на iOS после закрытия вызовы уже не уходят)
     function flushAll() {
       if (!active) return;
-      ['ds', 'cloud'].forEach(k => {
-        if (!enabled(k)) return;
-        if (busy[k]) { again[k] = 'flush'; return; }
-        if (timers[k]) clearTimeout(timers[k].id);
-        timers[k] = null; run(k);
-      });
+      if (useDS) { if (timers.ds) clearTimeout(timers.ds.id); timers.ds = null; firstAt.ds = 0; runDS(); }
+      if (useCloud) { uq++; if (timers.cloud) clearTimeout(timers.cloud.id); timers.cloud = null; firstAt.cloud = 0; pump(); }
     }
     function activate() { if (active) return; active = true; schedule({}); }
+    // вернулись в приложение: не записало ли облако другое устройство (свежее чтение в фоне)
+    function recheck() { if (synced && useCloud) requestRead(true); }
     let hiddenAt = 0;
-    function onHidden() { if (!hiddenAt) hiddenAt = Date.now(); flushAll(); }
+    function onHidden() { if (!hiddenAt) hiddenAt = now(); flushAll(); }
     function onVisible() {
-      const away = hiddenAt ? Date.now() - hiddenAt : 0; hiddenAt = 0;
-      if (readPending) { readPending = false; enqueue(readOnce); }
-      else if (away > T.AWAY) recheck();
+      const away = hiddenAt ? now() - hiddenAt : 0; hiddenAt = 0;
+      if (readPending) { readPending = false; requestRead(true); } else if (away > T.AWAY) recheck();
     }
-    // намеренный сброс: пишем сразу везде, даже без чтения облака (старые копии отбросятся по _s.ep)
+    // намеренный сброс: пишем сразу во все основные слоты и старый ключ, даже без чтения облака
+    // (старые копии везде отбросятся по _s.ep — и быстрые слоты других сессий тоже)
     function resetWrite() {
       if (useDS) dsWrite(true).then(ok => { if (ok) dsKnown = true; });
       if (!useCloud) return Promise.resolve(true);
-      return enqueue(async () => {
-        const snap = liveSnap(), payload = encode(snap);
-        const slot = remoteMeta && remoteMeta.cur === 'a' ? 'b' : 'a';
-        const parts = slotPairs('d2' + slot, payload);
-        const m2 = { v: 2, cur: slot, a: null, b: null, ep: snap._s.ep, sc: 0, dev: cfg.dev || '', at: Date.now() };
-        m2[slot] = Object.assign(slotMeta(payload, parts.length), { at: snap._s.at, seq: num(snap._s.seq) });
-        const main = Object.assign({}, snap); delete main.town;
-        const rm = call(cb => CSo().removeItem(K.LEGACY_TOWN, cb), T.CLOUD_OP);
-        if (!(await writeBatch(parts.concat([[K.CM, JSON.stringify(m2)]]), [[K.LEGACY, encode(main)]])).ok) return false;
+      const snap = liveSnap(), payload = encode(snap), sent = now();
+      const packs = MAIN.map((s, i) => packSlot(s, payload, { seq: num(snap._s && snap._s.seq) + 1 + i, at: sent, sid: SID, ep: num(snap._s && snap._s.ep), sc: 0 }));
+      MAIN.forEach((s, i) => { view[s] = { st: 'pend', hdr: packs[i].hdr, sent, t: sent }; });
+      const main = Object.assign({}, snap); delete main.town;
+      const rm = call(cb => CSo().removeItem(K.LEGACY_TOWN, cb), writeTO());
+      return writeBatch([].concat(...packs.map(p => p.pairs)), [[K.LEGACY, encode(main)]]).then(async wr => {
         await rm;
-        synced = true; remoteKnown = JSON.parse(payload); remoteMeta = m2; lastCloud = contentHash(snap); checkedAt = Date.now();
-        S.cloud = 'synced'; S.cloudAt = Date.now();
+        MAIN.forEach((s, i) => { view[s] = { st: wr.ok ? 'ok' : 'unk', hdr: wr.ok ? packs[i].hdr : null, sent, t: now() }; });
+        if (!wr.ok) return false;
+        synced = true; viewKnown = true; readAt = now(); remoteKnown = JSON.parse(payload); mainHash = contentHash(snap);
+        S.cloud = 'synced'; S.cloudAt = now();
         return true;
       });
     }
     // DS перед перезагрузкой страницы: дождаться записи (не дольше ms)
     // (DS, ещё не прочитанный в этой сессии, не перезаписывается: в нём может быть прогресс, которого здесь нет)
     function flushDS(ms) { if (!useDS) return Promise.resolve(); return Promise.race([dsWrite(false), new Promise(r => setTimeout(r, ms || 1000))]); }
-    function status() { return Object.assign({}, S, { synced, useDS, useCloud, dsKnown, meta: remoteMeta ? { cur: remoteMeta.cur } : null }); }
-    return { readDS, readCloud, activate, schedule, flushAll, flushDS, onHidden, onVisible, recheck, resetWrite, status, isSynced: () => synced };
+    // для перезагрузки «Продолжить с сохранения»: что знаем о слотах (без содержимого)
+    function exportView() {
+      if (!viewKnown) return null;
+      const slots = {};
+      MAIN.concat(XS).forEach(s => { const v = view[s]; slots[s] = { st: v.st === 'pend' ? 'unk' : v.st, hdr: v.hdr || null, cov: !!v.cov }; });
+      return { at: now(), slots };
+    }
+    function status() {
+      const sl = {}; MAIN.concat(XS).forEach(s => { sl[s] = view[s].st; });
+      return Object.assign({}, S, { synced, useDS, useCloud, dsKnown, sid: SID, view: sl, readAgo: readAt ? now() - readAt : -1 });
+    }
+    return { readDS, readCloud, activate, schedule, flushAll, flushDS, onHidden, onVisible, recheck, resetWrite, status, exportView, isSynced: () => synced, sid: SID };
   }
 
   return {
-    K, T, CHUNK, MAXN, CLOUD_KEYS, D32,
+    K, T, CHUNK, MAXN, XN, MAIN, XS, CLOUD_KEYS, D32,
     parse, clone, meta, orBits, bitCount, bitList, score, hasProgress, sig, progressKeys, gained, covers, summary,
-    merge, applyInPlace, encode, fnv1a, split, assemble, forRemote, canon, contentHash, decodeCloud, runtime,
+    merge, applyInPlace, encode, fnv1a, split, packSlot, readSlot, forRemote, canon, contentHash, decodeCloud, legacyMain,
+    scalarPaths, scalarVals, stampScalars, runtime,
   };
 });

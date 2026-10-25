@@ -319,10 +319,13 @@
   /* ---------- Состояние и сохранения ----------
      localStorage — как раньше (delo1010_v1 без прогулки + delo1010_v1_town), пишется сразу при каждом save().
      В Telegram ещё два хранилища (js/save_store.js): DeviceStorage (на самом телефоне, Bot API 9.0) и CloudStorage
-     (облако Telegram, кусками в слотах a/b). Копии не заменяют друг друга, а объединяются (SaveStore.merge): старая
-     копия не стирает новый прогресс. Старт ждёт хранилища до 1 с, если прогресс уже есть на телефоне, и до 6 с, если нет;
+     (облако Telegram: основные слоты a/b/c и быстрые x0..x3). Копии не заменяют друг друга, а объединяются
+     (SaveStore.merge): старая копия не стирает новый прогресс. Старт ждёт хранилища до 1 с, если прогресс уже есть
+     на телефоне, и до 6 с, если нет;
      ответ, пришедший позже, всё равно объединяется (на титуле — с вопросом «Нашлось твоё сохранение»).
-     До первого удачного чтения облака основные слоты облака не пишутся: ошибка чтения — не «облако пустое». */
+     До первого удачного чтения облака основные слоты облака не пишутся: ошибка чтения — не «облако пустое».
+     Выборы игрока (имя, образ, команда, имена питомцев…) получают метку времени изменения при сохранении:
+     при слиянии побеждает изменённое позже — старая копия на другом устройстве их не откатывает. */
   const KEY = 'delo1010_v1';
   const KEY_TOWN = KEY + '_town';
   const SS = window.SaveStore || null;
@@ -382,6 +385,16 @@
     return s;
   }
   // перед перезагрузкой «Продолжить с сохранения» копия кладётся и в sessionStorage (на случай, если localStorage не пишет)
+  // рядом — что было известно о слотах облака (чтобы первая срочная запись после перезагрузки шла не вслепую)
+  function readStashView() {
+    try {
+      const raw = sessionStorage.getItem('delo1010_stash_v');
+      if (!raw) return null;
+      sessionStorage.removeItem('delo1010_stash_v');
+      const v = JSON.parse(raw);
+      return isObj(v) ? v : null;
+    } catch (e) { return null; }
+  }
   function readStash() {
     try {
       const raw = sessionStorage.getItem('delo1010_stash');
@@ -411,13 +424,18 @@
 
   let state = readLocal();
   { const stash = readStash(); if (stash && SS) { SS.applyInPlace(state, SS.merge([state, stash], mopts())); writeLocal(); } }
+  // выборы игрока: что было на момент последней проверки; изменилось — метка времени (track перед записью и слиянием)
+  let scal = null;
+  const track = () => { if (SS) scal = SS.stampScalars(state, scal, Date.now()); };
+  const resync = () => { if (SS) scal = SS.scalarVals(state); };
+  resync();
 
   // хранилища Telegram: по версии и платформе, а не по initData (у кнопки клавиатуры initData пустая)
   const TGS = !!(TG && tgAt('6.9') && TG.platform && TG.platform !== 'unknown');
   let ready = false, routed = false, dirty = false, dirtyFlush = false, lastSig = null, loadP = null, bootMs = 0;
   let phase = 'boot', lateHandler = null, latePending = null, lateOpen = false;
   const rt = SS && TGS ? SS.runtime({
-    TG, dev: DEV, validLook,
+    TG, dev: DEV, validLook, view0: readStashView(),
     useDS: !!(TG.DeviceStorage && tgAt('9.0')),
     useCloud: !!TG.CloudStorage,
     snapshot: () => state,
@@ -430,6 +448,7 @@
     const now = Date.now();
     state.updated = now;
     if (!isObj(state._s)) state._s = legacyMeta(state);
+    track();
     state._s.at = now; state._s.dev = DEV;
     writeLocal();
     if (!rt) return;
@@ -447,7 +466,7 @@
 
   // копия из DeviceStorage или облака: до первого экрана — сразу в состояние, после — lateArrival
   function onCopy(src, copy) {
-    if (!routed) { SS.applyInPlace(state, SS.merge([state, copy], mopts())); writeLocal(); return; }
+    if (!routed) { track(); SS.applyInPlace(state, SS.merge([state, copy], mopts())); resync(); writeLocal(); return; }
     lateArrival(src, copy);
   }
   // loadCloud — имя прежнее: ждёт DeviceStorage и облако (не дольше 1 с с прогрессом на телефоне, 6 с — без него)
@@ -487,9 +506,11 @@
   }
   const setBootPhase = p => { phase = p; };
   const onSaveLate = fn => { lateHandler = typeof fn === 'function' ? fn : null; };
-  function unionIn(copy) { SS.applyInPlace(state, SS.merge([state, copy], mopts({ scalars: 'local' }))); writeLocal(); }
+  // прогресс — объединяется; выборы — по меткам времени (своё — только при равной метке, т. е. без меток)
+  function unionIn(copy) { track(); SS.applyInPlace(state, SS.merge([state, copy], mopts({ scalars: 'local' }))); resync(); writeLocal(); }
   async function lateArrival(src, copy) {
     if (lateOpen) { latePending = latePending ? SS.merge([latePending, copy]) : copy; return; }
+    track();
     const merged = SS.merge([state, copy], mopts()), m0 = SS.meta(state);
     // прогресс сбросили на другом устройстве, а эта копия начата раньше — начинаем с чистого
     if (merged._s.ep > m0.ep && m0.born < merged._s.ep) {
@@ -554,8 +575,10 @@
   // «Продолжить с сохранения»: сохранить объединённое и начать запуск заново с ним
   function adoptAndReload(merged) {
     SS.applyInPlace(state, merged);
+    resync();
     writeLocal();
     try { sessionStorage.setItem('delo1010_stash', JSON.stringify(SS.forRemote(state))); } catch (e) { /* ignore */ }
+    try { const v = rt && rt.exportView(); if (v) sessionStorage.setItem('delo1010_stash_v', JSON.stringify(v)); } catch (e) { /* ignore */ }
     const go = () => { try { location.reload(); } catch (e) { /* ignore */ } };
     if (rt) rt.flushDS(1000).then(go, go); else go();
   }
@@ -579,6 +602,7 @@
     const fresh = defaults();
     fresh._s = { ep: now, born: now, seq: 0, at: now, dev: DEV }; fresh.updated = now;
     replaceIn(state, fresh);
+    resync();
     writeLocal();
     lastSig = SS ? SS.sig(state) : null;
     if (rt) rt.resetWrite();   // не ждём: облако может долго молчать
