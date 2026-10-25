@@ -2034,10 +2034,15 @@
     // вершина: трос зиплайна с горы подходит к площадке финиша с востока-северо-востока, низко — под ним (ниже 14 м) деревьев нет
     const ZIPC = (() => { try { if (!V.zipline || !V.zipline.route || !V.SUMMIT) return null; const R = V.zipline.route('macro', { landY: 0 }); return { ax: R.from.x, az: R.from.z, vx: R.to.x - R.from.x, vz: R.to.z - R.from.z, y0: R.from.y, y1: R.to.y, sag: R.sag }; } catch (e) { return null; } })();
     const underZip = (x, z, s) => { if (!ZIPC) return false; const L2 = ZIPC.vx * ZIPC.vx + ZIPC.vz * ZIPC.vz, t = clamp(((x - ZIPC.ax) * ZIPC.vx + (z - ZIPC.az) * ZIPC.vz) / L2, 0, 1), d = Math.hypot(x - ZIPC.ax - ZIPC.vx * t, z - ZIPC.az - ZIPC.vz * t), cy = ZIPC.y0 + (ZIPC.y1 - ZIPC.y0) * t - 4 * ZIPC.sag * t * (1 - t); return d < 2.5 + 1.6 * s && cy - G(x, z) < 14; };
-    const HSB = [];   // правка волны 11: доски щитов «Отель» (hotelSigns) — деревья в них не сажаем
+    const HSB = [], HSV = [];   // правка волны 11: доски щитов «Отель» (hotelSigns) — деревья в них не сажаем; правка r2: HSV — лучи камеры игры к щитам (и не перед ними)
     function addTree(x, z, s, kind, y, outer) {
       for (let i = 0; i < EXCL.length; i++) if (inRect(EXCL[i], x, z)) return;   // волна 4: не в лавках и не во дворе
       for (let i = 0; i < HSB.length; i++) if (inRect(HSB[i], x, z, 0.4 + 1.1 * s)) return;   // правка волны 11: ни стволом, ни кроной в щит «Отель»
+      // правка r2: и не кроной поперёк луча из камеры игры к щиту «Отель» (щит ставили там, где его видно с подъезда, — деревья
+      // сажают позже и закрывали его: «Отель →» на улице без названий села); крона — до 2,3 s вбок (орех), по высоте 1–7,5 s
+      for (let i = 0; i < HSV.length; i++) { const V = HSV[i], rr = 0.3 + (kind === 'walnut' ? 2.3 : kind === 'lone' ? 2.0 : 1.45) * s; if (x < V.x0 - rr || x > V.x1 + rr || z < V.z0 - rr || z > V.z1 + rr) continue;
+        let g0 = null; for (const [ax, ay, az, px, py, pz] of V.segs) { const vx = px - ax, vz = pz - az, t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz || 1), 0, 1);
+          if (Math.hypot(x - ax - vx * t, z - az - vz * t) > rr) continue; if (g0 === null) g0 = y !== undefined ? y : G(x, z); const yr = ay + (py - ay) * t; if (yr > g0 + 1.0 * s && yr < g0 + 7.5 * s) return; } }
       if (inRect(CAFE, x, z, 1.0 + 1.1 * s)) return;   // волна 10: и не у кофейни (ни в ней, ни кроной в окна)
       if (underZip(x, z, s)) return;
       if (laneDist(x, z) < 2.0 + 1.2 * s) return;   // и не над коровьей тропой (камера за героиней не упирается в кроны)
@@ -3538,7 +3543,7 @@
             if (g < CLR + (b.top > yb ? EAVE : 0)) return false; }
           for (let j = 0; j < OBS.length; j++) { const o = OBS[j], dx = px - o.x, dz = pz - o.z; if (dx > 12 || dx < -12 || dz > 12 || dz < -12) continue;
             if ((o.y1 !== undefined && o.y1 < yy + 0.15) || (o.y0 !== undefined && o.y0 > yt)) continue;   // целиком ниже щита или выше доски
-            const low = o.y1 !== undefined && o.y1 < yb; if (low && !post) continue;   // низкое (бортик, ограда, скамья) — только столбикам
+            const low = o.y1 !== undefined && o.y1 < yb - 0.5; if (low && !post) continue;   // низкое (бортик, ограда, скамья) — только столбикам; правка r2: верх ограды в 0,5 м под доской — уже не низкое (доска не «лежит» на заборе школы)
             const g = o.type === 'circle' ? Math.hypot(dx, dz) - o.r : gapRect(o, px, pz); if (g < (low ? 0.15 : 0.35)) return false; }
           if (inPlaza(px, pz, 0.3) || W6.signs.some(p => Math.hypot(px - p.x, pz - p.z) < 1.2)) return false;   // и не в указатель у развилки
           const q = model.roadNear(px, pz); if (q && (q.id !== Rid ? q.o < 0.3 : q.o < 0.02)) return false;   // доска не над чужим полотном; правка r1: и не над своим (было — до 0,35 м за край)
@@ -3573,6 +3578,62 @@
         const out = []; let acc = 0, m = i;
         for (const D of [9, 17]) { while (acc < D && m - d >= 0 && m - d < R.n) { acc += Math.hypot(R.x[m] - R.x[m - d], R.z[m] - R.z[m - d]); m -= d; } if (acc > 5) out.push([R.x[m], R.z[m]]); }
         return out; };
+      // правка r2 (критик: «первый щит „↑ Отель“ у парковки из камеры игры — за углом лавки фруктов, доска будто растёт из дома;
+      // щиты 2 и 12 — на краю кадра»): signSeen смотрит от оси своей дороги, а игрок — из камеры за машиной. Теперь и так: машина
+      // на пути к отелю (по каждому маршруту через это место) за 25, 15 и 10 м до щита, курсом пути; камера — как drive.chase на
+      // ходу по селу: за машиной на 9 м, выше на 3,9 м, смотрит в точку в 2,5 м перед машиной; кадр телефона (портрет 390 × 844,
+      // fov 58°). Хорошо: вся доска в кадре, середина — не дальше 0,8 от центра по ширине, лучи из камеры к доске (углы, середина)
+      // не задевают ни дом выше луча, ни землю. Нужно 2 таких точки из трёх (на прямой за 10 м щит уже уходит за край — так и
+      // должно быть); у короткого маршрута (со стоянки рядом, нет точки за 25 м) — одна
+      const Y = new Float32Array(N); RS.forEach((R, k) => { for (let i = 0; i < R.n; i++) Y[base[k] + i] = R.y[i]; });
+      AR.forEach((A, j) => { let s = 0, c = 0; adj[a0 + j].forEach(([u]) => { if (u < a0) { s += Y[u]; c++; } }); Y[a0 + j] = c ? s / c : G(A.x, A.z); });
+      const CAM = { D: 9, H: 3.9, ahead: 2.5, look: 1.15, ty: Math.tan(29 * PI / 180), asp: 390 / 844 };
+      // маршрут начинается посреди дороги (стоянка, точка на Нижней) — до старта машина ехала по ней же: для камеры путь продлён
+      // назад по той же дороге до 30 м (иначе щит в нескольких метрах после старта нечем проверить)
+      const cpaths = routes.map(path => { const v0 = path[0], k = path.findIndex(u => u < a0 && u !== v0); if (k < 0 || roadOf(v0)[0] !== (roadOf(path[k]) || [])[0]) return path;
+        const [R, i0] = roadOf(v0), d = Math.sign(roadOf(path[k])[1] - i0), b0 = v0 - i0, ext = []; let acc = 0;
+        for (let i = i0 - d; i >= 0 && i < R.n && acc < 30; i -= d) { acc += Math.hypot(R.x[i] - R.x[i + d], R.z[i] - R.z[i + d]); ext.unshift(b0 + i); }
+        return ext.concat(path); });
+      const routeS = cpaths.map(path => { const S = new Float64Array(path.length); for (let q = 1; q < path.length; q++) S[q] = S[q - 1] + Math.hypot(X[path[q]] - X[path[q - 1]], Z[path[q]] - Z[path[q - 1]]); return S; });
+      const ptAt = (path, S, s) => { let lo = 1, hi = path.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m] < s) lo = m + 1; else hi = m; }
+        const a = path[lo - 1], b = path[lo], t = Math.max(0, Math.min(1, (s - S[lo - 1]) / Math.max(1e-6, S[lo] - S[lo - 1]))); return [X[a] + (X[b] - X[a]) * t, Y[a] + (Y[b] - Y[a]) * t, Z[a] + (Z[b] - Z[a]) * t]; };
+      const poseC = new Map();
+      const camPoses = w => { if (poseC.has(w)) return poseC.get(w); const out = [], keys = new Set();
+        cpaths.forEach((path, r) => { const k = path.indexOf(w); if (k < 0) return; const S = routeS[r], sw = S[k], set = [];
+          for (const D of [25, 15, 10]) { let s = sw - D; if (s < 0) { if (D !== 10 || sw < 7) continue; s = 0; }   // со стоянки рядом — с самой стоянки (не ближе 7 м: старт у самого щита — не подъезд)
+            const c = ptAt(path, S, s), f = ptAt(path, S, s + 4), hl = Math.hypot(f[0] - c[0], f[2] - c[2]) || 1; set.push({ D, c, hx: (f[0] - c[0]) / hl, hz: (f[2] - c[2]) / hl }); }
+          const key = set.map(q => Math.round(q.c[0]) + ',' + Math.round(q.c[2])).join('|'); if (!set.length || keys.has(key)) return; keys.add(key); out.push(set); });
+        poseC.set(w, out); return out; };
+      // заслоняет ли луч камера → точка доски: дома и постройки (выше луча над их следом) и земля; у лавок, кофейни и двора свадьбы —
+      // их настоящая высота (в BLD для «не в доме» они бесконечные: двор свадьбы с низкой стеной — не стена в небо)
+      const BLO = HB.concat(HB2, W6.plates || [], [SHOPS.craft, SHOPS.food].map(o => ({ x: o.x, z: o.z, w: o.w, d: o.d, ry: o.ry, top: G(o.x, o.z) + o.st * ST + 1.6 })),
+        [{ x: CAFE.x, z: CAFE.z, w: CAFE.w, d: CAFE.d, ry: CAFE.ry, top: G(CAFE.x, CAFE.z) + CAFE.h + 1.2 }, { x: WED.out.x, z: WED.out.z, w: WED.out.w, d: WED.out.d, ry: 0, top: WED.y + 3.2 },
+          { x: WED.house.x, z: WED.house.z, w: WED.house.w, d: WED.house.d, ry: 0, top: WED.y + WED.house.st * ST + 1.6 }]).map(b => Object.assign({ r: Math.hypot(b.w, b.d) / 2 }, b));
+      const segT = (b, ax, az, px, pz) => { const c = Math.cos(b.ry || 0), s = Math.sin(b.ry || 0), L = (x, z) => [(x - b.x) * c - (z - b.z) * s, (x - b.x) * s + (z - b.z) * c];
+        const [x0, z0] = L(ax, az), [x1, z1] = L(px, pz), dx = x1 - x0, dz = z1 - z0; let t0 = 0.03, t1 = 0.985;
+        for (const [p0, dp, h] of [[x0, dx, b.w / 2], [z0, dz, b.d / 2]]) { if (Math.abs(dp) < 1e-9) { if (p0 < -h || p0 > h) return null; continue; }
+          let u = (-h - p0) / dp, w = (h - p0) / dp; if (u > w) { const q = u; u = w; w = q; } t0 = Math.max(t0, u); t1 = Math.min(t1, w); if (t0 > t1) return null; }
+        return [t0, t1]; };
+      const rayBlocked = (ax, ay, az, p) => { const [px, py, pz] = p, x0 = Math.min(ax, px), x1 = Math.max(ax, px), z0 = Math.min(az, pz), z1 = Math.max(az, pz);
+        for (let j = 0; j < BLO.length; j++) { const b = BLO[j]; if (b.x + b.r < x0 || b.x - b.r > x1 || b.z + b.r < z0 || b.z - b.r > z1) continue;
+          const T = segT(b, ax, az, px, pz); if (T && b.top > Math.min(ay + (py - ay) * T[0], ay + (py - ay) * T[1])) return true; }
+        for (const t of [0.3, 0.5, 0.68, 0.82, 0.93]) if (G(ax + (px - ax) * t, az + (pz - az) * t) > ay + (py - ay) * t + 0.1) return true;
+        return false; };
+      const signCam = (x, yy, z, ry, bw, by, bh, sets) => { if (!sets.length) return false;
+        const c = Math.cos(ry), s = Math.sin(ry), P = (l, h) => [x + l * c, yy + h, z - l * s];
+        const cn = [P(-bw / 2, by - bh / 2), P(bw / 2, by - bh / 2), P(bw / 2, by + bh / 2), P(-bw / 2, by + bh / 2)], mid = P(0, by);
+        const rays = [P(-bw * 0.42, by - bh * 0.35), P(bw * 0.42, by - bh * 0.35), P(bw * 0.42, by + bh * 0.35), P(-bw * 0.42, by + bh * 0.35), mid];
+        const segs = [];   // лучи хороших точек — для деревьев (HSV)
+        return sets.every(set => { let good = 0;
+          set.forEach(q => { const ax = q.c[0] - q.hx * CAM.D, ay = q.c[1] + CAM.H, az = q.c[2] - q.hz * CAM.D;
+            let fx = q.c[0] + q.hx * CAM.ahead - ax, fy = q.c[1] + CAM.look - ay, fz = q.c[2] + q.hz * CAM.ahead - az; const fl = Math.hypot(fx, fy, fz); fx /= fl; fy /= fl; fz /= fl;
+            const rl = Math.hypot(fx, fz), rx = -fz / rl, rz = fx / rl, ux = -rz * fy, uy = rz * fx - rx * fz, uz = rx * fy;   // вправо = вперёд × вверх, вверх кадра = вправо × вперёд
+            const ndc = p => { const dx = p[0] - ax, dy = p[1] - ay, dz = p[2] - az, zc = dx * fx + dy * fy + dz * fz; if (zc < 0.5) return [9, 9];
+              return [(dx * rx + dz * rz) / zc / (CAM.ty * CAM.asp), (dx * ux + dy * uy + dz * uz) / zc / CAM.ty]; };
+            if (!cn.every(p => { const [nx2, ny2] = ndc(p); return Math.abs(nx2) <= 0.97 && Math.abs(ny2) <= 0.85; }) || Math.abs(ndc(mid)[0]) > 0.8) return;
+            if (rays.some(p => rayBlocked(ax, ay, az, p))) return;
+            rays.forEach(p => segs.push([ax, ay, az, p[0], p[1], p[2]])); good++; });
+          return good >= (set.length >= 3 ? 2 : 1); }) ? segs : null; };
       const place = (v, text, big, jA) => {
         const seq = []; for (let w = v; w >= 0 && seq.length < 16; w = nx[w]) if (w < a0) seq.push(w);   // точки осей дальше по пути (площадки — насквозь)
         // места щита по пути: точка оси w и e — на 3 дальше (куда едем); сначала по ходу (как раньше), правка волны 11: потом — назад
@@ -3586,13 +3647,17 @@
           for (let m = 1; d && m <= 30; m++) { const ib = i0 + d * m; if (ib < 0 || ib >= R0.n) break; cand.push([b0 + ib, m >= 3 ? b0 + ib - 3 * d : seq[Math.min(seq.length - 1, 3 - m)], false]); } }
         const pre = cand.filter(c => !c[2]), aft = cand.filter(c => c[2]);
         // правка волны 11: сначала — место, откуда щит виден целиком (strict), иначе — просто свободное; большой щит не встал — поменьше
-        for (const [strict, list] of [[true, pre], [true, aft], [false, pre], [false, aft]]) for (const sz of big ? [true, false] : [false]) {
+        // правка r2: ещё раньше — место, где щит и в кадре камеры игры с подъезда (lv 2: signCam), потом — от оси (lv 1), потом — свободное.
+        // У развилки уже стоит указатель села со строкой «Отель» (парковка: «Школа ↑ / Отель ↑» на углу у дороги наверх) — щит развилки
+        // только там, где его видно из камеры; иначе его роль играет указатель (щит у парковки был виден лишь из-за угла лавки фруктов)
+        const postAt = !!jA && W6.signs.some(p => p.items.some(t => /Отель/.test(t)) && inA(jA, p.x, p.z, 6));
+        for (const [lv, list] of [[2, pre], [2, aft], [1, pre], [1, aft], [0, pre], [0, aft]].filter(([lv]) => !postAt || lv === 2)) for (const sz of big ? [true, false] : [false]) {
         for (let t = 0, side = 1; t < list.length; side = side > 0 ? -1 : (t++, 1)) {
           // справа по ходу; волна 10: если справа дом (у гребневой — крыши ряда 0) или кофейня — слева, потом — дальше по пути
           const [w, e, after] = list[t], [R, i] = roadOf(w), th = Math.atan2(X[e] - X[w], Z[e] - Z[w]);   // куда едем — по пути к отелю
           const rx = -Math.cos(th) * side, rz = Math.sin(th) * side, y = R.y[i], hx = Math.sin(th), hz = Math.cos(th);
           const bw = sz ? 2.6 : 1.7, bh = sz ? 1.2 : 0.95, by = sz ? 2.3 : 2.0;   // крупно: читается с ходу
-          let x = 0, z = 0, gy = 0, ry = 0, hit = true;
+          let x = 0, z = 0, gy = 0, ry = 0, hit = true, segs = null;
           // волна 10: у Нижней улицы дома стоят у самого тротуара — если за обочиной дом, щит ближе к полотну (на тротуаре);
           // правка волны 11: и у проездов села — у самой бровки, если дальше от полотна щит не помещается
           for (const off of R.outer ? [R.hw + VERGE + 1.25, R.hw + VERGE + 0.3] : [R.hw + Math.max(VERGE + 0.75, bw / 2 + 0.12), R.hw + VERGE + 0.75, R.hw + VERGE + 0.35]) {   // правка r1: сначала — доска целиком за краем полотна
@@ -3603,7 +3668,8 @@
             ry = Math.atan2(-hx * 0.97 - rx * 0.26 * side, -hz * 0.97 - rz * 0.26 * side);
             if (!signGround(x, Math.min(gy, y), z, ry, bw, by, bh)) continue;   // правка r1: не в откосе и не над обрывом
             if (!signFree(x, Math.min(gy, y), z, ry, bw, by, bh, R.id)) continue;   // правка волны 11: весь щит — не в доме и не у стены
-            if (strict && !signSeen(x, Math.min(gy, y), z, ry, bw, by, bh, approach(w, e))) continue;
+            if (lv && !signSeen(x, Math.min(gy, y), z, ry, bw, by, bh, approach(w, e))) continue;
+            if (lv > 1 && !(segs = signCam(x, Math.min(gy, y), z, ry, bw, by, bh, camPoses(w)))) continue;
             hit = false; break; }
           if (hit) continue;
           if (W6.hotelSigns.some(h => Math.hypot(h.x - x, h.z - z) < 4)) return;   // тот же щит с другого пути
@@ -3613,9 +3679,11 @@
           hb.box(F, 0, by, -0.01, bw + 0.08, bh + 0.08, 0.04, { col: WH }); hb.box(F, 0, by, 0.012, bw, bh, 0.02, { col: BR });
           props.signs.push({ text, p: F.p(0, by, 0.024), ry, h: bh * 0.86, fitW: bw * 0.94, bg: '#6B4329', fg: '#FFFFFF', size: 72, r: 6, pad: 22 });
           [-1, 1].forEach(sx => { const p = F.p(sx * bw * 0.36, 0, -0.04); colliders.push({ type: 'circle', x: p[0], z: p[2], r: 0.08, y0: yy - 1, y1: yy + by + bh, id: 'sign' }); });
-          W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big: sz, road: R.id, rem: Math.round(dist[w]), bw, by, bh, seen: strict, jn: !!jA, after: !!after });
+          W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big: sz, road: R.id, rem: Math.round(dist[w]), bw, by, bh, seen: lv >= 1, cam: lv >= 2, jn: !!jA, after: !!after });
           HSB.push({ x, z, w: bw + 0.1, d: 0.2, ry });
+          if (segs && segs.length) HSV.push({ segs, x0: Math.min(...segs.map(q => Math.min(q[0], q[3]))), x1: Math.max(...segs.map(q => Math.max(q[0], q[3]))), z0: Math.min(...segs.map(q => Math.min(q[2], q[5]))), z1: Math.max(...segs.map(q => Math.max(q[2], q[5]))) });
           return; } }
+        if (postAt) { (W6.signSkip = W6.signSkip || []).push({ text: text.replace('\n', ' '), at: jA.id }); return; }   // правка r2: за него — указатель
         W6.signMiss = (W6.signMiss || 0) + 1; };   // правка волны 11: щит не встал нигде (для тестов: должно быть 0)
       sg.jn.forEach(s => place(s.v, s.ar === '→' ? 'Отель →' : s.ar + ' Отель', true, AR.find(A => A.id === s.at)));
       sg.conf.forEach(s => place(s.v, '↑ Отель\n' + km(dist[s.v]), false));
@@ -5387,6 +5455,7 @@
         dynamic: DYN,                                  // V.drive.create({ dynamic }) — коробка машины для ходьбы (handle.collide её учитывает)
         hotelSigns: W6.hotelSigns || [],             // щиты «Отель» по пути к воротам: { text, x, y, z, ry, th — куда едет водитель, big, road, rem — м до отеля; волна 11: bw, by, bh — доска, seen; правка r1: jn — щит развилки, after — встал за ней (стрелка «↑») }
         signMiss: W6.signMiss || 0,                  // волна 11: сколько щитов не нашли места без домов (должно быть 0)
+        signSkip: W6.signSkip || [],                 // правка r2: щиты развилок, которых нет, — у развилки указатель села «Отель», а щит не виден из камеры { text, at }
         carSpawns: CAR_SPAWNS,                         // { parking, square, tower, school, hotel; волна 7: ledge, serpTop, meadow, north, ridge } — { x, y, z, ry }
         start: fromHotel ? 'hotel' : 'parking',
         heroInCar: fromHotel,                          // из отеля приезжает за рулём (как на серпантине)
