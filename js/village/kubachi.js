@@ -5100,7 +5100,7 @@
     S2({ id: 'spring_bench', x: SPRING.bench[0], y: SPRING.y, z: SPRING.bench[2] + 0.0, r: 1.0, icon: '🪑', label: 'Скамейка у родника', action: 'Посидеть', seat: SPRING.bench, view: 'spring' });
     if (PITR.rig) { const p = PITR.rig.stand.pos; S2({ id: 'spring_lid', x: p.x, y: SPRING.y, z: p.z, r: 1.1, icon: '💧', label: 'Родник с крышкой', action: 'Открыть и попить' }); }
     { const F = new K.Frame(WB.x, -9.6, WB.z, WB.ry), p = F.p(0.2, 0, 0.95); S2({ id: 'workshop', x: p[0], y: -9.6, z: p[2], r: 1.4, icon: '✨', label: 'Мастерская серебра', action: 'Гравировать узор' }); }
-    S2({ id: 'museum', x: MUSEUM.door[0], y: 0, z: MUSEUM.door[2], r: 1.4, icon: '🏛️', label: 'Комната образцов', action: 'Зайти' });
+    S2({ id: 'museum', x: MUSEUM.door[0], y: 0, z: MUSEUM.door[2], r: 1.4, icon: '🏛️', label: 'Комната образцов', action: 'Посмотреть витрины' });   // внутрь не заходят — открывается рассказ совы о витринах
     if (TH && TH.door) S2({ id: 'treasure', x: TH.door[0], y: TH.y0, z: TH.door[2], r: 1.3, icon: '🏺', label: 'Комната-сокровищница', action: 'Заглянуть' });
     { const RT = model.RT, F = new K.Frame(RT.x, 2.4, RT.z, RT.ry), p = F.p(0, 0, RT.d / 2 - 1.1); S2({ id: 'roof', x: p[0], y: 2.4, z: p[2], r: 1.3, icon: '🌅', label: 'Крыша-терраса', action: 'Посидеть до заката', seat: [p[0], 2.4 + 0.45, p[2]], ry: RT.ry, view: 'roof_sunset' }); }
     S2({ id: 'knoll', x: KNOLL_W.bench[0], y: KNOLL_W.y, z: KNOLL_W.bench[2], r: 1.3, icon: '📷', label: 'Западный уступ', action: 'Посидеть', seat: KNOLL_W.bench, ry: KNOLL_W.ry, view: 'p1' });
