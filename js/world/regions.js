@@ -1427,7 +1427,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const w = h.spots.find(s => /^wedding_/.test(s.id)) || (P.wedding && P.wedding.gate ? { x: P.wedding.gate[0], z: P.wedding.gate[2] } : P.wedding);
         if (w) put('wedding', 'wedding', w.x, w.z, named ? 'Пальтары и свадьба' : 'Ряженые и свадьба');
         h.spots.filter(s => /^shop_/.test(s.id)).forEach(s => put(s.id, 'shop', s.x, s.z, s.label || 'Лавка'));
-        at('kaz_try', 'kaz', named ? 'Каз' : 'Праздничный платок'); at('workshop', 'workshop', 'Мастерская'); at('museum', 'museum', 'Комната образцов');
+        at('kaz_try', 'kaz', named ? 'Каз' : 'Праздничный платок'); at('workshop', 'workshop', 'Мастерская'); at('museum', 'museum', 'Художественный комбинат');   // волна «комбинат»: точка — у скамьи перед фасадом (место с poi 'museum')
         if (P.zipLanding) put('zipLanding', 'zip', P.zipLanding.x, P.zipLanding.z, 'Финиш зиплайна');
         // W5B: старт параплана на западном уступе (на башне — значок башни); вид 'fly' — у радара свой значок, без него — «Места»
         if (S.fly && flyLock().ok) at('fly_knoll', 'fly', 'Параплан: старт с уступа');
@@ -1805,7 +1805,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       // W4A: камера в лавке — тени не пересчитываются каждый кадр (внутри лавки они не меняются; ≈ 60 тыс. треуг. на high)
       if (renderer && renderer.shadowMap.enabled) { const fz = !!id && /^shop_/.test(id); if (renderer.shadowMap.autoUpdate === fz) { renderer.shadowMap.autoUpdate = !fz; renderer.shadowMap.needsUpdate = true; } }
       if (!id) { S.view = null; S.camInit = false; resize(); return; }
-      const v = S.h && S.h.camera && S.h.camera.views[id]; if (!v) return;
+      const v0 = S.h && S.h.camera && S.h.camera.views[id]; if (!v0) return;
+      const v = v0.port && cam.aspect && cam.aspect < 0.8 ? Object.assign({}, v0, v0.port) : v0;   // вид со своим кадром для портретного экрана (port)
       const from = cam.position.clone(), fromLook = cam.getWorldDirection(new T.Vector3()).multiplyScalar(10).add(cam.position);
       // кадры-совпадения с фото сняты в своём формате (v.aspect): сохраняем ширину кадра, высоту — сколько даст экран
       let fov = v.fov || 50;
@@ -1876,7 +1877,15 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           break;
         }
         case 'talk': { const n = npcBy(d.npc); if (n) await talk(n); else toast((a.text || [''])[0]); break; }
-        case 'sheet': await runBusy(() => activitySheet(sp, d, a)); break;
+        case 'sheet': {
+          // волна «комбинат»: вид места (витрины, верстак, стенд) — на время листа, потом камера снова за героиней; мастер поворачивается к ней
+          const vw = d.view && !S.sitting && h.camera && h.camera.views && h.camera.views[d.view] ? d.view : null;
+          if (vw) setView(vw, true);
+          if (d.npc && /^(kmb_|owl_keeper)/.test(d.npc)) { const n = npcBy(d.npc); if (n) { n.faceHero = 3; if (n.hop) n.hop(); } }
+          await runBusy(() => activitySheet(sp, d, a));
+          if (vw && S.view && S.view.id === vw && !S.sitting) setView(null);
+          break;
+        }
         default: toast(d.text ? d.text : sp.label, 2200);
       }
     }
@@ -1908,7 +1917,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         S.flags.pendant = true; S.cheerT = 1.2; later(3400, () => toast('В кармане: ' + (a.reward || 'подвеска'), 2800));
         return;
       }
-      if (id === 'museum') { await sheetFn({ title: a.title, body: paras((a.text || []).concat([a.mail])), actions: [{ label: 'Хорошо' }] }); return; }
+      if (id === 'museum') { const sh = d.sheet || {}; await sheetFn({ title: a.title || sh.title || 'Музей комбината', body: paras((a.text || sh.text || []).concat([a.mail]).filter(Boolean)), actions: [{ label: 'Хорошо' }] }); return; }
       if (id === 'treasure') { await sheetFn({ title: a.title, body: paras((a.text || []).concat([a.plate])), actions: [{ label: 'Хорошо' }] }); return; }
       if (id.startsWith('carved_')) {
         S.flags.stones.add(id);
@@ -1919,7 +1928,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (!a.title && d.activity && ACT()[d.activity]) { const aa = ACT()[d.activity]; await sheetFn({ title: aa.title || sp.label, body: paras(aa.text || [sp.label]), actions: [{ label: 'Хорошо' }] }); return; }
       void h;
-      await sheetFn({ title: a.title || sp.label, body: paras(a.text || [sp.label]), actions: [{ label: 'Хорошо' }] });
+      // волна «комбинат»: без текста в VILLAGE.activities — лист самого места (d.sheet: витрина, верстак, стенд истории)
+      const sh = (!a.title && d.sheet) || {};
+      await sheetFn({ title: a.title || sh.title || sp.label, body: paras(a.text || sh.text || [sp.label]), actions: [{ label: 'Хорошо' }] });
     }
     // мастерская серебра: три коротких шага в листе (гравировка → чернь → полировка), по 4 тапа по пластине
     function workshop(a) {
@@ -2449,7 +2460,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     /* ---------- W5: «Бум!» понарошку (js/playfight.js) — толкнуть ладошкой, «бамс», «хлоп»; зверят — только «Бупнуть»;
        пальтары на свадьбе возятся понарошку (прыгают вокруг, сальто, «Сдаюсь! Ты — чемпионка!»). Жители «на работе»
        (молодые, музыканты, лавочники, персонал отеля) — не цели; во время диалогов, мест, игр, полёта — кнопки спрятаны. */
-    const PF_BUSY = /^(wed_bride|wed_groom|wed_zurna|wed_drum|hotel_|goat_grocer|bear_craft|lamb_cloth|squirrel_nuts|owl_keeper|tur)/;
+    const PF_BUSY = /^(wed_bride|wed_groom|wed_zurna|wed_drum|hotel_|goat_grocer|bear_craft|lamb_cloth|squirrel_nuts|owl_keeper|kmb_|tur)/;   // kmb_ — мастера комбината за верстаками
     const pfFree = () => S.mode === 'walk' && S.active && !S.busy && !blocked() && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.climb && !S.sport && !S.zip && !flyActive() && S.level !== 'top' && !inCarNow && !mvBusy();
     function pfCan(n) {
       if (!n || !pfFree() || (IA && IA.busy())) return false;
@@ -2515,6 +2526,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     const R_WAVE = {
       badger: [{ who: 'badger', text: 'Привет, {name}! Заглядывай в мастерскую.' }, { who: 'badger', text: 'И тебе привет! Молоточки ждут.' }],
       owl_keeper: [{ who: 'owl_keeper', text: 'Привет, {name}. Только тихонько!' }, { who: 'owl_keeper', text: 'Привет-привет. Шёпотом.' }],
+      // волна «комбинат»: мастера цеха — отвечают, не вставая из-за верстака
+      kmb_raccoon: [{ who: 'kmb_raccoon', text: 'Привет, {name}! Подходи, покажу узор.' }, { who: 'kmb_raccoon', text: 'Привет! Машу резцом — осторожно.' }],
+      kmb_ram: [{ who: 'kmb_ram', text: 'Тук-тук! Привет, {name}!' }, { who: 'kmb_ram', text: 'Привет! Молоточек тоже машет.' }],
       eagle: [{ who: 'eagle', text: 'Привет, {name}! Сверху тебя хорошо видно.' }, { who: 'eagle', text: 'Привет! Машу крылом.' }],
       roof_cat: [{ who: 'roof_cat', text: 'Мур. Привет, {name}.' }, { who: 'roof_cat', text: 'Мур. Это «привет» с крыши.' }],
       pony: [{ who: 'pony', text: 'Привет, {name}! Иго-го — по-нашему «здравствуй».' }, { who: 'pony', text: 'Привет! Сено подождёт.' }],
@@ -2767,7 +2781,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv && S.mode === 'drive') {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;
-        h.exits.forEach(ex => { if (ex.walk || (ex.level || 'ground') !== 'ground') return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
+        h.exits.forEach(ex => { if (ex.walk || (ex.level || 'ground') !== 'ground') return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.near != null ? ex.near : (ex.r || 6) + 6) && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });   // near — свой радиус кнопки (комбинат: выезд за калиткой)
         if (slow && S.rid === 'serpentine') {   // волна 6: «Посидеть»/«Поговорить» из машины — только на серпантине (в селе — «Выйти» и пешком)
           h.spots.forEach(sp => { const d = Math.hypot(cx - sp.x, cz - sp.z); if (d < 9 && (!best || d < best.d + 3)) best = { kind: 'spot', ref: sp, d, label: (sp.icon ? sp.icon + ' ' : '') + 'Посидеть: ' + String(sp.label || '').toLowerCase() }; });
           const tur = h.npcs.find(n => !n.silent && n.lines && n.lines.length && Math.hypot(cx - n.root.position.x, cz - n.root.position.z) < (n.talkR || 2.8) + 11);
@@ -3163,8 +3177,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         blkTick = null; blkTick = blocked();
         // джойстик раз в кадр (сила и курс → joy.x/y, lx/ly) и бег — палец за краем кружка (только пешком: не в машине, не на
         // лестнице, не в полёте и не в игре)
-        joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive() && !S.zoneIn);
-        if (S.zoneIn && S.mv && S.mv.run) S.mv.holdRun(false);   // волна 10: в зале кофейни не бегают (и Shift)
+        const noRun = S.zoneIn && !(S.zone && S.zone.run);   // волна 10: в зале кофейни не бегают (и Shift); волна «комбинат»: бег — по зоне (zone.run: длинный коридор)
+        joyRun(mvOn() && !S.busy && !S.sitting && !S.view && !S.look && !S.inShop && !S.golf && !S.dance && !S.zip && !S.sport && !flyActive() && !noRun);
+        if (noRun && S.mv && S.mv.run) S.mv.holdRun(false);
         if (S.cup) cupTick();
         if (S.zip && S.mode === 'zip') {   // зиплайн: поездка сама ведёт героиню, руки и камеру
           S.zip.update(dt);

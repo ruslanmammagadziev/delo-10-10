@@ -211,6 +211,25 @@
   // где не сажать случайные деревья (лавки, двор, переулок за рядом)
   const EXCL = [{ x: SHOPS.craft.x, z: SHOPS.craft.z, w: 7, d: 7, ry: SHOPS.craft.ry }, { x: SHOPS.food.x, z: SHOPS.food.z, w: 7.5, d: 7, ry: SHOPS.food.ry },
     { x: WED.out.x, z: WED.out.z, w: WED.out.w + 4, d: WED.out.d + 5, ry: 0 }];
+  // волна «комбинат»: Кубачинский художественный комбинат (вместо «музея» на площади) — на ровном поле плато к востоку от площади,
+  // между дорогой к школе (x ≈ 36, на насыпи) и улицей к отелю; фасад — к улице (js/village/kombinat.js: корпус 26 × 14 м,
+  // тамбур, двор с оградой). Рамка K.Frame(x, 0, z, ry): +z — фасад, к улице; +x — вправо, если стоять лицом к фасаду.
+  // Площадки: корпус и крыльцо — вровень с полом 1-го этажа (FL 0,08: героиня стоит на полу), вокруг — двор (y 0, мягкий край
+  // 4 м — к подъёму на северо-восток). Корпус и двор — без случайных деревьев (EXCL; молодые деревья двора сажает модуль сам)
+  const KOMB = { x: 60, z: -30, ry: 0.11, W: 26, D: 14, FL: 0.08 };
+  KOMB.at = (lx, lz) => { const c = Math.cos(KOMB.ry), s = Math.sin(KOMB.ry); return [KOMB.x + lx * c + lz * s, KOMB.z - lx * s + lz * c]; };
+  // разворотный карман вдоль ограды восточнее калитки (lx 1,6…16 — продолжение улицы; плитку кладёт kombinat.js): машина к
+  // комбинату встаёт у калитки, а выезд «Дорога вниз, в город» (toRoad) — в дальнем конце кармана, за калиткой (правка T2)
+  KOMB.bay = Object.assign({ id: 'kmbBay', kind: 'cobble', w: 14.4, d: 6.2, ry: KOMB.ry }, (([x, z]) => ({ x, z }))(KOMB.at(8.8, 19.8)));   // lx 1,6…16, lz 16,7…22,9
+  { const at = KOMB.at;
+    const pad = (lx0, lx1, lz0, lz1, y, m, id, kind) => { const [x, z] = at((lx0 + lx1) / 2, (lz0 + lz1) / 2); return { x, z, w: lx1 - lx0, d: lz1 - lz0, ry: KOMB.ry, y, kind, m, walk: true, id }; };
+    // vis — видимая земля под полом (сетка плато): двор, y 0. Пол FL — только для ходьбы: иначе сетка 2 м тянула треугольники
+    // от узлов под корпусом (0,08) к узлам двора (0), и они на метр-два выходили поверх отмостки (0,025) зелёными клиньями
+    PADS.push(Object.assign(pad(-13.05, 13.05, -7.05, 7.05, KOMB.FL, 0.3, 'kombinat', 'floor'), { vis: 0 }), Object.assign(pad(1.0, 8.0, 7.0, 11.8, KOMB.FL, 0.3, 'kombinatPorch', 'floor'), { vis: 0 }),
+      Object.assign(pad(-15.5, 15.5, -9.6, 17.0, 0, 4.0, 'kombinatYard', 'lawn'), { fine: true }),   // fine — сетка плато здесь без крупных клеток 4–8 м (их рёбра с допуском 0,35 м проступали сквозь отмостку)
+      // перед калиткой — до оси улицы: улица ходибельна только до x 66 (её конец), калитка — у самого конца (x 64,8…67,8)
+      Object.assign(pad(-2.0, 17.6, 16.5, 24.2, 0, 1.0, 'kombinatGate', 'lawn'), { fine: true }));   // и под карманом (KOMB.bay)
+    EXCL.push(pad(-16.6, 16.6, -10.6, 17.8, 0, 0, 'kombinat')); }
   // коровья тропа: от сарая у нижнего луга на дальний край луга (утром — туда, вечером — обратно); лепёшки — только на грунте
   const COW_LANE = [[-14.6, 45.4], [-17.6, 49.6], [-21.0, 53.6], [-25.6, 57.4], [-29.4, 60.2]];
   const PATS = [[-16.3, 47.2, 'lane'], [-23.3, 55.3, 'lane'], [-27.9, 50.4, 'meadow'], [-12.4, 58.6, 'meadow']];
@@ -285,7 +304,7 @@
       pts: [[-22, -38], [-22, -46], [-20, -70], [-15, -95], [-6, -108], [10, -113], [28, -114], [44, -110], [50.5, -99.5], [51, -90], [52, -84]] },   // за школой — с запасом от площадки корпуса (трава обочины не на ней)
     { id: 'ridge', w: 5.2, kind: 'earth', grade: 0.11, label: 'Восточное кольцо',
       fix: { 11: 5.32, 12: 5.18, 13: 5.04, 14: 4.9, 15: 4.76, 16: 4.62 },
-      pts: [[51.2, -83.4], [56.5, -80], [64, -78.2], [73, -79.5], [82, -83.5], [91, -88], [100, -90.5], [110, -93], [121, -98], [131, -102.6], [135.8, -103.9], [141, -104], [145.5, -102.79], [148.79, -99.5], [150, -95], [148.79, -90.5], [145.5, -87.21], [138.5, -83], [128, -77], [116, -69], [106, -58], [101, -48.5], [96.5, -42], [90, -38.6], [82, -39.4], [74, -42.6], [64, -47.5], [54, -52.5], [44.2, -56]] },
+      pts: [[51.2, -83.4], [56.5, -80], [64, -78.2], [73, -79.5], [82, -83.5], [91, -88], [100, -90.5], [110, -93], [121, -98], [131, -102.6], [135.8, -103.9], [141, -104], [145.5, -102.79], [148.79, -99.5], [150, -95], [148.79, -90.5], [145.5, -87.21], [138.5, -83], [128, -77], [116, -69], [106, -58], [101, -48.5], [96.5, -42], [90, -41.5], [83, -48.5], [73, -53], [63, -54], [53, -55.5], [44.2, -56]] },   // волна «комбинат»: хвост кольца — севернее, в ≥ 10 м от двора комбината (было через его северо-восточный угол: обочина в 1,4 м от двора на 1,6 м выше — земляная стенка 2 м)
   ];
   // вершина (js/village/summit.js): второй серпантин — от конца дороги мимо школы наверх, к воротам отеля (≈ 1 км, 8,9 → 110 м,
   // 5 ног и 4 шпильки по южному склону горы). Ось и высоты полотна — общие с отелем (SUMMIT.axis(): то же в обоих регионах)
@@ -1157,7 +1176,7 @@
         const q = i * W + j; if (Y[q] === Y[q]) return Y[q];
         const a = j / NA * TAU, rho = rhos[i], x = TX + Math.sin(a) * rho, z = TZ + Math.cos(a) * rho;
         let y = bgY(x, z) - 3 * Math.max(coreMask(x, z), uplMask(x, z)) - (SERP ? 16 * sst(0, 0.12, serpW(rho, a / D2R > 180 ? a / D2R - 360 : a / D2R)) : 0);
-        if (inUPL(x, z)) { const pd = padAt(x, z); if (pd) y = Math.min(y, Math.min(model.yIn(x, z), pd.p.y) - 0.1); }   // под площадками школы фон ниже земли (по прежней модели)
+        if (inUPL(x, z)) { const pd = padAt(x, z); if (pd) y = Math.min(y, Math.min(model.yIn(x, z), pd.p.vis !== undefined ? pd.p.vis : pd.p.y) - 0.1); }   // под площадками школы фон ниже земли (по прежней модели); под полом комбината — ниже видимой земли (vis)
         return (Y[q] = y);
       }
       // клетка одним числом i·NA + j, без массива (вершина: разметка выреза у дорог зовёт cellQ ≈ 0,6 млн раз)
@@ -1291,7 +1310,7 @@
           case 'strip': case 'square': case 'tower': return { s: S.SLAB, c: mul(C('slab'), 0.96 + 0.08 * VK.vnoise(x, z)) };
           case 'stair': return { s: S.SLAB, c: mul(C('tread'), 0.9) };
           case 'path': case 'gravel': case 'spring': return { s: S.SLAB, c: mul(C('dirt'), 1.04) };
-          case 'road': return { s: S.PLASTER, c: rgb('#C9C2B2') };
+          case 'road': return x > 64.5 ? { s: S.PLASTER, c: grassCol(x, z, 'field') } : { s: S.PLASTER, c: rgb('#C9C2B2') };   // волна «комбинат»: за концом улицы (x > 64,5) — трава: светлая полоса-«зигзаг» по клеткам 2 м лежала у калитки комбината
           case 'crest': { const [rr, pp] = polar(x, z); const paved = Math.abs(rr - 98) < 2.2 || (rr < 114 && pp > -0.22 && pp < 0.42) || Math.hypot(x - 1.5, z + 9) < 9; return paved ? { s: S.SLAB, c: mul(C('slab'), 0.94 + 0.08 * VK.vnoise(x * 0.7, z * 0.7)) } : { s: S.PLASTER, c: grassCol(x, z, 'field') }; }
           case 'knoll': case 'rock': case 'ledge': return { s: S.BIG, c: mul(mix(C('rock'), C('lichen'), 0.25 * VK.vnoise(x * 0.5, z * 0.5)), 1.0) };
           case 'roof': return { s: S.SLAB, c: C('yard') };
@@ -1320,7 +1339,7 @@
         }
         const L = look(kind, xc, zc);
         const steep = Math.max(Math.abs(h[0] - h[3]), Math.abs(h[1] - h[2])) / Math.max(0.5, rb - ra);
-        let s = L.s, colF = (p) => { let c = L.c; if (s === S.PLASTER && kind !== 'road') c = grassCol(p[0], p[2], kind); return c; };
+        let s = L.s, colF = (p) => { let c = L.c; if (s === S.PLASTER && (kind !== 'road' || xc > 64.5)) c = grassCol(p[0], p[2], kind === 'road' ? 'field' : kind); return c; };
         if (steep > 1.45 && (kind === 'field' || kind === 'far' || kind === 'crest')) { s = S.BIG; colF = p => mul(mix(C('rock'), C('grassShade'), 0.4), 0.95 + 0.1 * VK.vnoise(p[0], p[2])); }
         const bk = chunk(xc, zc);
         // порядок вершин: от центра C (низ) к краю — против часовой сверху
@@ -1804,7 +1823,8 @@
       // дверь и вывеска «Мастерская»
       qvF(bk, F, [[-0.55, 0, hD + 0.02], [0.55, 0, hD + 0.02], [0.55, 2.1, hD + 0.02], [-0.55, 2.1, hD + 0.02]], C('wood'), S.FLAT);
       qvF(bk, F, [[-0.7, 2.1, hD + 0.015], [0.7, 2.1, hD + 0.015], [0.7, 2.3, hD + 0.015], [-0.7, 2.3, hD + 0.015]], mul(C('ochre2'), 1), S.ASHLAR);
-      props.signs.push({ text: 'Музей', p: F.p(0, FAR ? 2.95 : 3.3, FAR ? hD + 0.05 : hD + 1.15), ry: m.ry, h: 0.46, bg: '#2F4A5A', fg: '#F4EEDF', size: 70 });   // волна 4: на перилах галереи
+      // волна «комбинат»: вывески «Музей» здесь больше нет — музей переехал в художественный комбинат (kombinat.js); дом с
+      // галереей, витринами и годеканом остаётся
       // годекан: две длинные каменные скамьи вдоль стены
       [[-2.6, 0], [2.4, 0]].forEach(([x]) => { bk.box(F, x, 0.24, hD + 0.45, 3.0, 0.48, 0.5, { col: mul(C('ochre2'), 0.94), s: S.ASHLAR, cols: { py: mul(C('slab'), 1.02) } }); const c = F.p(x, 0, hD + 0.45); colliders.push({ type: 'box', x: c[0], z: c[2], w: 3.0, d: 0.5, ry: m.ry, y0: 0, y1: 0.5, id: 'bench' }); });
       MUSEUM.door = F.p(0, 0, hD + 0.75); MUSEUM.bench = F.p(2.4, 0.48, hD + 0.45);
@@ -2035,8 +2055,8 @@
     const ZIPC = (() => { try { if (!V.zipline || !V.zipline.route || !V.SUMMIT) return null; const R = V.zipline.route('macro', { landY: 0 }); return { ax: R.from.x, az: R.from.z, vx: R.to.x - R.from.x, vz: R.to.z - R.from.z, y0: R.from.y, y1: R.to.y, sag: R.sag }; } catch (e) { return null; } })();
     const underZip = (x, z, s) => { if (!ZIPC) return false; const L2 = ZIPC.vx * ZIPC.vx + ZIPC.vz * ZIPC.vz, t = clamp(((x - ZIPC.ax) * ZIPC.vx + (z - ZIPC.az) * ZIPC.vz) / L2, 0, 1), d = Math.hypot(x - ZIPC.ax - ZIPC.vx * t, z - ZIPC.az - ZIPC.vz * t), cy = ZIPC.y0 + (ZIPC.y1 - ZIPC.y0) * t - 4 * ZIPC.sag * t * (1 - t); return d < 2.5 + 1.6 * s && cy - G(x, z) < 14; };
     const HSB = [], HSV = [];   // правка волны 11: доски щитов «Отель» (hotelSigns) — деревья в них не сажаем; правка r2: HSV — лучи камеры игры к щитам (и не перед ними)
-    function addTree(x, z, s, kind, y, outer) {
-      for (let i = 0; i < EXCL.length; i++) if (inRect(EXCL[i], x, z)) return;   // волна 4: не в лавках и не во дворе
+    function addTree(x, z, s, kind, y, outer, force) {
+      if (!force) for (let i = 0; i < EXCL.length; i++) if (inRect(EXCL[i], x, z)) return;   // волна 4: не в лавках и не во дворе (force — дерево самого двора: молодые деревья комбината)
       for (let i = 0; i < HSB.length; i++) if (inRect(HSB[i], x, z, 0.4 + 1.1 * s)) return;   // правка волны 11: ни стволом, ни кроной в щит «Отель»
       // правка r2: и не кроной поперёк луча из камеры игры к щиту «Отель» (щит ставили там, где его видно с подъезда, — деревья
       // сажают позже и закрывали его: «Отель →» на улице без названий села); крона — до 2,3 s вбок (орех), по высоте 1–7,5 s
@@ -2069,6 +2089,7 @@
       else crowns.push({ p: [x, gy + h + 1.05 * s, z], r: [0, R() * 6, 0], s: [1.35 * s, 1.15 * s, 1.35 * s], c: mul(C(LEAF[Math.floor(R() * LEAF.length)]), 0.95 + R() * 0.1) });
       rec.crown = crowns[nCr]; rec.items.push(rec.crown); rec.cr = rec.crown.s[0];
       treeCol(x, z, gy, s, () => crowns[nCr], rec);
+      return rec;   // волна «комбинат»: запись — сажающему (молодым деревьям двора поднимают крону на штамбе)
     }
     // ROAD2: постройки для деревьев — дома (HB, из houseGeo) и прочие пятна; ствол ближе 0,35 м к стене (или в доме) — нельзя,
     // крона радиуса cr, что по высоте доходит до карниза (ctop выше верха стен) и заходит в дом, — тоже нельзя
@@ -2861,11 +2882,13 @@
       pb.cyl(sx, sy, sz, 0.05, 0.05, 2.0, { seg: 6, col: rgb('#8E918C') });
       props.signs.push({ text: named ? 'Кубачи' : 'Горное село мастеров', p: [sx, sy + 2.25, sz + 0.06], ry: 0.25, h: 0.5, bg: '#3F78B8', fg: '#FFFFFF', size: 64 });
       props.signs.push({ text: named ? 'Кубачи' : 'Горное село мастеров', p: [sx, sy + 2.25, sz - 0.06], ry: 0.25 + PI, h: 0.5, bg: '#3F78B8', fg: '#FFFFFF', size: 64 });
-      const ex = 60.5, ez = -13.6, ey = G(ex, ez);   // волна 6: на обочину (раньше −12,6 — у кромки полотна)
+      // волна «комбинат»: на южную обочину у конца улицы, доской к улице (стоял на северной — в линии ограды двора комбината, у
+      // калитки, на фоне фасада; стрелка вела в калитку). Смотрящему с улицы на юг выезд — слева, на восток
+      const ex = 60.5, ez = -6.25, ey = G(ex, ez);
       colliders.push({ type: 'circle', x: ex, z: ez, r: 0.15, y0: ey - 1, y1: ey + 2.4, id: 'sign' });
-      W6.plates.push({ x: ex, z: ez, w: 16 * 0.14 + 0.35, d: 0.3, ry: -0.15, top: ey + 2.4 });
+      W6.plates.push({ x: ex, z: ez, w: 16 * 0.14 + 0.35, d: 0.3, ry: PI - 0.15, top: ey + 2.4 });
       pb.cyl(ex, ey, ez, 0.05, 0.05, 1.8, { seg: 6, col: rgb('#8E918C') });
-      props.signs.push({ text: 'Дорога в город →', p: [ex, ey + 2.0, ez + 0.06], ry: -0.15, h: 0.42, bg: '#FFFDF9', fg: '#3A2E3F', size: 56 });
+      props.signs.push({ text: '← Дорога в город', p: [ex, ey + 2.0, ez - 0.06], ry: PI - 0.15, h: 0.42, bg: '#FFFDF9', fg: '#3A2E3F', size: 56 });
       // нижняя граница: сухая стенка и табличка «Дальше — облака»
       for (let a = -0.62; a < 0.3; a += 0.05) { const [x0, z0] = P(27.4, a), [x1, z1] = P(27.4, a + 0.05), y0 = G(x0, z0), y1 = G(x1, z1); const bk = chunk(x0, z0);
         bk.quadF([x0, y0 - 0.4, z0], [x1, y1 - 0.4, z1], [x1, y1 + 0.6, z1], [x0, y0 + 0.6, z0], [0.95, 0.95, 0.95], S.BIG, [(x0 + x1) / 2, 0, (z0 + z1) / 2 - CZ]);
@@ -2967,8 +2990,10 @@
     // земля не выглядывает поверх полотна в выемках); у внешнего края цвет сходит к фону, юбка — только у стыка с ядром села
     function uplandGeo() {
       const CS = 2, nxu = Math.round((UPL.x1 - UPL.x0) / CS), nzu = Math.round((UPL.z1 - UPL.z0) / CS), N1 = nxu + 1;
+      // волна «комбинат»: под площадкой с vis (пол корпуса комбината) видимая земля — vis (двор), не высота пола для ходьбы
+      const Gv = (x, z) => { const pd = padAt(x, z); return pd && pd.k >= 1 && pd.p.vis !== undefined ? pd.p.vis : G(x, z); };
       const Hv = new Float32Array(N1 * (nzu + 1));
-      for (let j = 0; j <= nzu; j++) for (let i = 0; i <= nxu; i++) Hv[j * N1 + i] = G(UPL.x0 + i * CS, UPL.z0 + j * CS);
+      for (let j = 0; j <= nzu; j++) for (let i = 0; i <= nxu; i++) Hv[j * N1 + i] = Gv(UPL.x0 + i * CS, UPL.z0 + j * CS);
       const inC = (i, j) => i >= 0 && j >= 0 && i < nxu && j < nzu && inUPL(UPL.x0 + (i + 0.5) * CS, UPL.z0 + (j + 0.5) * CS);
       const fine = new Uint8Array(nxu * nzu), nearR = new Uint8Array(nxu * nzu), obank = new Uint8Array(nxu * nzu);
       // делим только клетки, задевающие полотно, и только где земля в клетке не плоская (выемка/насыпь: иначе трава лезет на дорогу)
@@ -2982,7 +3007,7 @@
       // внутренние точки отходят от двух его треугольников не больше 0.35 м (под ногами — та же земля)
       // внутри ровной площадки (двор и корпус школы) — тоже крупно, на её мягком краю — нет
       const coarse = new Uint8Array(nxu * nzu), blockOk = (i, j, n) => {
-        for (let dj = 0; dj < n; dj++) for (let di = 0; di < n; di++) { const ii = i + di, jj = j + dj; if (!inC(ii, jj) || nearR[jj * nxu + ii] || coarse[jj * nxu + ii]) return false; const cx = UPL.x0 + (ii + 0.5) * CS, cz = UPL.z0 + (jj + 0.5) * CS, pd = padAt(cx, cz); if ((pd && pd.k < 1) || uplInner(cx, cz) < 6) return false; }
+        for (let dj = 0; dj < n; dj++) for (let di = 0; di < n; di++) { const ii = i + di, jj = j + dj; if (!inC(ii, jj) || nearR[jj * nxu + ii] || coarse[jj * nxu + ii]) return false; const cx = UPL.x0 + (ii + 0.5) * CS, cz = UPL.z0 + (jj + 0.5) * CS, pd = padAt(cx, cz); if ((pd && (pd.k < 1 || pd.p.fine)) || uplInner(cx, cz) < 6) return false; }
         const H = (di, dj) => Hv[(j + dj) * N1 + i + di], a = H(0, 0), b = H(0, n), c = H(n, n), d = H(n, 0);
         for (let dj = 0; dj <= n; dj++) for (let di = 0; di <= n; di++) { const u = di / n, v = dj / n;   // u — по x, v — по z; диагональ (0,0)–(n,n)
           const t = v >= u ? a + (b - a) * v + (c - b) * u : a + (d - a) * u + (c - d) * v; if (Math.abs(H(di, dj) - t) > 0.35) return false; }
@@ -3022,8 +3047,8 @@
         else if (!isF(i, j)) face(x0, z0, x1, z1, h00, h01, h11, h10, kind);
         else {
           // середины рёбер: у соседа-«крупной» клетки — по прямой (без щелей), иначе — по модели
-          const mW = isF(i - 1, j) ? G(x0, zm) : (h00 + h01) / 2, mE = isF(i + 1, j) ? G(x1, zm) : (h10 + h11) / 2;
-          const mN = isF(i, j - 1) ? G(xm, z0) : (h00 + h10) / 2, mS = isF(i, j + 1) ? G(xm, z1) : (h01 + h11) / 2, mc = G(xm, zm);
+          const mW = isF(i - 1, j) ? Gv(x0, zm) : (h00 + h01) / 2, mE = isF(i + 1, j) ? Gv(x1, zm) : (h10 + h11) / 2;
+          const mN = isF(i, j - 1) ? Gv(xm, z0) : (h00 + h10) / 2, mS = isF(i, j + 1) ? Gv(xm, z1) : (h01 + h11) / 2, mc = Gv(xm, zm);
           face(x0, z0, xm, zm, h00, mW, mc, mN, kind); face(xm, z0, x1, zm, mN, mc, mE, h10, kind);
           face(x0, zm, xm, z1, mW, h01, mS, mc, kind); face(xm, zm, x1, z1, mc, mS, h11, mE, kind);
         }
@@ -3046,9 +3071,9 @@
           return fq(x, z, UPL.x0 + bi * CS, UPL.z0 + bj * CS, n * CS, H(bi, bj), H(bi, bj + n), H(bi + n, bj + n), H(bi + n, bj)); }
         const h00 = H(i, j), h10 = H(i + 1, j), h01 = H(i, j + 1), h11 = H(i + 1, j + 1);
         if (!isF(i, j)) return fq(x, z, x0, z0, CS, h00, h01, h11, h10);
-        const x1 = x0 + CS, z1 = z0 + CS, xm = x0 + 1, zm = z0 + 1, mc = G(xm, zm);   // середины рёбер — только нужной четверти
-        const mW = () => (isF(i - 1, j) ? G(x0, zm) : (h00 + h01) / 2), mE = () => (isF(i + 1, j) ? G(x1, zm) : (h10 + h11) / 2);
-        const mN = () => (isF(i, j - 1) ? G(xm, z0) : (h00 + h10) / 2), mS = () => (isF(i, j + 1) ? G(xm, z1) : (h01 + h11) / 2);
+        const x1 = x0 + CS, z1 = z0 + CS, xm = x0 + 1, zm = z0 + 1, mc = Gv(xm, zm);   // середины рёбер — только нужной четверти
+        const mW = () => (isF(i - 1, j) ? Gv(x0, zm) : (h00 + h01) / 2), mE = () => (isF(i + 1, j) ? Gv(x1, zm) : (h10 + h11) / 2);
+        const mN = () => (isF(i, j - 1) ? Gv(xm, z0) : (h00 + h10) / 2), mS = () => (isF(i, j + 1) ? Gv(xm, z1) : (h01 + h11) / 2);
         if (x < xm) { const w = mW(); return z < zm ? fq(x, z, x0, z0, 1, h00, w, mc, mN()) : fq(x, z, x0, zm, 1, w, h01, mS(), mc); }
         const e = mE(); return z < zm ? fq(x, z, xm, z0, 1, mN(), mc, e, h10) : fq(x, z, xm, zm, 1, mc, mS(), h11, e);
       };
@@ -3417,7 +3442,7 @@
 
     // указатели у развилок: у парковки — «Школа ↑ / Отель ↑», у площади — «Башня ↑», наверху — «Отель →»
     function villageSigns() {
-      signPost(32.9, -12.2, [{ text: 'Школа ↑', ry: PI }, { text: 'Отель ↑', ry: PI }]);
+      signPost(32.9, -12.2, [{ text: 'Школа ↑', ry: PI }, { text: 'Отель ↑', ry: PI }, { text: 'Комбинат →', ry: PI }]);   // волна «комбинат»: к нему — по улице на восток
       signPost(0.6, -12.35, [{ text: 'Башня ↑', ry: PI / 2 }]);   // волна 10: у начала тропы к башне (пекарня отошла на север)
       signPost(73.6, -94.4, [{ text: 'Отель →', ry: 0 }]);
       // волна 7: у развилок и смотровой внешних дорог — на траве у края площадки, доской к ней (не на полотне, не на откосе);
@@ -3529,7 +3554,8 @@
       // ограды, опоры, фонари, деревья); не над чужим полотном и площадью. Не встал справа — слева, дальше по пути, ближе к полотну
       // (у бровки), а большой щит — и поменьше; деревья потом не сажаем в щит (addTree)
       const CLR = 0.5, EAVE = 0.45, OBS = colliders.filter(c => c.id !== 'edge' && c.id !== 'sign' && !c.cam && (c.type === 'box' || c.type === 'circle'));
-      const BLD = HB.concat(HB2, [CAFE, SHOPS.craft, SHOPS.food, WED.out].map(o => ({ x: o.x, z: o.z, w: o.w, d: o.d, ry: o.ry || 0, top: 1e9 })), W6.plates || []);   // правка r1: + таблички у дороги (не в них и не за ними)
+      const BLD = HB.concat(HB2, [CAFE, SHOPS.craft, SHOPS.food, WED.out].map(o => ({ x: o.x, z: o.z, w: o.w, d: o.d, ry: o.ry || 0, top: 1e9 })), W6.plates || [],
+        PADS.filter(p => p.id === 'kombinatYard').map(p => ({ x: p.x, z: p.z, w: p.w + 1, d: p.d + 1, ry: p.ry, top: 1e9 })));   // волна «комбинат»: и не во дворе комбината (щит стоял на углу ограды)   // правка r1: + таблички у дороги (не в них и не за ними)
       const gapRect = (b, x, z) => { const c = Math.cos(b.ry || 0), s = Math.sin(b.ry || 0), dx = x - b.x, dz = z - b.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
         return Math.hypot(Math.max(0, Math.abs(lx) - b.w / 2), Math.max(0, Math.abs(lz) - b.d / 2)); };
       // щит в (x, yy, z), доска лицом по ry: ширина bw, середина на высоте by, высота bh; столбики — на ±0,36 bw
@@ -3676,7 +3702,7 @@
           if (after && /←|→/.test(text)) text = '↑ Отель';   // правка r1: за развилкой — поворот позади
           const yy = Math.min(gy, y), F = new K.Frame(x, yy, z, ry);
           [-1, 1].forEach(sx => hb.box(F, sx * bw * 0.36, (by - bh / 2 + 0.6) / 2 - 0.6, -0.04, 0.07, by - bh / 2 + 0.6, 0.07, { col: POST }));   // правка r1: на 0,6 м в землю
-          hb.box(F, 0, by, -0.01, bw + 0.08, bh + 0.08, 0.04, { col: WH }); hb.box(F, 0, by, 0.012, bw, bh, 0.02, { col: BR });
+          hb.box(F, 0, by, -0.01, bw + 0.08, bh + 0.08, 0.04, { col: WH, cols: { nz: rgb('#6E5440') } }); hb.box(F, 0, by, 0.012, bw, bh, 0.02, { col: BR });   // изнанка — дерево (светлая глухая изнанка ночью светилась пятном)
           props.signs.push({ text, p: F.p(0, by, 0.024), ry, h: bh * 0.86, fitW: bw * 0.94, bg: '#6B4329', fg: '#FFFFFF', size: 72, r: 6, pad: 22 });
           [-1, 1].forEach(sx => { const p = F.p(sx * bw * 0.36, 0, -0.04); colliders.push({ type: 'circle', x: p[0], z: p[2], r: 0.08, y0: yy - 1, y1: yy + by + bh, id: 'sign' }); });
           W6.hotelSigns.push({ text: text.replace('\n', ' '), x: +x.toFixed(2), y: +yy.toFixed(2), z: +z.toFixed(2), ry: +ry.toFixed(3), th: +th.toFixed(3), big: sz, road: R.id, rem: Math.round(dist[w]), bw, by, bh, seen: lv >= 1, cam: lv >= 2, jn: !!jA, after: !!after });
@@ -4362,7 +4388,7 @@
       // ориентиры: смотреть на героиню у главного прохода
       const face2 = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
       place('badger', ...(() => { const F = new K.Frame(WB.x, -9.6, WB.z, WB.ry), p = F.p(-0.15, 0, -0.62); return [p[0], p[2]]; })(), WB.ry, { y: -9.6 + 0.42, headY: 1.3 });
-      place('owl_keeper', MUSEUM.door[0] + 0.9, MUSEUM.door[2] + 0.1, MUSEUM.ry, { headY: 1.1 });
+      // (сова-хранительница — в зале музея комбината: её ставит kombinat.js)
       { const a = TOWER.merlonA || 0, r = TOWER.merlonR || TOWER.rT - 0.12, x = TOWER.x + Math.sin(a) * r, z = TOWER.z + Math.cos(a) * r, y = TOWER.merlonTop || TOWER.floor + 1.1; const e = place('eagle', x, z, a, { y, headY: 1.0, talkR: 3.6 }); e.perch = [x, y, z]; e.always = true; }   // на зубце (polish: зубцы крупнее)
       place('roof_cat', 9.84, 26.19, face2(9.84, 26.19, 6.0, 20.0), { y: G(9.84, 26.19) + 0.0, headY: 0.55 });
       { const p = place('pony', -18, 56, 0, { headY: 1.45 }); p.path = [[-18, 56], [-24.5, 52.5], [-27, 58.5], [-20.5, 61.5]]; p.seg = 0; p.wait = 3; }
@@ -4677,6 +4703,23 @@
           night: NIGHT, SQUARE, MUSEUM, BAKERY, ARCH, archInfo, SHOPS, houses, TOWER, PARK, WB, ST, P, polar, sst, clamp, lerp, allowedAt });
       } catch (e) { console.warn('village: bazaar', e); return null; }
     }
+    // волна «комбинат»: Кубачинский художественный комбинат (js/village/kombinat.js) — корпус, двор, начинка (kombinat_in.js),
+    // жители; модуль кладёт геометрию в бейкеры села (куски, мелочь, фонари, окна) и возвращает камеры, виды, места, свою ручку
+    function kombinatBuild() {
+      const KM = V.kombinat;
+      if (KM && typeof KM.build === 'function') {
+        try {
+          return KM.build({ THREE: T, K, VK, S, C, rgb, mix, mul, rng, named, season, WIN, HI, FAR, G, KOMB, chunk, pb, glowB, lantB, glass, props, colliders, camExtra, HB,
+            npcs, placeNpc, NIGHT, root, litMesh, litIndoor, addTree, noSnow });
+        } catch (e) { console.warn('village: kombinat', e); }
+      }
+      // запас (нет модуля): глухой кирпичный корпус на своём месте — без дыры в земле и без прохода сквозь
+      const F = new K.Frame(KOMB.x, 0, KOMB.z, KOMB.ry), bk = chunk(KOMB.x, KOMB.z);
+      bk.box(F, 0, 4.5, 0, KOMB.W, 9, KOMB.D, { col: [0.95, 0.8, 0.56], s: S.WASH, cols: { py: [0.38, 0.39, 0.41] }, ss: { py: S.FLAT }, skip: { ny: 1 } });
+      colliders.push({ type: 'box', x: KOMB.x, z: KOMB.z, w: KOMB.W, d: KOMB.D, ry: KOMB.ry, y0: -0.5, y1: 9.2, id: 'kmbWall' });
+      HB.push({ x: KOMB.x, z: KOMB.z, w: KOMB.W, d: KOMB.D, ry: KOMB.ry, top: 9 });
+      return null;
+    }
     function weddingBuild() {
       const Wm = V.wedding; if (!Wm || typeof Wm.build !== 'function') return null;
       try {
@@ -4774,7 +4817,7 @@
       // за галереи не заглядывает: толпа видна из двора (+1,5 м), со стороны ворот (юг, ±7 м от оси) и сверху
       const yardSeen = (Math.abs(cwx) < WED.w / 2 + WED.gal + 1.5 && Math.abs(cwz) < WED.d / 2 + 1.5) || (cwz > 0 && Math.abs(cwx) < 7 && cwz < WED.d / 2 + 12) || c.y > WED.y + 7.5;
       for (const L of CROWNLOD) { const near = Math.hypot(c.x - L.x, c.z - L.z) - L.r < 30; if (L.m1.visible !== near) { L.m1.visible = near; L.m0.visible = !near; } }
-      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < (W9.camCafe && L.cafe ? L.cafe : L.max); if (L.m.visible !== on) L.m.visible = on;   // волна 10: камера в кофейне — мелочь ближе (L.cafe)
+      for (const L of DISTLOD) { const on = Math.hypot(c.x - L.x, c.z - L.z) - L.r < ((W9.camCafe || W9.camKomb) && L.cafe ? L.cafe : L.max); if (L.m.visible !== on) L.m.visible = on;   // волна 10: камера в кофейне (комбинате) — мелочь ближе (L.cafe)
         // правка 2: куски, что до волны 10 были целыми сетками (реквизит, трубы, мебель свадьбы), прячутся только для вида —
         // карта высот параплана их считает (userData.lodHidden), как прежде
         if (L.grid === undefined) L.grid = /^(props|pipes|wedding:props)$/.test(L.m.name || ''); if (L.grid) L.m.userData.lodHidden = !on; }
@@ -4889,6 +4932,10 @@
     // запечённый свет (низкое качество): альбедо × (полусфера + солнце по toon-рампе), пересчёт при смене настроения
     const LIT = [];   // { col: BufferAttribute, alb: Float32Array, nor: BufferAttribute | [nx,ny,nz] (на инстанс) , inst }
     const litMesh = m => { if (!m || !K.BAKED) return m; const g = m.geometry; if (g.attributes.color && g.attributes.normal) LIT.push({ col: g.attributes.color, alb: Float32Array.from(g.attributes.color.array), nor: g.attributes.normal }); return m; };
+    // волна «комбинат»: сетка помещения — всегда «дневной» свет (как зал кофейни, L.indoor); куски без снега — диапазоны вершин bk.noSnow
+    // свет — ровный, сверху ('flat'): стены зала по сторонам света не расходятся в серо-бурый (у кофейни — прежний, «дневной» сбоку)
+    const litIndoor = m => { litMesh(m); if (m && LIT.length && LIT[LIT.length - 1].col === m.geometry.attributes.color) LIT[LIT.length - 1].indoor = 'flat'; return m; };
+    const noSnow = (b, a, e) => { if (e > a) (b.noSnow = b.noSnow || []).push([a, e]); };
     // волна 4: башня изнутри, усадьба и двор, базар, свадьба, родник с крышкой, лепёшки, террасы — до склейки кусков и до сетки ходьбы
     const nBench0 = props.bench.length;
     props.lamps.forEach(p => NIGHT.lamps.push(p.slice()));   // лампа «метро»
@@ -4903,6 +4950,8 @@
       const g = W9.cafeGlass.build(); if (g) { const gm = new T.Mesh(g, K.keep(new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false }))); gm.name = 'cafeGlass'; gm.renderOrder = 5; gm.userData.noRay = true; root.add(gm); }
       const cg = W9.cafeCards.build(); if (cg) { const cm = K.keep(new T.MeshBasicMaterial({ vertexColors: true })); cm.userData.dn = 'window'; const lm = new T.Mesh(cg, cm); lm.name = 'cafeCards'; lm.visible = false; lm.userData.noRay = true; root.add(lm); W9.cafeCardM = lm; }
       const sm = cafeSignMesh(); if (sm) root.add(sm); }
+    const KMB = kombinatBuild();
+    if (KMB && KMB.spots) KMB.spots.forEach(sp => spotsList.push(sp));
     const WD = FAR ? null : weddingBuild();
     // волна 10: мебель свадебного двора — не дальше 60 м от его края (с гребневой и Нижней улиц двор — точка; бюджет G1)
     if (WD && WD.group) WD.group.traverse(m => { if (m.isMesh && m.name === 'wedding:props') DISTLOD.push({ m, x: WED.x, z: WED.z, r: Math.hypot(WED.w, WED.d) / 2, max: 60 }); });
@@ -5011,8 +5060,12 @@
       const MD = VK.MOODS.day, hsD = new T.Color(MD.hs), hgD = new T.Color(MD.hg), scD = new T.Color(MD.sun), dI = new T.Vector3(0.35, 0.8, 0.48).normalize();
       const litIn = (nx, ny, nz, out) => { const hk = ny * 0.5 + 0.5, L = nx * dI.x + ny * dI.y + nz * dI.z, ramp = r0 + r1 * sst(0.0, 0.18, L) + (1 - r0 - r1) * sst(0.42, 0.72, L);
         out[0] = (hgD.r + (hsD.r - hgD.r) * hk) * MD.hi + scD.r * MD.si * ramp; out[1] = (hgD.g + (hsD.g - hgD.g) * hk) * MD.hi + scD.g * MD.si * ramp; out[2] = (hgD.b + (hsD.b - hgD.b) * hk) * MD.hi + scD.b * MD.si * ramp; return out; };
+      // волна «комбинат»: зал комбината — свет ровный, сверху (лампы по потолку; как на фото — стены равномерно белые)
+      const dF = new T.Vector3(0.1, 1, 0.25).normalize(), r0F = 0.62, r1F = 0.15;
+      const litInF = (nx, ny, nz, out) => { const hk = ny * 0.5 + 0.5, L = nx * dF.x + ny * dF.y + nz * dF.z, ramp = r0F + r1F * sst(0.0, 0.18, L) + (1 - r0F - r1F) * sst(0.42, 0.72, L);
+        out[0] = (hgD.r + (hsD.r - hgD.r) * hk) * MD.hi + scD.r * MD.si * ramp; out[1] = (hgD.g + (hsD.g - hgD.g) * hk) * MD.hi + scD.g * MD.si * ramp; out[2] = (hgD.b + (hsD.b - hgD.b) * hk) * MD.hi + scD.b * MD.si * ramp; return out; };
       LIT.forEach(L => {
-        if (L.indoor) { const c = L.col.array, n = L.nor.array; for (let i = 0; i < c.length; i += 3) { litIn(n[i], n[i + 1], n[i + 2], o3); c[i] = L.alb[i] * o3[0]; c[i + 1] = L.alb[i + 1] * o3[1]; c[i + 2] = L.alb[i + 2] * o3[2]; } L.col.needsUpdate = true; return; }
+        if (L.indoor) { const c = L.col.array, n = L.nor.array, li = L.indoor === 'flat' ? litInF : litIn; for (let i = 0; i < c.length; i += 3) { li(n[i], n[i + 1], n[i + 2], o3); c[i] = L.alb[i] * o3[0]; c[i + 1] = L.alb[i + 1] * o3[1]; c[i + 2] = L.alb[i + 2] * o3[2]; } L.col.needsUpdate = true; return; }
         if (L.inst) { const a = L.inst.instanceColor.array; for (let i = 0; i < L.dirs.length; i++) { const [nx, ny, nz] = L.dirs[i]; lit(nx, ny, nz, o3); a[i * 3] = L.alb[i * 3] * o3[0]; a[i * 3 + 1] = L.alb[i * 3 + 1] * o3[1]; a[i * 3 + 2] = L.alb[i * 3 + 2] * o3[2]; if (HZ) for (let q = 0; q < 3; q++) a[i * 3 + q] += (HZ[q] - a[i * 3 + q]) * HK; } L.inst.instanceColor.needsUpdate = true; return; }
         const c = L.col.array, n = L.nor.array; for (let i = 0; i < c.length; i += 3) { lit(n[i], n[i + 1], n[i + 2], o3); c[i] = L.alb[i] * o3[0]; c[i + 1] = L.alb[i + 1] * o3[1]; c[i + 2] = L.alb[i + 2] * o3[2]; if (HZ) for (let q = 0; q < 3; q++) c[i + q] += (HZ[q] - c[i + q]) * HK; } L.col.needsUpdate = true;
       });
@@ -5100,7 +5153,7 @@
     S2({ id: 'spring_bench', x: SPRING.bench[0], y: SPRING.y, z: SPRING.bench[2] + 0.0, r: 1.0, icon: '🪑', label: 'Скамейка у родника', action: 'Посидеть', seat: SPRING.bench, view: 'spring' });
     if (PITR.rig) { const p = PITR.rig.stand.pos; S2({ id: 'spring_lid', x: p.x, y: SPRING.y, z: p.z, r: 1.1, icon: '💧', label: 'Родник с крышкой', action: 'Открыть и попить' }); }
     { const F = new K.Frame(WB.x, -9.6, WB.z, WB.ry), p = F.p(0.2, 0, 0.95); S2({ id: 'workshop', x: p[0], y: -9.6, z: p[2], r: 1.4, icon: '✨', label: 'Мастерская серебра', action: 'Гравировать узор' }); }
-    S2({ id: 'museum', x: MUSEUM.door[0], y: 0, z: MUSEUM.door[2], r: 1.4, icon: '🏛️', label: 'Комната образцов', action: 'Посмотреть витрины' });   // внутрь не заходят — открывается рассказ совы о витринах
+    // волна «комбинат»: место 'museum' — теперь в зале музея комбината (kombinat.js; рассказ совы — лист «Музей комбината»)
     if (TH && TH.door) S2({ id: 'treasure', x: TH.door[0], y: TH.y0, z: TH.door[2], r: 1.3, icon: '🏺', label: 'Комната-сокровищница', action: 'Заглянуть' });
     { const RT = model.RT, F = new K.Frame(RT.x, 2.4, RT.z, RT.ry), p = F.p(0, 0, RT.d / 2 - 1.1); S2({ id: 'roof', x: p[0], y: 2.4, z: p[2], r: 1.3, icon: '🌅', label: 'Крыша-терраса', action: 'Посидеть до заката', seat: [p[0], 2.4 + 0.45, p[2]], ry: RT.ry, view: 'roof_sunset' }); }
     S2({ id: 'knoll', x: KNOLL_W.bench[0], y: KNOLL_W.y, z: KNOLL_W.bench[2], r: 1.3, icon: '📷', label: 'Западный уступ', action: 'Посидеть', seat: KNOLL_W.bench, ry: KNOLL_W.ry, view: 'p1' });
@@ -5136,7 +5189,6 @@
         trough: () => ({ kind: 'drink', activity: 'trough' }),
         spring_bench: s => ({ kind: 'sit', seat: s.seat, view: 'spring' }),
         workshop: () => { npcHop('badger'); return { kind: 'sheet', activity: 'workshop', npc: 'badger', event: 'badgerDone', flag: 'pendant' }; },
-        museum: () => ({ kind: 'sheet', activity: 'museum', npc: 'owl_keeper' }),
         treasure: () => ({ kind: 'sheet', activity: 'treasure' }),
         roof: s => ({ kind: 'sit', seat: s.seat, ry: s.ry, view: 'roof_sunset', mood: 'evening', activity: 'roof' }),
         knoll: s => ({ kind: 'sit', seat: s.seat, ry: s.ry, view: 'p1', activity: 'knoll' }),
@@ -5153,12 +5205,20 @@
             court: { x: P0.x, y: P0.y, z: P0.z, ry: P0.ry + PI / 2, w: P0.d, d: P0.w, goalW: P0.goalW, goalH: P0.goalH, goalD: P0.goalD, goalZ: P0.goalX, spotD: 6 },
             returnTo: { x: sp.x, y: G(sp.x, sp.z), z: sp.z, ry: sp.ry } }; },
         tower_bench: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'tower_park' }),
+        // волна «комбинат»: музей комбината (рассказ совы), скамья у фасада, стенд выставки, места начинки (кувшин, цех, история)
+        museum: sp => ({ kind: 'sheet', activity: 'museum', npc: 'owl_keeper', view: sp.view, sheet: sp.sheet }),
+        kmb_front: sp => ({ kind: 'sit', seat: sp.seat, ry: sp.ry, view: 'kmb_front', activity: 'kmb_front' }),
       };
-      spotsList.forEach(s => { if (typeof s.use === 'function') return; s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (s.id.startsWith('carved_') ? () => ({ kind: 'sheet', activity: s.id, event: 'stones3', collect: 'stones' }) : () => ({ kind: 'toast', text: s.label })))(s, ctx)); });
+      // волна «комбинат»: прочие места комбината — лист (тексты — VILLAGE.activities[id], иначе — из начинки: sheet), вид места
+      const kmbUse = sp => ({ kind: 'sheet', activity: sp.id, view: sp.view, sheet: sp.sheet, npc: /work/.test(sp.id) ? 'kmb_raccoon' : undefined });
+      spotsList.forEach(s => { if (typeof s.use === 'function') return; s.use = (ctx = {}) => Object.assign({ id: s.id }, (USE[s.id] || (s.kombinat ? kmbUse : s.id.startsWith('carved_') ? () => ({ kind: 'sheet', activity: s.id, event: 'stones3', collect: 'stones' }) : () => ({ kind: 'toast', text: s.label })))(s, ctx)); });
     }
     }
     // волна 6: auto — машина въезжает в облако выхода сама (за рулём); walk — только пешком (кнопка); to — куда
-    exits.push({ id: 'toRoad', x: 62, y: 0, z: -10, r: 4, label: 'Дорога вниз, в город', icon: '🚗', to: 'serpentine', auto: true });
+    // волна «комбинат»: облако — в дальнем конце разворотного кармана за калиткой (KOMB.bay, в 9,5 м от калитки): машина к
+    // комбинату встаёт у калитки, не уезжая на серпантин; пешком у калитки и пилона кнопки выезда нет (было (62; −10), r 4);
+    // near — кнопка «☁ …» из машины только в самом кармане (по умолчанию — r + 6 м, у калитки она была бы главной)
+    { const [x, z] = KOMB.at(14.0, 19.4); exits.push({ id: 'toRoad', x, y: 0, z, r: 2.6, near: 3.6, label: 'Дорога вниз, в город', icon: '🚗', to: 'serpentine', auto: true }); }
     exits.push({ id: 'toCity', x: PARK.x + 1.2, y: 0, z: PARK.z - 2.2, r: 1.8, label: 'Сесть в машину', icon: '🚗', walk: true });
     // волна 6: наверху дороги мимо школы — к отелю (облачная шторка → регион hotel, from: 'kubachi')
     // вершина: выезд к отелю — наверху второго серпантина, у ворот парковки отеля (без вершины — как раньше, наверху дороги мимо школы)
@@ -5210,6 +5270,7 @@
       summit_bend: { pos: [178, 70, -380], target: [250, 55, -280], fov: 60 },   // шпилька 2 и ноги над ней — сверху, снаружи (было [250, 46, −300]: камера внутри горы)
     };
     if (W9.cafeViews) Object.assign(views, W9.cafeViews);   // волна 9–10: кофейня — фасад, у окна (три табурета), за столиком, на диванчике
+    if (KMB && KMB.views) Object.assign(views, KMB.views);   // волна «комбинат»: фасад, двор, коридор, зал, цех, места начинки
 
     if (BZ && BZ.views) Object.assign(views, BZ.views);
     (W6.summitRest || []).forEach(r => { views[r.view] = { pos: r.cam, target: [TOWER.x, 6, TOWER.z], fov: r.kind === 'bench' ? 40 : 24 }; });   // вершина: со скамейки и со смотровой — на село
@@ -5248,6 +5309,11 @@
       if (W9.cafeIn && cam) { const cp = cam.position; camCafe = cp.y < 4.2 && inRect(CAFE, cp.x, cp.z, 0.1); const near = camCafe || Math.hypot(cp.x - CAFE.x, cp.z - CAFE.z) < 35;
         if (W9.cafeIn.visible !== near) { W9.cafeIn.visible = near; if (W9.cafeCardM) W9.cafeCardM.visible = !near; } }
       W9.camCafe = camCafe;
+      // волна «комбинат»: зал виден изнутри или сквозь проёмы (окна, тамбур), иначе — «карточки» и жители зала не рисуются (KMB.inVis); панель ночью — «лайтбокс»; камера внутри —
+      // как в кофейне: снег не идёт, жители снаружи дальше 30 м не рисуются (бюджет), жители и героиня — в тёплом свете
+      let camKomb = false;
+      if (KMB && KMB.update) { try { camKomb = !!KMB.update(cam, NIGHT.t); } catch (e) { if (!KMB.err) { KMB.err = true; console.warn('village: kombinat update', e); } } }
+      W9.camKomb = camKomb; const camIn = camCafe || camKomb;
       // ночью свет ламп — теплее (правка волны 10: на low зал освещён «днём» всегда — см. relight, L.indoor; на high — тёплое свечение
       // поверх синего лунного света сцены)
       if (W9.cafeMat && W9.cafeTint !== NIGHT.t) { const k = W9.cafeTint = NIGHT.t; W9.cafeMat.color.setRGB(1 - 0.04 * k, 1 - 0.12 * k, 1 - 0.27 * k); if (W9.cafeMat.emissive && !K.BAKED) W9.cafeMat.emissive.setRGB(0.3 * k, 0.2 * k, 0.09 * k); }
@@ -5264,7 +5330,7 @@
         const d = Math.hypot(n.x - hx, n.z - hz) + Math.max(0, Math.abs(n.y - hy) - 6) * 0.5;
         // polish: и от камеры — в дальних кадрах (p1, p3, p4, общий вид) зверята меньше пары пикселей, а это ≈ 2,5 тыс. тр. каждый
         const dc = cam ? Math.hypot(n.root.position.x - cam.position.x, n.root.position.y - cam.position.y, n.root.position.z - cam.position.z) : 0;
-        const vis = (n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK)) && !(camCafe && !n.cafe && dc > 30); n.root.visible = vis;   // волна 10: камера в кофейне — снаружи только ближние if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция)
+        const vis = (n.always ? dc < 240 : d < (n.visR || (HI ? 60 : 46) * visK) && dc < (n.visR ? Math.max(n.visR, 30) : (HI ? 90 : 70) * visK)) && !(camIn && !(camCafe ? n.cafe : n.kombinat) && dc > 30) && !(n.kmbRoom && KMB && KMB.npcSeen && !KMB.npcSeen(n)); n.root.visible = vis;   // волна 10: камера в кофейне (комбинате) — снаружи только ближние if (!vis) { if (n.speaker === 'cow') cowTick(n, dt, t); return; }   // коровы ходят по часам и вдали (только позиция)
         n.anim(t, dt, hx, hz); const ol = d < 20; n.outlines.forEach(m => { m.visible = ol; });
         if (n.id === 'pony' && n.faceHero > 0) n.wait = Math.max(n.wait, 0.6);   // лошадка останавливается поговорить
         if (n.id === 'eagle') eagleTick(n, t, dt);
@@ -5288,7 +5354,7 @@
             if (!on) { P_.setXYZ(q, 0, -999, 0); continue; }
             P_.setXYZ(q, sc.p[0] + Math.sin(ph[q] * 30 + t * 0.5) * 0.25 * life + life * 0.6, sc.p[1] + life * (sc.steam ? 1.6 : 3.2), sc.p[2] + Math.cos(ph[q] * 20) * 0.2 * life); } }
         P_.needsUpdate = true; }
-      if (snowPts) snowPts.visible = !camCafe;   // волна 10: в кофейне снег не идёт
+      if (snowPts) snowPts.visible = !camIn;   // волна 10: в кофейне (и в комбинате) снег не идёт
       if (snowPts && cam) { const P_ = snowPts.geometry.attributes.position, a = P_.array; snowPts.position.set(cam.position.x, cam.position.y, cam.position.z);
         for (let i = 0; i < a.length; i += 3) { a[i + 1] -= dt * 0.7; a[i] += Math.sin(t * 0.7 + i) * dt * 0.25; if (a[i + 1] < -8) { a[i + 1] += 22; a[i] = Math.random() * 40 - 20; a[i + 2] = Math.random() * 40 - 20; } } P_.needsUpdate = true; }
       // небо и хребты «на бесконечности»: едут за камерой (внутри camera.far)
@@ -5348,7 +5414,7 @@
     // волна 7: одна сеть для машины — прежние проезды и внешние дороги (номера осей подряд: s = SG·(ri + 1) + s, SG = 10 000)
     const footOnly = R => OR_DEF.concat(OR_PADS).some(d => d.foot && d.id === R.id);   // волна 9: аппарель к полянке и сама полянка — только пешком
     const ALLNET = FAR ? null : { roads: model.RN.roads.concat(OUTR.net.roads.filter(R => !footOnly(R))), disks: model.RN.disks.concat(OUTR.net.disks.filter(D => !footOnly(D))) };
-    const DNET = FAR ? null : driveNet(ALLNET, { disks: [{ id: 'park', x: PARK.x, z: PARK.z, r: 5.4, kind: 'cobble' }], rects: [SQ_OLD, SQ_DRIVE, SQ_EAST] });   // волна 9: прежний прямоугольник — тоже (у переулка к башне край как раньше)
+    const DNET = FAR ? null : driveNet(ALLNET, { disks: [{ id: 'park', x: PARK.x, z: PARK.z, r: 5.4, kind: 'cobble' }], rects: [SQ_OLD, SQ_DRIVE, SQ_EAST, KOMB.bay] });   // волна 9: прежний прямоугольник — тоже (у переулка к башне край как раньше)
     // где ставить машину: на парковке (как раньше), на площади, у разворота башни, у школы, наверху у дороги к отелю (носом вниз)
     const UPR = model.RN.byId('up'), TWR = model.RN.byId('tower');
     const along = (R, i, back) => { const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), th = Math.atan2(R.x[b] - R.x[a], R.z[b] - R.z[a]); return { x: R.x[i], y: R.y[i], z: R.z[i], ry: back ? th + PI : th }; };
@@ -5383,6 +5449,7 @@
       }
       return [x, z];
     }
+    const RAIL = { last: null };   // волна «комбинат»: чей рельс входа сейчас (для camBlend)
     const fromHotel = opts.from === 'hotel';
     const spawnHotel = (() => { const c = CAR_SPAWNS.hotel, lx = Math.cos(c.ry), lz = -Math.sin(c.ry); return { x: c.x + lx * 2.4, y: c.y, z: c.z + lz * 2.4, ry: c.ry }; })();
 
@@ -5403,10 +5470,13 @@
       // W5B: дома рядов (для проверок и подсказок): крыша — двор (walk), плоская высокая, скатная; top — карниз/двор, м
       roofRows: () => houses.filter(h => h.row >= 0).map(h => ({ id: h.id, row: h.row, phi: h.phi, x: h.x, z: h.z, w: h.w, d: h.d, ry: h.ry, y0: h.y0, top: h.y0 + h.h, storeys: h.storeys, roof: h.roof, walk: h.roof === 'flat' && (h.storeys <= 2 || h.tag === 'roof_terrace') })),
       // волна 10: зона камеры в зале кофейни (regions.js updCamera): { dist, hgt, fov, swing, run } | null
-      camZone: (x, z, y) => (W9.camZone ? W9.camZone(x, z, y) : null),
-      camRail: (x, z, y, yaw) => (W9.camRail ? W9.camRail(x, z, y, yaw) : null),   // правка r1: вход в кофейню — камера сквозь проём
-      camBlend: (want, look, p, k, ray) => (W9.camBlend ? W9.camBlend(want, look, p, k, ray) : want.lerp({ x: p[0], y: p[1], z: p[2] }, k)),   // смешать с рельсом по кругу вокруг неё
-      indoor: () => (W9.camCafe ? 1 : 0),   // правка r1: камера в зале кофейни (ночью жители и героиня — в тёплом свете зала)
+      // волна «комбинат»: диспетчер помещений — кофейня (W9) и комбинат (KMB: тамбур, вестибюль, коридор, музей, цех); у каждого
+      // свои зоны и «рельс» входа; camBlend — того, чей рельс сейчас сильнее (camRail помнит его в RAIL.last)
+      camZone: (x, z, y) => (W9.camZone && W9.camZone(x, z, y)) || (KMB && KMB.camZone ? KMB.camZone(x, z, y) : null),
+      camRail: (x, z, y, yaw) => { const a = W9.camRail ? W9.camRail(x, z, y, yaw) : null, b = KMB && KMB.camRail ? KMB.camRail(x, z, y, yaw) : null; RAIL.last = !a ? b : !b ? a : (b.k > a.k ? b : a); return RAIL.last; },   // правка r1: вход в кофейню (и в комбинат) — камера сквозь проём
+      camBlend: (want, look, p, k, ray) => { if (p && p.isVector3) p = [p.x, p.y, p.z];   // точка рельса — массивом (как в regions.js); вектор (порт камеры в тестах) — тоже
+        return RAIL.last && RAIL.last.kombinat && KMB ? KMB.camBlend(want, look, p, k, ray) : W9.camBlend ? W9.camBlend(want, look, p, k, ray) : want.lerp({ x: p[0], y: p[1], z: p[2] }, k); },   // смешать с рельсом по кругу вокруг неё
+      indoor: () => (W9.camCafe || W9.camKomb ? 1 : 0),   // правка r1: камера в зале кофейни или комбината (ночью жители и героиня — в тёплом свете зала)
       camColliders: camColliders.concat(camExtra),   // кроны, галереи, свод арки, вывески, «метро»: только для луча камеры (rayHit их уже учитывает)
       ground: (x, z) => model.y(x, z),
       groundInfo: (x, z) => model.info(x, z),
@@ -5442,12 +5512,14 @@
           count: W9.count || null, chains: W9.chains, recs: W9.recs || [], secs: (W9.secs || []).map(q => ({ s0: q.s0, s1: q.s1, n: q.n })) },   // волна 10: + дома-террасы, цепочки «с крыши на крышу», участки (LOD)
         // волна 10: гребневая улица (с площади прямо на запад) и кофейня «Мархарай» (данные — CAFE; рамка — K.Frame(x, 0, z, ry))
         crest: (() => { const R = model.RN.byId('crest'); return R ? { road: 'crest', len: +R.len.toFixed(1), j: [LOWER.J.x, LOWER.J.z] } : null; })(),
-        cafe: CAFE },
+        cafe: CAFE,
+        // волна «комбинат»: рамка корпуса, дверь (с крыльца), точки внутри, сова, скамья у фасада; камера внутри (тесты)
+        kombinat: KMB ? Object.assign({}, KMB.places, { camInside: () => !!W9.camKomb, volAt: KMB.volAt, occ: KMB.occ }) : { x: KOMB.x, z: KOMB.z, ry: KOMB.ry, w: KOMB.W, d: KOMB.D } },
       // ===== волна 6 (дороги села, только добавления) =====
       // drive: всё, что нужно загрузчику, чтобы ездить по селу контроллером js/village/drive.js (см. README, «Волна 6»)
       drive: DNET ? {
         roads: ALLNET.roads.map(R => ({ id: R.id, label: R.label, kind: R.kind, width: R.w, len: +R.len.toFixed(1), outer: !!R.outer, pts: Array.from({ length: R.n }, (_, i) => [+R.x[i].toFixed(2), +R.z[i].toFixed(2)]), y: Array.from(R.y, v => +v.toFixed(2)) })),
-        areas: [{ id: 'park', type: 'disk', x: PARK.x, z: PARK.z, r: 5.4 }, Object.assign({ type: 'rect' }, SQ_DRIVE), Object.assign({ type: 'rect' }, SQ_EAST)].concat(ALLNET.disks.map(D => ({ id: D.id, type: 'disk', x: D.x, z: D.z, r: D.r }))),
+        areas: [{ id: 'park', type: 'disk', x: PARK.x, z: PARK.z, r: 5.4 }, Object.assign({ type: 'rect' }, SQ_DRIVE), Object.assign({ type: 'rect' }, SQ_EAST), Object.assign({ type: 'rect' }, KOMB.bay)].concat(ALLNET.disks.map(D => ({ id: D.id, type: 'disk', x: D.x, z: D.z, r: D.r }))),
         road: DNET,                                    // адаптер для V.drive.create({ road }) — { len, project, sample, kmax, areas, surface }
         drivable: (x, z, pad) => DNET.drivable(x, z, pad || 0),
         ground: (x, z) => model.y(x, z),
@@ -5482,7 +5554,7 @@
       setClock(fn) { clockFn = typeof fn === 'function' ? fn : (typeof fn === 'number' ? () => fn : null); return !!clockFn; },
       hour: () => hourNow(),
       terraces: { bands: TERR.bands, stacks: TERR.stacks, trees: TERR.trees, cows: TERR.cows, shrubs: TERR.nShrubs || 0 },   // волна 6: + кусты вдоль откосов
-      stats: () => ({ chunks: chunks.size, chunkTris, colliders: allColliders.length, autoEdges: walk.auto.length, glazing: glaz.length, trees: crowns.length + bare.length, npcs: npcs.length, buildMs, school: W6.cnt || null, refill: BG.refill || null }),
+      stats: () => ({ chunks: chunks.size, chunkTris, colliders: allColliders.length, autoEdges: walk.auto.length, glazing: glaz.length, trees: crowns.length + bare.length, npcs: npcs.length, buildMs, school: W6.cnt || null, refill: BG.refill || null, kombinat: KMB ? KMB.stats : null }),
       // волна 7: для проверок внешних дорог (стенд, тесты): врезка, решётка фона, вырез
       _ccull: (on) => { CCULL.off = on === false; CCULL.noFr = on === 'nofr'; if (CCULL.off) CCULL.list.forEach(E => { E.C.forEach(c => { c.on = true; }); ccFill(E); }); return { n: CCULL.list.length, cells: CCULL.list.reduce((s, E) => s + E.C.length, 0), off: !!CCULL.off }; },   // правка волны 10: проверка клеточного отсечения
       _lod: (mode) => { RF_LOD.force = mode === 'near' || mode === 'far' ? mode : null; if (mode === 'far?') return { vfar: VFAR.on, vocc: VOCC.on, nf: VFAR.list.length, no: VOCC.list.length, nt: VOCC.T ? VOCC.T.length : 0 }; return [...RF_LOD.map.entries()].map(([k, L]) => ({ k, far: L.isFar, inV: L.inV, s: L.sph ? [L.sph.center.x, L.sph.center.y, L.sph.center.z, L.sph.radius].map(v => +v.toFixed(1)) : null, g: L.gs.size })); },   // вершина: дальний план — 'near' | 'far' | авто
@@ -5493,6 +5565,7 @@
         if (WD && WD.dispose) { try { WD.dispose(); } catch (e) { /* ok */ } }
         if (ZL && ZL.dispose) { try { ZL.dispose(); } catch (e) { /* ok */ } }
         if (HOTD && HOTD.userData && HOTD.userData.dispose) { try { HOTD.userData.dispose(); } catch (e) { /* ok */ } }
+        if (KMB && KMB.dispose) { try { KMB.dispose(); } catch (e) { /* ok */ } }   // волна «комбинат»: вернуть слои спрятанному (машина — не в корне села), отпустить списки
         scene.remove(root); scene.fog = prevFog; scene.background = prevBg;
         root.traverse(o => { if (o.geometry && !o.isInstancedMesh) { try { o.geometry.dispose(); } catch (e) { /* ok */ } } if (o.isInstancedMesh) { try { o.dispose(); } catch (e) { /* ok */ } } });
         K.dispose();
@@ -5548,6 +5621,7 @@
     spurHouses().forEach(o => { const y0 = Math.min(...boxCorners(o).map(([a, b]) => OPP.y(a, b))); if (y0 > -97) box({ x: o.x, z: o.z, y0, w: o.w, d: o.d, h: o.h, storeys: Math.round(o.h / 2.4), ry: o.ry, roofMat: o.roofMat, wall: o.wall, roof: 'hip', row: -3 }, true); });
     lowEastHouses(G).forEach(h => box(h, true));
     [MUSEUM, BAKERY].forEach((b, i) => box({ x: b.x, z: b.z, y0: 0, w: b.w, d: b.d, h: i ? 4.8 : 4.8, storeys: 2, ry: b.ry, roofMat: i ? 'rust' : 'slate', wall: i ? 'rubbleY' : 'cream', roof: i ? 'hip' : 'flat', row: -1 }, true));
+    box({ x: KOMB.x, z: KOMB.z, y0: 0, w: KOMB.W, d: KOMB.D, h: 9.0, storeys: 3, ry: KOMB.ry, roofMat: 'slate', wall: 'ochre', roof: 'flat', row: -1 }, true);   // волна «комбинат»
     // рельеф ядра: террасы, стенки, зелень (грубо, по кольцам)
     { const phs = []; for (let p = -0.95; p <= 0.95; p += 0.03) phs.push(p);
       const rs = [24]; for (let k = NROW; k >= 0; k--) { rs.push(B(k)); rs.push(FR(k)); } for (let r = 100; r <= 128; r += 7) rs.push(r); rs.sort((a, b) => a - b);
@@ -5590,7 +5664,7 @@
       houses: () => unpackHouses().filter(h => !PLAZA.drop.includes(h.id)),   // 4B: houses — для карты (NEEDS MAP); волна 11: без h083/h084 (там восточная половина площади)
       // волна 11: для карты, пока села не загружали (большая карта из города) — кофейня «Мархарай» (рамка CAFE) и настоящая сеть
       // проездов: ключи осей (как в сборке — без сглаживания), ширина полотна; площадки — развилки, смотровая, луг, разворот, карман
-      CAFE,
+      CAFE, KOMB,   // волна «комбинат»: рамка корпуса комбината (x, z, ry, W, D) — точка и контур на карте
       mapRoads: () => VR_DEF.map(R => ({ id: R.id, w: R.w, pts: R.pts })).concat(OR_DEF.filter(R => R.id !== 'summit').map(R => ({ id: R.id, w: R.w, pts: R.pts, outer: true })), [{ id: 'lower', w: LOWER.w, pts: LOWER.pts, outer: true }]),
       mapPads: () => OR_PADS.filter(D => D.r && isFinite(D.x) && !D.foot).map(D => ({ id: D.id, x: D.x, z: D.z, r: D.r })).concat([Object.assign({ id: 'turn' }, TURN), Object.assign({ id: 'bay' }, BAY), { id: 'park', x: PARK.x, z: PARK.z, r: 5.4 }]),
       plaza: PLAZA.rects },

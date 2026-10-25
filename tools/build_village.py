@@ -5,7 +5,7 @@
   python3 tools/build_village.py --layout   ->  ещё и обновить блок раскладки в js/village/kubachi.js
                                                   из plan2/kubachi_blockout/layout.json (рядом с проектом)
 Файлы игры не трогает (кроме блока раскладки по --layout). Необязательные скрипты стенда берутся, если они есть:
-js/village/{serpentine,drive,bazaar,kaz,wedding,hotel,zipline}.js, js/interact.js (руки), js/daynight.js (день/ночь),
+js/village/{serpentine,drive,bazaar,kaz,wedding,hotel,zipline,kombinat_sign,kombinat_in,kombinat}.js, js/interact.js (руки), js/daynight.js (день/ночь),
 js/vehicles/sedan.js (красный седан по ?car=sedan), модель героини, js/world/*; нет файла — стенд откроется без него.
 Параметры готового файла — как у village.html: ?region=kubachi|serpentine|hotel &named=0 &season=winter &view=p1..p5 &kaz=auto|offer|off &clock=час &zip=1 &zipdur=сек
 &debug=1 &q=low|high &bazaar=1|0 &night=1 &h=час &look=tower_top &climb=bottom|top &car=sedan
@@ -18,7 +18,8 @@ rd = lambda p: open(os.path.join(ROOT, p), encoding='utf-8').read()
 OPTIONAL = {'js/hero3d.js', 'js/hero_anim.js', 'js/world/kit.js', 'js/world/actors.js', 'js/world/car.js',
             'js/village/serpentine.js', 'js/village/drive.js', 'js/village/bazaar.js', 'js/village/kaz.js',
             'js/village/wedding.js', 'js/village/hotel.js', 'js/village/zipline.js', 'js/village/summit.js',
-            'js/interact.js', 'js/daynight.js', 'js/vehicles/sedan.js'}
+            'js/interact.js', 'js/daynight.js', 'js/vehicles/sedan.js',
+            'js/village/kombinat_sign.js', 'js/village/kombinat_in.js', 'js/village/kombinat.js'}   # волна «комбинат»: вывеска, начинка, корпус
 
 
 def layout_block():

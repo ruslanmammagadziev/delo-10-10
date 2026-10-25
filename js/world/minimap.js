@@ -114,7 +114,7 @@
     wedding: { col: '#D9718E', g: 'note', name: 'Свадьба', group: 'В селе' },
     kaz: { col: '#B58ACB', g: 'scarf', name: 'Примерка', group: 'В селе' },
     workshop: { col: '#9E9AB4', g: 'hammer', name: 'Мастерская', group: 'В селе' },
-    museum: { col: '#A08FC2', g: 'columns', name: 'Комната образцов', group: 'В селе' },
+    museum: { col: '#A08FC2', g: 'columns', name: 'Художественный комбинат', group: 'В селе' },   // волна «комбинат»: музей и цех мастеров
     roof: { col: '#E48C6A', g: 'roof', name: 'Крыша-терраса', group: 'В селе' },
     zip: { col: '#5E9FB8', g: 'zip', name: 'Зиплайн', group: 'В селе' },
     parking: { col: '#8E8AA6', g: 'P', name: 'Парковка', group: 'Транспорт' },
@@ -139,7 +139,7 @@
     edge: 'Дорога из города.', mission: 'Дом из дела.', car: 'Машинка стоит здесь.', bike: 'Велосипед ждёт здесь.',
     tower: 'Старая круглая башня. Внутри — лестница наверх.', bakery: 'Тёплый хлеб из лап зайки.', spring: 'Холодная вода — из ладошек.',
     wedding: 'Музыка, танцы и ряженые-шутники.', kaz: 'Примерить праздничную накидку с узором.', workshop: 'Мастера чеканят узоры по металлу.',
-    museum: 'Узоры мастеров на стенах.', roof: 'Плоская крыша, с неё видно вершины.', zip: 'Трос с вершины — к домам.', parking: 'Машинка ждёт здесь.',
+    museum: 'Музей комбината, цех мастеров и выставка.', roof: 'Плоская крыша, с неё видно вершины.', zip: 'Трос с вершины — к домам.', parking: 'Машинка ждёт здесь.',
     hotel: 'Белый корпус, двор и вид на вершины.', pool: 'Тёплая вода за стеклом.', golf: 'Три лунки с флажками.', fire: 'Скамейки вокруг огонька.',
     spa: 'Купели с паром — только посмотреть.', sport: 'Мячик выдают бесплатно.', bench: 'Присесть и посмотреть на долину.',
     gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
@@ -1695,7 +1695,7 @@
   const STATIC_POIS = {
     kubachi: [['tower', 'tower', -6.7, -14.2], ['square', 'square', 12.3, -6.3], ['bakery', 'bakery', 2.4, -7.3], ['spring', 'spring', 5.5, 62], ['spring_lid', 'spring', 5.1, 66.4],
       ['wedding', 'wedding', 26.3, -20.5], ['shop_craft', 'shop', 6.3, -11.1, 'Лавка мастера'], ['shop_food', 'shop', 23.9, -8.6, 'Фрукты с нижних склонов'], ['shop_cloth', 'shop', 10.3, 0, 'Платочки'],
-      ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 14.9, -9.7], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
+      ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 57.56, -15.67], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
       ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
       // волна 6: дороги села — школа, школьный двор, разворот у башни
       ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 5.6, -54, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
@@ -1720,7 +1720,7 @@
   function mtnLabel(id, kind, named, rid) {
     const L = {
       tower: rid === 'hotel' ? 'Смотровая башня' : 'Башня', launch: 'Вышка зиплайна', square: rid === 'hotel' ? 'Двор с фонтаном' : 'Базарная площадь', bakery: 'Пекарня', spring: 'Родник', spring_lid: 'Родник с крышкой',
-      wedding: named ? 'Пальтары и свадьба' : 'Ряженые и свадьба', kaz_try: named ? 'Каз — примерка' : 'Праздничный платок', workshop: 'Мастерская', museum: 'Комната образцов',
+      wedding: named ? 'Пальтары и свадьба' : 'Ряженые и свадьба', kaz_try: named ? 'Каз — примерка' : 'Праздничный платок', workshop: 'Мастерская', museum: 'Художественный комбинат',
       roof: 'Крыша-терраса', zipLanding: 'Финиш зиплайна', park: 'Парковка', toRoad: 'Дорога вниз, в город', main: 'Отель', courtyard: 'Двор с фонтаном', pool: 'Бассейн', green: 'Мини-гольф',
       sports_look: 'Падел и мини-футбол', padel: 'Падел', football: 'Мини-футбол', spa: 'Банный комплекс', fire: 'Костровой круг', view: rid === 'hotel' ? 'Смотровая' : 'Смотровая',
       school: 'Школа', schoolYard: 'Школьный двор', towerPark: 'Разворот у башни',   // волна 6
@@ -2069,16 +2069,29 @@
         // волна 11: и дома Нижней улицы (lq…: ряды, дома-мосты, пристройки; без лестниц, труб и пролёта моста над дорогой)
         if (/^lq(\d+a?|B\d|G)$/.test(id)) { lq.push({ x: cl.x, z: cl.z, w: cl.w, d: cl.d, ry: cl.ry || 0 }); drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, '#E6D6C4'); return; }
         if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop|school(Annex)?\b)/.test(id) || /stair/.test(id)) return;
-        drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /museum/.test(id) ? '#DCD3EC' : /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');
+        drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');   // волна «комбинат»: бывший дом музея — обычный дом
       });
       if (lq.length) LQCACHE.list = lq;   // на сессию: большая карта из города потом рисует и их
     } else {
-      [[kd.MUSEUM, '#DCD3EC'], [kd.BAKERY, '#F2D9B8']].forEach(([b, col]) => { if (b) drawHouse(b.x, b.z, b.w, b.d, b.ry, col); });
+      [[kd.MUSEUM, '#E6D6C4'], [kd.BAKERY, '#F2D9B8']].forEach(([b, col]) => { if (b) drawHouse(b.x, b.z, b.w, b.d, b.ry, col); });
       (LQCACHE.list || []).forEach(q => drawHouse(q.x, q.z, q.w, q.d, q.ry, '#E6D6C4'));   // волна 11: дома Нижней улицы — если село уже загружали
     }
     // волна 11: кофейня «Мархарай» — «этаж на крыше» рядовых домов у Гребневой улицы: тёплым кофейным цветом поверх них
     const CF = (h && h.places && h.places.cafe) || kd.CAFE;
     if (CF && isFinite(CF.x)) drawHouse(CF.x, CF.z, CF.w || 11.2, CF.d || 6.6, CF.ry || 0, '#E3B48C');
+    // волна «комбинат»: художественный комбинат — мощёный двор с газонами, корпус 26 × 14 м (сиреневый, как точка музея) и
+    // стеклянный тамбур входа; рамка — из ручки (places.kombinat), без неё — data.KOMB (x, z, ry, W, D). Двор и тамбур — в рамке
+    // корпуса: +z — к улице; мир = (x + lx·cos ry + lz·sin ry, z − lx·sin ry + lz·cos ry)
+    const KB = (h && h.places && h.places.kombinat) || kd.KOMB;
+    if (KB && isFinite(KB.x)) {
+      const ry = KB.ry || 0, c0 = Math.cos(ry), s0 = Math.sin(ry), W0 = KB.w || KB.W || 26, D0 = KB.d || KB.D || 14;
+      const box = (lx0, lx1, lz0, lz1, fill, stroke) => { const lx = (lx0 + lx1) / 2, lz = (lz0 + lz1) / 2; rbox(c, s, ox, oz, KB.x + lx * c0 + lz * s0, KB.z - lx * s0 + lz * c0, lx1 - lx0, lz1 - lz0, ry, fill, stroke); };
+      box(-15.5, 15.5, -9.6, 17.0, '#EEE7DC', 'rgba(160,143,194,.45)');   // двор за оградой
+      box(-15.0, 2.85, 9.5, 16.05, '#CFE3BC'); box(6.15, 15.0, 9.5, 16.05, '#CFE3BC');   // газоны у фасада (по обе стороны дорожки)
+      box(3.0, 6.0, 11.8, 17.0, '#E2D7C8');   // дорожка к тамбуру
+      drawHouse(KB.x, KB.z, W0, D0, ry, '#DCD3EC');
+      box(1.9, 7.1, 7.0, 10.0, '#D6E6EE', 'rgba(111,155,201,.6)');   // стеклянный тамбур
+    }
     // башня
     const TW = kd.TOWER;
     if (TW) {

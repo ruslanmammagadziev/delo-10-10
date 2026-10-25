@@ -119,6 +119,9 @@
   <script src="js/village/lines.js"></script>
   <script src="js/village/summit.js" onerror="void 0"></script>
   <script src="js/village/markharai_sign.js" onerror="void 0"></script>
+  <script src="js/village/kombinat_sign.js" onerror="void 0"></script>
+  <script src="js/village/kombinat_in.js" onerror="void 0"></script>
+  <script src="js/village/kombinat.js" onerror="void 0"></script>
   <script src="js/village/kubachi.js"></script>
   <script src="js/village/serpentine.js" onerror="void 0"></script>
   <script src="js/village/drive.js" onerror="void 0"></script>
@@ -514,7 +517,8 @@
       // W4A: камера в лавке — тени не пересчитываются каждый кадр (внутри лавки они не меняются; проход теней ≈ 60 тыс. треуг. на high)
       if (renderer.shadowMap.enabled) { const fz = !!id && /^shop_/.test(id); if (renderer.shadowMap.autoUpdate === fz) { renderer.shadowMap.autoUpdate = !fz; renderer.shadowMap.needsUpdate = true; } }
       if (!id) { S.view = null; S.camInit = false; resize(); return; }
-      const v = S.region.camera.views[id]; if (!v) return;
+      const v0 = S.region.camera.views[id]; if (!v0) return;
+      const v = v0.port && camera.aspect < 0.8 ? Object.assign({}, v0, v0.port) : v0;   // портретный кадр вида (port), как в regions.js
       S.view = { id, v, t: 0, from: camera.position.clone(), fromLook: new T.Vector3().copy(camera.getWorldDirection(new T.Vector3())).multiplyScalar(10).add(camera.position), smooth: !!smooth };
       if (v.mood && S.region.setMood) S.region.setMood(v.mood);
     }
@@ -581,7 +585,9 @@
           const ev = V.eventLine('badgerDone', named), bd = h.npcs.find(n => n.id === 'badger'); if (bd && ev) bubble(npcHead(bd), ev.text, bd.name, 3000);
           S.flags.pendant = true; S.cheerT = 1.2; toast('В кармане: ' + (a.reward || 'подвеска')); break;
         }
-        case 'museum': await card(a.title, (a.text || []).concat([a.mail]).filter(Boolean)); break;
+        // волна «комбинат»: музей — в зале комбината; на время листа камера — вид витрин (d.view), сова поворачивается к героине
+        case 'museum': { const vw = d && d.view && !S.sitting ? d.view : null, sh = (d && d.sheet) || {}, ow = npcBy('owl_keeper'); if (vw) setView(vw, true); if (ow) { ow.faceHero = 3; ow.hop && ow.hop(); }
+          await card(a.title || sh.title || sp.label, (a.text || sh.text || []).concat([a.mail]).filter(Boolean)); if (vw && S.view && S.view.id === vw && !S.sitting) setView(null); break; }
         case 'treasure': await card(a.title, (a.text || []).concat([a.plate, a.game]).filter(Boolean)); break;
         case 'roof': sitAt(sp.seat, sp.ry, 'roof_sunset'); toast((a.text || [''])[0], 3200); break;
         case 'knoll': sitAt(sp.seat, sp.ry, 'p1'); break;
@@ -595,7 +601,10 @@
           else if (d && d.kind === 'toast' && d.event && d.npc) { toast(d.text || sp.label, 1800); later(500, () => npcSayEvent(d.npc, d.event, 2800)); }   // волна 6: звонок у школы
           else if (d && d.kind === 'talk' && d.npc) { const n = npcBy(d.npc); if (n) talk(n); }
           else if (d && d.kind === 'view' && d.view) { setView(d.view, true); if (d.text) later(1200, () => toast(d.text, 3600)); }
-          else if (d && d.kind === 'sheet') { const aa = A[d.activity] || {}; await card(aa.title || sp.label, aa.text || [sp.label]); }
+          else if (d && d.kind === 'sheet') {   // волна «комбинат»: текст — VILLAGE.activities, иначе лист места (d.sheet); вид места — на время листа
+            const aa = A[d.activity] || d.sheet || {}, vw = d.view && !S.sitting ? d.view : null; if (vw) setView(vw, true);
+            const n = d.npc && npcBy(d.npc); if (n) { n.faceHero = 3; n.hop && n.hop(); }
+            await card(aa.title || sp.label, aa.text || [sp.label]); if (vw && S.view && S.view.id === vw && !S.sitting) setView(null); }
           else toast(d && d.text ? d.text : sp.label);
       }
     }
@@ -940,7 +949,7 @@
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv) {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;
-        h.exits.forEach(ex => { if (ex.walk || (ex.level && ex.level !== 'ground')) return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.r || 6) + 6 && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
+        h.exits.forEach(ex => { if (ex.walk || (ex.level && ex.level !== 'ground')) return; const d = Math.hypot(cx - ex.x, cz - ex.z); if (d < (ex.near != null ? ex.near : (ex.r || 6) + 6) && (!best || d < best.d)) best = { kind: 'exit', ref: ex, d, label: '☁ ' + ex.label }; });
         if (slow && S.rid === 'serpentine') {   // волна 6: «Посидеть» и разговор из машины — только на серпантине (в селе — пешком: «Выйти»)
           h.spots.forEach(sp => { const d = Math.hypot(cx - sp.x, cz - sp.z); if (d < 9 && (!best || d < best.d + 3)) best = { kind: 'spot', ref: sp, d, label: (sp.icon ? sp.icon + ' ' : '') + 'Посидеть: ' + String(sp.label || '').toLowerCase() }; });
           h.npcs.forEach(n => { if (n.silent || !n.lines || !n.lines.length) return; const d = Math.hypot(cx - n.root.position.x, cz - n.root.position.z); if (d < (n.talkR || 2.8) + 11 && (!best || best.kind !== 'spot')) best = { kind: 'npc', ref: n, d, label: 'Поговорить: ' + n.name }; });
