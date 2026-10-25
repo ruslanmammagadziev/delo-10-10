@@ -470,6 +470,8 @@
   }) : null;
   ready = !rt;
 
+  let lastChoice = null;
+  const choiceSig = () => { try { return SS && SS.scalarVals ? JSON.stringify(SS.scalarVals(state)) : ''; } catch (e) { return ''; } };
   function save(o) {
     const now = Date.now();
     state.updated = now;
@@ -478,8 +480,9 @@
     state._s.at = now; state._s.dev = DEV;
     writeLocal();
     if (!rt) return;
-    const sg = SS.sig(state), flush = !!(o && o.flush) || sg !== lastSig;
-    lastSig = sg;
+    // выборы игрока (имя, команда, образ, клички) — тоже сразу, как и прогресс: иначе быстрое закрытие на iOS их откатывает
+    const sg = SS.sig(state), cs = choiceSig(), flush = !!(o && o.flush) || sg !== lastSig || cs !== lastChoice;
+    lastSig = sg; lastChoice = cs;
     // хранилища ещё не прочитаны: только localStorage, остальное — сразу после чтения
     if (!ready) { dirty = true; if (flush) dirtyFlush = true; return; }
     rt.schedule({ flush });
@@ -510,7 +513,7 @@
       const finish = why => {
         if (over) return; over = true; clearInterval(iv);
         bootMs = Date.now() - t0; ready = true; routed = true;
-        lastSig = SS ? SS.sig(state) : null;
+        lastSig = SS ? SS.sig(state) : null; lastChoice = choiceSig();
         if (rt) {
           console.info('[save] старт', bootMs + ' мс', why, JSON.stringify(rt.status()));
           rt.activate();
@@ -636,7 +639,7 @@
     replaceIn(state, fresh);
     resync();
     writeLocal();
-    lastSig = SS ? SS.sig(state) : null;
+    lastSig = SS ? SS.sig(state) : null; lastChoice = choiceSig();
     if (rt) rt.resetWrite();   // не ждём: облако может долго молчать
   }
   function wantsReset() {
