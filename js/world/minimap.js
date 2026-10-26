@@ -1696,7 +1696,8 @@
     kubachi: [['tower', 'tower', -6.7, -14.2], ['square', 'square', 12.3, -6.3], ['bakery', 'bakery', 2.4, -7.3], ['spring', 'spring', 5.5, 62], ['spring_lid', 'spring', 5.1, 66.4],
       ['wedding', 'wedding', 26.3, -20.5], ['shop_craft', 'shop', 6.3, -11.1, 'Лавка мастера'], ['shop_food', 'shop', 23.9, -8.6, 'Фрукты с нижних склонов'], ['shop_cloth', 'shop', 10.3, 0, 'Платочки'],
       ['kaz_try', 'kaz', 1.7, 29.7], ['workshop', 'workshop', 19.1, 17], ['museum', 'museum', 57.56, -15.67], ['roof', 'roof', -19.9, 7.1], ['knoll', 'view', -43.2, 29.5, 'Западный уступ'],
-      ['zipLanding', 'zip', 53, 5], ['park', 'parking', 26.7, -4.5], ['toRoad', 'city', 62, -10],
+      // волна «въезд»: стоянка и выезд — на улице восточнее комбината (VILLAGE.regions.kubachi.data.ARRIVE: у двери машины и конец улицы)
+      ['zipLanding', 'zip', 53, 5], ['park', 'parking', 85.11, -12.2], ['toRoad', 'city', 97.98, -14.07],
       // волна 6: дороги села — школа, школьный двор, разворот у башни
       ['school', 'place', 21, -92, 'Школа'], ['schoolYard', 'sport', 5.6, -54, 'Школьный двор'], ['towerPark', 'view', -11.5, -27.8, 'Разворот у башни'],
       // вершина: начало дороги к отелю (площадка jHotel за школой) и верх дороги — ворота парковки отеля (выход toHotel);
@@ -1784,6 +1785,7 @@
       const list = (STATIC_POIS[rid] || []).map(a => mtnPoi({ id: a[0], kind: a[1], x: a[2], z: a[3], label: a[4] }, rid, named));
       if (rid === 'kubachi') summitRest().forEach(r => list.push(mtnPoi(r, rid, named)));
       if (rid === 'kubachi') { const q = cafeDoor(((V.regions.kubachi && V.regions.kubachi.data) || {}).CAFE), p = list.find(t => t.id === 'cafe'); if (q && p) { p.x = q[0]; p.z = q[1]; } }   // волна 11
+      if (rid === 'kubachi') { const A = ((V.regions.kubachi && V.regions.kubachi.data) || {}).ARRIVE; if (A) list.forEach(t => { const q = t.id === 'park' ? A.hero : t.id === 'toRoad' ? A.exit : null; if (q) { t.x = q.x; t.z = q.z; } }); }   // волна «въезд»: стоянка и выезд — по данным села
       if (rid !== 'hotel') return list;
       ((V.sports && V.sports.HOTEL && V.sports.HOTEL.spots) || []).forEach(s => { if (!s.poi) return; const q = list.find(p => p.id === s.poi); if (q) { q.x = s.x; q.z = s.z; } else list.push(mtnPoi({ id: s.poi, kind: 'sport', x: s.x, z: s.z }, rid, named)); });
       return list.some(q => q.id === 'padel' || q.id === 'football') ? list.filter(q => q.id !== 'sports_look') : list;   // как живой радар отеля

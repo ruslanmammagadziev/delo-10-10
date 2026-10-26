@@ -733,7 +733,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (p.moved > 6) {
         if (S.ck && S.ck.active) { S.ckLook.yaw = clamp(S.ckLook.yaw - dx * 0.006, -1.3, 1.3); S.ckLook.pitch = clamp(S.ckLook.pitch - dy * 0.005, -0.5, 0.75); }
         else { if (S.mode === 'drive') S.dYaw = clamp(S.dYaw - dx * 0.0085, -1.4, 1.4); else S.yaw -= dx * 0.0085; S.pitch = clamp(S.pitch - dy * 0.0045, -1.2, 1.6); }
-        S.manualT = 3; S.pitchT = 0;
+        S.manualT = 3; S.pitchT = 0; S.arrLook = false;
       }
     };
     const onUp = e => {
@@ -861,6 +861,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     // W4A: поставить героиню и СРАЗУ корень героини — до IA.play: слой рук запоминает корень в начале действия
     function placeHero(x, z, ang, yaw) {
       if (!S.h) return;
+      if (S.arrLook) { S.arrLook = false; S.pitch = 0; }   // волна «въезд»: в другом месте — обычная камера (взгляд при въезде — только у въезда)
       S.px = x; S.pz = z; S.py = S.h.ground(x, z); if (ang !== undefined) S.ang = ang; if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.iaDy = 0; S.vx = S.vz = 0;
       if (hero) { hero.root.position.set(S.px, S.py, S.pz); hero.root.rotation.set(0, S.ang, 0); hero.root.updateMatrixWorld(true); if (hero.rig) hero.rig.prev = null; }
     }
@@ -1365,6 +1366,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (id === 'serpentine') fogReset();
       document.body.classList.toggle('wr-road-quiet', id === 'serpentine');   // волна 11: на горной дороге — без подсказок у кнопок HUD и без тостов, оставшихся от прошлого места (кроме ответа на нажатие)
       if (hero && hero.root.parent !== scene) scene.add(hero.root);
+      // правка «въезд»: взгляд при въезде (S.arrLook, чуть снизу) — только у самого въезда: сменила место раньше, чем он ушёл
+      // (зиплайн, отель, серпантин) — новое место начинается с обычной камеры; ручной взгляд пальцем не трогаем
+      if (S.arrLook) { S.arrLook = false; S.pitch = 0; }
       if (id !== 'serpentine') {
         S.mode = 'walk';
         const zl = from === 'zipline' && h.places && h.places.zipLanding, sp = zl || h.spawn;
@@ -1373,6 +1377,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const run = a => { let d = 0; while (d < 12 && (!h.walkable || h.walkable(sp.x + Math.sin(a) * (d + 0.5), sp.z + Math.cos(a) * (d + 0.5)))) d += 0.5; return d; };
         const ry = zl ? [0.87, -0.87].map(k => (zl.ry || 0) + k).reduce((a, b) => (run(b) > run(a) ? b : a)) : sp.ry || 0;
         heroToGround(sp.x, sp.z, ry); S.yaw = ry;
+        // волна «въезд»: у места въезда свой взгляд — чуть снизу (sp.pitch: та же дуга камеры, что у взгляда пальцем вверх; в селе —
+        // панель комбината и башня в кадре целиком). Уходит, как ручной: стоя через 10 с, на ходу через 4 с; телепорт — сразу
+        if (!zl && sp.pitch) { S.pitch = sp.pitch; S.pitchT = 0; S.arrLook = true; }
       }
       setupCar(h, id, from);
       if (id !== 'serpentine' && S.mode !== 'drive') petsOut(h, from);   // волна 6: приехала в село за рулём — зверята в машине
@@ -3341,7 +3348,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         info: () => Object.assign(R.info(), S.h && S.h.stats ? { stats: S.h.stats() } : {}),
         mem: () => (renderer ? Object.assign({ programs: renderer.info.programs ? renderer.info.programs.length : 0 }, renderer.info.memory) : null),
         frames: () => S.frames, handle: () => S.h, camera: () => cam, scene: () => scene, renderer: () => renderer,
-        tp: (x, z, yaw) => { if (!S.h || S.mode !== 'walk') return null; S.px = x; S.pz = z; S.py = S.h.ground(x, z); if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.view = null; S.sitting = null; S.moveTo = null; S.look = null; return S.py; },
+        tp: (x, z, yaw) => { if (!S.h || S.mode !== 'walk') return null; if (S.arrLook) { S.arrLook = false; S.pitch = 0; } S.px = x; S.pz = z; S.py = S.h.ground(x, z); if (yaw !== undefined) S.yaw = yaw; S.camInit = false; S.view = null; S.sitting = null; S.moveTo = null; S.look = null; return S.py; },
         talk: id => { const n = S.h && S.h.npcs.find(x => x.id === id); if (!n) return false; talk(n); return true; },
         spot: goSpot,
         exit: id => { const ex = S.h && S.h.exits.find(e => e.id === id); if (!ex) return false; useExit(ex); return true; },

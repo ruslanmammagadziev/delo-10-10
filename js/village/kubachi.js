@@ -218,8 +218,9 @@
   // 4 м — к подъёму на северо-восток). Корпус и двор — без случайных деревьев (EXCL; молодые деревья двора сажает модуль сам)
   const KOMB = { x: 60, z: -30, ry: 0.11, W: 26, D: 14, FL: 0.08 };
   KOMB.at = (lx, lz) => { const c = Math.cos(KOMB.ry), s = Math.sin(KOMB.ry); return [KOMB.x + lx * c + lz * s, KOMB.z - lx * s + lz * c]; };
-  // разворотный карман вдоль ограды восточнее калитки (lx 1,6…16 — продолжение улицы; плитку кладёт kombinat.js): машина к
-  // комбинату встаёт у калитки, а выезд «Дорога вниз, в город» (toRoad) — в дальнем конце кармана, за калиткой (правка T2)
+  // разворотный карман вдоль ограды восточнее калитки (lx 1,6…16 — продолжение улицы): машина к комбинату встаёт у калитки
+  // (правка T2). Волна «въезд»: улица сама продолжена здесь на восток (ARRIVE ниже, ось — та же), мостовая — её; карман остался
+  // только участком сети проездов (driveNet) — своей плитки и бордюра у него больше нет, выезд toRoad — в конце улицы
   KOMB.bay = Object.assign({ id: 'kmbBay', kind: 'cobble', w: 14.4, d: 6.2, ry: KOMB.ry }, (([x, z]) => ({ x, z }))(KOMB.at(8.8, 19.8)));   // lx 1,6…16, lz 16,7…22,9
   { const at = KOMB.at;
     const pad = (lx0, lx1, lz0, lz1, y, m, id, kind) => { const [x, z] = at((lx0 + lx1) / 2, (lz0 + lz1) / 2); return { x, z, w: lx1 - lx0, d: lz1 - lz0, ry: KOMB.ry, y, kind, m, walk: true, id }; };
@@ -230,6 +231,26 @@
       // перед калиткой — до оси улицы: улица ходибельна только до x 66 (её конец), калитка — у самого конца (x 64,8…67,8)
       Object.assign(pad(-2.0, 17.6, 16.5, 24.2, 0, 1.0, 'kombinatGate', 'lawn'), { fine: true }));   // и под карманом (KOMB.bay)
     EXCL.push(pad(-16.6, 16.6, -10.6, 17.8, 0, 0, 'kombinat')); }
+  // волна «въезд» (просьба автора: «персонаж стартует пораньше — чтобы комбинат был впереди, а не остался за спиной, и сзади
+  // было побольше дороги»): улица продолжена на восток мимо комбината по той же прямой, что и карман у калитки (ось — lz 20 в
+  // рамке KOMB), до lx 39 (x ≈ 101; последние 6 м за выездом сходят на нет — уже и травой, roadsGeo); у её восточного конца —
+  // выезд «Дорога вниз, в город» (toRoad). Машина при въезде стоит на
+  // ней восточнее комбината — у северной кромки, носом к селу; героиня — у двери водителя (левый борт, к середине улицы), лицом
+  // к селу и чуть правее оси улицы, к комбинату: в первом кадре впереди улица, справа комбинат с панелью, дальше башня и площадь.
+  // Вид при въезде — чуть снизу (pitch: та же дуга камеры вокруг головы, что у взгляда пальцем вверх, js/world/regions.js):
+  // обычная камера (4,4 м, вниз на 23°) срезала панель (4,3…10 м) и башню верхним краем кадра; стоя 10 с или через 4 с ходьбы —
+  // к обычной. До выезда от машины 12 м (облако r 2,6 — в 9,4 м: с места не срабатывает, задним ходом — ≈ 2,7 с), от героини —
+  // 13 м дороги за спиной.
+  // Правка «въезд»: лицом на 18° правее оси (было 15°: в портрете 390 × 844 надпись панели срезалась правым краем на «Кубачински|»;
+  // теперь слово и «художественный комбинат» — целиком, башня — у левой трети кадра). Саму площадь отсюда не показать: она в 70 м
+  // за изгибом улицы и за домами; в портретный кадр (≈ 29° по горизонтали) панель и площадь вместе не входят — впереди башня над ней.
+  // Выезд — на 3 м дальше (lx 33 → 36): задний ход со старта сразу не увозит из села
+  const ARRIVE = (() => { const at = (lx, lz) => { const [x, z] = KOMB.at(lx, lz); return { x: +x.toFixed(2), z: +z.toFixed(2) }; }, ry = KOMB.ry - PI / 2;   // ry — курс вдоль улицы на запад
+    return { street: [39, 26.5, 14].map(lx => { const q = at(lx, 20); return [q.x, q.z]; }),                    // новые ключи оси улицы (с востока)
+      car: Object.assign(at(24, 18.7), { ry: +ry.toFixed(4) }),                                                  // машина: 1,3 м севернее оси, носом на запад
+      hero: Object.assign(at(23, 20.45), { ry: +(ry - 0.32).toFixed(4), pitch: 0.26 }),                          // у двери водителя, на 1 м впереди неё; лицом на 18° правее оси улицы
+      door: at(25.2, 16.5),                                                                                      // «Сесть в машину» — у правого борта, чуть сзади (как у прежней парковки: у двери водителя — «Сесть за руль»)
+      exit: at(36, 20), sign: at(35.2, 23.3) }; })();                                                            // выезд toRoad (за 3 м до конца улицы); указатель к нему — у южной кромки
   // коровья тропа: от сарая у нижнего луга на дальний край луга (утром — туда, вечером — обратно); лепёшки — только на грунте
   const COW_LANE = [[-14.6, 45.4], [-17.6, 49.6], [-21.0, 53.6], [-25.6, 57.4], [-29.4, 60.2]];
   const PATS = [[-16.3, 47.2, 'lane'], [-23.3, 55.3, 'lane'], [-27.9, 50.4, 'meadow'], [-12.4, 58.6, 'meadow']];
@@ -270,8 +291,9 @@
   // проезды: ключевые точки [x, z] (Catmull-Rom через ~1 м), w — ширина полотна; fix — уровень полотна в ключевой точке
   // (остальное — по рельефу, сглажено, уклон ≤ 11 %); ground: false — землю не трогаем (улица — прежняя ROAD, y = 0)
   const VR_DEF = [
+    // волна «въезд»: с востока — продолжение мимо комбината до выезда (ARRIVE.street: ось кармана у калитки, lx 37 → 14)
     { id: 'street', w: 6.0, kind: 'cobble', ground: false, label: 'Улица', fixAll: 0,
-      pts: [[64, -10.3], [62, -10.0], [48, -8.4], [36, -6.0], [26.7, -4.5], [21.6, -5.0]] },
+      pts: ARRIVE.street.concat([[64, -10.3], [62, -10.0], [48, -8.4], [36, -6.0], [26.7, -4.5], [21.6, -5.0]]) },
     { id: 'tower', w: 4.6, kind: 'cobble', label: 'Переулок к башне', fix: { 0: 0, 7: 'turn' },
       pts: [[4.0, -10.4], [2.9, -14.6], [2.8, -19.6], [2.7, -24.6], [1.2, -28.6], [-2.6, -30.6], [-7.2, -30.2], [-10.4, -28.4]] },
     { id: 'up', w: 5.2, kind: 'earth', label: 'Дорога к школе и отелю', fix: { 0: 0, 7: 4.55, 8: 4.8, 9: 4.85, 10: 4.9 },
@@ -814,6 +836,7 @@
       const ri = model.roadInfo(x, z); if (ri.d < 2.6 && x < 66) return true;
       // волна 6: проезды (полотно, обочина и верх откоса; улица — как раньше), разворот, карман; верхнее плато (кроме 5 м у края)
       if (model.roadNear) { const q = model.roadNear(x, z); if (q && q.id !== 'street' && q.d < q.hw + VERGE + 2.0) return true;
+        if (q && q.id === 'street' && x > 64 && q.d < q.hw + VERGE + 1.0) return true;   // волна «въезд»: продолжение улицы мимо комбината (до края сетки, x 94) — с обочиной, вокруг машины у стоянки
         if (q && (q.id === 'lower' || q.id === 'meadow') && q.d < q.hw + 11) return true; }   // волна 9–10: у Нижней улицы — и дворы за домами (лестницы на крыши, проходы между домами)
       for (const [a, b, w] of OR_FOOT) { const vx = b[0] - a[0], vz = b[1] - a[1], t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz), 0, 1); if (Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t) < w / 2) return true; }   // волна 7: тропы от концов дорог
       if (inUPL(x, z) && uplOuter(x, z) > 5) return true;
@@ -845,7 +868,10 @@
   }
   // волна 10: границы сетки ходьбы (и посадки коллайдеров деревьев) и растр 2 м «у Нижней улицы» — где за прежней сеткой
   // (западнее −100, южнее 90) вообще бывает проходимое: полотно + 13 м (дворы и лестницы домов), полянка + 4 м, ступени + 3 м
-  const WALK = { X0: -166, X1: 88, Z0: -116, Z1: 110 };
+  // правка «въезд»: X1 88 → 94 — по продолженной улице за спиной героини при въезде можно отойти назад ≈ 8 м (было 2,3 м — невидимая
+  // стена посреди мостовой); восточнее 88 считаем только коридор улицы (ARR_STRIP), до облака выезда (x ≈ 98) — не дойти
+  const WALK = { X0: -166, X1: 94, Z0: -116, Z1: 110 };
+  const ARR_STRIP = (x, z) => { const dx = x - KOMB.x, dz = z - KOMB.z, c = Math.cos(KOMB.ry), s = Math.sin(KOMB.ry); return Math.abs(dx * s + dz * c - 20) < 7; };   // рамка KOMB: ось улицы — lz 20
   function lowerMask() {
     const ZM = 2, x0 = WALK.X0, z0 = WALK.Z0, nx = Math.ceil((WALK.X1 - x0) / ZM), nz = Math.ceil((WALK.Z1 - z0) / ZM), M = new Uint8Array(nx * nz);
     const disk = (x, z, rr) => { for (let j = Math.max(0, Math.floor((z - rr - z0) / ZM)); j <= Math.min(nz - 1, Math.floor((z + rr - z0) / ZM)); j++) for (let i = Math.max(0, Math.floor((x - rr - x0) / ZM)); i <= Math.min(nx - 1, Math.floor((x + rr - x0) / ZM)); i++) if (Math.hypot(x0 + (i + 0.5) * ZM - x, z0 + (j + 0.5) * ZM - z) < rr + ZM) M[j * nx + i] = 1; };
@@ -868,6 +894,7 @@
       const x = X0 + (i + 0.5) * CELL, z = Z0 + (j + 0.5) * CELL, q = j * nx + i;
       if (z < -42 && x < -8) continue;
       if ((x < -100 || z > 90) && !nearLower(x, z)) continue;   // волна 10: на склоне Нижней улицы — только у неё
+      if (x > 88 && !ARR_STRIP(x, z)) continue;   // правка «въезд»: восточнее прежнего края — только у продолженной улицы
       const inf = model.info(x, z);
       H[q] = inf.y; A[q] = (i > 0 && j > 0 && i < nx - 1 && j < nz - 1 || (o.open && o.open(x, z))) && allowed(x, z, inf) ? 1 : 0;   // волна 7: крайние клетки — нет (дороги уходят за сетку: край — стенка, walkable за сеткой — нет)
     }
@@ -956,7 +983,7 @@
     function reach(x, z) {
       if (!REACH) {
         const F = freeMask(), Q = new Int32Array(N); let qh = 0, qt = 0; REACH = new Uint8Array(N);
-        [[12.3, -6.3], [24.5, -2.8]].forEach(([sx, sz]) => { const q = at(sx, sz); if (F[q] && !REACH[q]) { REACH[q] = 1; Q[qt++] = q; } });
+        [[12.3, -6.3], [24.5, -2.8], [ARRIVE.hero.x, ARRIVE.hero.z]].forEach(([sx, sz]) => { const q = at(sx, sz); if (F[q] && !REACH[q]) { REACH[q] = 1; Q[qt++] = q; } });   // волна «въезд»: и место старта
         while (qh < qt) { const q = Q[qh++], i = q % nx, j = (q / nx) | 0;
           for (let k = 0; k < 4; k++) { const ii = i + (k === 0 ? 1 : k === 1 ? -1 : 0), jj = j + (k === 2 ? 1 : k === 3 ? -1 : 0); if (ii < 0 || jj < 0 || ii >= nx || jj >= nz) continue;
             const n = jj * nx + ii; if (REACH[n] || !F[n] || Math.abs(H[n] - H[q]) > TH) continue; REACH[n] = 1; Q[qt++] = n; } }
@@ -1152,7 +1179,7 @@
         { let n = 0; ranges.forEach(r => { if (r[3] !== 2) n += r[2]; }); const gi = new Uint32Array(n); let o = 0; ranges.forEach(([, s0, c, v]) => { if (v !== 2) { gi.set(full.subarray(s0, s0 + c), o); o += c; } }); g.userData.fullIndex = gi; }
         this.groups.push(F); this.fill(F); },
       fill(F) { const a = F.m.geometry.index.array; let n = 0;
-        F.ranges.forEach(([k, s0, c, v]) => { const L = v && this.map.get(k); if (!v || (L.inV && L.isFar === (v === 2))) { a.set(F.full.subarray(s0, s0 + c), n); n += c; } });
+        if (!F.out) F.ranges.forEach(([k, s0, c, v]) => { const L = v && this.map.get(k); if (!v || (L.inV && L.isFar === (v === 2))) { a.set(F.full.subarray(s0, s0 + c), n); n += c; } });
         F.m.geometry.setDrawRange(0, n); F.m.geometry.index.needsUpdate = true; F.m.visible = n > 0; F.m.userData.ccHidden = n === 0; F.dirty = false; },
       update(c, cam) {
         let fr = null; if (!this.force && cam && cam.projectionMatrix) { cam.updateMatrixWorld(); fr = this.FR.setFromProjectionMatrix(this.PM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); }
@@ -1160,6 +1187,10 @@
           if (!L.sph) { const b = L.bb; L.sph = new T.Sphere(new T.Vector3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2), Math.hypot(b[1] - b[0], b[3] - b[2], b[5] - b[4]) / 2 + 2); }
           const far = this.force ? this.force === 'far' : c.distanceTo(L.sph.center) - L.sph.radius > (VFAR.on ? this.Dh : this.D), inV = !fr || fr.intersectsSphere(L.sph);
           if (L.isFar !== far || L.inV !== inV) { L.isFar = far; L.inV = inV; L.gs.forEach(F => { F.dirty = true; }); } }
+        // правка «въезд» (бюджет): сектор целиком вне кадра (рамка всей склеенной сетки не в пирамиде камеры) — не рисуем и его «всегда
+        // подробную» часть: с новой улицы на запад секторы за спиной (восток, 220…340 м) давали 3,4 тыс. треугольников ни за что
+        for (const F of this.groups) { if (fr && !F.bb) { F.m.updateMatrixWorld(true); F.bb = new T.Box3().setFromBufferAttribute(F.m.geometry.attributes.position).applyMatrix4(F.m.matrixWorld); }
+          const out = !!fr && !CCULL.noFr && !fr.intersectsBox(F.bb); if (out !== !!F.out) { F.out = out; F.dirty = true; } }   // (проверка: _ccull('nofr') — всё в кадре)
         for (const F of this.groups) if (F.dirty) this.fill(F); } };
     // решётка фона: кольца rhos (как в backdrop) × NA азимутов; vy(i, j) — высота вершины (та же формула, что рисует фон),
     // tri(x, z) — треугольник и веса, vis(x, z) — высота нарисованного фона в точке
@@ -1175,7 +1206,9 @@
       function vy(i, j) {
         const q = i * W + j; if (Y[q] === Y[q]) return Y[q];
         const a = j / NA * TAU, rho = rhos[i], x = TX + Math.sin(a) * rho, z = TZ + Math.cos(a) * rho;
-        let y = bgY(x, z) - 3 * Math.max(coreMask(x, z), uplMask(x, z)) - (SERP ? 16 * sst(0, 0.12, serpW(rho, a / D2R > 180 ? a / D2R - 360 : a / D2R)) : 0);
+        // (волна «въезд»: у продолжения улицы фон под ядром опущен лишь на 0,15 м, не на 3: крупные треугольники решётки через край
+        // ядра (r 136) иначе прогибались канавкой до −0,9 м рядом с полотном — вровень с улицей и под ядром, и за ним, arriveFlat)
+        let y = bgY(x, z) - 3 * Math.max(coreMask(x, z), uplMask(x, z)) * (1 - 0.95 * arriveFlat(x, z)) - (SERP ? 16 * sst(0, 0.12, serpW(rho, a / D2R > 180 ? a / D2R - 360 : a / D2R)) : 0);
         if (inUPL(x, z)) { const pd = padAt(x, z); if (pd) y = Math.min(y, Math.min(model.yIn(x, z), pd.p.vis !== undefined ? pd.p.vis : pd.p.y) - 0.1); }   // под площадками школы фон ниже земли (по прежней модели); под полом комбината — ниже видимой земли (vis)
         return (Y[q] = y);
       }
@@ -2889,6 +2922,21 @@
       W6.plates.push({ x: ex, z: ez, w: 16 * 0.14 + 0.35, d: 0.3, ry: PI - 0.15, top: ey + 2.4 });
       pb.cyl(ex, ey, ez, 0.05, 0.05, 1.8, { seg: 6, col: rgb('#8E918C') });
       props.signs.push({ text: '← Дорога в город', p: [ex, ey + 2.0, ez - 0.06], ry: PI - 0.15, h: 0.42, bg: '#FFFDF9', fg: '#3A2E3F', size: 56 });
+      // (волна «въезд»: указатель остался верным — выезд «Дорога вниз, в город» теперь в конце продолженной улицы, всё так же на восток)
+      // волна «въезд»: фонари на столбах (как на восточной половине площади) — у стоянки при въезде (за машиной, у северной кромки)
+      // и на полпути к калитке (у южной): ночью при въезде видно машину и полотно; оба — не перед камерой первого кадра (за её краями)
+      [[27, 16.2], [11, 23.9]].forEach(([lx, lz]) => { const [x, z] = KOMB.at(lx, lz), y = G(x, z), iron = rgb('#3A3A40'), LF = new K.Frame(x, y + 3.3, z, 0);
+        pb.cyl(x, y, z, 0.11, 0.08, 3.3, { seg: 8, col: iron }); pb.cyl(x, y, z, 0.2, 0.16, 0.4, { seg: 8, col: iron });
+        pb.box(LF, 0, 0.03, 0, 0.3, 0.06, 0.3, { col: iron }); lantB.box(LF, 0, 0.27, 0, 0.24, 0.42, 0.24, { col: rgb('#FFE2A8') }); pb.cyl(x, y + 3.8, z, 0.21, 0.04, 0.18, { seg: 4, col: iron, a0: PI / 4 });
+        NIGHT.lamps.push([x, y + 3.6, z]); colliders.push({ type: 'circle', x, z, r: 0.3, y0: y - 0.5, y1: y + 3.9, id: 'lampPost' }); });
+      // правка «въезд»: восточный конец улицы — не просто мостовая, обрывающаяся в лугу: у южной кромки, у облака выезда, указатель
+      // «Дорога вниз, в город» доской на запад (виден со стоянки, если обернуться, и из машины, едущей к выезду); не перед камерой
+      // первого кадра (он за спиной), в 0,9 м за кромкой сходящего на нет полотна — машина к выезду его не задевает
+      { const { x: ax, z: az } = ARRIVE.sign, ay = G(ax, az), ary = KOMB.ry - PI / 2;
+        colliders.push({ type: 'circle', x: ax, z: az, r: 0.15, y0: ay - 1, y1: ay + 2.6, id: 'sign' });
+        W6.plates.push({ x: ax, z: az, w: 12 * 0.14 + 0.35, d: 0.3, ry: ary, top: ay + 2.6 });
+        pb.cyl(ax, ay, az, 0.05, 0.05, 1.9, { seg: 6, col: rgb('#8E918C') });
+        props.signs.push({ text: 'Дорога вниз,\nв город ↑', p: [ax + Math.sin(ary) * 0.06, ay + 2.15, az + Math.cos(ary) * 0.06], ry: ary, h: 0.62, bg: '#FFFDF9', fg: '#3A2E3F', size: 56 }); }
       // нижняя граница: сухая стенка и табличка «Дальше — облака»
       for (let a = -0.62; a < 0.3; a += 0.05) { const [x0, z0] = P(27.4, a), [x1, z1] = P(27.4, a + 0.05), y0 = G(x0, z0), y1 = G(x1, z1); const bk = chunk(x0, z0);
         bk.quadF([x0, y0 - 0.4, z0], [x1, y1 - 0.4, z1], [x1, y1 + 0.6, z1], [x0, y0 + 0.6, z0], [0.95, 0.95, 0.95], S.BIG, [(x0 + x1) / 2, 0, (z0 + z1) / 2 - CZ]);
@@ -2952,9 +3000,14 @@
           // вершина: у дальней дороги (> 600 м) на прямых ногах — ряд через ~4 м (повороты и изломы профиля — через 1–2 м)
           const far = R.len > 600, bend = i => { const a = Math.max(0, i - 2), b = Math.min(R.n - 1, i + 2), t1 = Math.atan2(R.x[i] - R.x[a], R.z[i] - R.z[a]), t2 = Math.atan2(R.x[b] - R.x[i], R.z[b] - R.z[i]); return Math.abs(Math.atan2(Math.sin(t2 - t1), Math.cos(t2 - t1))) > 0.04; };
           const brk = i => R.outer && i > 0 && i < R.n - 1 && Math.abs(R.y[i - 1] - 2 * R.y[i] + R.y[i + 1]) > 0.02;
+          // волна «въезд»: восточный конец улицы (последние 6 м, за выездом toRoad) сходит на нет — уже и травой, без «обрубка»
+          // поперёк луга; у калитки комбината кромка — цвет полотна (под ней плитка площадки перед калиткой, не трава)
+          const endK = R.id === 'street' ? i => sst(0, 6, R.s[i]) : () => 1, cs = Math.cos(KOMB.ry), sn = Math.sin(KOMB.ry);
+          const atGate = (x, z) => { const dx = x - KOMB.x, dz = z - KOMB.z, u = dx * cs - dz * sn, v = dx * sn + dz * cs; return u > 0.6 && u < 7.8 && v > 16.0 && v < 17.3; };
           const row = (i, ks) => { if (R.outer && under(R.x[i], R.z[i], R.id, -1.0)) return null;
-            const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L;
-            return ks.map(k => { const e = offs[k], x = R.x[i] + lx * e, z = R.z[i] + lz * e; let kk = k === 0 || k === 4 ? 'edge' : k === 1 || k === 3 ? 'side' : 'mid'; if (kk === 'edge' && OUTR && under(x, z, R.id, 0)) kk = 'side'; return [x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06), z, colAt(tn, kk, x, z)]; }); };
+            const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), dx = R.x[b] - R.x[a], dz = R.z[b] - R.z[a], L = Math.hypot(dx, dz) || 1, lx = dz / L, lz = -dx / L, ek = endK(i);
+            return ks.map(k => { const e = offs[k] * (0.4 + 0.6 * ek), x = R.x[i] + lx * e, z = R.z[i] + lz * e; let kk = k === 0 || k === 4 ? 'edge' : k === 1 || k === 3 ? 'side' : 'mid'; if (kk === 'edge' && ((OUTR && under(x, z, R.id, 0)) || (R.id === 'street' && atGate(x, z)))) kk = 'side';
+              let c = colAt(tn, kk, x, z); if (ek < 1) c = mix(c, mix(mul(tn, 0.84), grassT, 0.7), (1 - ek) * 0.85); return [x, G(x, z) + (kk === 'edge' ? 0.1 : 0.06), z, c]; }); };
           const keep = []; for (let i = 0; i < R.n; i++) if (i % (far && !bend(i) ? 4 : 2) === 0 || i === R.n - 1 || brk(i)) keep.push(i);
           const keys = keep.map(i => (lod && rfDepth(R.x[i], R.z[i]) < 0 ? RF_LOD.key(R.x[i], R.z[i]) : '')), lodOn = keys.some(k => k);
           const rowsN = keep.map(i => row(i, [0, 1, 2, 3, 4])); strip(rowsN, keys);
@@ -3495,7 +3548,8 @@
       // до дома-моста и у нижнего луга) и середина гребневой
       const UPR = model.RN.byId('up'), TWR = model.RN.byId('tower'), Wr = byId('west'), Lr = byId('lower'), Cr = byId('crest'), Nr = byId('north'), Rr = byId('ridge'), ST = byId('street');
       const iAt = (R, s) => { let i = 0; while (i < R.n - 1 && R.s[i] < s) i++; return i; };
-      const starts = [[PARK.x, PARK.z], [SQUARE.x, SQUARE.z], [TURN.x, TURN.z], [BAY.x, BAY.z], [ST.x[0], ST.z[0]], [TWR.x[TWR.n - 6], TWR.z[TWR.n - 6]], [UPR.x[UPR.key[8]], UPR.z[UPR.key[8]]]];
+      // (волна «въезд»: ST.x[0] — восточный конец продолженной улицы, у выезда; стоянка у въезда — ARRIVE.car; PARK — развилка у площади)
+      const starts = [[PARK.x, PARK.z], [ARRIVE.car.x, ARRIVE.car.z], [SQUARE.x, SQUARE.z], [TURN.x, TURN.z], [BAY.x, BAY.z], [ST.x[0], ST.z[0]], [TWR.x[TWR.n - 6], TWR.z[TWR.n - 6]], [UPR.x[UPR.key[8]], UPR.z[UPR.key[8]]]];
       if (Wr) starts.push([Wr.x[Wr.n - 12], Wr.z[Wr.n - 12]]); if (Lr) starts.push([Lr.x[iAt(Lr, 52)], Lr.z[iAt(Lr, 52)]], [Lr.x[Lr.n - 12], Lr.z[Lr.n - 12]]);
       if (Cr) starts.push([Cr.x[Cr.n >> 1], Cr.z[Cr.n >> 1]]);
       if (Nr) starts.push([Nr.x[Nr.n >> 1], Nr.z[Nr.n >> 1]]); if (Rr) starts.push([Rr.x[Math.round(Rr.n * 0.3)], Rr.z[Math.round(Rr.n * 0.3)]]);
@@ -3765,7 +3819,15 @@
     function bgY(x, z) {
       const dx = x - OPP.TX, dz = z - OPP.TZ, rho = Math.hypot(dx, dz), s = dz / Math.max(1e-6, rho), south = 1 - sst(-0.05, -0.45, s);
       const y = oppV(x, z) + bgDisp(x, z) + Math.max(0, rho - 480) * 0.085 * sst(480, 620, rho) * south + hillFar(x, z) + terrWob(x, z, rho);   // волна 6: + холм верхнего плато, + волны склона
-      return SUMMIT ? SUMMIT.lift(x, z, y) : y;   // вершина: гора с отелем (та же, что в отеле и с серпантина)
+      const y1 = SUMMIT ? SUMMIT.lift(x, z, y) : y;   // вершина: гора с отелем (та же, что в отеле и с серпантина)
+      // волна «въезд»: продолжение улицы восточнее комбината выходит за край ядра (r > 136, x ≈ 84…101) — там видна земля фона, а
+      // она здесь до 0,9 м ниже модели села (y 0): у южной кромки полотна была ложбинка-ступенька, ярким клином в первом кадре.
+      // Фон у этого участка — вровень с улицей (чуть ниже полотна), с мягким краем (≈ 8 м поперёк, 6 м за концом)
+      const w = arriveFlat(x, z); return w > 0 ? lerp(y1, -0.03, w) : y1;
+    }
+    function arriveFlat(x, z) {
+      const dx = x - KOMB.x, dz = z - KOMB.z, c = Math.cos(KOMB.ry), s = Math.sin(KOMB.ry), u = dx * c - dz * s, v = dx * s + dz * c;   // рамка KOMB: ось улицы — v 20
+      return sst(14, 6, Math.abs(v - 20)) * sst(8, 14, u) * sst(47, 41, u);
     }
     function bgCol(x, z, y, d, disp) {
       const n = VK.fbm(x * 0.006 + 3.1, z * 0.006 - 1.7, 4), m = VK.vnoise(x * 0.03, z * 0.03), haze = WIN ? rgb('#E3EAF1') : C('haze');
@@ -3780,6 +3842,8 @@
         if (y < -110) c = mix(c, rgb('#5E8C44'), sst(-110, -140, y) * 0.6);   // дно долины — сочнее
         if (d < 330 && n > 0.62) c = mix(c, rgb('#4E7436'), 0.45);
         c = mul(c, 0.86 + 0.12 * m + clamp(disp / 120, -0.12, 0.1));
+        // волна «въезд»: у продолжения улицы за краем ядра фон виден вблизи (первый кадр при въезде) — тон травы ядра, без яркого клина
+        const wa = arriveFlat(x, z); if (wa > 0) c = mix(c, mul(rgb('#768539'), 0.96 + 0.08 * m), wa * 0.85);
       }
       // воздушная перспектива: дальние склоны голубеют слоями (p5)
       return mix(c, WIN ? haze : rgb('#9DB4C4'), clamp((d - 380) / 1150, 0, 0.78));
@@ -4777,7 +4841,15 @@
     const VFAR = { r: 250, on: false, list: [], names: /^(props|trailDetail|schoolDetail|yardBall|lanterns|glazing|pipes|crownsNear|crownsNearLo|springLid|wedding:.*|bazaar:.*)$/, dist: [] };   // dist — куски ближних террас: прячутся, только если и они дальше 200 м (на горе свои остаются)
     // правка волны 10: клеточное отсечение (cellCull — в конце сборки; ccUpdate — каждый кадр из modGuard). FR — пирамида камеры
     // с запасом: тангенс полуугла × 1,15 (кадр не «догоняет» клетки на краю при повороте); рамки клеток — Box3
-    const CCULL = { list: [], FR: new T.Frustum(), FR2: new T.Frustum(), PM: new T.Matrix4(), v: new T.Vector3() };   // FR2 — шире (×1,35): клетка гаснет, только выйдя и из неё (реже пересборки индекса на повороте)
+    const CCULL = { list: [], FR: new T.Frustum(), FR2: new T.Frustum(), FR0: new T.Frustum(), PM: new T.Matrix4(), v: new T.Vector3(), chunks: [] };   // FR2 — шире (×1,35): клетка гаснет, только выйдя и из неё (реже пересборки индекса на повороте)
+    // правка «въезд» (бюджет): куски домов (chunk, 32 × 32 м) — целыми сетками; три.js отсекает их по описанной сфере (r ≈ 29 м), и
+    // кусок, чья рамка вне кадра, всё равно рисовался (с новой улицы на запад — кусок южного склона, 5,6 тыс.). Теперь — по рамке
+    // (Box3) в пирамиде FR0 (запас 4 % по углу; камеру к этому кадру регион уже поставил): вне — не рисуем (visible), для карты высот
+    // параплана сетка есть (ccHidden). На high куски бросают тень (castShadow) — там как было
+    function ccChunks(ok) {
+      for (const E of CCULL.chunks) { if (E.m.castShadow) continue; if (!E.bb) { const g = E.m.geometry; E.m.updateMatrixWorld(true); if (!g.boundingBox) g.computeBoundingBox(); E.bb = g.boundingBox.clone().applyMatrix4(E.m.matrixWorld); }
+        const on = !ok || CCULL.noFr || CCULL.FR0.intersectsBox(E.bb); if (on !== E.m.visible) { E.m.visible = on; E.m.userData.ccHidden = !on; } }
+    }
     function cellCull(m, key, far) {
       const g = m && m.geometry; if (!g || !g.attributes.position || m.isSkinnedMesh || m.isInstancedMesh || (g.groups && g.groups.length) || g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return;
       if (m.castShadow) return;   // high: тень бросают и клетки за кадром
@@ -4799,8 +4871,9 @@
       // правка 2: камера-следилка (≤ 30 м от героини: пешком, в машине, на скамейке из-за плеча) — или вид издалека (уступ → «Посидеть»
       // с p1, общие виды): окна села снизу днём режутся по 90 м только у следилки (Нижняя улица, полянка — бюджет), издалека — все
       CCULL.fol = hx !== undefined && Math.hypot(cam.position.x - hx, cam.position.z - hz) < 30;
-      CCULL.ok = false; if (!cam.isPerspectiveCamera || CCULL.off) return;
+      CCULL.ok = false; if (!cam.isPerspectiveCamera || CCULL.off) { ccChunks(false); return; }
       cam.updateMatrixWorld(); CCULL.ok = true; const top = cam.near * Math.tan(D2R * 0.5 * cam.fov) / (cam.zoom || 1) * 1.15, w = top * cam.aspect;
+      { const k = 1.04 / 1.15; CCULL.PM.makePerspective(-w * k, w * k, top * k, -top * k, cam.near, cam.far); CCULL.FR0.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse)); ccChunks(true); }
       CCULL.PM.makePerspective(-w, w, top, -top, cam.near, cam.far); CCULL.FR.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse));
       { const k = 1.35 / 1.15; CCULL.PM.makePerspective(-w * k, w * k, top * k, -top * k, cam.near, cam.far); CCULL.FR2.setFromProjectionMatrix(CCULL.PM.multiply(cam.matrixWorldInverse)); }
       const cp = cam.position;
@@ -4979,7 +5052,7 @@
     (W9.secs || []).forEach(Q => { [['nearM', Q.near], ['farM', Q.far]].forEach(([k, bk]) => { snowify(bk); chunkTris += bk.count(); const m = add(litMesh(bk.mesh(K.atlasMat)), { cast: true }); if (m) { m.name = 'lowerStreet'; m.geometry.computeBoundingSphere(); Q[k] = m; } });
       if (Q.farM && Q.nearM) Q.farM.visible = false; Q.isFar = false; Q.near = Q.far = null; });
     chunks.forEach(bk => { snowify(bk); chunkTris += bk.count();
-      if (!FAR) { const m = add(litMesh(bk.mesh(K.atlasMat)), { cast: true }); if (m) m.name = 'chunk'; return; }
+      if (!FAR) { const m = add(litMesh(bk.mesh(K.atlasMat)), { cast: true }); if (m) { m.name = 'chunk'; CCULL.chunks.push({ m }); } return; }
       const m = bk.mesh(K.vcMat); if (!m) return; const ca = m.geometry.attributes.color.array, sa = m.geometry.attributes.strip.array;
       for (let i = 0; i < sa.length; i++) { const t = SM[Math.round(sa[i])] || [1, 1, 1]; ca[i * 3] *= t[0]; ca[i * 3 + 1] *= t[1]; ca[i * 3 + 2] *= t[2]; }
       add(litMesh(m)); });
@@ -5215,11 +5288,15 @@
     }
     }
     // волна 6: auto — машина въезжает в облако выхода сама (за рулём); walk — только пешком (кнопка); to — куда
-    // волна «комбинат»: облако — в дальнем конце разворотного кармана за калиткой (KOMB.bay, в 9,5 м от калитки): машина к
-    // комбинату встаёт у калитки, не уезжая на серпантин; пешком у калитки и пилона кнопки выезда нет (было (62; −10), r 4);
-    // near — кнопка «☁ …» из машины только в самом кармане (по умолчанию — r + 6 м, у калитки она была бы главной)
-    { const [x, z] = KOMB.at(14.0, 19.4); exits.push({ id: 'toRoad', x, y: 0, z, r: 2.6, near: 3.6, label: 'Дорога вниз, в город', icon: '🚗', to: 'serpentine', auto: true }); }
-    exits.push({ id: 'toCity', x: PARK.x + 1.2, y: 0, z: PARK.z - 2.2, r: 1.8, label: 'Сесть в машину', icon: '🚗', walk: true });
+    // волна «комбинат»: облако — не у калитки (машина к комбинату встаёт у калитки, не уезжая на серпантин; пешком у калитки и
+    // пилона кнопки выезда нет); near — кнопка «☁ …» из машины только у самого облака (по умолчанию — r + 6 м).
+    // Волна «въезд»: облако — на восточном конце продолженной улицы (ARRIVE.exit, за стоянкой: от машины при въезде 12 м — с места и
+    // задним ходом сразу не срабатывает; было в конце кармана у калитки, KOMB.at(14; 19,4)); пешком туда не дойти (край сетки
+    // ходьбы — x 94, до облака ≥ 4,5 м: кнопки выезда у пешей нет)
+    exits.push({ id: 'toRoad', x: ARRIVE.exit.x, y: 0, z: ARRIVE.exit.z, r: 2.6, near: 3.6, label: 'Дорога вниз, в город', icon: '🚗', to: 'serpentine', auto: true });
+    // «Сесть в машину» (лист «Машина ждёт») — у машины на стоянке: у правого борта, чуть сзади (как у прежней парковки: у двери
+    // водителя главная кнопка — «Сесть за руль»); волна «въезд» — у новой стоянки (ARRIVE.door)
+    exits.push({ id: 'toCity', x: ARRIVE.door.x, y: 0, z: ARRIVE.door.z, r: 1.8, label: 'Сесть в машину', icon: '🚗', walk: true });
     // волна 6: наверху дороги мимо школы — к отелю (облачная шторка → регион hotel, from: 'kubachi')
     // вершина: выезд к отелю — наверху второго серпантина, у ворот парковки отеля (без вершины — как раньше, наверху дороги мимо школы)
     const SUMR = OUTR ? OUTR.net.roads.find(R => R.id === 'summit') : null, SUMTOP = OUTR ? OUTR.net.disks.find(D => D.id === 'hotelGate') : null;
@@ -5419,7 +5496,7 @@
     const UPR = model.RN.byId('up'), TWR = model.RN.byId('tower');
     const along = (R, i, back) => { const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), th = Math.atan2(R.x[b] - R.x[a], R.z[b] - R.z[a]); return { x: R.x[i], y: R.y[i], z: R.z[i], ry: back ? th + PI : th }; };
     const CAR_SPAWNS = {
-      parking: { x: PARK.x, y: 0, z: PARK.z, ry: PARK.ry },
+      parking: { x: ARRIVE.car.x, y: 0, z: ARRIVE.car.z, ry: ARRIVE.car.ry },   // волна «въезд»: стоянка — на улице восточнее комбината (была у площади, PARK)
       square: { x: SQUARE.x + 3.0, y: 0, z: SQUARE.z + 0.4, ry: SQUARE.ry + PI / 2 },
       tower: { x: TURN.x + 1.2, y: TURN.y, z: TURN.z - 0.6, ry: Math.atan2(TWR.x[TWR.n - 6] - TURN.x, TWR.z[TWR.n - 6] - TURN.z) },
       school: (() => { const i = UPR.key[8] + 2, p = along(UPR, i); const lx = Math.cos(p.ry), lz = -Math.sin(p.ry); return { x: p.x - lx * 1.1, y: p.y, z: p.z - lz * 1.1, ry: p.ry }; })(),
@@ -5460,8 +5537,10 @@
       id: 'kubachi', named, season, quality, root, buildMs,
       title: named ? 'Кубачи' : 'Горное село мастеров',
       mapLabel: named ? 'Кубачи · горы' : 'Горное село мастеров',
-      spawn: fromHotel ? spawnHotel : { x: 24.5, y: 0, z: -2.8, ry: -PI / 2 },   // волна 6: из отеля по дороге — наверху, у машины
-      carSpawn: fromHotel ? Object.assign({}, CAR_SPAWNS.hotel) : { x: PARK.x, y: 0, z: PARK.z, ry: PARK.ry },
+      // волна 6: из отеля по дороге — наверху, у машины; волна «въезд»: иначе — у машины восточнее комбината (ARRIVE), с видом
+      // чуть снизу (pitch: загрузчик — S.pitch, как взгляд пальцем вверх; было (24,5; −2,8) у площади, комбинат — за спиной)
+      spawn: fromHotel ? spawnHotel : { x: ARRIVE.hero.x, y: 0, z: ARRIVE.hero.z, ry: ARRIVE.hero.ry, pitch: ARRIVE.hero.pitch },
+      carSpawn: fromHotel ? Object.assign({}, CAR_SPAWNS.hotel) : Object.assign({}, CAR_SPAWNS.parking),
       colliders: allColliders,
       // W5 (бег и прыжки, js/move.js): коллайдеры для шага героини — как colliders, но плоские крыши домов — пол на высоте крыши-двора
       // (прыгать по крышам), у скатных — стены до карниза (на скат не встать: соскальзывает) и узкая полоса по коньку; плюс прилавки
@@ -5494,7 +5573,9 @@
       setMood, mood: () => mood,
       setClouds(on) { BG.clouds = !!on; if (BG.cloudA) { BG.cloudA.visible = BG.cloudB.visible = !!on; } },
       feedCat() { const c = npcs.find(n => n.id === 'roof_cat'); if (c) { catFollow = 20; c.hop(); } return !!c; },
-      places: { tower: TOWER, square: SQUARE, museum: MUSEUM, bakery: BAKERY, spring: SPRING, knoll: KNOLL_W, park: PARK, arch: archInfo,
+      // волна «въезд»: park — стоянка машины у въезда (точка «Парковка» на карте — у двери водителя, где она встаёт при въезде);
+      // прежняя площадка у площади (PARK) — развилка улицы и подъёма (drive.areas, mapPads)
+      places: { tower: TOWER, square: SQUARE, museum: MUSEUM, bakery: BAKERY, spring: SPRING, knoll: KNOLL_W, park: { x: ARRIVE.hero.x, z: ARRIVE.hero.z, ry: ARRIVE.hero.ry, car: ARRIVE.car }, arch: archInfo,
         // волна 4
         wedding: Object.assign({}, WED, { gate: WEDN.gate, door: WEDN.door }), shops: SHOPS, bazaar: BZ ? { lamps: BZ.api.lamps, stalls: BZ.api.stalls } : null, cowLane: COW_LANE, springPit: PIT, climb: { door: climb.door, top: climb.top, hatch: climb.hatch },
         zipLanding: ZL ? ZL.spawn : null, zipAnchor: ZL ? ZL.anchor : null,
@@ -5660,7 +5741,7 @@
     id: 'kubachi', build, distant, distantFull: true,
     title: named => (named === false || (named === undefined && V.named === false) ? 'Горное село мастеров' : 'Кубачи'),
     // общие данные для соседнего региона (серпантин) и интегратора
-    data: { CZ, ST, ROWS, SPAN, TOWER, SQUARE, MUSEUM, BAKERY, PARK, ROAD, P, polar, OPP, road: () => OPP.road(), exitToRoad: { x: 62, y: 0, z: -10 },
+    data: { CZ, ST, ROWS, SPAN, TOWER, SQUARE, MUSEUM, BAKERY, PARK, ROAD, P, polar, OPP, road: () => OPP.road(), exitToRoad: { x: ARRIVE.exit.x, y: 0, z: ARRIVE.exit.z }, ARRIVE,
       houses: () => unpackHouses().filter(h => !PLAZA.drop.includes(h.id)),   // 4B: houses — для карты (NEEDS MAP); волна 11: без h083/h084 (там восточная половина площади)
       // волна 11: для карты, пока села не загружали (большая карта из города) — кофейня «Мархарай» (рамка CAFE) и настоящая сеть
       // проездов: ключи осей (как в сборке — без сглаживания), ширина полотна; площадки — развилки, смотровая, луг, разворот, карман
