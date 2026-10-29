@@ -485,6 +485,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
           H.menu.add(Looks.menuItem({ id: 'r-look', when: () => S.active, gone: () => !S.active, busy: lookBusy, apply: id => World.relook(id), at: heroAt,
             lite: () => regionQ !== 'high' || lite, header: () => (dn && dn.lampsOn() ? '#1E2A5E' : '#FFF4EC') }));
         }
+        // бег-раннер поверх поездки (WORLD.runner из js/world/main.js): метка — из модуля раннера; не пешком — тост
+        if (WORLD.runner) H.menu.add({ id: 'r-runner', icon: '🏃', order: 30, tint: 'sun', label: () => WORLD.runner.label(), sub: () => WORLD.runner.sub(), when: () => S.active && !S.runner && WORLD.runner.can(), onTap: () => { if (S.active) runnerGo(); } });
         H.menu.add({ id: 'r-radar', icon: '🧭', order: 70, tint: 'sky', keepOpen: true, when: () => S.active && !!(radar && radar.collapse),
           label: () => (radar && radar.isCollapsed && radar.isCollapsed() ? 'Мини-карта: показать' : 'Мини-карта: спрятать'),
           onTap: () => { if (radar && radar.collapse) radar.collapse(!(radar.isCollapsed && radar.isCollapsed())); } });
@@ -496,7 +498,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const H = HUD_(); document.body.classList.remove('wr-hud-sport', 'wr-hud-zip');
       if (!H) return;
       if (H.bar) H.bar({});
-      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-look', 'r-radar'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
+      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-look', 'r-radar', 'r-runner'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
       try { H.status(hudSaved ? hudSaved.status : null); } catch (e) { /* ok */ }
       try { if (H.objective) H.objective.set(hudSaved && hudSaved.obj ? Object.assign({}, hudSaved.obj, { bounce: false }) : null); } catch (e) { /* ok */ }
       hudSaved = null;
@@ -1278,6 +1280,28 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.zip || flyActive() || S.mode === 'climb' || mvBusy()) return 'air';
       if (IA && IA.busy()) return 'hands';
       return '';
+    }
+    // бег-раннер (☰ → «Бег …», WORLD.runner): поездка на паузе — свой цикл и ввод стоят, раннер рисует тем же рендерером;
+    // выход — то же место, тот же режим, каз и камера (героиню и каз актёры раннера возвращают как были)
+    const runnerFree = () => S.active && !S.busy && !S.runner && freeWalk() && !S.zip && !S.sport && !flyActive() && !mvBusy() && !(IA && IA.busy()) && !blocked();
+    async function runnerGo() {
+      if (S.runner || !WORLD.runner || !WORLD.runner.can()) return false;
+      if (!runnerFree()) { haptic('light'); toast(S.mode === 'drive' ? 'Бегом — только пешком: сначала выйди из машины 🙂' : 'Чуть позже: сначала закончим тут 🙂', 2600, { keep: true }); return false; }
+      S.runner = true; S.moveTo = null;
+      const res = await WORLD.runner.start({
+        renderer, hero, quality: regionQ === 'high' ? 'high' : 'low',
+        pause: () => { cancelAnimationFrame(raf); raf = 0; bindInput(false); },
+        resume: () => {
+          S.runner = false;
+          if (!S.active) return;
+          try { resize(); } catch (e) { /* ok */ }
+          if (hero && hero.rig) hero.rig.prev = null;
+          last = performance.now(); if (!raf) raf = requestAnimationFrame(tick);
+          bindInput(true);
+        },
+      });
+      if (res === false) S.runner = false;
+      return res;
     }
     // где героиня на экране (искры смены образа, координаты #app); из-за руля героини не видно — искры посередине
     function heroAt() {

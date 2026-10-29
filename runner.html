@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="data:," />
+  <meta name="theme-color" content="#CFE0F0" />
+  <title>Бег · стенд раннера</title>
+  <!-- Стенд режима «Бег по Кубачи» (не игра): сам себе хост — свой рендерер, героиня как в village.html (HERO3D + HeroOutfits +
+       HeroAnim), host → VILLAGE.runner.open. Параметры: ?seed=число &bot=1 (автопилот; bot=human — с реакцией 0,4 с и «впритык»)
+       &monkey=1 (случайные свайпы) &stage=n &auto=1 (сразу бежать, без заставки) &tut=1|0 (подсказки первого забега) &q=low|high
+       &named=0 &season=winter &hero=off (без модели — капсула) &stub=1 (свои заглушки вместо набора графики/актёров/интерфейса;
+       stub=kit,actors,ui — выборочно) &dpr=1 &look=<образ> &norender=1 &dbg=1 (числа в углу). Для тестов — window.__runner
+       (state, start, input, bot, setStage, stats, sim, near, close, open) и window.__runnerReady. -->
+  <link rel="stylesheet" href="css/fonts.css" />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #CFE0F0; font-family: 'Nunito', system-ui, sans-serif; color: #3A2E3F; -webkit-user-select: none; user-select: none; touch-action: none; overscroll-behavior: none; }
+    #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+    #rroot { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+    #dbg { position: fixed; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 9; background: rgba(255,253,249,.86); border-radius: 10px; padding: 5px 8px; font: 700 11px/1.35 ui-monospace, Menlo, monospace; white-space: pre; display: none; pointer-events: none; }
+    #load { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: linear-gradient(180deg, #DCE8F4 0%, #FFF4EC 80%); font-weight: 900; color: #C2405B; font-size: 18px; transition: opacity .5s; }
+    #load.done { opacity: 0; pointer-events: none; }
+    #again { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30; display: none; border: 0; border-radius: 18px; padding: 14px 22px; font: inherit; font-weight: 900; font-size: 17px; background: #C2405B; color: #fff; box-shadow: 0 5px 0 #9E2F47; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="rroot"></div>
+  <div id="dbg"></div>
+  <button id="again">🏃 Снова на бег</button>
+  <div id="load">Шнуруем кроссовки…</div>
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/GLTFLoader.js"></script>
+  <script src="js/hero3d.js" onerror="void 0"></script>
+  <script src="js/hero_look3d.js" onerror="void 0"></script>
+  <script src="js/hero_looks.js" onerror="void 0"></script>
+  <script src="js/hero_zones.js" onerror="void 0"></script>
+  <script src="js/hero_outfits.js" onerror="void 0"></script>
+  <script src="js/hero_anim.js" onerror="void 0"></script>
+  <script src="js/world/kit.js" onerror="void 0"></script>
+  <script src="js/world/actors.js" onerror="void 0"></script>
+  <script src="js/village/vkit.js"></script>
+  <script src="js/village/markharai_sign.js" onerror="void 0"></script>
+  <script src="js/village/kombinat_sign.js" onerror="void 0"></script>
+  <script src="js/village/kaz.js" onerror="void 0"></script>
+  <script src="js/village/wedding.js" onerror="void 0"></script>
+  <script src="js/village/paraglider.js" onerror="void 0"></script>
+  <!-- волна «Бег по Кубачи»: графика, актёры, интерфейс (необязательные — без них ядро ставит свои заглушки) и ядро -->
+  <script src="js/village/runner_kit.js" onerror="void 0"></script>
+  <script src="js/village/runner_actors.js" onerror="void 0"></script>
+  <script src="js/village/runner_ui.js" onerror="void 0"></script>
+  <script src="js/village/runner.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const T = window.THREE, V = window.VILLAGE = window.VILLAGE || {};
+    const Q = new URLSearchParams(location.search);
+    const quality = Q.get('q') === 'high' ? 'high' : 'low', named = Q.get('named') !== '0', season = Q.get('season') === 'winter' ? 'winter' : 'autumn';
+    V.named = named;
+    const $ = id => document.getElementById(id);
+
+    /* ---------- рендерер (как у мира: один контекст, раннер рисует им же) ---------- */
+    const canvas = $('c');
+    const dpr = +(Q.get('dpr') || (quality === 'high' ? Math.min(window.devicePixelRatio || 1, 1.6) : Math.min(window.devicePixelRatio || 1, 1)));
+    const renderer = new T.WebGLRenderer({ canvas, antialias: quality === 'high', alpha: true, powerPreference: 'default', preserveDrawingBuffer: Q.get('shot') === '1' });
+    renderer.setPixelRatio(dpr);
+    renderer.info.autoReset = false;
+    renderer.setSize(window.innerWidth || 390, window.innerHeight || 844, false);
+
+    /* ---------- героиня: модель автора со скелетом → статуэтка → нет (ядро поставит капсулу) ---------- */
+    let hero = null, H3 = null, kitW = null, actorsW = null;
+    async function makeHero() {
+      if (Q.get('hero') === 'off') return null;
+      try { if (window.WORLD && WORLD.createKit) { kitW = WORLD.createKit({ rim: ['#FFE8D0', 0.22] }); actorsW = WORLD.makeActors(kitW); } } catch (e) { console.warn('runner stand: world kit', e); kitW = actorsW = null; }
+      if (!actorsW || !window.HERO3D || !T.GLTFLoader) return null;
+      try { H3 = await Promise.race([HERO3D.load(), new Promise(r => setTimeout(() => r(null), 9000))]); } catch (e) { H3 = null; }
+      if (!H3) return null;
+      let h = null;
+      try { h = actorsW.buildHeroRig(null, H3); } catch (e) { console.warn('runner stand: hero rig', e); h = null; }
+      if (!h) { try { h = actorsW.buildHeroGLB(null, H3); } catch (e) { h = null; } }
+      if (!h) return null;
+      // образ (js/hero_outfits.js): ?look=<id> или по умолчанию — как на стенде села
+      if (window.HeroOutfits && (h.rig || h.statue)) { try { if (HeroOutfits.setQuality) HeroOutfits.setQuality(quality); HeroOutfits.wear(H3, h, { look: Q.get('look') || (window.HeroLooks ? HeroLooks.DEFAULT : null) }); } catch (e) { console.warn('runner stand: outfit', e); } }
+      if (kitW && h.root) { const seen = new Set(); h.root.traverse(m => { if (m.isMesh && m.material && m.material.isMeshToonMaterial && !seen.has(m.material)) { seen.add(m.material); kitW.addRim(m.material, 1); } }); }
+      // «мир» стенда — пустая сцена: героиня живёт там, раннер забирает её к себе и возвращает
+      worldScene.add(h.root);
+      return h;
+    }
+    const worldScene = new T.Scene();
+
+    /* ---------- сохранение стенда (в игре — общий сейв, ключ runner) ---------- */
+    const SKEY = 'runner.stand.v1';
+    const save = {
+      get() { try { return JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { return null; } },
+      set(o) { try { localStorage.setItem(SKEY, JSON.stringify(o)); } catch (e) { /* без хранилища */ } },
+    };
+    if (Q.get('fresh') === '1') { try { localStorage.removeItem(SKEY); } catch (e) { /* ok */ } }
+
+    /* ---------- звук стенда: журнал событий + простые писки по ?snd=1 (в игре — engine sfx) ---------- */
+    const sfxLog = {};
+    let ac = null;
+    function beep(f, d, type, vol) {
+      if (Q.get('snd') !== '1') return;
+      try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime; o.type = type || 'sine'; o.frequency.value = f; g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + 0.02); } catch (e) { /* ok */ }
+    }
+    const SND = { coin: d => beep(1318 * Math.pow(2, (d && d.pitch || 0) / 24), 0.12, 'triangle', 0.05), jump: () => beep(520, 0.12), slide: () => beep(260, 0.15, 'sawtooth', 0.02), stumble: () => beep(180, 0.2, 'square', 0.03), crash: () => beep(120, 0.4, 'square', 0.05), power: () => beep(880, 0.3, 'triangle', 0.06), jingle: () => beep(2400, 0.06, 'sine', 0.015), crack: () => beep(3000, 0.03, 'square', 0.03), stage: () => beep(660, 0.4, 'triangle', 0.05) };
+    const host = {
+      THREE: T, renderer, root: $('rroot'), hero: null, anim: null, quality, named, season, save,
+      sfx(name, d) { sfxLog[name] = (sfxLog[name] || 0) + 1; if (SND[name]) SND[name](d); },
+      haptic(kind) { if (Q.get('vib') === '1' && navigator.vibrate) navigator.vibrate(kind === 'heavy' ? 30 : 8); },
+      pauseWorld() { world.paused = true; },
+      resumeWorld() { world.paused = false; $('again').style.display = 'block'; },
+      music(cmd) { sfxLog['music:' + cmd] = (sfxLog['music:' + cmd] || 0) + 1; },
+      onClose(r) { window.__runnerLast = r; },
+    };
+    // «мир» стенда: пока раннер закрыт — рисуем пустую сцену (проверка, что после выхода рендерер в порядке)
+    const world = { paused: true, cam: new T.PerspectiveCamera(50, 1, 0.1, 100) };
+    worldScene.background = new T.Color('#CFE0F0');
+    world.cam.position.set(0, 1.4, 4); world.cam.lookAt(0, 1, 0);
+    worldScene.add(new T.HemisphereLight('#FFFFFF', '#8C8A80', 1));
+    function worldLoop() {
+      requestAnimationFrame(worldLoop);
+      if (world.paused) return;
+      const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); world.cam.aspect = w / h; world.cam.updateProjectionMatrix();
+      renderer.info.reset(); renderer.render(worldScene, world.cam);
+    }
+
+    const stubQ = Q.get('stub'), stub = stubQ === '1' ? true : stubQ ? stubQ.split(',').reduce((o, k) => { o[k] = true; return o; }, {}) : null;
+    const dbg = {
+      seed: Q.get('seed') != null ? +Q.get('seed') : undefined, stage: Q.get('stage') ? +Q.get('stage') : undefined, auto: Q.get('auto') === '1',
+      tut: Q.get('tut') === '1' ? true : Q.get('tut') === '0' ? false : undefined, stub, render: Q.get('norender') === '1' ? false : undefined,
+      bot: Q.get('bot') === '1' ? true : Q.get('bot') === 'human' ? { react: 0.4, late: true } : Q.get('monkey') === '1' ? { monkey: true } : undefined,
+    };
+    let api = null;
+    async function openRunner() {
+      $('again').style.display = 'none';
+      host.hero = hero; host.anim = hero && hero.rig ? hero.rig.anim : null;
+      api = await V.runner.open(host, dbg);
+      window.__runnerApi = api;
+      return api;
+    }
+    // api для тестов: всегда текущая сессия (после выхода и повторного входа — новая)
+    const cur = () => api || V.runner.session;
+    window.__runner = {
+      state: () => cur() ? cur().state() : { mode: 'closed' },
+      start: s => cur().start(s), input: d => cur().input(d), bot: (on, o) => cur().bot(on, o), setStage: n => cur().setStage(n),
+      stats: () => cur() ? cur().stats() : null, sim: (sec, o) => cur().sim(sec, o), near: n => cur().near(n),
+      close: () => { V.runner.close(); api = null; }, open: () => openRunner(), pause: () => cur().pause(), resume: () => cur().resume(),
+      sfx: sfxLog, renderer, get api() { return cur(); },
+      heap: () => (performance.memory ? performance.memory.usedJSHeapSize : 0),
+      info: () => ({ geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs ? renderer.info.programs.length : 0, hero: !!hero, heroKind: hero ? (hero.rig ? 'rig' : 'statue') : 'none',
+        modules: { kit: !!V.runnerKit, actors: !!V.runnerActors, ui: !!V.runnerUI } }),
+    };
+    $('again').addEventListener('click', () => openRunner());
+
+    // отладочные числа
+    if (Q.get('dbg') === '1') {
+      $('dbg').style.display = 'block';
+      setInterval(() => { const a = cur(); if (!a) return; const s = a.state(), st = a.stats(); $('dbg').textContent = s.mode + ' · этап ' + s.stage + ' · ' + s.v.toFixed(1) + ' м/с\n' + st.tris + ' треуг · ' + st.calls + ' выз · логика ' + st.logicMs + ' мс\nпланов ' + st.plan.rows + ' · мин. запас ' + (isFinite(st.plan.minSlack) ? st.plan.minSlack.toFixed(2) : '—') + ' с'; }, 400);
+    }
+
+    (async () => {
+      try { hero = await makeHero(); } catch (e) { console.warn('runner stand: hero', e); hero = null; }
+      worldLoop();
+      await openRunner();
+      $('load').classList.add('done');
+      window.__runnerReady = true; window.__villageReady = true;   // для покадровой съёмки (scratchpad/promo/harness)
+    })();
+  })();
+  </script>
+</body>
+</html>

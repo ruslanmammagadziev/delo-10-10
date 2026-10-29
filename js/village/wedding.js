@@ -551,6 +551,8 @@
     o = o || {};
     const T = o.THREE || window.THREE, VK = V.vkit || {}, K = o.kit || o.K || null;
     const named = o.named !== false, season = o.season === 'winter' ? 'winter' : 'autumn', HI = o.quality !== 'low';
+    // один ряженый без двора (VILLAGE.wedding.buildPaltar — раннер «Бег по Кубачи»): вид 'A'…'E'; свадьба этого не видит
+    const PONLY = typeof o.paltarOnly === 'string' && /^[A-E]$/.test(o.paltarOnly) ? o.paltarOnly : null;
     const A = Object.assign({ x: 0, y: 0, z: 0, ry: 0, w: 20, d: 12 }, o.anchor || {});
     const t0 = performance.now();
     const own = [];                     // всё, что освобождаем сами
@@ -562,14 +564,16 @@
     const HW = A.w / 2, HD = A.d / 2;
     const S = Math.min(1, A.w / 20, A.d / 12);   // двор меньше расчётного — всё поджимаем
     // какие пальтары на свадьбе (виды по фото, см. PV ниже): на low — три, на high — четыре; зимой A вместо C
-    const PSET = (HI ? ['B', 'C', 'D', 'E'] : ['B', 'C', 'D']).map(k => (k === 'C' && season === 'winter' ? 'A' : k));
+    const PSET = PONLY ? [PONLY] : (HI ? ['B', 'C', 'D', 'E'] : ['B', 'C', 'D']).map(k => (k === 'C' && season === 'winter' ? 'A' : k));
 
     // общие материалы
     let GRAD = K && K.GRAD;
     if (!GRAD) { const d = new Uint8Array(64); [100, 100, 100, 104, 128, 160, 166, 168, 176, 212, 236, 244, 255, 255, 255, 255].forEach((v, i) => d.set([v, v, v, 255], i * 4)); GRAD = keep(new T.DataTexture(d, 16, 1, T.RGBAFormat)); GRAD.minFilter = GRAD.magFilter = T.LinearFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
     const rim = m => (K && K.addRim ? K.addRim(m, 1) : m);
     const faceCanvas = (K && K.faceCanvas) || VK.faceCanvas;
-    const tp0 = performance.now(), atlasTex = keep(new T.CanvasTexture(paintAtlasCached(faceCanvas, PSET))), paintMs = Math.round(performance.now() - tp0);
+    // один ряженый: атлас двора, если в нём уже есть этот вид (свадьба была построена) — без второй покраски масок
+    const tp0 = performance.now(), atlasCv = PONLY && ATLAS && !/-$/.test(ATLAS.k) === !!faceCanvas && ATLAS.k.indexOf(PONLY) >= 0 ? ATLAS.cv : paintAtlasCached(faceCanvas, PSET);
+    const atlasTex = keep(new T.CanvasTexture(atlasCv)), paintMs = Math.round(performance.now() - tp0);
     atlasTex.anisotropy = 4;
     const matBody = keep(rim(new T.MeshToonMaterial({ color: 0xFFFFFF, vertexColors: true, gradientMap: GRAD })));
     const matTex = keep(rim(new T.MeshToonMaterial({ color: 0xFFFFFF, vertexColors: true, map: atlasTex, gradientMap: GRAD })));
@@ -1141,6 +1145,8 @@
     [[3.8, 2.6, PI], [-3.8, 2.8, PI], [4.2, -1.8, -PI / 2], [-4.2, -1.6, PI / 2]].slice(0, PSET.length).forEach(([x, z, ry], i) => {
       SPEC.push({ id: 'paltar' + i, sp: 'paltar', variant: PSET[i], role: 'paltar', x: x * S, z: z * S, ry, scale: 1, speaker: i ? undefined : 'paltar' });
     });
+    // один ряженый: только он, в начале координат, лицом к +z (двор, реквизит и жители не строятся: kit не передают)
+    if (PONLY) { SPEC.length = 0; SPEC.push({ id: 'paltar0', sp: 'paltar', variant: PONLY, role: 'paltar', x: 0, z: 0, ry: 0, scale: 1, speaker: 'paltar' }); }
 
     SPEC.forEach(sp => {
       const a = makeAnimal(Object.assign({ hipY: 0.22, shY: 0.56, neckY: 0.72 }, sp));
@@ -2871,6 +2877,14 @@
         return true;
       },
       get lod() { return st.lod; },
+      // один ряженый (buildPaltar): поза — тем же языком, что во дворе (q: руки up/fo, ноги, наклоны → palApply пишет кости,
+      // пряди, бороду и плётку с пружинками); кроме этого ничего не нужно — h.update не зовут
+      rig: PONLY ? {
+        a: pal[0], B: pal[0].B, PH, AP, CREEP, WDRAW,
+        reset: () => palReset(pal[0]), apply: dt => { const q = pal[0].q; q.drop = Math.min(q.drop, q.y + 1 - footMax(q)); palApply(pal[0], dt); },
+        arm, armMix, setArm, armTo, leg, crouch, plant, gait: (q, k, amp) => gait(pal[0], q, k, amp), bowPose, sitPose, smix, footMax,
+        tick: dt => { st.t += dt; },
+      } : null,
       // для стенда: внутренности (зверята, ряженые, дети, состояние)
       dbg() { return { animals, pal, kids, st, PG, PV, trisBy }; },
       get paltars() { return pal.map(a => ({ id: a.id, mode: a.mode, x: +a.px.toFixed(2), z: +a.pz.toFixed(2), ry: +a.pry.toFixed(2), seg: a.seg })); },
@@ -2891,5 +2905,13 @@
     return h;
   }
 
-  V.wedding = { build, SPEAKERS, LINES, EVENTS: EV };
+  // один ряженый отдельно (раннер «Бег по Кубачи», js/village/runner_actors.js): тот же строитель и те же ткани, что во дворе, —
+  // без двора, реквизита, жителей и розыгрышей (kit не передаём: реквизит не строится). o = { THREE, variant 'A'…'E'
+  // (по умолчанию 'D' — тёмный с золотом, борода и плётка), quality, named, season } → h (h.group — в сцену, h.rig — поза, h.dispose)
+  function buildPaltar(o) {
+    o = o || {};
+    return build({ THREE: o.THREE, quality: o.quality, named: o.named, season: o.season, paltarOnly: o.variant || 'D' });
+  }
+
+  V.wedding = { build, buildPaltar, SPEAKERS, LINES, EVENTS: EV };
 })();

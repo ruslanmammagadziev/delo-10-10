@@ -14,6 +14,7 @@
     .stats .pill { display: inline-block; padding: 5px 10px; border-radius: 99px; background: rgba(255,253,249,.9); font-weight: 900; color: #3A2E3F; cursor: pointer; box-shadow: 0 2px 0 rgba(58,46,63,.12); min-width: 58px; text-align: center; }
     .stats .pill.ok { color: #3E8E6A; } .stats .pill.mid { color: #C98A2B; } .stats .pill.bad { color: #C2405B; }
     .stats .panel { margin-top: 6px; padding: 10px 12px; border-radius: 14px; background: rgba(255,253,249,.98); box-shadow: 0 4px 14px rgba(58,46,63,.14); width: 268px; max-width: 100%; }
+    body.runner-on .stats { display: none; }   /* бег-раннер поверх города: пилюля fps стенда не нужна (в index.html её нет) */
     .stats .row { margin: 2px 0; font-weight: 700; line-height: 1.35; } .stats .row.dim { color: #6E6272; font-weight: 600; font-size: 11px; word-break: break-word; }
     .stats .btns { display: flex; gap: 6px; margin-top: 8px; } .stats .btns button { flex: 1; border: 0; border-radius: 10px; padding: 7px 4px; background: #F6E7EB; color: #3A2E3F; font-weight: 800; font-size: 11px; cursor: pointer; font-family: inherit; }
     .stats .btns button.on { background: #C2405B; color: #fff; } .stats .btns button.wide { background: #3A2E3F; color: #fff; }
@@ -99,6 +100,10 @@
   <script src="js/village/zipline.js"></script>
   <script src="js/village/paraglider.js"></script>
   <script src="js/village/sports.js"></script>
+  <script src="js/village/runner_kit.js"></script>
+  <script src="js/village/runner_actors.js"></script>
+  <script src="js/village/runner_ui.js"></script>
+  <script src="js/village/runner.js"></script>
   <script src="js/daynight.js"></script>
   <script src="js/world/regions.js"></script>
   <script src="js/world/trip2d.js"></script>

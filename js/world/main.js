@@ -1274,6 +1274,8 @@
         HUD.menu.add(Looks.menuItem({ id: 'look', when: () => mine(), gone: () => !mine(), busy: lookBusy, apply: id => relook(id), at: heroAt,
           lite: () => w.qKey === 'lite' || !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()), header: () => (s.dnLamps ? '#1E2A5E' : '#FFF4EC') }));
       }
+      // бег-раннер поверх города (WORLD.runner): метка — из модуля раннера; не пешком — тост, а не молчание
+      if (WORLD.runner) HUD.menu.add({ id: 'runner', icon: '🏃', order: 30, tint: 'sun', label: () => WORLD.runner.label(), sub: () => WORLD.runner.sub(), when: () => mine() && WORLD.runner.can(), onTap: () => { if (mine()) runnerGo(); } });
       // подсказка «что тут делать» — первой строкой листа «Как играть» (меню ☰ без лишней строки: на 360 × 740 оно без прокрутки)
       if (window.Town && Town.sheet) HUD.helpTop = () => (mine() && s.active && s.mode === 'walk' ? { icon: '💡', title: 'Что тут делать?', sub: 'дело дня — или машина и отдых в горах', onTap: () => { if (mine()) showGuide(false); } } : null);
     }
@@ -1287,6 +1289,38 @@
       if (w.mv && (s.air || w.mv.busy())) return 'air';
       if (w.pf && w.pf.locked && w.pf.locked()) return 'game';
       return '';
+    }
+    // бег-раннер (☰ → «Бег …»): город на паузе (как боковой визит), раннер рисует тем же рендерером; выход — город с того же
+    // места: героиня, машина, камера, кот — как были. Предмет в руке — «в сумку» на время забега, потом снова в руке
+    function runnerFree() {
+      return s.active && !s.finished && !s.inTrip && !s.paused && !s.busy && !s.anim && s.mode === 'walk' && !s.sitting && !s.benching && !s.spotBusy && !s.pkBusy && !s.pickBusy &&
+        !blocked() && !(w.mv && (s.air || w.mv.busy())) && !(w.pf && w.pf.locked && w.pf.locked()) && !(IA && IA.busy() && !iaFree());
+    }
+    async function runnerGo() {
+      if (s.inRunner || !WORLD.runner || !WORLD.runner.can()) return false;
+      if (!runnerFree()) { haptic('light'); toast(s.mode === 'drive' ? 'Бегом — только пешком: сначала выйди из машины 🙂' : s.mode === 'ride' ? 'Бегом — только пешком: сначала слезь с велосипеда 🙂' : 'Чуть позже: руки и ноги пока заняты 🙂', 2600); return false; }
+      s.inRunner = true; s.moveTo = null; ckSet(false);
+      const hiT = IA && IA.holding('L'), dT = hiT && hiT.userData.it;
+      const keep = hiT && s.held && (IA_ITEM[s.held] || s.held === 'squeaky_hammer') ? { kind: s.held, data: Object.assign(s.heldData && typeof s.heldData === 'object' ? s.heldData : {}, dT ? { _bites: dT.bites || 0, _level: dT.level } : {}) } : null;
+      if (IA) { IA.cancel(); if (keep) iaDrop(false); }
+      const heldVis = s.heldG ? s.heldG.visible : null; if (s.heldG) s.heldG.visible = false;
+      const res = await WORLD.runner.start({
+        renderer: w.renderer, hero, quality: w.qKey === 'high' ? 'high' : 'low',
+        pause: () => { s.paused = true; loopStop(); bindInput(false); ui.sayClear(); w5Off(); if (ui.driveCtl) ui.driveCtl.show(false); if (w.minimap && w.minimap.close) w.minimap.close(true); },
+        resume: () => {
+          s.inRunner = false;
+          if (s.heldG && heldVis !== null) s.heldG.visible = heldVis;
+          if (s.finished) return;
+          if (keep) { s.heldData = keep.data; setHeld(keep.kind, keep.data); }
+          if (hero.rig) hero.rig.prev = null;
+          ensureRenderer(w); resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844);
+          s.iaDy = 0; s.dnDirty = true; s.detForce = true;
+          s.paused = false; s.busy = false; w.root.classList.remove('busy');
+          bindInput(true); loopStart();
+        },
+      });
+      if (res === false) { s.inRunner = false; if (s.heldG && heldVis !== null) s.heldG.visible = heldVis; if (keep && !s.finished) { s.heldData = keep.data; setHeld(keep.kind, keep.data); } }
+      return res;
     }
     // где героиня на экране (искры смены образа); из-за руля героини не видно — искры посередине
     function heroAt() {
@@ -2598,7 +2632,7 @@
     };
     s.api = api;
     s.dbg = { regionTrip, onEdge, ckSet, rideOn, nearBike, doorState, tryDoor, goDoor, useSpot, spots, pickups, greet, doWave, enterCar, exitCar, doHorn, collect, setLit, focusDoor, placeAt, setHud, speak, lifeCtx, get bikeMode() { return bikeMode; }, get vehicles() { return vehicles; },
-      swapCar, pickCar, nearGarage, canPickCar, carAtHome, iaTake, iaNibble, iaPet, takeBouquet, heldDone, dnTick, dnToggle, hudRects };
+      swapCar, pickCar, nearGarage, canPickCar, carAtHome, iaTake, iaNibble, iaPet, takeBouquet, heldDone, dnTick, dnToggle, hudRects, runnerGo, runnerFree };
     return s;
   }
 
@@ -2676,6 +2710,95 @@
   function hasGeneric(id) { const i = genIdx(id); return i >= 0 && !!(bitsGet(wState().g) & (1 << i)); }
   function markGeneric(id) { const i = genIdx(id); if (i < 0) return; const n = bitsGet(wState().g) | (1 << i); saveWorld({ g: bitsSet(n) }); }
 
+  /* =====================================================================
+     БЕГ-РАННЕР ПОВЕРХ МИРА (VILLAGE.runner — js/village/runner.js): общий хост города и поездок (js/world/regions.js).
+     WORLD.runner.start(o) → Promise: false — не запустился; иначе — итог забега { score, coins, dist, best } после выхода.
+       o = { renderer — ТОТ ЖЕ рендерер мира (второй WebGL-контекст на телефоне — риск вылета), hero, quality,
+             pause() — остановить свой цикл и ввод, resume() — вернуть (мир продолжается с того же места) }
+     Хост сам: DOM-слой поверх (#app), прячет полосу HUD и кнопки мира (body.runner-on), сохранение — в сейве игры
+     (state.runner { best, bestDist, coins, runs, tut, last }; старые сохранения без ключа — просто нули), звук — синтез
+     раннера (VILLAGE.runnerUI.sound) через шину эффектов игры (G.audio: «Звук» выключен — тишина), haptic — G.haptic
+     (Telegram). Музыки пока нет: WORLD.runnerMusic(cmd, { speed }) — точка подключения дорожки ('play' | 'pause' | 'stop').
+     WORLD.runner.can() — модуль есть, WebGL и CONFIG.UNLOCK.runner открыты; label() — строка меню (из модуля раннера:
+     своих слов места здесь нет); sub() — подпись («рекорд …»); active() — идёт ли забег.
+     ===================================================================== */
+  const RunnerHost = (() => {
+    const RN = () => (window.VILLAGE && window.VILLAGE.runner) || null;
+    const set = () => { try { return WORLD.Regions && WORLD.Regions.settings ? WORLD.Regions.settings() : {}; } catch (e) { return {}; } };
+    let cur = null, css = null, synth = null;
+    const num = (o, k) => (o && typeof o[k] === 'number' && isFinite(o[k]) && o[k] >= 0 ? Math.floor(o[k]) : 0);
+    // сохранение раннера — ключ runner в общем сейве игры (G.state / G.save): облако и устройство — как у всего остального
+    const save = {
+      get() { const g = G_(); const st = g && g.state ? g.state() : null; const r = st && st.runner; return r && typeof r === 'object' ? Object.assign({}, r) : null; },
+      set(o) {
+        const g = G_(); if (!g || !g.state || !o) return;
+        const st = g.state(); st.runner = { best: num(o, 'best'), bestDist: num(o, 'bestDist'), coins: num(o, 'coins'), runs: num(o, 'runs'), tut: o.tut === true, last: num(o, 'last') };
+        try { g.save(); } catch (e) { /* без сохранения */ }
+      },
+    };
+    function can() { const r = RN(); if (!r || !r.open || !r.title) return false; try { return r.available ? !!r.available() : true; } catch (e) { return false; } }
+    function label() { const r = RN(); return r && r.title ? r.title(set().named !== false, true) : ''; }
+    function sub() { const sv = save.get(), b = num(sv, 'best'); return b > 0 ? 'рекорд ' + String(b).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009') : 'аркада: убегай и собирай монетки'; }
+    function cssOn() {
+      if (css) return;
+      css = document.createElement('style');
+      // во время забега мира не видно: полоса HUD, слои тостов и вспышек, кнопки и радар мира (холст остаётся — раннер рисует им)
+      css.textContent = 'body.runner-on #hud,body.runner-on #fx,body.runner-on #layer>*,body.runner-on .w-root>:not(canvas){visibility:hidden!important}' +
+        '.runner-host{position:absolute;inset:0;z-index:85;pointer-events:none;overflow:hidden;touch-action:none}';
+      document.head.appendChild(css);
+    }
+    function start(o) {
+      o = o || {};
+      if (cur || !can() || !o.renderer) return Promise.resolve(false);
+      const r = RN(), g = G_(), S0 = set();
+      cssOn();
+      const app = document.getElementById('app') || document.body, root = document.createElement('div');
+      root.className = 'runner-host'; app.appendChild(root);
+      const UI = window.VILLAGE && window.VILLAGE.runnerUI;
+      if (!synth && UI && UI.sound) synth = UI.sound({ audio: () => (g && g.audio ? g.audio() : null), bus: () => (g && g.audioBus ? g.audioBus('sfx') : null) });
+      let paused = false, resumed = false, done = null;
+      const fin = new Promise(res => { done = res; });
+      // Telegram свернули (событие 'deactivated' приходит и там, где visibilitychange WebView не шлёт) — забег на паузу
+      const TGW = window.Telegram && window.Telegram.WebApp;
+      const onTgOff = () => { const ses = RN() && RN().session; if (ses && ses.pause) { try { ses.pause(); } catch (e) { /* ok */ } } };
+      if (TGW && TGW.onEvent) { try { TGW.onEvent('deactivated', onTgOff); } catch (e) { /* старый клиент */ } }
+      // DayNight мира патчит материалы героини общими uniform-ами (dnMul/dnAdd/dnP — js/daynight.js): мир на паузе — они
+      // замирают на часе мира, и вечером по часам игрока героиня в солнечном забеге была серо-сиреневой. На забег — нейтраль
+      // (как днём), на выходе — ровно как было (мир и так пересчитает их первым же dn.update)
+      const dnKeep = [];
+      const dnNeutral = () => {
+        const U = window.DayNight && window.DayNight.uniforms; if (!U) return;
+        const put = (u, x, y, z) => { if (!u || !u.value) return; const v = u.value; dnKeep.push(v, v.x, v.y, v.z, v.w); v.x = x; v.y = y; v.z = z; };
+        [U.world, U.actor, U.sky].forEach(g => { if (!g) return; put(g.dnMul, 1, 1, 1); put(g.dnAdd, 0, 0, 0); if (g.dnP) put(g.dnP, 1, 1, g.dnP.value.z); put(g.dnMulZ, 1, 1, 1); put(g.dnAddZ, 0, 0, 0); });
+        if (U.extra && U.extra.dnX) put(U.extra.dnX, 0, 0, 0);
+      };
+      const dnRestore = () => { for (let i = 0; i < dnKeep.length; i += 5) { const v = dnKeep[i]; v.x = dnKeep[i + 1]; v.y = dnKeep[i + 2]; v.z = dnKeep[i + 3]; v.w = dnKeep[i + 4]; } dnKeep.length = 0; };
+      const resume = () => {
+        if (resumed) return; resumed = true;
+        dnRestore();
+        if (TGW && TGW.offEvent) { try { TGW.offEvent('deactivated', onTgOff); } catch (e) { /* ok */ } }
+        document.body.classList.remove('runner-on'); if (root.parentNode) root.parentNode.removeChild(root);
+        if (paused) { try { if (o.resume) o.resume(); } catch (e) { console.warn('runner resume', e); } }
+      };
+      const host = {
+        THREE: window.THREE, renderer: o.renderer, root, hero: o.hero || null, anim: o.hero && o.hero.rig ? o.hero.rig.anim : null,
+        quality: o.quality === 'high' ? 'high' : 'low', named: S0.named !== false, season: S0.season || 'autumn', save,
+        sfx: (n, d) => { if (synth) synth(n, d); },
+        haptic: k => haptic(k),
+        pauseWorld: () => { if (paused) return; paused = true; document.body.classList.add('runner-on'); try { if (o.pause) o.pause(); } catch (e) { console.warn('runner pause', e); } try { dnNeutral(); } catch (e) { /* без DayNight */ } },
+        resumeWorld: resume,
+        music: (cmd, d) => { if (typeof WORLD.runnerMusic === 'function') { try { WORLD.runnerMusic(cmd, d); } catch (e) { /* ok */ } } },
+        onClose: res => { cur = null; resume(); done(res || { score: 0, coins: 0, dist: 0, best: 0 }); },
+      };
+      cur = host;
+      emit('world:runner', { phase: 'start' });
+      Promise.resolve().then(() => r.open(host)).catch(e => { console.warn('runner open', e); cur = null; resume(); done(false); });
+      return fin.then(res => { emit('world:runner', { phase: 'end', result: res || null }); return res; });
+    }
+    return { can, label, sub, start, save, active: () => !!cur, close: () => { const r = RN(); if (cur && r && r.close) r.close(); } };
+  })();
+  WORLD.runner = RunnerHost;
+
   /* ---------- снаружи ---------- */
   const World = {
     can() { const sp = supported(); return !!(sp.ok && sp.maxTex >= 4096 && WORLD.createKit && WORLD.buildMap && WORLD.makeActors && WORLD.makeDoors && WORLD.makeMarkers && WORLD.makeUI); },
@@ -2740,6 +2863,8 @@
       overview: v => { if (!S || !W) return; S.camOverride = v; S.overview = !!v; if (v) { W.scene.fog.near = 400; W.scene.fog.far = 900; W.camera.far = 600; } else { W.scene.fog.near = W.Q.fog[0]; W.scene.fog.far = W.Q.fog[1]; W.camera.far = W.Q.far; } W.camera.updateProjectionMatrix(); },
       doors: () => World.doors(),
       trip: () => (S && S.dbg.regionTrip ? (S.dbg.regionTrip(null), true) : false),
+      // бег-раннер поверх города: запустить (как строка меню), снимок состояния и закрыть
+      runner: { go: () => (S && S.dbg.runnerGo ? S.dbg.runnerGo() : null), free: () => !!(S && S.dbg.runnerFree && S.dbg.runnerFree()), active: () => WORLD.runner.active(), api: () => (window.VILLAGE && VILLAGE.runner ? VILLAGE.runner.session : null), close: () => WORLD.runner.close() },
       bike: { mount: () => !!(S && W.bike && S.mode === 'walk' && (S.dbg.rideOn(), true)), dismount: () => W && W.bike && W.bike.dismount(), ring: () => W && W.bike && W.bike.ring(), state: () => (W && W.bike ? Object.assign({ mounted: W.bike.mounted, busy: W.bike.busy, v: W.bike.speed, ry: W.bike.ry, mode: S ? S.mode : null }, W.bike.pos) : null), ride: (ms, dir) => new Promise(res => { if (!S) return res(null); S.autopilot = () => dir; setTimeout(() => { if (S) S.autopilot = null; res(W.bike ? W.bike.pos : null); }, ms); }) },
       life: () => (W ? W.life : null),
       minimap: () => (W ? W.minimap : null),

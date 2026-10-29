@@ -319,7 +319,16 @@
   const FLAGS = ['waved', 'introDone', 'walkedOnce', 'walked3d', 'catSweater', 'metBee'];
   const CHOICE = ['catHelper', 'drink', 'syrnik', 'bouquet'];
   const HANDLED = new Set(['v', '_s', 'updated', 'eps', 'stickers', 'finds', 'versions', 'ratings', 'riddles', 'team', 'invite', 'hudSeen',
-    'engHint', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town'].concat(PREFS, FLAGS, CHOICE));
+    'engHint', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner'].concat(PREFS, FLAGS, CHOICE));
+  // раннер «Бег» (state.runner { best, bestDist, coins, runs, tut, last }): рекорды и счётчики — максимум по копиям (сыграли
+  // позже на втором устройстве — рекорд первого не пропадает), подсказки пройдены — если хоть где-то, last — из самой новой
+  // копии. Ключ «знакомый» — и в сжатую облачную копию попадает (≈ 80 символов)
+  function mergeRunner(ord) {
+    const rs = ord.map(c => c.runner).filter(isObj);
+    if (!rs.length) return undefined;
+    const nn = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.floor(v) : 0), mx = k => Math.max(...rs.map(r => nn(r[k])));
+    return { best: mx('best'), bestDist: mx('bestDist'), coins: mx('coins'), runs: mx('runs'), tut: rs.some(r => r.tut === true), last: nn(rs[0].last) };
+  }
 
   /* merge(copies, opts) — copies[0] — своя (живое состояние этого устройства), дальше — чужие копии.
      opts.dev — id этого устройства; opts.scalars === 'local' — без меток времени выборы (имя, образ, настройки) остаются
@@ -383,6 +392,8 @@
     if (w !== undefined) out.world = w;
     const t = mergeTown(ord, L0.town);
     if (t !== undefined) out.town = t;
+    const rn = mergeRunner(ord);
+    if (rn !== undefined) out.runner = rn;
     // выборы с метками: побеждает самая поздняя метка с годным значением (при равных — порядок выше: новее / своё)
     const paths = [];
     ord.forEach(c => Object.keys(stampsOf(c)).forEach(p => { if (!paths.includes(p)) paths.push(p); }));
