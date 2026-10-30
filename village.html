@@ -947,7 +947,7 @@
       if (S.mode === 'walk') {
         h.npcs.forEach(n => { if (!n.root || !n.root.visible || n.silent || !n.lines || !n.lines.length) return; cand('npc', n, n.root.position.x, n.root.position.y, n.root.position.z, (n.talkR || 2.2) + (n.id === 'eagle' ? 1.5 : 0), 'Поговорить: ' + n.name); });
         h.spots.forEach(sp => { if ((sp.level || 'ground') !== S.level) return; cand('spot', sp, sp.x, sp.y, sp.z, sp.r || 1.2, (sp.icon ? sp.icon + ' ' : '') + (sp.action || sp.label)); });
-        h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });
+        h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if (ex.drive) return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });   // правка «дороги»: drive — выход только из машины (как в игре)
         if (drv && drv.canEnter && drv.canEnter(S.px, S.pz)) { const g = { kind: 'carIn', d: 0, label: '🚗 Сесть за руль' }; if (best) S.near2 = g; else best = g; }
       } else if (drv) {
         const slow = Math.abs(drv.S.v) < 1.6, cx = drv.S.x, cz = drv.S.z;

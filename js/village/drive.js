@@ -77,6 +77,7 @@
     halfW: 0.86, halfL: 1.9, wheelR: 0.31, edgePad: 0.06, creep: 0.7, exitV: 3.0,
     susK: 230, susZ: 0.42, tiltK: 190, tiltZ: 0.45, lift: 0.12,
     yawSteer: false, aLat: 9, wLow: 1.5, rIn0: 7, rIn1: 3.5, rOut: 7, yawTau: 0.07, aLat0: 0, adapt: 1.3, assist: 0, assistBrake: 6,
+    union: false,   // правка «дороги»: мягкий край — по объединению участков road.areas (село), а не «целиком в одном»
   };
 
   /* ---------- машина: своя фабрика (волна 4: седан), городская (если есть car.js + kit.js) или запасная ---------- */
@@ -270,6 +271,17 @@
     const WOFF = [[cfg.track, cfg.wf], [-cfg.track, cfg.wf], [cfg.track, cfg.wr], [-cfg.track, cfg.wr]];
     // углы кузова для мягкого края (скруглённые: чуть внутри габарита) — колёса всегда остаются на полотне
     const CORNERS = [[cfg.halfW - 0.06, cfg.halfL * 0.66], [-(cfg.halfW - 0.06), cfg.halfL * 0.66], [cfg.halfW - 0.06, -cfg.halfL * 0.66], [-(cfg.halfW - 0.06), -cfg.halfL * 0.66]];
+    // правка «дороги» (cfg.union, село): точки кузова для проверки «целиком в объединении участков» — углы почти у габарита (90 %
+    // длины) и середины бортов (на изгибе середина борта выступает сильнее углов)
+    const UPTS = [[cfg.halfW - 0.06, cfg.halfL * 0.9], [-(cfg.halfW - 0.06), cfg.halfL * 0.9], [cfg.halfW - 0.06, -cfg.halfL * 0.9], [-(cfg.halfW - 0.06), -cfg.halfL * 0.9], [cfg.halfW - 0.06, 0], [-(cfg.halfW - 0.06), 0]];
+    function inUnion(x, z, ry) {
+      const fx_ = Math.sin(ry), fz_ = Math.cos(ry), lx = fz_, lz = -fx_;
+      for (const [ox, oz] of UPTS) {
+        const cx = x + fx_ * oz + lx * ox, cz = z + fz_ * oz + lz * ox, Ac = road.areas(cx, cz, S.s, S.sb);
+        if (!Ac.some(q => Math.abs(q.e) <= (q.e > 0 ? q.wl : q.wr) - cfg.edgePad)) return false;
+      }
+      return true;
+    }
     const WH = { g: [0, 0, 0, 0], dz: [0, 0, 0, 0], lift: [0, 0, 0, 0], kind: ['', '', '', ''], wet: [0, 0, 0, 0] };
     const surfAt = (x, z) => (road && road.surface ? road.surface(x, z, S.s) : null);
 
@@ -562,6 +574,11 @@
         };
         let best = A[0], bo = overOf(A[0], ry);
         for (let k = 1; k < A.length; k++) { const q = A[k]; if (q.s < 0.5 && q.rid) continue; const ov = overOf(q, ry); if (Math.abs(ov) < Math.abs(bo)) { best = q; bo = ov; } }
+        // правка «дороги» (cfg.union — село, сеть из многих участков): мягкий край держал машину, только если её целиком вмещал один
+        // участок; на стыках (площадь → узкий переулок, улица → площадка) на повороте её не вмещает ни один — она «ползла» у
+        // невидимого края посреди мостовой («дорога есть, а машина не едет»). Если весь кузов — внутри объединения участков,
+        // центр не толкаем (углы ниже держат, как и раньше); на одной дороге (серпентин, отель) — всё как было
+        if (bo !== 0 && cfg.union && road.areas && inUnion(nx, nz, ry)) bo = 0;
         if (bo !== 0) {
           const q = best, rel = angDiff(ry, q.th);
           nx -= q.lx * bo; nz -= q.lz * bo;

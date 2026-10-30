@@ -786,7 +786,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const consider = (kind, ref, px, py, pz) => { tmpV.set(px, py, pz).project(cam); if (tmpV.z > 1) return; const sx = (tmpV.x + 1) / 2 * W, sy = (1 - tmpV.y) / 2 * H, d = Math.hypot(sx - x, sy - y); if (d < 44 && (!best || d < best.d)) best = { kind, ref, d, x: px, z: pz }; };
       h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; const p = n.root.position; consider('npc', n, p.x, p.y + (n.headY || 1.1) * 0.6, p.z); });
       h.spots.forEach(sp => { if ((sp.level || 'ground') === S.level) consider('spot', sp, sp.x, (sp.y || 0) + 0.6, sp.z); });
-      h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if ((ex.level || 'ground') === S.level) consider('exit', ex, ex.x, (ex.y || 0) + 0.6, ex.z); });
+      h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if (!ex.drive && (ex.level || 'ground') === S.level) consider('exit', ex, ex.x, (ex.y || 0) + 0.6, ex.z); });   // правка «дороги»: drive — только из машины
       if (best) { S.moveTo = { x: best.x, z: best.z, stop: best.kind === 'npc' ? 1.6 : 0.6, thing: best }; S.moveTo.wp = pathTo(best.x, best.z); haptic('light'); return; }
       ndc.set(x / W * 2 - 1, -(y / H) * 2 + 1); ray.setFromCamera(ndc, cam); ray.far = 60;
       const hits = ray.intersectObject(h.root, true);
@@ -2805,7 +2805,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.mode === 'walk') {
         h.npcs.forEach(n => { if (!n.root.visible || n.silent || !n.lines || !n.lines.length) return; const p = n.root.position; cand('npc', n, p.x, p.y, p.z, (n.talkR || 2.2) + (n.id === 'eagle' ? 1.5 : 0), (n.id === 'roof_cat' && S.flags.bread ? 'Угостить: ' : 'Поговорить: ') + n.name); });
         h.spots.forEach(sp => { if ((sp.level || 'ground') !== S.level) return; cand('spot', sp, sp.x, sp.y, sp.z, sp.r || 1.2, (sp.icon ? sp.icon + ' ' : '') + (sp.action || sp.label)); });
-        h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if ((ex.level || 'ground') !== S.level) return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });
+        // правка «дороги»: ex.drive — выход только из машины (облако «Дорога вниз» в конце улицы: пешком туда теперь дойти можно)
+        h.exits.forEach(ex => { if (S.rid === 'serpentine' && ex.id === 'toCity') return; if (ex.drive || (ex.level || 'ground') !== S.level) return; cand('exit', ex, ex.x, ex.y, ex.z, ex.r || 2, (ex.icon ? ex.icon + ' ' : '') + ex.label); });
         // мини-игра (sp.play) рядом с жителем: главная кнопка — игра, «Поговорить» — вторая (енот-тренер у кортов, Зайчонок у мяча)
         // (вторая — коротко: «💬 Зайчонок-футболист», полная «Поговорить: …» не влезает в пилюлю на телефоне)
         if (top.play && top.npc && (best === top.play || best === top.npc)) { best = top.play; S.near2 = Object.assign({}, top.npc, { label: top.npc.label.replace(/^Поговорить: /, '💬 ') }); }
