@@ -2716,7 +2716,7 @@
        o = { renderer — ТОТ ЖЕ рендерер мира (второй WebGL-контекст на телефоне — риск вылета), hero, quality,
              pause() — остановить свой цикл и ввод, resume() — вернуть (мир продолжается с того же места) }
      Хост сам: DOM-слой поверх (#app), прячет полосу HUD и кнопки мира (body.runner-on), сохранение — в сейве игры
-     (state.runner { best, bestDist, coins, runs, tut, last }; старые сохранения без ключа — просто нули), звук — синтез
+     (state.runner { best, bestDist, coins, runs, tut, last, bestLevel, finds }; старые сохранения без ключа — просто нули), звук — синтез
      раннера (VILLAGE.runnerUI.sound) через шину эффектов игры (G.audio: «Звук» выключен — тишина), haptic — G.haptic
      (Telegram). Музыки пока нет: WORLD.runnerMusic(cmd, { speed }) — точка подключения дорожки ('play' | 'pause' | 'stop').
      WORLD.runner.can() — модуль есть, WebGL и CONFIG.UNLOCK.runner открыты; label() — строка меню (из модуля раннера:
@@ -2732,7 +2732,7 @@
       get() { const g = G_(); const st = g && g.state ? g.state() : null; const r = st && st.runner; return r && typeof r === 'object' ? Object.assign({}, r) : null; },
       set(o) {
         const g = G_(); if (!g || !g.state || !o) return;
-        const st = g.state(); st.runner = { best: num(o, 'best'), bestDist: num(o, 'bestDist'), coins: num(o, 'coins'), runs: num(o, 'runs'), tut: o.tut === true, last: num(o, 'last') };
+        const st = g.state(); st.runner = { best: num(o, 'best'), bestDist: num(o, 'bestDist'), coins: num(o, 'coins'), runs: num(o, 'runs'), tut: o.tut === true, last: num(o, 'last'), bestLevel: Math.max(1, num(o, 'bestLevel')), finds: num(o, 'finds') };   // bestLevel — лучший уровень раннера, finds — биты находок и секретов (пасхалки)
         try { g.save(); } catch (e) { /* без сохранения */ }
       },
     };

@@ -81,19 +81,59 @@
     shed: { cls: 'block', roof: 2.4, w: 2.1, h: 2.4, d: 8, dMin: 8, dMax: 16 },
     ramp: { cls: 'ramp', w: 2.1, h: 2.4, d: 4.0 },
     cart: { cls: 'block', moving: true, w: 2.0, h: 2.2, d: 4.5 },
+    // уровни 6–8 (волна 2)
+    table: { cls: 'low', w: 2.0, h: 0.8, d: 0.9 },
+    dancer: { cls: 'block', lateral: true, w: 0.8, h: 1.85, d: 0.6 },
+    sled: { cls: 'low', lateral: true, w: 1.4, h: 0.9, d: 1.0 },
+    rock: { cls: 'low', w: 1.5, h: 0.75, d: 0.9 },
+    goat: { cls: 'block', moving: true, w: 0.8, h: 1.25, d: 1.3 },
+    snowman: { cls: 'low', w: 1.9, h: 0.9, d: 0.9 },
+    icicles: { cls: 'high', w: 2.2, y0: 1.05, y1: 1.7, h: 1.7, d: 0.6 },
   };
 
-  /* ---------- темы этапов (порядок — этапы 1…6, дальше по кругу) ---------- */
+  /* ---------- темы уровней (порядок — уровни 1…9, дальше «Мастерский круг» по кругу с первой) ---------- */
   // hour — час для неба (sky.update), lm — ориентиры темы (какие могут встретиться), right — правая сторона: 'open' чаще
-  // (вид на долину) или 'houses'; garl — доля сегментов с гирляндами; trees — деревья у домов
+  // (вид на долину) или 'houses'; garl — доля сегментов с гирляндами (garlN — сколько их тогда минимум); trees — деревья у домов.
+  // Волна 2 (уровни): kind 'road' — не улица, а горная дорога (серпантин: скала слева, обрыв и море облаков справа); snow — зима
+  // своей темы (снег на крышах и уступах, белая мостовая, сугробы, снегопад — независимо от сезона игры); feast/music — свадебные
+  // столы во дворах справа и музыканты на тротуаре слева; mood — настроение неба (туман, оттенок, снегопад — MOOD).
+  // «Подпись» темы — чтобы уровни 1–4 (все дневные, на одной улице) различались с первого взгляда, а не только ориентиром раз в
+  // 3–5 сегментов: road — своя мостовая под ногами (b — терракотовая «ёлочка» базара, s — серые плиты школьного двора с мелом,
+  // k — тёмная брусчатка мастерских), walls — свой набор стен (синие и бут у мастеров, тёплые охра и штукатурка на базаре,
+  // белые и голубые у школы, тёсаный камень мастерских), flags — цвета флажков, bulbs — доля гирлянд-лампочек; carpet/rugs —
+  // ковры на стенах и на парапетах (базар), fence/chalk — ограда школьного двора вместо парапета и «классики» мелом на мостовой,
+  // stack/copper — кирпичные трубы мастерских на крышах и медные кувшины у дверей (комбинат). Всё — в сетках сегмента (0 вызовов)
   const THEMES = [
-    { id: 'masters', title: 'Улица мастеров', titleN: 'Улица мастеров', hour: 10.5, lm: ['bridge', 'tower'], lmEvery: 5, open: 0.3, garl: 0.15, shops: 0.5 },
-    { id: 'bazaar', title: 'Базарная площадь', titleN: 'Базарная площадь', hour: 12.5, lm: ['bazaar', 'cafe', 'wedding'], lmEvery: 2, open: 0.25, garl: 0.6, shops: 0.8 },
-    { id: 'school', title: 'У школы', titleN: 'У школы', hour: 14.5, lm: ['school'], lmEvery: 3, open: 0.45, garl: 0.1, shops: 0.2 },
-    { id: 'kombinat', title: 'Комбинат и крыши', titleN: 'Мастерские и крыши', hour: 16.5, lm: ['kombinat', 'bridge'], lmEvery: 3, open: 0.5, garl: 0.15, shops: 0.4 },
+    { id: 'masters', title: 'Улица мастеров', titleN: 'Улица мастеров', hour: 10.5, lm: ['bridge', 'tower'], lmEvery: 5, open: 0.3, garl: 0.15, shops: 0.5,
+      walls: ['rubble', 'rubble', 'rubble', 'rubbleY', 'blueFull', 'blueFull', 'blueFull', 'big', 'white', 'sky'] },
+    { id: 'bazaar', title: 'Базарная площадь', titleN: 'Базарная площадь', hour: 12.5, lm: ['bazaar', 'cafe', 'wedding'], lmEvery: 2, open: 0.25, garl: 0.6, shops: 0.8,
+      road: 'b', walls: ['ochre', 'ochre', 'cream', 'cream', 'pink', 'rubbleY', 'rubbleY', 'lilac', 'big', 'blueFull'], flags: ['#C8372D', '#F2C94C', '#E87A2E', '#2F8F6B', '#F5F0E6', '#8E2A2A'],
+      carpet: 0.75, rugs: 0.7 },
+    { id: 'school', title: 'У школы', titleN: 'У школы', hour: 14.5, lm: ['school'], lmEvery: 2, open: 0.45, garl: 0.35, shops: 0.2,
+      road: 's', walls: ['white', 'white', 'sky', 'sky', 'blueFull', 'cream', 'rubble', 'lilac'], flags: ['#3F78B8', '#F5F0E6', '#F2C94C', '#5FB3B3', '#E8455A'], fence: 0.8, chalk: 0.75 },
+    { id: 'kombinat', title: 'Комбинат и крыши', titleN: 'Мастерские и крыши', hour: 16.5, lm: ['kombinat', 'bridge'], lmEvery: 3, open: 0.5, garl: 0.3, bulbs: 0.8, shops: 0.5,
+      road: 'k', walls: ['big', 'big', 'rubble', 'rubble', 'rubbleY', 'ochre', 'rubble', 'blueFull'], stack: 0.55, copper: 0.5 },
     { id: 'tower', title: 'Вечер у башни', titleN: 'Вечер у башни', hour: 18.7, lm: ['tower', 'wedding', 'cafe'], lmEvery: 3, open: 0.6, garl: 0.5, shops: 0.3 },
-    { id: 'night', title: 'Ночь над селом', titleN: 'Ночь над селом', hour: 22.3, lm: ['bridge', 'cafe', 'tower'], lmEvery: 3, open: 0.55, garl: 0.45, shops: 0.3 },
+    { id: 'wedding', title: 'Свадебный двор', titleN: 'Свадебный двор', hour: 16.3, lm: ['wedding', 'cafe'], lmEvery: 2, open: 0.3, garl: 1, garlN: 2, shops: 0.25, feast: 0.6, music: 0.55 },
+    { id: 'serp', title: 'Серпантин над облаками', titleN: 'Серпантин над облаками', hour: 8.3, kind: 'road', lm: ['view'], lmEvery: 3, open: 1, garl: 0, shops: 0 },
+    { id: 'winter', title: 'Зимние Кубачи', titleN: 'Зимняя улица', hour: 12.6, snow: true, lm: ['tower', 'bridge', 'school', 'cafe'], lmEvery: 3, open: 0.4, garl: 0.3, shops: 0.35 },
+    { id: 'night', title: 'Ночь над селом', titleN: 'Ночные огни', hour: 22.3, lm: ['bridge', 'cafe', 'tower'], lmEvery: 3, open: 0.55, garl: 0.45, shops: 0.3 },
   ];
+  // настроение неба по теме (sky.update(hour, dt, camera, themeId) плавно переходит к нему): fog — туман ближе/дальше, tint —
+  // оттенок мира (множитель грейда), snow — снегопад (0…1), pano — «зима» на панораме гор (снег на зелёных склонах). Туман
+  // серпантина плотнее, но препятствия видны ≥ 6 с на 21 м/с (до 140 м — меньше 75 % тумана)
+  // Дневные уровни 1–4 — каждый своим светом: мастера — свежее утро, базар — жаркий полдень (тёплый, туман дальше), школа —
+  // прохладный ясный день, мастерские — янтарная дымка горнов (туман ближе: ≥ 6 с видимости на 16 м/с сохраняется)
+  const MOOD = {
+    base: { fog: [60, 240], tint: [1, 1, 1], snow: 0, pano: 0 },
+    masters: { fog: [58, 236], tint: [0.99, 1.0, 1.02], snow: 0, pano: 0 },
+    bazaar: { fog: [72, 252], tint: [1.07, 1.0, 0.9], snow: 0, pano: 0 },
+    school: { fog: [64, 244], tint: [0.94, 1.01, 1.06], snow: 0, pano: 0 },
+    kombinat: { fog: [42, 210], tint: [1.08, 0.97, 0.88], snow: 0, pano: 0 },
+    wedding: { fog: [60, 240], tint: [1.04, 0.99, 0.95], snow: 0, pano: 0 },
+    serp: { fog: [30, 168], tint: [0.97, 0.99, 1.04], snow: 0, pano: 0 },
+    winter: { fog: [46, 210], tint: [0.98, 1.0, 1.05], snow: 1, pano: 1 },
+  };
   const THEME = {}; THEMES.forEach(t => { THEME[t.id] = t; });
 
   /* ---------- свет по часу: опорные точки (кольцо суток) ----------
@@ -174,11 +214,35 @@
     const matA = relit(K.atlasMat), matAD = relit(K.atlasMatD), matG = relit(K.glazMatV);
     matG.userData.rk = 'glaz';
     // мостовая: округлые камни в утоптанной земле (как roadTex села), повтор 4 м; цвет вершин — пятна и тень у бордюров
-    const roadTex = (() => {
-      const N = HI ? 512 : 256, k = N / 256, [cv, c] = K.cnv(N, N), R = VK.rng(1606);
-      c.fillStyle = WIN ? '#E6EBEF' : '#B2A284'; c.fillRect(0, 0, N, N);
+    // mode: 'c' — камни (осень), 'w' — камни под снегом (зима: сезон игры или зимняя тема уровня), 'a' — горная дорога
+    // (серпантин): серый укатанный щебень с пятнами и мелкими камешками, без булыжников
+    function makeRoadTex(mode) {
+      const N = HI ? 512 : 256, k = N / 256, [cv, c] = K.cnv(N, N), R = VK.rng(mode === 'a' ? 2207 : 1606), W2 = mode === 'w';
+      // подписи тем (уровни 2–4): мостовая из прямоугольных камней по сетке, которая укладывается в плитку N × N без шва;
+      // tones — цвета камней, joint — шов, bw/bh — камень (в 1/256 плитки), herr — «ёлочка» парами (базар), run — перевязка рядов
+      const setts = (joint, tones, bw, bh, herr, run) => {
+        c.fillStyle = joint; c.fillRect(0, 0, N, N);
+        const sp = 1.6 * k, col = () => tones[Math.floor(R() * tones.length)];
+        const stone = (x, y, w, h) => { c.fillStyle = col(); c.fillRect(x + sp / 2, y + sp / 2, w - sp, h - sp); c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x + sp / 2, y + sp / 2, w - sp, (h - sp) * 0.3); c.fillStyle = 'rgba(40,30,20,0.12)'; c.fillRect(x + sp / 2, y + h - sp / 2 - (h - sp) * 0.22, w - sp, (h - sp) * 0.22); };
+        if (herr) { const u = bh * k, n = Math.round(N / (2 * u));   // корзинка: пары кирпичей 2u × u, лёжа и стоя через клетку
+          for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = i * 2 * u, y = j * 2 * u; if ((i + j) % 2) { stone(x, y, 2 * u, u); stone(x, y + u, 2 * u, u); } else { stone(x, y, u, 2 * u); stone(x + u, y, u, 2 * u); } } }
+        else { const h = bh * k, rows = Math.round(N / h), w = bw * k, cols = Math.round(N / w);
+          for (let j = 0; j < rows; j++) { const off = run ? ((j % 2) * w / 2) : 0; for (let i = -1; i < cols; i++) stone(i * w + off, j * h, w, h); } }
+        for (let i = 0; i < 1400; i++) { const g = 80 + R() * 120; c.fillStyle = `rgba(${g},${g * 0.95},${g * 0.88},${0.08 + R() * 0.16})`; c.fillRect(R() * N, R() * N, (0.8 + R() * 1.8) * k, (0.8 + R() * 1.6) * k); }
+        const t = keepO(new T.CanvasTexture(cv)); t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = HI ? 4 : 2; return t;
+      };
+      if (mode === 'b') return setts('#7E5644', ['#C98E6E', '#B97C60', '#D49C7A', '#A86F57', '#C4977C', '#D8B08E', '#BF8466'], 0, 16, true);
+      if (mode === 's') return setts('#8C9196', ['#BCC1C5', '#B1B6BB', '#C5C9CC', '#AAB0B6', '#B8BCC0'], 64, 64, false, false);
+      if (mode === 'k') return setts('#3C3936', ['#6E6A66', '#7A746D', '#625E5A', '#837A70', '#8A6A58', '#746C64'], 21.33, 12.8, false, true);
+      if (mode === 'a') {
+        c.fillStyle = '#8C8880'; c.fillRect(0, 0, N, N);
+        for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(${96 + R() * 40},${92 + R() * 36},${84 + R() * 30},0.22)`; c.beginPath(); c.ellipse(R() * N, R() * N, (8 + R() * 30) * k, (5 + R() * 18) * k, R() * PI, 0, TAU); c.fill(); }
+        for (let i = 0; i < 2600; i++) { const g = 90 + R() * 110; c.fillStyle = `rgba(${g},${g * 0.97},${g * 0.92},${0.25 + R() * 0.45})`; c.fillRect(R() * N, R() * N, (0.8 + R() * 2.2) * k, (0.8 + R() * 2) * k); }
+        const t = keepO(new T.CanvasTexture(cv)); t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = HI ? 4 : 2; return t;
+      }
+      c.fillStyle = W2 ? '#E6EBEF' : '#B2A284'; c.fillRect(0, 0, N, N);
       for (let i = 0; i < 900; i++) { c.fillStyle = `rgba(${110 + R() * 40},${92 + R() * 30},${64 + R() * 30},0.16)`; c.fillRect(R() * N, R() * N, (1 + R() * 4) * k, (1 + R() * 4) * k); }
-      const tones = WIN ? ['#F3F5F7', '#E6EAEE', '#EEF1F4', '#DCE2E8'] : ['#CFC8B8', '#BDB6A6', '#D8D1C0', '#ABA496', '#C6B9A0', '#B4AE9F', '#C9BBA2'];
+      const tones = W2 ? ['#F3F5F7', '#E6EAEE', '#EEF1F4', '#DCE2E8'] : ['#CFC8B8', '#BDB6A6', '#D8D1C0', '#ABA496', '#C6B9A0', '#B4AE9F', '#C9BBA2'];
       for (let i = 0; i < 230; i++) {
         const x = R() * N, y = R() * N, rx = (5 + R() * 6) * k, ry = rx * (0.62 + R() * 0.32), a = R() * PI, col = tones[Math.floor(R() * tones.length)];
         for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) {
@@ -189,8 +253,16 @@
         }
       }
       const t = keepO(new T.CanvasTexture(cv)); t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = HI ? 4 : 2; return t;
-    })();
+    }
+    const roadTex = makeRoadTex(WIN ? 'w' : 'c');
     const matRoad = keepO(relit(new T.MeshBasicMaterial({ map: roadTex, vertexColors: true })));
+    // зимняя тема и серпантин — свои мостовые (та же программа шейдера, другая карта); строятся при первой нужде
+    // (и мостовые-подписи уровней 2–4: b, s, k). Одна сетка на сегмент — как и было: другая карта вызовов не добавляет
+    const RMAT = { c: matRoad }; if (WIN) RMAT.w = matRoad;
+    const roadMat = kind => RMAT[kind] || (RMAT[kind] = keepO(relit(new T.MeshBasicMaterial({ map: makeRoadTex(kind), vertexColors: true }))));
+    // все мостовые — сразу, при открытии (вместе с прочей подготовкой): рисовались на первом сегменте темы, прямо в беге, и
+    // шаг фонового строителя на смене уровня доходил до 15–55 мс (зима, базар, школа)
+    if (!WIN) ['b', 's', 'k', 'w', 'a'].forEach(roadMat); else roadMat('a');
     // вывески ориентиров: свой атлас (МАРХАРАЙ, панель комбината, баннер и табличка школы, щиты лавок) — один материал
     const SIGN = buildSignAtlas();
     const matSign = keepO(relit(new T.MeshBasicMaterial({ map: SIGN.tex, vertexColors: true })));
@@ -199,6 +271,17 @@
     const matHalo = keepO(new T.PointsMaterial({ map: haloTex, size: 2.4, sizeAttenuation: true, transparent: true, depthWrite: false, blending: T.AdditiveBlending, vertexColors: true, fog: true, opacity: 0 }));
     matHalo.visible = false;
 
+    // тарелка для стены лавки (атлас вывесок, круг вписан в квадрат t): 0 — белая глазурь с кобальтом и бирюзой (как старинные
+    // расписные тарелки на стенах домов), 1 — бирюзовая с листьями, 2 — серебряное блюдо с чернью
+    function paintPlate(c, x0, y0, t, kind) {
+      const cx = x0 + t / 2, cy = y0 + t / 2, r = t / 2 - 1, P = [['#F6F2E6', '#2F57A8', '#3FA7A0'], ['#E4F1EC', '#2E8A86', '#C77D2E'], ['#DCE0E6', '#3A3F4E', '#F2F4F7']][kind];
+      const circ = (rr, col, lw) => { c.beginPath(); c.arc(cx, cy, rr, 0, TAU); if (lw) { c.strokeStyle = col; c.lineWidth = lw; c.stroke(); } else { c.fillStyle = col; c.fill(); } };
+      circ(r, P[0]); circ(r * 0.9, P[1], r * 0.1); circ(r * 0.6, P[1], r * 0.04);
+      for (let i = 0; i < (kind === 2 ? 8 : 6); i++) { const a = i / (kind === 2 ? 8 : 6) * TAU; c.save(); c.translate(cx, cy); c.rotate(a);
+        c.fillStyle = P[1]; c.beginPath(); c.ellipse(0, -r * 0.33, r * 0.09, r * 0.2, 0, 0, TAU); c.fill();
+        c.fillStyle = P[2]; c.beginPath(); c.arc(0, -r * 0.74, r * 0.06, 0, TAU); c.fill(); c.restore(); }
+      circ(r * 0.12, P[2]); circ(r * 0.99, 'rgba(58,46,63,0.35)', r * 0.03);
+    }
     /* --- атлас вывесок: canvas один на набор, места — rect в долях (u0, v0, u1, v1); flipY по умолчанию --- */
     function buildSignAtlas() {
       const W = HI ? 2048 : 1024, k = W / 1024, [cv, c] = K.cnv(W, W), rect = {};
@@ -223,6 +306,39 @@
       const sw = W / 4, sh = Math.round(sw / 3.2);
       SH.forEach(([id, text, bg, fg], i) => { if (i % 4 === 0 && i) y += sh + 4; const src = K.signCanvas(text, { bg, fg, size: 64, pad: 26, r: 12, border: fg }); put(id, src, sh, (i % 4) * sw, sw - 4); });
       y += sh + 4;
+      // серпантин (волна 2, как щиты дороги к селу в игре): «Осторожно, камушки» — жёлтый треугольник, три круглых камушка с
+      // глазками катятся со скалы (мило, не страшно), белая табличка; «Смотровая» — деревянная доска
+      { const [pc, q] = K.cnv(380, 300), cx = 190, top = 8, base = 196, rr = (x, yy, w, h, r) => K.rrect ? K.rrect(q, x, yy, w, h, r) : (q.beginPath(), q.rect(x, yy, w, h));
+        q.fillStyle = '#FFFDF9'; rr(2, 2, 376, 296, 26); q.fill();
+        q.fillStyle = '#F6C445'; q.beginPath(); q.moveTo(cx, top + 14); q.lineTo(334, base); q.lineTo(46, base); q.closePath(); q.lineJoin = 'round'; q.lineWidth = 14; q.strokeStyle = '#E4A92E'; q.stroke(); q.fill();
+        q.fillStyle = '#5A4A3E'; q.beginPath(); q.moveTo(cx - 70, base - 14); q.lineTo(cx - 70, top + 92); q.lineTo(cx - 30, top + 70); q.lineTo(cx - 34, base - 14); q.closePath(); q.fill();
+        [[cx - 8, top + 104, 15], [cx + 30, top + 132, 19], [cx + 72, base - 26, 22]].forEach(([x, yy, r], i) => {
+          q.fillStyle = ['#9C8E80', '#B3A596', '#8E8072'][i]; q.beginPath(); q.arc(x, yy, r, 0, TAU); q.fill();
+          q.fillStyle = '#FFFFFF'; q.beginPath(); q.arc(x - r * 0.32, yy - r * 0.12, r * 0.24, 0, TAU); q.arc(x + r * 0.28, yy - r * 0.12, r * 0.24, 0, TAU); q.fill();
+          q.fillStyle = '#3A2E3F'; q.beginPath(); q.arc(x - r * 0.28, yy - r * 0.08, r * 0.12, 0, TAU); q.arc(x + r * 0.32, yy - r * 0.08, r * 0.12, 0, TAU); q.fill(); });
+        q.fillStyle = '#FFFDF9'; rr(18, 214, 344, 80, 16); q.fill(); q.strokeStyle = '#3A2E3F'; q.lineWidth = 5; rr(26, 222, 328, 64, 11); q.stroke();
+        q.fillStyle = '#3A2E3F'; q.font = '800 38px Nunito, sans-serif'; q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText('Осторожно, камушки', cx, 255, 300);
+        const h2 = Math.round(170 * k); put('pebbles', pc, h2, 0, Math.round(h2 * 380 / 300)); }
+      { const src = K.signCanvas('Смотровая', { bg: '#8A6A4E', fg: '#FFF3DC', size: 64, pad: 22, r: 14 }), h2 = Math.round(64 * k); put('view', src, h2, Math.round(230 * k), Math.min(W - Math.round(230 * k), Math.round(h2 * src.width / src.height))); }
+      y += Math.round(174 * k);
+      // пасхалки (роль EGGS) — свободный низ атласа (без новых материалов и вызовов: щиты сегмента уже рисуются этим атласом):
+      // ряд A (y 852, 104 × 104, правее таблички камушков): резные камни — те же четыре, что в селе (vkit.carvedTex: парные
+      // львы с одной головой, олень, две птицы, ветка), три тарелки (расписная кобальтом, бирюзовая, с чернью — висят в глубине
+      // лавок); ряд B (y 960): указатели к лестницам между домами (названия — только в named) и табличка «10/10» — номер дома,
+      // кивок названию игры
+      { const R4 = (id, x0, y0, w, h) => { rect[id] = [x0 / W, 1 - (y0 + h) / W, (x0 + w) / W, 1 - y0 / W, w / h]; };
+        const t = Math.round(104 * k), ya = Math.round(852 * k), xa = Math.round(232 * k), cimg = K.carvedTex && K.carvedTex.image;
+        for (let i = 0; i < 4; i++) { const x0 = xa + i * (t + 4);
+          if (cimg) c.drawImage(cimg, i * 128, 0, 128, 128, x0, ya, t, t); else { c.fillStyle = '#C4B596'; c.fillRect(x0, ya, t, t); }
+          R4('carv' + i, x0, ya, t, t); }
+        for (let i = 0; i < 3; i++) { const x0 = xa + (4 + i) * (t + 4); paintPlate(c, x0, ya, t, i); R4('plate' + i, x0, ya, t, t); }
+        const yb = Math.round(960 * k), hb = Math.round(58 * k), wb = Math.round(150 * k);
+        const board = (x0, w, s, bg, fg) => { c.fillStyle = bg; if (K.rrect) K.rrect(c, x0 + 1, yb + 1, w - 2, hb - 2, 10 * k); else { c.beginPath(); c.rect(x0 + 1, yb + 1, w - 2, hb - 2); } c.fill();
+          c.strokeStyle = fg; c.lineWidth = 2.5 * k; if (K.rrect) K.rrect(c, x0 + 5 * k, yb + 5 * k, w - 10 * k, hb - 10 * k, 7 * k); c.stroke();
+          c.fillStyle = fg; c.font = `800 ${Math.round(hb * 0.46)}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, x0 + w / 2, yb + hb / 2 + 1 * k, w - 16 * k); };
+        (named ? ['← Годекан', '← К роднику', '← К башне', '← Комбинат'] : ['← Площадь', '← К роднику', '← К башне', '← Мастерские'])
+          .forEach((s, i) => { const x0 = i * (wb + 4); board(x0, wb, s, '#8A6A4E', '#FFF3DC'); R4('post' + i, x0, yb, wb, hb); });
+        { const x0 = 4 * (wb + 4), w0 = Math.round(92 * k); board(x0, w0, '10/10', '#3F78B8', '#FFFFFF'); R4('num', x0, yb, w0, hb); } }
       const tex = keepO(new T.CanvasTexture(cv)); tex.anisotropy = HI ? 4 : 2;
       return { tex, rect, cv };
     }
@@ -257,10 +373,11 @@
       g.setAttribute('aFx', new T.BufferAttribute(a, 2));
     }
     // зима: верхние грани — снег (вершинным цветом), как snowify села; bk.noSnow — диапазоны, окрашенные заранее
-    const snowify = bk => { if (!WIN) return; for (let i = 0; i < bk.n; i++) { const ny = bk.N[i * 3 + 1]; if (ny > 0.42) { const k = 0.9 * sst(0.42, 0.7, ny); for (let q = 0; q < 3; q++) bk.C[i * 3 + q] = lerp(bk.C[i * 3 + q], SNOW[q] * 1.08, k); } } };
+    // on — снег своей темы (зимний уровень); amt — сила (препятствиям меньше: белая крыша сарая на белой мостовой — «дыра»)
+    const snowify = (bk, on, amt) => { if (!WIN && !on) return; const A = amt || 0.9; for (let i = 0; i < bk.n; i++) { const ny = bk.N[i * 3 + 1]; if (ny > 0.42) { const k = A * sst(0.42, 0.7, ny); for (let q = 0; q < 3; q++) bk.C[i * 3 + q] = lerp(bk.C[i * 3 + q], SNOW[q] * 1.08, k); } } };
     function meshOf(bk, mat, o = {}) {
       if (!bk || !bk.n) return null;
-      snowify(bk);
+      snowify(bk, o.snow);
       const g = bk.build(); if (!g) return null; unkeep(g); addFx(g, bk.fxR, o.lampFn);
       const m = new T.Mesh(g, mat); m.matrixAutoUpdate = false; m.updateMatrix(); m.castShadow = m.receiveShadow = false; if (o.name) m.name = o.name; return m;
     }
@@ -457,8 +574,14 @@
         qv(bk, F, [[dx - 0.08, 0.85, zd + 0.01], [dx + 0.08, 0.85, zd + 0.01], [dx + 0.08, 0.9, zd + 0.01], [dx - 0.08, 0.9, zd + 0.01]], C('gilt'), S.FLAT);
         qv(bk, F, [[dx - 0.58, 1.75, zd + 0.004], [dx + 0.58, 1.75, zd + 0.004], [dx + 0.58, 1.97, zd + 0.004], [dx - 0.58, 1.97, zd + 0.004]], mul(C('ochre2'), 0.95), S.ASHLAR);
         bk.box(F, dx, 0.05, D / 2 + 0.2, 1.1, 0.1, 0.36, { col: mul(C('tread'), 0.95), s: S.SLAB, skip: { ny: 1 } });
+        // пасхалки: резной камень над дверью (как камни с рельефом в стенах домов села: львы, олень, птицы, ветка) или
+        // табличка «10/10» у двери — номер дома и кивок названию игры
+        if (h.eg) { const eg = h.eg, pr = R();
+          if (pr < 0.22 && eg.carved < 2) { eg.carved++; const tl = 'carv' + Math.floor(R() * 4); eg.egg.push(() => decal(h.bs, F, dx, 2.19, zd + 0.012, 0.42, 0.42, tl)); }
+          else if (pr > 0.95) { const nx = dx + (dx > 0 ? -0.72 : 0.72); eg.egg.push(() => decal(h.bs, F, nx, 1.55, zd + 0.012, 0.3, 0.3 / SIGN.rect.num[4], 'num')); } }
         if (W > 3.6) { const wx = dx > 0 ? dx - 1.5 : dx + 1.5; if (Math.abs(wx) < W / 2 - 0.4) glass(gz, F, wx, 1.45, D / 2 + 0.02, 0.55, 0.66, 1, C('frameWhite'), R() < gl ? 1 : 0); }
         if (h.lantern) wallLantern(bk, F, dx + (dx > 0 ? -0.85 : 0.85), 2.05, D / 2 + 0.24, halos);
+        if (h.copper) copperJugs(bk, F, dx + (dx > 0 ? -1.0 : 1.0), D / 2 + 0.32, R);
         // герань на подоконнике и в горшках у двери (p2: красные пятнышки у синих стен) — high
         if (HI && R() < 0.5) { const q = F.p(dx + 0.75, 0.2, D / 2 + 0.25); bk.cyl(q[0], q[1] - 0.2, q[2], 0.13, 0.16, 0.26, { seg: 6, col: C('rust') }); bk.sph(q[0], q[1] + 0.2, q[2], 0.2, 0.15, 0.2, C('geraniumLeaf'), { seg: 6, rings: 3 }); bk.sph(q[0], q[1] + 0.3, q[2], 0.12, 0.08, 0.12, C('geranium'), { seg: 5, rings: 3 }); }
       }
@@ -473,7 +596,9 @@
         bk.box(F, bx, y, D / 2 + 0.4, bw2, 0.12, 0.8, { col: C('woodD'), cols: { py: C('wood') } });
         barF(bk, F, [bx - bw2 / 2, y + 0.95, D / 2 + 0.78], [bx + bw2 / 2, y + 0.95, D / 2 + 0.78], 0.06, C('wood'));
         for (let k2 = 0; k2 <= 5; k2++) { const x = bx - bw2 / 2 + bw2 * k2 / 5; barF(bk, F, [x, y + 0.06, D / 2 + 0.78], [x, y + 0.95, D / 2 + 0.78], 0.04, C('woodD')); }
-        [-1, 1].forEach(sd => barF(bk, F, [bx + sd * bw2 / 2, y + 0.95, D / 2 + 0.05], [bx + sd * bw2 / 2, y + 0.95, D / 2 + 0.78], 0.06, C('wood'))); }
+        [-1, 1].forEach(sd => barF(bk, F, [bx + sd * bw2 / 2, y + 0.95, D / 2 + 0.05], [bx + sd * bw2 / 2, y + 0.95, D / 2 + 0.78], 0.06, C('wood')));
+        // пасхалка: барсук-гравёр (житель игры, лупа на лбу) машет с балкона
+        if (h.eg && h.eg.cameo < 1 && R() < 0.45) { h.eg.cameo++; const q = F.p(bx + 0.4, y + 0.06, D / 2 + 0.42); cameo(bk, new K.Frame(q[0], q[1], q[2], F.ry), 'badger'); } }
       const rh = roofGeo(bk, F, h, W, D, H, R, { wall: side, sideL: h.nbL < h.y0 + H - 0.3, sideR: h.nbR < h.y0 + H - 0.3, back: true, rust: true, yardLife: h.yardLife });
       h.roofTop = h.y0 + H + rh + 0.1;
       // трубы: металлические (оцинковка) и изредка каменная
@@ -481,6 +606,10 @@
       for (let i = 0; i < np; i++) { const lx = (R() - 0.5) * W * 0.6, lz = -D / 2 + 0.6 + R() * 1.2, q = F.p(lx, H + 0.1 + rh * 0.55, lz), hh = 0.6 + R() * 0.4;
         bk.cyl(q[0], q[1], q[2], 0.06, 0.06, hh, { seg: 5, col: rgb('#8E918C'), cap: false }); bk.cyl(q[0], q[1] + hh, q[2], 0.13, 0.0, 0.16, { seg: 5, col: rgb('#6E716D') }); }
       if (R() < 0.15) bk.box(F, W / 2 - 0.6, H + 0.4 + rh * 0.4, -D / 2 + 0.6, 0.42, 0.85, 0.42, { col: [0.95, 0.95, 0.95], s: S.RUBBLE, cols: { py: C('parapetCap') } });
+      // мастерские: высокая кирпичная труба горна с тёмным оголовком (видна на фоне неба — силуэт улицы мастерских)
+      if (h.stack) { const sx = clamp((R() - 0.5) * W * 0.5, -W / 2 + 0.5, W / 2 - 0.5), sh = 1.7 + R() * 0.7, y0 = H + rh * 0.3;
+        bk.box(F, sx, y0 + sh / 2, -D / 4, 0.56, sh, 0.56, { col: p => mul(BRICK, 0.9 + 0.1 * Math.sin(p[1] * 9)), skip: { ny: 1 } });
+        bk.box(F, sx, y0 + sh + 0.08, -D / 4, 0.7, 0.16, 0.7, { col: mul(BRICK, 0.62) }); }
       if (h.stair && W >= 4.4) blueStair(bk, F, h, W, D);
     }
 
@@ -500,6 +629,8 @@
       for (let i = 0; i < 4; i++) { const x = ox - ow / 2 + 0.35 + i * (ow - 0.7) / 3, q = F.p(x, 0.9, D / 2 + 0.3), c = ware[(i + Math.floor(R() * 5)) % 5];
         if (i % 2) { bk.cyl(q[0], q[1], q[2], 0.09, 0.12, 0.18, { seg: 6, col: c }); bk.cyl(q[0], q[1] + 0.18, q[2], 0.12, 0.05, 0.12, { seg: 6, col: c }); }
         else bk.cyl(q[0], q[1], q[2], 0.17, 0.17, 0.03, { seg: 8, col: c }); }
+      // пасхалка: в глубине лавки на стене — расписные тарелки (старинные тарелки на стенах — примета здешних домов)
+      if (h.eg) { const n = ow > 1.8 ? 3 : 2, ks = Math.floor(R() * 3); for (let j = 0; j < n; j++) { const px = ox + (j - (n - 1) / 2) * 0.56, py = 1.5 + (j % 2) * 0.08, id = 'plate' + ((ks + j) % 3); h.eg.egg.push(() => plateDecal(h.bs, F, px, py, zd + 0.006, 0.17, id)); } }
       // вывеска-«флажок» поперёк тротуара (лицом вдоль улицы — читается на подходе, в отличие от щита на фасаде): кованый
       // кронштейн, деревянная доска, надпись — в сетке вывесок сегмента (h.bs)
       if (h.bs) { const ids = { M: 'shopM', L: 'shopL', F: 'shopF', P: 'shopP', B: 'shopB', K: 'shopK', S: 'shopS' }, id = ids[h.shop] || 'shopM', r = SIGN.rect[id];
@@ -517,7 +648,7 @@
        ================================================================= */
     // мостовая: сетка 1 × 2,5 м (пятна света фонарей — цветом свечения вершин), uv в метрах / 4 (длины сегментов делятся на 4)
     const RT = 2.5;   // метров на плитку мостовой (камень ≈ 12–20 см; длины сегментов кратны 20 — шва нет)
-    function roadGeo(len, lamps, extra) {
+    function roadGeo(len, lamps, extra, kind) {
       const bk = new K.Baker('atlas'), xs = [-4, -3.4, -2.4, -1.4, -0.6, 0, 0.6, 1.4, 2.4, 3.4, 4], dz = 2.5, nz = Math.round(len / dz);
       // тон: у бордюров темнее (сток), посередине полос — светлее (натоптано); пятна — периодом 20 м (без шва между сегментами)
       const tone = (x, z) => { const ax = Math.abs(x), w = Math.sin(z * TAU / 20 + x * 0.9) * Math.sin(z * TAU / 40 - x * 0.6);
@@ -525,13 +656,19 @@
       for (let j = 0; j < nz; j++) { const z0 = -j * dz, z1 = -(j + 1) * dz;
         for (let i = 0; i < xs.length - 1; i++) { const x0 = xs[i], x1 = xs[i + 1];
           bk.quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], p => tone(p[0], p[2]), S.FLAT, [[x0 / RT, z0 / RT], [x1 / RT, z0 / RT], [x1 / RT, z1 / RT], [x0 / RT, z1 / RT]], [0, 1, 0]); } }
+      // горная дорога: белая кромка и пунктир между полосами (полосы читаются и в тумане)
+      if (kind === 'a') { const wc = [1.55, 1.55, 1.5];
+        for (let j = 0; j < nz; j++) { const z0 = -j * dz, z1 = -(j + 1) * dz;
+          [-3.85, 3.85].forEach(x => bk.quad([x - 0.07, 0.004, z0], [x + 0.07, 0.004, z0], [x + 0.07, 0.004, z1], [x - 0.07, 0.004, z1], wc, S.FLAT, [[0.3, 0.3], [0.31, 0.3], [0.31, 0.31], [0.3, 0.31]], [0, 1, 0]));
+          if (j % 2 === 0) [-1.2, 1.2].forEach(x => bk.quad([x - 0.06, 0.004, z0 - 0.3], [x + 0.06, 0.004, z0 - 0.3], [x + 0.06, 0.004, z1 - 0.3], [x - 0.06, 0.004, z1 - 0.3], wc, S.FLAT, [[0.3, 0.3], [0.31, 0.3], [0.31, 0.31], [0.3, 0.31]], [0, 1, 0])); } }
       // площади (базар): та же мостовая клетками 2,5 м, у краёв темнее
       (extra || []).forEach(([xa, xb, za, zb]) => { const nx = Math.max(1, Math.round((xb - xa) / 2.5)), nzz = Math.max(1, Math.round((za - zb) / 2.5));
         for (let j = 0; j < nzz; j++) for (let i = 0; i < nx; i++) { const x0 = lerp(xa, xb, i / nx), x1 = lerp(xa, xb, (i + 1) / nx), z0 = lerp(za, zb, j / nzz), z1 = lerp(za, zb, (j + 1) / nzz);
           const tn = p => { const e = Math.min(p[0] - xa, xb - p[0], za - p[2], p[2] - zb); return mul([1, 0.99, 0.97], (e < 0.8 ? 0.84 : 1) * (0.95 + 0.05 * Math.sin(p[0] * 0.7 + p[2] * 0.5))); };
           bk.quad([x0, 0.005, z0], [x1, 0.005, z0], [x1, 0.005, z1], [x0, 0.005, z1], tn, S.FLAT, [[x0 / RT, z0 / RT], [x1 / RT, z0 / RT], [x1 / RT, z1 / RT], [x0 / RT, z1 / RT]], [0, 1, 0]); } });
       const lampFn = lamps.length ? (x, y, z) => { let a = 0; for (let i = 0; i < lamps.length; i += 4) { const dx = x - lamps[i] * 0.82, dzz = z - lamps[i + 2]; a += lamps[i + 3] * Math.exp(-(dx * dx + dzz * dzz) / 9); } return Math.min(0.6, a * 0.5); } : null;
-      return meshOf(bk, matRoad, { lampFn, name: 'road' });
+      // зимой (сезон игры) мостовые тем под снегом — общая белая
+      return meshOf(bk, roadMat(kind === 'a' ? 'a' : WIN ? 'c' : kind || 'c'), { lampFn, name: 'road' });
     }
     // бордюр, тротуар, плитняк-«дорожки» между полосами (подсказка полос, как старые плиты в мостовой)
     function curbsGeo(bk, len, R) {
@@ -584,6 +721,9 @@
       for (let i = 0; i <= n; i++) { const z = lerp(z0, z1, i / n); bar(bk, [xr, yT, z], [xr, yT + 0.64, z], 0.045, rail); }
       // герань в ящике на парапете — изредка (тёплое пятно у голубых перил)
       if (R() < 0.35) { const z = lerp(z0, z1, 0.3 + R() * 0.4); bk.box(new K.Frame(xr, yT, z, 0), 0, 0.1, 0, 0.3, 0.2, 0.7, { col: C('rust') }); bk.sph(xr, yT + 0.28, z, 0.18, 0.12, 0.34, C('geraniumLeaf'), { seg: 5, rings: 3 }); bk.sph(xr, yT + 0.36, z, 0.12, 0.07, 0.24, C('geranium'), { seg: 5, rings: 2 }); }
+      // пасхалка: голуби на шапке парапета (житель игры: «Курлы. Это наше метро»), по двое-трое, смотрят кто куда
+      if (EGG && Math.abs(z1 - z0) > 2.5 && R() < 0.24) { const n = 2 + Math.floor(R() * 2), dz = z1 < z0 ? -1 : 1, zc = lerp(z0, z1, 0.2 + R() * 0.4);
+        for (let i = 0; i < n; i++) cameo(bk, new K.Frame(xr + (R() - 0.5) * 0.1, yT, zc + dz * i * (0.38 + R() * 0.2), (R() < 0.5 ? -PI / 2 : PI / 2) + (R() - 0.5) * 1.2), 'pigeon'); }
     }
     // проход-лестница вверх между домами слева: каменные ступени к верхнему ряду (иногда синие подступёнки)
     function stairLane(bk, z0, z1, yTop, R) {
@@ -596,7 +736,9 @@
     }
     // гирлянда поперёк улицы (свадебные флажки или лампочки) — в сетку «над головой» (ядро прячет эту сетку на время параплана)
     const FLAGC = ['#E8455A', '#F2C94C', '#5FB3B3', '#F5F0E6', '#8E3A7A', '#3F78B8', '#F28C3A'].map(rgb);
-    function garland(bk, z, kind, halos, R) {
+    const FLAGT = {}; THEMES.forEach(t => { if (t.flags) FLAGT[t.id] = t.flags.map(rgb); });   // флажки темы (базар — красно-золотые, школа — сине-белые)
+    function garland(bk, z, kind, halos, R, pal) {
+      const FC = pal || FLAGC;
       const xa = -5.9, xb = 5.9, yA = GAR.y1 + (R() - 0.5) * 0.2, yB = GAR.y1 + (R() - 0.5) * 0.2, sag = yA - GAR.y0, zj = (R() - 0.5) * 1.2;
       const at = t => { const x = lerp(xa, xb, t), u = 2 * t - 1; return [x, lerp(yA, yB, t) - sag * (1 - u * u), z + zj * Math.sin(t * PI)]; };
       const N = 10; for (let i = 0; i < N; i++) bar(bk, at(i / N), at((i + 1) / N), 0.025, rgb('#3A3A40'));
@@ -605,7 +747,7 @@
         return;
       }
       const n0 = bk.n, k0 = Math.floor(R() * 7);
-      for (let i = 1; i < 21; i++) { const t = i / 21, p = at(t), c = FLAGC[(i + k0) % FLAGC.length], a = [p[0] - 0.16, p[1], p[2]], b = [p[0] + 0.16, p[1], p[2]], d = [p[0], p[1] - 0.38, p[2] + 0.02];
+      for (let i = 1; i < 21; i++) { const t = i / 21, p = at(t), c = FC[(i + k0) % FC.length], a = [p[0] - 0.16, p[1], p[2]], b = [p[0] + 0.16, p[1], p[2]], d = [p[0], p[1] - 0.38, p[2] + 0.02];
         bk.tri(a, b, d, c, S.FLAT, null, [0, 0, 1]); bk.tri(b, a, d, mul(c, 0.82), S.FLAT, null, [0, 0, -1]); }
       fxMark(bk, n0, 0, 1);
     }
@@ -639,12 +781,15 @@
     const LEFT_ROWS = [{ xa: -12.6, y0: 4.8, st: [2, 3] }, { xa: -20.0, y0: 9.6, st: [2, 3] }];
     // спецификация дома ряда; side −1 — фасад на +x, +1 — на −x; xf — линия фасада (|x|)
     function houseSpec(R, th, side, xf, zc, w, y0, st, o = {}) {
-      const d = o.d || 5.4 + R() * 1.6, storeys = st, H = storeys * ST + (R() < 0.3 ? 0.3 : 0), wall = o.wall || WALLS[Math.floor(R() * WALLS.length)];
+      const WL = (th && th.walls) || WALLS, d = o.d || 5.4 + R() * 1.6, storeys = st, H = storeys * ST + (R() < 0.3 ? 0.3 : 0), wall = o.wall || WL[Math.floor(R() * WL.length)];
       const flat = R() < (o.flat !== undefined ? o.flat : 0.5), roof = flat ? 'flat' : ['hip', 'hip', 'shed', 'gable'][Math.floor(R() * 4)];
       const h = { x: side < 0 ? -(xf + d / 2) : xf + d / 2, y0, z: zc, ry: side < 0 ? PI / 2 : -PI / 2, w, d, h: H, storeys, wall, roof, roofMat: flat ? 'yard' : ROOFM[Math.floor(R() * ROOFM.length)], side,
         blue: wall === 'blueFull' || R() < 0.15, blueBand: R() < 0.25, nbL: -99, nbR: -99, glow: o.glow !== undefined ? o.glow : 0.4, lod: !!o.lod, foot: o.foot, back: o.back, backWin: o.backWin, yardLife: flat && o.yardLife };
       if (storeys > 1 && R() < (o.gal !== undefined ? o.gal : 0.55)) { const gst = storeys > 2 && R() < 0.4 ? [1, 2] : [storeys - 1]; h.gallery = { storeys: gst, proj: R() < 0.55 ? 0.45 : 0, frame: FRAMES[Math.floor(R() * FRAMES.length)], g1: R() < 0.6 }; }
-      if (!o.lod) { h.stair = R() < 0.18 && w >= 4.4 && storeys > 1 && !(h.gallery && h.gallery.storeys.includes(1) && h.gallery.proj > 0); h.balcony = R() < 0.18; h.lantern = R() < 0.35; if (R() < (o.shops || 0)) h.shop = 'MLFPBKS'[Math.floor(R() * 7)]; }
+      if (!o.lod) { h.stair = R() < 0.18 && w >= 4.4 && storeys > 1 && !(h.gallery && h.gallery.storeys.includes(1) && h.gallery.proj > 0); h.balcony = R() < 0.18; h.lantern = R() < 0.35; if (R() < (o.shops || 0)) h.shop = 'MLFPBKS'[Math.floor(R() * 7)];
+        // мастерские: кирпичная труба горна на крыше и медные кувшины у двери (лишние R() — только у этой темы: улицы прочих
+        // тем при том же зерне не меняются)
+        if (th && th.stack) { h.stack = R() < th.stack; h.copper = R() < th.copper; } }
       return h;
     }
     // соседи по ряду: высота соседа со стороны локального −x / +x (слева локальный +x → мир −z, справа → +z)
@@ -762,7 +907,9 @@
         const n0 = bk.n; qv(bk, F, [[x0, 0.05, z1], [x1, 0.05, z1], [x1, top, z1], [x0, top, z1]], rgb('#6E8A96'), S.FLAT); fxMark(bk, n0, 0.7, 0);
         [x0, (x0 + x1) / 2 - 0.9, (x0 + x1) / 2 + 0.9, x1].forEach(x => bk.box(F, x, top / 2, z1 + 0.03, 0.09, top, 0.09, { col: ALU }));
         [-1, 1].forEach(sd => { const x = sd > 0 ? x1 : x0; const n1 = bk.n; qv(bk, F, sd > 0 ? [[x, 0.05, z1], [x, 0.05, zF], [x, top, zF], [x, top, z1]] : [[x, 0.05, zF], [x, 0.05, z1], [x, top, z1], [x, top, zF]], rgb('#6A8692'), S.FLAT); fxMark(bk, n1, 0.5, 0); });
-        [x0 + 1.0, (x0 + x1) / 2, x1 - 1.0].forEach(x => { const p = F.p(x, top - 0.02, z1 + 0.5); c.halos.push(p[0], p[1], p[2], 0.6); }); }
+        [x0 + 1.0, (x0 + x1) / 2, x1 - 1.0].forEach(x => { const p = F.p(x, top - 0.02, z1 + 0.5); c.halos.push(p[0], p[1], p[2], 0.6); });
+        // пасхалка: сова-хранительница музея комбината сидит на козырьке и смотрит на улицу
+        if (EGG) { const q = F.p((x0 + x1) / 2 + 1.4, top + 0.3, z1 + 0.3); cameo(bk, new K.Frame(q[0], q[1], q[2], F.ry), 'owl'); } }
       // площадь: плиты, дорожка-«ковёр» от тротуара к тамбуру, газоны, ограда с проёмом, скамьи, фонари, деревья
       plaza(bk, -1, tf, mul(C('slab'), 1.03));
       { const yy = WALK_Y + 0.012, n = tf.n, a = F.p((x0 + x1) / 2 - 1.3, 0, z1 + 0.3), b = F.p((x0 + x1) / 2 + 1.3, 0, z1 + 0.3), ta = (-WALK - a[0]) / n[0], tb = (-WALK - b[0]) / n[0];
@@ -781,6 +928,30 @@
     function bench(bk, x, z, ry) { const F = new K.Frame(x, WALK_Y, z, ry), wd = C('wood'), met = rgb('#3A3A40');
       bk.box(F, 0, 0.45, 0, 1.6, 0.06, 0.42, { col: wd }); bk.box(F, 0, 0.75, -0.2, 1.6, 0.3, 0.05, { col: wd });
       [-0.7, 0.7].forEach(lx => bk.box(F, lx, 0.22, 0, 0.06, 0.45, 0.4, { col: met })); }
+    /* --- пасхалки в сегменте (роль EGGS, js/village/runner_eggs.js): жители-камео запекаются в сетку улицы (0 вызовов), наклейки
+       (резные камни, тарелки в лавках, указатели, «10/10») — в сетку вывесок и ТОЛЬКО если она в сегменте уже есть: c.egg — список
+       отложенных постановок, выполняется в конце сборки при bs.n > 0 (лишнего вызова отрисовки на сегмент без щитов нет) --- */
+    const EGG = V.runnerEggs || null;
+    const EH = { tube, bar, rgb, mul, mix, Frame: K.Frame, S, fx: (bk, n0, l, w) => fxMark(bk, n0, l, w) };
+    let cameoWarn = false;
+    const CAMEO_N = {};   // сколько жителей каждого вида запечено (стенд и заметки: seg.eggs)
+    let TRACE = null;     // стенд пасхалок: [вид, x, y, z, поворот] — где стоят жители и наклейки (в игре null — ничего не копится)
+    function cameo(bk, F, kind) { if (!EGG || !EGG.critter) return; CAMEO_N[kind] = (CAMEO_N[kind] || 0) + 1; if (TRACE) TRACE.push([kind, F.ox, F.oy, F.oz, F.ry]); try { EGG.critter(bk, F, kind, EH); } catch (e) { if (!cameoWarn) { cameoWarn = true; console.warn('runnerKit: cameo', kind, e); } } }
+    // наклейка из атласа вывесок в рамке F лицом к локальному +z (центр x, y, z; размер w × h)
+    function decal(bs, F, x, y, z, w, h, id) { const r = SIGN.rect[id]; if (!r) return; const col = [1.1, 1.1, 1.1]; if (TRACE) TRACE.push([id].concat(F.p(x, y, z), [F.ry]));
+      bs.quad(F.p(x - w / 2, y - h / 2, z), F.p(x + w / 2, y - h / 2, z), F.p(x + w / 2, y + h / 2, z), F.p(x - w / 2, y + h / 2, z), col, S.FLAT, [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]); }
+    // тарелка — круг из веера треугольников (квадрат атласа дал бы тёмные углы на стене)
+    function plateDecal(bs, F, x, y, z, rad, id) { const r = SIGN.rect[id]; if (!r) return; if (TRACE) TRACE.push([id].concat(F.p(x, y, z), [F.ry])); const cu = (r[0] + r[2]) / 2, cv = (r[1] + r[3]) / 2, ru = (r[2] - r[0]) / 2, rv = (r[3] - r[1]) / 2, n = 14, col = [1.1, 1.1, 1.1];
+      for (let i = 0; i < n; i++) { const a0 = i / n * TAU, a1 = (i + 1) / n * TAU;
+        bs.tri(F.p(x, y, z), F.p(x + Math.cos(a0) * rad, y + Math.sin(a0) * rad, z), F.p(x + Math.cos(a1) * rad, y + Math.sin(a1) * rad, z), col, S.FLAT, [[cu, cv], [cu + Math.cos(a0) * ru, cv + Math.sin(a0) * rv], [cu + Math.cos(a1) * ru, cv + Math.sin(a1) * rv]]); } }
+    // указатель у лестницы между домами слева: столбик на тротуаре, доска лицом к набегающей героине, стрелка — к лестнице
+    function signPost(bk, bs, z, i) {
+      const x = -WALK + 0.32, F = new K.Frame(x, WALK_Y, z, 0), wd = C('woodD'), r = SIGN.rect['post' + i]; if (!r) return;
+      const w = 1.0, h = w / r[4], y = 2.3;
+      bk.cyl(x, WALK_Y, z, 0.05, 0.045, y + h / 2 + 0.1, { seg: 5, col: wd, cap: false });
+      bk.box(F, 0.34, y, 0, w + 0.07, h + 0.07, 0.05, { col: wd });
+      decal(bs, F, 0.34, y, 0.028, w, h, 'post' + i);
+    }
 
     // школа (по schoolGeo села, проще): силикатный кирпич, терракотовые филёнки в нишах, ризалит с фронтоном, вальма, козырёк с красным
     // баннером, бордовые двери; справа, фасадом к набегающей героине, перед ней — асфальтовый двор, зелёная ограда, ворота с мячом
@@ -843,6 +1014,8 @@
         const bp = F.p(-WX + 5.6, -y0, 3.4); bk.sph(bp[0], WALK_Y + 0.12, bp[2], 0.12, 0.12, 0.12, p => (Math.sin(p[0] * 40) * Math.sin(p[2] * 40) > 0 ? [0.95, 0.95, 0.95] : [0.25, 0.25, 0.3]), { seg: 8, rings: 5 });
         [F.p(-WX + 0.5, -y0, 3.0), F.p(WX - 1.0, -y0, 2.6)].forEach(p => tree(bk, p[0], WALK_Y, p[2], 'round', 0.75, R));
         [F.p(-6.0, -y0, 2.6), F.p(6.4, -y0, 2.4)].forEach(p => bench(bk, p[0], p[2], tf.ry + PI)); }
+      // пасхалка: школьники (зайчонок и котёнок с рюкзаками) у тротуара машут — уроки кончились
+      if (EGG) { const zm = (tf.zMax + tf.zMin) / 2; cameo(bk, new K.Frame(WALK - 0.7, WALK_Y, zm + 0.5, -PI / 2 + 0.5), 'bunny'); cameo(bk, new K.Frame(WALK - 0.75, WALK_Y, zm - 0.3, -PI / 2 + 0.35), 'kitten'); }
       return { side: 1, z0: tf.zMax, z1: tf.zMin };
     }
 
@@ -871,6 +1044,8 @@
         [-0.62, 0.62].forEach(dx => { const q = F.p(-3.6 + i * 3.6 + dx, 0, D / 2 + 1.9), F3 = new K.Frame(q[0], WALK_Y, q[2], tf.ry + (dx > 0 ? -PI / 2 : PI / 2)); bk.box(F3, 0, 0.45, 0, 0.4, 0.04, 0.4, { col: rgb('#B07A4A') }); bk.box(F3, 0, 0.7, 0.18, 0.4, 0.5, 0.04, { col: rgb('#B07A4A') }); [-0.17, 0.17].forEach(lx => bk.box(F3, lx, 0.22, 0, 0.03, 0.45, 0.36, { col: met, skip: { py: 1, ny: 1 } })); }); }
       [F.p(-W / 2 - 0.5, 0, D / 2 + 0.6), F.p(W / 2 + 0.5, 0, D / 2 + 0.6)].forEach(p => { bk.cyl(p[0], WALK_Y, p[2], 0.26, 0.3, 0.5, { seg: 6, col: gr2 }); tree(bk, p[0], WALK_Y + 0.5, p[2], 'round', 0.45, R); });
       wallLantern(bk, F, -W / 2 + 0.3, 2.6, D / 2 + 0.24, halos); wallLantern(bk, F, W / 2 - 0.3, 2.6, D / 2 + 0.24, halos);
+      // пасхалка: лисичка-бариста вышла к двери и поднимает чашку (кофейня игры)
+      if (EGG) { const q = F.p(2.75, 0, D / 2 + 0.8); cameo(bk, new K.Frame(q[0], q[1], q[2], F.ry), 'fox'); }
       return { side: -1, z0: tf.zMax, z1: tf.zMin };
     }
 
@@ -965,7 +1140,122 @@
       exclude(c, ['L1', 'R1'], zc + dz + 0.4, zc - dz - 0.4);
       return { side: 0, z0: zc + dz, z1: zc - dz };
     }
-    const LM = { tower: lmTower, kombinat: lmKombinat, school: lmSchool, cafe: lmCafe, bazaar: lmBazaar, wedding: lmWedding, bridge: lmBridge };
+    const LM = { tower: lmTower, kombinat: lmKombinat, school: lmSchool, cafe: lmCafe, bazaar: lmBazaar, wedding: lmWedding, bridge: lmBridge, view: lmView };
+
+    /* --- волна 2 (уровни): свадебный двор, музыканты, зимние сугробы, серпантин над облаками --- */
+    // фигурка в национальном (музыканты, декор): черкеска с газырями, пояс с серебряной пряжкой, папаха; s — масштаб.
+    // Статичная, в общей сетке улицы; ветер (aFx.y) слегка качает — «играют, пританцовывая»
+    function folkFigure(bk, x, z, ry, s, coat, hat, R) {
+      const F = new K.Frame(x, WALK_Y, z, ry), n0 = bk.n, skin = rgb('#F2D2BC'), boot = rgb('#2E2A2C');
+      [-0.1, 0.1].forEach(lx => bk.box(F, lx * s, 0.4 * s, 0, 0.13 * s, 0.8 * s, 0.15 * s, { col: boot }));
+      bk.cyl(...F.p(0, 0.55 * s, 0), 0.3 * s, 0.2 * s, 0.9 * s, { seg: 8, col: coat, cap: false });   // полы черкески
+      bk.cyl(...F.p(0, 1.05 * s, 0), 0.2 * s, 0.17 * s, 0.42 * s, { seg: 8, col: coat });
+      [-1, 1].forEach(sd => { for (let i = 0; i < 4; i++) { const q = F.p(sd * 0.1 * s, (1.18 + i * 0.06) * s, 0.17 * s); bk.cyl(q[0], q[1], q[2], 0.012 * s, 0.012 * s, 0.07 * s, { seg: 4, col: rgb('#E8E2D2'), cap: false }); } });   // газыри
+      bk.box(F, 0, 1.06 * s, 0.01, 0.42 * s, 0.05 * s, 0.4 * s, { col: rgb('#3A2A22') }); bk.box(F, 0, 1.06 * s, 0.2 * s, 0.09 * s, 0.07 * s, 0.03 * s, { col: C('silverWare') });   // пояс, пряжка
+      bk.sph(...F.p(0, 1.62 * s, 0), 0.12 * s, 0.14 * s, 0.12 * s, skin, { seg: 7, rings: 5 });
+      bk.cyl(...F.p(0, 1.68 * s, 0), 0.14 * s, 0.15 * s, 0.17 * s, { seg: 8, col: hat });   // папаха
+      fxMark(bk, n0, 0, 0.35);
+      return F;
+    }
+    // музыканты: барабанщик с большим барабаном и двое с дудочками (зурна) — на тротуаре слева, лицом к улице и чуть к героине
+    function musicians(bk, zc, R) {
+      const coats = [rgb('#3E3A44'), rgb('#5A3A34'), rgb('#2F3A4E')], hats = [rgb('#F4F0E8'), rgb('#2A2624'), rgb('#6A5A4A')], ry = PI / 2 + 0.45;
+      [-1.2, 0, 1.2].forEach((dz, i) => {
+        const F = folkFigure(bk, -5.0 - (i === 1 ? 0.25 : 0), zc + dz, ry, 1, coats[i], hats[(i + Math.floor(R() * 3)) % 3], R), n0 = bk.n;
+        if (i === 1) { const q = F.p(0, 1.05, 0.32); bk.cyl(q[0], q[1] - 0.24, q[2], 0.3, 0.3, 0.48, { seg: 12, col: p => (p[1] > q[1] + 0.2 || p[1] < q[1] - 0.2 ? rgb('#B8403A') : rgb('#F2E8D4')) }); }   // барабан (кожа и красный обод)
+        else { const a = F.p(0.02, 1.58, 0.14), b = F.p(0.02, 1.22, 0.62); tube(bk, a, b, 0.025, 6, rgb('#8A5A2E'), { r1: 0.07, cap: true }); }   // дудочка
+        fxMark(bk, n0, 0, 0.35);
+      });
+    }
+    // свадебный двор справа (в просвете между домами): плиты вровень с тротуаром, низкая стенка, длинный стол под белой скатертью с
+    // фруктами и лепёшками, скамьи, над ним — нитка лампочек на двух шестах; за двором — обрыв к нижним рядам (подпорная стенка)
+    function feastYard(bk, z0, z1, R, halos) {
+      const xa = WALK + 0.05, xb = 11.0, y = WALK_Y, cl = rgb('#F6F2EA'), wd = C('wood');
+      bk.quadF([xa, y, z0], [xb, y, z0], [xb, y, z1], [xa, y, z1], p => mul(C('slab'), 0.94 + 0.06 * Math.sin(p[0] * 1.7 + p[2] * 0.9)), S.SLAB, [0, 1, 0]);
+      retain(bk, xb, -4.0, y, z0, z1, 1);
+      bk.box(new K.Frame(xa + 0.2, 0, (z0 + z1) / 2, 0), 0, 0.25, 0, 0.35, 0.5, Math.abs(z0 - z1) - 0.4, { col: [0.95, 0.94, 0.9], s: S.RUBBLE, cols: { py: mul(C('parapetCap'), 1.1) }, ss: { py: S.SLAB } });
+      const L = Math.abs(z0 - z1) - 2.2, zc = (z0 + z1) / 2, tx = 8.0, F = new K.Frame(tx, y, zc, 0);
+      bk.box(F, 0, 0.74, 0, 1.1, 0.06, L, { col: cl }); bk.box(F, 0, 0.55, 0, 1.14, 0.36, L + 0.04, { col: mul(cl, 0.93), skip: { py: 1, ny: 1 } });
+      [-1, 1].forEach(sd => bk.box(F, sd * 0.95, 0.42, 0, 0.32, 0.08, L, { col: wd, cols: { py: mul(wd, 1.08) } }));
+      const fr = [rgb('#D9455A'), rgb('#F2B33D'), rgb('#8EB84A'), rgb('#8E3A7A')];
+      for (let z = -L / 2 + 0.6; z < L / 2 - 0.4; z += 0.9) { const q = F.p(0, 0.78, z); if (R() < 0.5) { bk.cyl(q[0], q[1], q[2], 0.17, 0.17, 0.02, { seg: 8, col: C('silverWare') }); for (let k2 = 0; k2 < 4; k2++) bk.sph(q[0] + (k2 % 2 - 0.5) * 0.12, q[1] + 0.07, q[2] + (k2 > 1 ? 0.06 : -0.06), 0.06, 0.05, 0.06, fr[(k2 + Math.floor(R() * 4)) % 4], { seg: 5, rings: 3 }); } else bk.cyl(q[0], q[1], q[2], 0.16, 0.15, 0.05, { seg: 8, col: rgb('#D8A860') }); }
+      // нитка лампочек вдоль стола
+      const pa = [tx, WALK_Y + 3.3, z0 - 0.6], pb = [tx, WALK_Y + 3.3, z1 + 0.6];
+      [pa, pb].forEach(p => bk.cyl(p[0], WALK_Y, p[2], 0.05, 0.05, 3.3, { seg: 5, col: C('woodD'), cap: false }));
+      bar(bk, pa, pb, 0.02, rgb('#3A3A40'));
+      for (let i = 1; i < 10; i++) { const t = i / 10, x = tx, yy = WALK_Y + 3.3 - Math.sin(t * PI) * 0.45, z = lerp(pa[2], pb[2], t), n0 = bk.n; bk.sph(x, yy - 0.08, z, 0.07, 0.09, 0.07, rgb(i % 3 ? '#FFE2A0' : '#FFC6A0'), { seg: 4, rings: 2 }); fxMark(bk, n0, 1, 0); if (i % 2) halos.push(x, yy - 0.08, z, 0.45); }
+    }
+    // зима: мягкие сугробы у бордюров и на тротуарах, изредка — снеговик у стены
+    function snowDrifts(bk, len, R) {
+      const sn = rgb('#F4F7FB');
+      [-1, 1].forEach(sd => { for (let z = -1 - R() * 3; z > -len + 1; z -= 3 + R() * 4) { const r = 0.5 + R() * 0.7; bk.sph(sd * (4.5 + R() * 0.7), WALK_Y - 0.05, z, r, 0.22 + R() * 0.18, r * (1.2 + R() * 0.8), sn, { seg: 7, rings: 3, cut: 0 }); } });
+      if (R() < 0.55) { const x = (R() < 0.5 ? -1 : 1) * 5.15, z = -len * (0.2 + R() * 0.6);
+        bk.sph(x, WALK_Y + 0.3, z, 0.34, 0.32, 0.34, sn, { seg: 8, rings: 5 }); bk.sph(x, WALK_Y + 0.78, z, 0.24, 0.23, 0.24, sn, { seg: 8, rings: 5 }); bk.sph(x, WALK_Y + 1.12, z, 0.16, 0.16, 0.16, sn, { seg: 7, rings: 4 });
+        tube(bk, [x, WALK_Y + 1.12, z], [x - Math.sign(x) * 0.22, WALK_Y + 1.1, z], 0.035, 5, rgb('#F08A2E'), { r1: 0.005 }); bk.cyl(x, WALK_Y + 1.24, z, 0.13, 0.12, 0.14, { seg: 7, col: rgb('#C2405B') }); }
+    }
+    // смотровая площадка над обрывом справа (серпантин): дощатый настил на консолях, перила, скамья, подзорная труба, доска
+    // «Смотровая» — как на дороге к селу в игре
+    function lmView(c) {
+      const { bk, bs, zc } = c, x0 = 5.2, x1 = 9.2, z0 = zc + 3.2, z1 = zc - 3.2, y = 0.05, wd = C('wood'), wdD = C('woodD');
+      for (let i = 0; i < 8; i++) { const za = lerp(z0, z1, i / 8), zb = lerp(z0, z1, (i + 1) / 8) + 0.03; bk.quadF([x0, y + 0.08, za], [x1, y + 0.08, za], [x1, y + 0.08, zb], [x0, y + 0.08, zb], mul(wd, 0.92 + (i % 2) * 0.1), S.FLAT, [0, 1, 0]); }
+      bk.box(new K.Frame((x0 + x1) / 2, 0, zc, 0), 0, y - 0.1, 0, x1 - x0, 0.2, z0 - z1, { col: wdD, skip: { py: 1 } });
+      [[x1 - 0.2, z0 - 0.2], [x1 - 0.2, z1 + 0.2], [x0 + 1.6, z0 - 0.2], [x0 + 1.6, z1 + 0.2]].forEach(([x, z]) => bar(bk, [x, y, z], [x - 1.4, -5.5, z], 0.14, wdD));   // консоли в скалу
+      const rail = (A, B) => { bar(bk, [A[0], 1.0, A[1]], [B[0], 1.0, B[1]], 0.06, wd); const n = Math.max(1, Math.round(Math.hypot(B[0] - A[0], B[1] - A[1]) / 0.8)); for (let i = 0; i <= n; i++) { const x = lerp(A[0], B[0], i / n), z = lerp(A[1], B[1], i / n); bar(bk, [x, y + 0.08, z], [x, 1.02, z], 0.05, wdD); } };
+      rail([x0 + 0.1, z0], [x1, z0]); rail([x1, z0], [x1, z1]); rail([x1, z1], [x0 + 0.1, z1]);
+      bench(bk, x1 - 0.7, zc + 1.1, -PI / 2);
+      { const tx = x1 - 0.6, tz = zc - 1.4, met = rgb('#4A6A8A'); bk.cyl(tx, y + 0.08, tz, 0.05, 0.05, 1.1, { seg: 6, col: rgb('#3A3A40'), cap: false }); tube(bk, [tx - 0.25, 1.32, tz], [tx + 0.3, 1.42, tz], 0.09, 8, met, { r1: 0.11 }); }
+      { const px = x0 + 0.5, pz = z0 + 0.6, r = SIGN.rect.view; bk.cyl(px, 0, pz, 0.05, 0.05, 2.1, { seg: 5, col: wdD, cap: false }); if (r) { const F = new K.Frame(px, 0, pz, -0.5), w = 1.4, h = w / r[4]; signQuad(bs, F, 0, 2.2, 0.04, w, h, 'view', 0); signQuad(bs, new K.Frame(px, 0, pz, PI - 0.5), 0, 2.2, 0.04, w, h, 'view', 0); } }
+      return { side: 1, z0, z1 };
+    }
+    // СЕРПАНТИН НАД ОБЛАКАМИ (тема 'serp'): вместо улицы — горная дорога. Слева скальная стенка (выщербленный камень, наверху
+    // зелёные террасы и кусты; изредка щит «Осторожно, камушки»), справа — бровка со столбиками и низким парапетом, за ней обрыв
+    // и море облаков внизу. Без домов, фонарей и гирлянд — 2–3 сетки и меньше треугольников, чем у улицы. Рельеф — периодический
+    // с шагом 20 м (длины сегментов кратны 20): стыки сегментов без ступенек
+    function* serpSteps(th, len, R, lmId, opts) {
+      const bk = new K.Baker('atlas'), bs = new K.Baker('atlas'), halos = [];
+      const c = { bk, bo: null, bs, gz: [], halos, R, len, ex: {}, lampsOff: [], over: [], roadX: [], garlands: 0, garZ: [], approach: [], zc: -len / 2 };
+      if (lmId && LM[lmId]) { c.lmInfo = LM[lmId](c) || null; yield 1; }
+      const w = (z, k) => 0.22 * Math.sin(z * TAU / 20 * 3 + k * 1.3) + 0.12 * Math.sin(z * TAU / 10 + k * 2.1) + 0.06 * Math.sin(z * TAU / 4 + k);
+      const rockC = (p, k) => { const t = 0.5 + 0.5 * Math.sin(p[2] * TAU / 20 * 2 + p[1] * 0.9 + k), u = 0.5 + 0.5 * Math.sin(p[2] * TAU / 5 + p[1] * 2.3); return mul(mix(rgb('#9C9082'), rgb('#7C7268'), t), 0.9 + 0.16 * u); };
+      // 1. скальная стенка слева: профиль (x, y) снизу вверх, выщербины — периодическим шумом; наверху — уступ травы
+      const PX = [-4.7, -4.95, -5.35, -5.85, -6.4, -7.3, -12.0], PY = [-0.05, 1.4, 3.1, 4.9, 6.6, 7.7, 8.0], dz = 2.5, nz = Math.round(len / dz);
+      for (let j = 0; j < nz; j++) { const za = -j * dz, zb = -(j + 1) * dz;
+        for (let k = 0; k < PX.length - 1; k++) { const A = [PX[k] - (k ? w(za, k) : 0), PY[k], za], B = [PX[k] - (k ? w(zb, k) : 0), PY[k], zb], C2 = [PX[k + 1] - w(zb, k + 1), PY[k + 1], zb], D = [PX[k + 1] - w(za, k + 1), PY[k + 1], za];
+          bk.quadF(A, B, C2, D, k === PX.length - 2 ? (p => mix(C('grass'), C('grass2'), 0.4)) : (p => rockC(p, k)), k === PX.length - 2 ? S.FLAT : S.RUBBLE, [1, 0.2, 0]); } }
+      yield 2;
+      // обочина слева (щебень и канавка), справа — бровка
+      bk.quadF([-4.0, 0.01, 0], [-4.75, -0.05, 0], [-4.75, -0.05, -len], [-4.0, 0.01, -len], rgb('#8E877C'), S.FLAT, [0, 1, 0]);
+      bk.quadF([4.0, 0.01, 0], [5.3, 0.0, 0], [5.3, 0.0, -len], [4.0, 0.01, -len], rgb('#948C80'), S.FLAT, [0, 1, 0]);
+      // 2. террасы над стенкой (вверх, к −x) и кусты
+      for (let z = 0; z > -len + 0.01; z -= 20) { const z1 = Math.max(-len, z - 20); for (let k = 0; k < 8; k++) { const xOut = -12 - 6.4 * k, yT = 8.0 + 2.6 * (k + 1); terraceStep(bk, xOut - 5.2, xOut, yT, yT - 2.6, z, z1, k + 3, 1); } }
+      for (let i = 0, n = 3 + Math.floor(R() * 4); i < n; i++) { const z = -R() * len, x = -6.2 - R() * 5, yy = x < -7.2 ? 7.9 : 5 + R() * 2; bk.sph(x, yy, z, 0.6 + R() * 0.5, 0.45, 0.6 + R() * 0.4, (p, ny) => mul(C('leafB'), 0.75 + 0.3 * Math.max(0, ny)), { seg: 6, rings: 3 }); }
+      yield 3;
+      // 3. справа: столбики (белые с красной полосой) каждые 5 м, местами низкий каменный парапет; обрыв вниз и облака
+      for (let z = -2.5; z > -len; z -= 5) { const F = new K.Frame(4.85, 0, z, 0); bk.box(F, 0, 0.42, 0, 0.18, 0.84, 0.18, { col: [0.96, 0.96, 0.95], skip: { ny: 1 } }); bk.box(F, 0, 0.62, 0, 0.19, 0.16, 0.19, { col: rgb('#C2403A'), skip: { ny: 1, py: 1 } }); }
+      if (R() < 0.6) { const za = -R() * len * 0.4, zb = za - 6 - R() * 8; bk.box(new K.Frame(5.15, 0, (za + zb) / 2, 0), 0, 0.28, 0, 0.36, 0.56, za - zb, { col: [0.94, 0.93, 0.89], s: S.RUBBLE, cols: { py: mul(C('parapetCap'), 1.1) }, ss: { py: S.SLAB } }); }
+      const CX = [5.3, 5.8, 7.4, 10.4, 14.6, 20.5, 28.0], CY = [0.0, -0.6, -4.2, -10.5, -17.5, -23.5, -27.0];
+      for (let j = 0; j < nz; j++) { const za = -j * dz, zb = -(j + 1) * dz;
+        for (let k = 0; k < CX.length - 1; k++) { const A = [CX[k] + (k ? w(za, k + 7) * 1.5 : 0), CY[k], za], B = [CX[k] + (k ? w(zb, k + 7) * 1.5 : 0), CY[k], zb], C2 = [CX[k + 1] + w(zb, k + 8) * 1.5, CY[k + 1], zb], D = [CX[k + 1] + w(za, k + 8) * 1.5, CY[k + 1], za];
+          bk.quadF(A, B, C2, D, k === 0 ? rgb('#8E8678') : (p => (k % 2 ? mix(rockC(p, k), C('grass2'), 0.35) : rockC(p, k + 3))), k === 0 ? S.FLAT : S.RUBBLE, [1, 0.6, 0]); } }
+      yield 4;
+      // море облаков: пухлые приплюснутые клубы ниже обрыва (на свету — белые, снизу голубоватые); туман делает их дымкой
+      const cloudC = (p, ny) => mix(rgb('#C4D2E4'), rgb('#FFFFFF'), clamp(ny * 0.8 + 0.4, 0, 1));
+      for (let i = 0, n = HI ? 14 : 10; i < n; i++) { const x = 12 + R() * 60, z = -R() * len, r = 4 + R() * 6; bk.sph(x, -24 + R() * 3, z, r, r * 0.38, r * (0.8 + R() * 0.5), cloudC, { seg: 8, rings: 4 }); }
+      yield 5;
+      // щит «Осторожно, камушки» на столбике у стенки (как у дороги к селу) — лицом к набегающей
+      if (R() < 0.45) { const z = -len * (0.3 + R() * 0.4), r = SIGN.rect.pebbles; bk.cyl(-4.55, 0, z, 0.05, 0.05, 2.3, { seg: 5, col: rgb('#5A5A60'), cap: false }); if (r) { const F = new K.Frame(-4.55, 0, z, 0.25), hh = 1.05; signQuad(bs, F, 0, 2.2 + hh / 2 - 0.4, 0.05, hh * r[4], hh, 'pebbles', 0); } }
+      // сетки
+      const group = new T.Group(); group.name = 'runner:seg:' + th.id + (lmId ? ':' + lmId : '');
+      const meshes = [], add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
+      add(roadGeo(len, [], [], 'a')); yield 6;
+      add(meshOf(bk, matA, { name: 'street' })); yield 7;
+      add(meshOf(bs, matSign, { name: 'signs' }));
+      let tris = 0; meshes.forEach(m => { const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; });
+      const seg = { group, len, theme: th.id, landmark: lmId || null, lm: c.lmInfo || null, over: c.over, garlands: [], overhead: null, meshes, tris, calls: meshes.length, buildMs: 0, key: '', live: false, used: 0 };
+      seg.release = () => releaseSeg(seg);
+      lodOf(seg, meshes.filter(m => m.name === 'signs'));
+      return seg;
+    }
 
     /* =================================================================
        6. СЕГМЕНТ: сборка, ряды, рельеф; пул и вытеснение
@@ -975,8 +1265,9 @@
     // в фоне (tick → bgStep) — по нескольку шагов за кадр, пока не выйдет ~3 мс: сегмент «про запас» строится без рывка
     function buildSegment(th, len, R, lmId, opts) { const t0 = now(), g = segSteps(th, len, R, lmId, opts); let r = g.next(); while (!r.done) r = g.next(); r.value.buildMs = now() - t0; return r.value; }
     function* segSteps(th, len, R, lmId, opts) {
+      if (th.kind === 'road') return yield* serpSteps(th, len, R, lmId, opts);
       const bk = new K.Baker('atlas'), bo = new K.Baker('atlas'), bs = new K.Baker('atlas'), gz = [], halos = [];
-      const c = { bk, bo, bs, gz, halos, R, len, ex: {}, lampsOff: [], over: [], roadX: [], garlands: 0, garZ: [], approach: [], zc: -len / 2 };
+      const c = { bk, bo, bs, gz, halos, R, len, ex: {}, lampsOff: [], over: [], roadX: [], garlands: 0, garZ: [], approach: [], zc: -len / 2, egg: [], cameo: 0, carved: 0, cn0: Object.assign({}, CAMEO_N) };
       const glow = th.id === 'night' ? 0.55 : 0.4;
       if (lmId && LM[lmId]) { c.lmInfo = LM[lmId](c) || null; yield 1; }
       // подход к ориентиру: на его стороне первый ряд домов убран (иначе вертикальная камера видит ориентир только поверх крыш) —
@@ -995,23 +1286,36 @@
       { const list = [];
         free('L1', -0.15, -len + 0.15).forEach(([a, b]) => { let z = a;
           while (z - b > 3.2) {
-            if (list.length && R() < 0.14 && z - b > 7) { const gw = 1.6 + R() * 0.6; stairLane(bk, z - 0.02, z - gw + 0.02, LEFT_ROWS[0].y0, R); z -= gw; continue; }
+            if (list.length && R() < 0.14 && z - b > 7) { const gw = 1.6 + R() * 0.6; stairLane(bk, z - 0.02, z - gw + 0.02, LEFT_ROWS[0].y0, R);
+              if (EGG && R() < 0.5) { const zp = z - gw / 2, pi = Math.floor(R() * 4); c.egg.push(() => signPost(bk, bs, zp, pi)); }   // пасхалка: указатель
+              z -= gw; continue; }
             let w = 4 + R() * 3.6; if (z - w - b < 3.2) w = z - b;
             list.push(houseSpec(R, th, -1, WALK + R() * 0.35, z - w / 2, w - 0.04, WALK_Y, R() < 0.2 ? 1 : R() < 0.8 ? 2 : 3, { shops: th.shops * 0.6, glow }));
             z -= w;
           } });
-        let k = 0; for (const h of linkRow(list)) { if (th.id === 'bazaar' && h.storeys > 1 && R() < 0.4) h.carpet = true; h.bs = bs; houseGeo(bk, gz, h, R, halos); if (h.carpet) carpetOnWall(bk, h, R); if (++k % 3 === 0) yield 2; } }
+        let k = 0; for (const h of linkRow(list)) { if (th.carpet && h.storeys > 1 && R() < th.carpet) h.carpet = true; h.bs = bs; h.eg = EGG ? c : null; houseGeo(bk, gz, h, R, halos); if (h.carpet) carpetOnWall(bk, h, R); if (++k % 3 === 0) yield 2; } }
       yield 2;
       // --- ряд вдоль улицы справа (склон вниз): 1–2 этажа, просветы с парапетом — вид на долину и каскад крыш ---
       { const list = [];
         free('R1', -0.15, -len + 0.15).forEach(([a, b]) => { let z = a;
           while (z - b > 2.5) {
-            if (R() < th.open) { let gw = Math.min(z - b, 4 + R() * 8); if (z - gw - b < 2.5) gw = z - b; parapet(bk, z, z - gw, R); if (gw > 5 && R() < 0.5) bench(bk, WALK - 0.55, z - gw / 2, -PI / 2); z -= gw; continue; }
+            if (R() < th.open) { let gw = Math.min(z - b, 4 + R() * 8); if (z - gw - b < 2.5) gw = z - b;
+              // свадьба: в просвете — двор с длинным столом под лампочками (вместо парапета с видом)
+              if (th.feast && gw > 6 && R() < th.feast) { feastYard(bk, z, z - gw, R, halos); z -= gw; continue; }
+              // школа: в просвете — школьный двор за зелёной оградой (вместо парапета с видом)
+              if (th.fence && gw > 4 && R() < th.fence) { schoolYard(bk, z, z - gw, R); z -= gw; continue; }
+              parapet(bk, z, z - gw, R);
+              // базар: ковры сушатся на парапете (яркие пятна у края улицы)
+              if (th.rugs && gw > 3 && R() < th.rugs) rugsOnParapet(bk, z, z - gw, R);
+              if (gw > 5 && R() < 0.5) { const zb = z - gw / 2; bench(bk, WALK - 0.55, zb, -PI / 2);
+                // пасхалка: бабушка-ежиха с медным кувшином отдыхает на скамье (житель игры)
+                if (EGG && c.cameo < 1 && R() < 0.4) { c.cameo++; cameo(bk, new K.Frame(WALK - 0.6, WALK_Y + 0.46, zb + 0.35, -PI / 2), 'hedgehog'); } }
+              z -= gw; continue; }
             let w = 4 + R() * 3.4; if (z - w - b < 3) w = z - b;
             list.push(houseSpec(R, th, 1, WALK + R() * 0.3, z - w / 2, w - 0.04, WALK_Y, th.id === 'masters' && R() < 0.25 ? 3 : R() < 0.5 ? 1 : 2, { shops: th.shops, glow, foot: 4.6 }));
             z -= w;
           } });
-        let k = 0; for (const h of linkRow(list)) { h.bs = bs; houseGeo(bk, gz, h, R, halos); if (++k % 3 === 0) yield 3; } }
+        let k = 0; for (const h of linkRow(list)) { h.bs = bs; h.eg = EGG ? c : null; houseGeo(bk, gz, h, R, halos); if (th.carpet && h.storeys > 1 && R() < th.carpet * 0.6) carpetOnWall(bk, h, R); if (++k % 3 === 0) yield 3; } }
       yield 3;
       // --- верхние ряды слева и нижние справа (упрощённые дома: без дверей, окна на фасаде; нижние смотрят в долину) ---
       const backRow = function* (key, side, xa, y0, st, o) { const list = [];
@@ -1035,20 +1339,28 @@
       curbsGeo(bk, len, R);
       for (let k = 0; k < Math.round(len / LAMP_DZ); k++) { const z = -(LAMP_DZ / 2 + LAMP_DZ * k), sd = (k % 2 === 0) ? -1 : 1;
         if (c.lampsOff.some(([s0, a, b]) => s0 === sd && z <= a && z >= b)) continue; lampPost(bk, sd * 4.72, z, halos); }
+      // свадьба: музыканты на тротуаре слева (барабан и две дудочки — играют, покачиваясь); зима: сугробы у бордюров и снеговички
+      if (th.music && R() < th.music) musicians(bk, -len * (0.25 + R() * 0.5), R);
+      if (th.snow) snowDrifts(bk, len, R);
+      // школа: «классики» мелом на мостовой — на случайной полосе (бегут прямо по ним)
+      if (th.chalk && R() < th.chalk) hopscotch(bk, (Math.floor(R() * 3) - 1) * LANE, -len * (0.2 + R() * 0.6), R);
       yield 9;
       // --- гирлянды поперёк улицы (над головой — отдельная сетка) ---
-      { const n = c.garlands + (R() < th.garl ? 1 + Math.floor(R() * 2) : 0), bulbs = th.hour > 18 || R() < 0.25;
-        for (let i = 0; i < n; i++) { const z = -len * (i + 0.5 + (R() - 0.5) * 0.4) / n; if (c.over.some(o => z <= o.z0 + 1 && z >= o.z1 - 1)) continue; garland(bo, z, bulbs && i % 2 === 0 ? 'bulbs' : 'flags', halos, R); c.garZ.push(z); } }
+      { const n = c.garlands + (R() < th.garl ? (th.garlN || 1) + Math.floor(R() * 2) : 0), bulbs = th.hour > 18 || R() < (th.bulbs || (th.feast ? 0.5 : 0.25));
+        for (let i = 0; i < n; i++) { const z = -len * (i + 0.5 + (R() - 0.5) * 0.4) / n; if (c.over.some(o => z <= o.z0 + 1 && z >= o.z1 - 1)) continue; garland(bo, z, bulbs && i % 2 === 0 ? 'bulbs' : 'flags', halos, R, FLAGT[th.id]); c.garZ.push(z); } }
       yield 10;
+      // пасхалки-наклейки: только если щиты в сегменте уже есть (иначе это был бы лишний вызов отрисовки ради пары наклеек)
+      const eggDecals = bs.n ? c.egg.length : 0;
+      if (eggDecals) c.egg.forEach(f => f());
       // --- сетки ---
       const group = new T.Group(); group.name = 'runner:seg:' + th.id + (lmId ? ':' + lmId : '');
       const meshes = [];
       const add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
-      add(roadGeo(len, halos, c.roadX)); yield 11;
-      add(meshOf(bk, matA, { name: 'street' })); yield 12;
+      add(roadGeo(len, halos, c.roadX, th.snow ? 'w' : th.road || '')); yield 11;
+      add(meshOf(bk, matA, { name: 'street', snow: th.snow })); yield 12;
       add(glazOf(gz));
       add(meshOf(bs, matSign, { name: 'signs' }));
-      const overhead = add(meshOf(bo, matA, { name: 'overhead' }));   // флажки — по два треугольника (лицо и изнанка), двусторонний материал не нужен
+      const overhead = add(meshOf(bo, matA, { name: 'overhead', snow: th.snow }));   // флажки — по два треугольника (лицо и изнанка), двусторонний материал не нужен
       if (halos.length) { const n = halos.length / 4, P = new Float32Array(n * 3), Cc = new Float32Array(n * 3);
         for (let i = 0; i < n; i++) { P.set([halos[i * 4], halos[i * 4 + 1], halos[i * 4 + 2]], i * 3); const k = halos[i * 4 + 3]; Cc.set([k, k * 0.92, k * 0.8], i * 3); }
         const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(P, 3)); g.setAttribute('color', new T.BufferAttribute(Cc, 3)); g.computeBoundingSphere();
@@ -1057,7 +1369,10 @@
       // lm: { side (−1 слева, +1 справа, 0 — над улицей), z0, z1 } — где ориентир (ядро доворачивает камеру к нему на подходе:
       // в портрете по горизонтали видно ≈ 34°, и башня, комбинат, кофейня и школа иначе мелькали обрывками у края кадра)
       const seg = { group, len, theme: th.id, landmark: lmId || null, lm: c.lmInfo || null, over: c.over, garlands: c.garZ, overhead, meshes, tris, calls: meshes.length, buildMs: 0, key: '', live: false, used: 0 };
+      // пасхалки сегмента (стенд, заметки): жители по видам и сколько наклеек поставлено
+      seg.eggs = { decals: eggDecals, cameos: {} }; Object.keys(CAMEO_N).forEach(k => { const d = CAMEO_N[k] - (c.cn0[k] || 0); if (d > 0) seg.eggs.cameos[k] = d; });
       seg.release = () => releaseSeg(seg);
+      lodOf(seg, meshes.filter(m => m.name === 'signs' || m.name === 'halos'));
       return seg;
     }
     // рельеф по промежуткам z: обычный (уступы рядов, подпорные стенки, террасы склона) и «ровный» под развёрнутым ориентиром
@@ -1095,6 +1410,47 @@
       });
     }
     // ковёр на стене (базар): рамка, поле, ромбы — цветом вершин, чуть «дышит» на ветру
+    // --- подписи тем уровней 2–4 (всё в сетку улицы сегмента) ---
+    const BRICK = rgb('#A2624A'), CHALK = [1.32, 1.32, 1.3], CHALKC = [[1.35, 1.05, 1.12], [1.35, 1.28, 0.9], [1.0, 1.18, 1.38]];
+    // ковры, перекинутые через парапет (сушатся на солнце): лицом к улице, низом почти до тротуара
+    function rugsOnParapet(bk, z0, z1, R) {
+      const x = WALK + 0.02, yT = WALK_Y + 1.36, n = Math.min(2, Math.floor((z0 - z1) / 1.8));
+      for (let i = 0; i < n; i++) { const zc = lerp(z0, z1, (i + 0.5) / n) + (R() - 0.5) * 0.4, w = 1.1 + R() * 0.3, hh = 1.05;
+        const pal = [['#8E2A2A', '#C8452E', '#F2C94C'], ['#1F4E8C', '#3F78B8', '#F4EEE2'], ['#6A2E4A', '#B0506E', '#E8C770'], ['#2F6B4F', '#4F9A72', '#F2C94C']][Math.floor(R() * 4)].map(rgb), n0 = bk.n;
+        bk.quadF([x, yT - hh, zc + w / 2], [x, yT - hh, zc - w / 2], [x, yT, zc - w / 2], [x, yT, zc + w / 2], pal[0], S.FLAT, [-1, 0, 0]);
+        bk.quadF([x - 0.004, yT - hh + 0.09, zc + w / 2 - 0.09], [x - 0.004, yT - hh + 0.09, zc - w / 2 + 0.09], [x - 0.004, yT - 0.09, zc - w / 2 + 0.09], [x - 0.004, yT - 0.09, zc + w / 2 - 0.09], pal[1], S.FLAT, [-1, 0, 0]);
+        const yc = yT - hh / 2, r = 0.2; bk.quadF([x - 0.008, yc - r, zc], [x - 0.008, yc, zc - r * 0.8], [x - 0.008, yc + r, zc], [x - 0.008, yc, zc + r * 0.8], pal[2], S.FLAT, [-1, 0, 0]);
+        fxMark(bk, n0, 0, 0.25); }
+    }
+    // школьный двор в просвете справа: площадка на уровне тротуара (подпорная стенка к долине), зелёная ограда с калиткой,
+    // деревья, скамейка и мяч
+    function schoolYard(bk, z0, z1, R) {
+      const xa = WALK + 0.3, xb = WALK + 5.2, y = WALK_Y + 0.01;
+      bk.quadF([xa, y, z0], [xb, y, z0], [xb, y, z1], [xa, y, z1], p => mul(C('grass2'), 0.92 + 0.08 * Math.sin(p[2] * 0.8 + p[0])), S.FLAT, [0, 1, 0]);
+      retain(bk, xb, -3.2, y, z0, z1, 1);
+      const g = (z0 + z1) / 2 + (R() - 0.5) * 1.2;
+      fenceAlong(bk, 1, z0 - 0.1, z1 + 0.1, g + 0.7, g - 0.7, rgb('#3E8E5A'), rgb('#F1EFE8'));
+      for (let zt = z0 - 1.4; zt > z1 + 1; zt -= 3.2 + R() * 1.5) tree(bk, xa + 2.6 + R() * 1.8, y, zt, 'round', 0.7 + R() * 0.2, R);
+      if (R() < 0.6) bench(bk, xa + 0.8, g, -PI / 2);
+      if (R() < 0.7) { const bx = xa + 1.6 + R() * 2, bz = lerp(z0, z1, 0.25 + R() * 0.5); bk.sph(bx, y + 0.11, bz, 0.11, 0.11, 0.11, (p, ny) => (Math.sin(p[0] * 40 + p[2] * 30) > 0 ? [1.25, 1.25, 1.25] : rgb('#D23B3B')), { seg: 6, rings: 4 }); }
+    }
+    // «классики» мелом: 1-1-2-1-2-1 клеток по 0,55 м и «небо» дугой; пара клеток закрашена цветным мелом
+    function hopscotch(bk, xc, zc, R) {
+      const c = 0.55, t = 0.035, y = 0.016, LAY = [[0], [0], [-1, 1], [0], [-1, 1], [0]];
+      const line = (x0, z0, x1, z1) => { const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz) || 1, nx = -dz / L * t, nz = dx / L * t; bk.quadF([x0 - nx, y, z0 - nz], [x1 - nx, y, z1 - nz], [x1 + nx, y, z1 + nz], [x0 + nx, y, z0 + nz], CHALK, S.FLAT, [0, 1, 0]); };
+      LAY.forEach((row, j) => row.forEach(sd => { const x = xc + sd * c / 2, za = zc - j * c, zb = za - c, xa = x - c / 2, xb = x + c / 2;
+        if (R() < 0.22) { const fc = CHALKC[Math.floor(R() * 3)]; bk.quadF([xa + 0.05, y - 0.002, za - 0.05], [xb - 0.05, y - 0.002, za - 0.05], [xb - 0.05, y - 0.002, zb + 0.05], [xa + 0.05, y - 0.002, zb + 0.05], fc, S.FLAT, [0, 1, 0]); }
+        line(xa, za, xb, za); line(xb, za, xb, zb); line(xb, zb, xa, zb); line(xa, zb, xa, za); }));
+      const zt = zc - LAY.length * c; let p0 = [xc - c / 2, zt];   // «небо» — полукруг
+      for (let i = 1; i <= 6; i++) { const a = PI - i / 6 * PI, p1 = [xc + Math.cos(a) * c / 2, zt - Math.sin(a) * c * 0.8]; line(p0[0], p0[1], p1[0], p1[1]); p0 = p1; }
+    }
+    // медные кувшины у двери мастерской (2–3, разной высоты)
+    function copperJugs(bk, F, x, z, R) {
+      const n = 2 + (R() < 0.5 ? 1 : 0), cu = C('copper');
+      for (let i = 0; i < n; i++) { const q = F.p(x + (i - (n - 1) / 2) * 0.34, 0, z + (i % 2) * 0.12), s = 0.8 + R() * 0.4, y = WALK_Y;
+        bk.sph(q[0], y + 0.2 * s, q[2], 0.14 * s, 0.2 * s, 0.14 * s, (p, ny) => mul(cu, 0.78 + 0.35 * Math.max(0, ny)), { seg: 6, rings: 3 });
+        bk.cyl(q[0], y + 0.36 * s, q[2], 0.06 * s, 0.08 * s, 0.14 * s, { seg: 6, col: mul(cu, 0.9), cap: false }); }
+    }
     function carpetOnWall(bk, h, R) {
       const F = new K.Frame(h.x, h.y0, h.z, h.ry), z = h.d / 2 + 0.03, cw = 1.3 + R() * 0.4, ch = 1.9, x = (R() - 0.5) * (h.w - cw - 0.4), y = ST + 0.25 + ch / 2;
       const pal = [['#8E2A2A', '#B8403A', '#F2C94C'], ['#1F4E8C', '#3F78B8', '#F4EEE2'], ['#6A2E4A', '#A04E6A', '#E8C770']][Math.floor(R() * 3)].map(rgb), n0 = bk.n;
@@ -1104,6 +1460,13 @@
       fxMark(bk, n0, 0, 0.2);
     }
 
+    // дальний сегмент (начало дальше LOD_FAR, там он уже наполовину в тумане): щиты и ореолы фонарей не рисуем — −2 вызова на
+    // сегмент ночью (бюджет 90); ядро зовёт seg.lod(расстояние до начала сегмента) каждый кадр, видимость меняется на пороге
+    const LOD_FAR = 150;
+    function lodOf(seg, list) {
+      seg.lodMeshes = list; seg.lodFar = false;
+      seg.lod = d => { const far = d > LOD_FAR; if (far === seg.lodFar) return; seg.lodFar = far; for (let i = 0; i < list.length; i++) list[i].visible = !far; };
+    }
     const POOL = new Map(), ALL = new Set(), BUILT = new Map(), LMC = {};
     // предел построенных: живые (≈ 9: 32 м позади … 340 м впереди) + запас текущей и следующей темы с ориентирами (≈ 16) + ещё
     // одна-две темы. При 22 на low запас текущей темы не влезал: вытеснялись её же сегменты и тут же строились заново (пила
@@ -1114,6 +1477,7 @@
       if (!seg.live) return;
       seg.live = false; if (seg.group.parent) seg.group.parent.remove(seg.group);
       seg.group.position.set(0, 0, 0); seg.group.visible = true; if (seg.overhead) seg.overhead.visible = true;
+      if (seg.lodMeshes) { seg.lodFar = false; for (let i = 0; i < seg.lodMeshes.length; i++) seg.lodMeshes[i].visible = true; }
       let L = POOL.get(seg.key); if (!L) POOL.set(seg.key, L = []); L.push(seg);
     }
     function disposeSeg(seg) {
@@ -1231,12 +1595,13 @@
       // тумане и иначе стояли «белыми призраками» на зелёном склоне, а новый сегмент «выпрыгивал» белым блоком посреди экрана.
       // Высота над глазом: y кольца 0…0,5 ↔ tg(el) = y·0,62/0,84 — туман целиком до ≈ 2°, сходит на нет к ≈ 5,5° (снежные пики
       // выше — как были)
-      const PU = { uFogC: { value: new T.Color(0xD6E2EE) }, uBand: { value: new T.Vector3(0.045, 0.13, 1) } };
+      const PU = { uFogC: { value: new T.Color(0xD6E2EE) }, uBand: { value: new T.Vector3(0.045, 0.13, 1) }, uSnow: { value: 0 } };
       pano.material.onBeforeCompile = sh => {
         Object.assign(sh.uniforms, PU);
         sh.vertexShader = 'varying float vPanoY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPanoY = position.y;');
-        sh.fragmentShader = 'uniform vec3 uFogC;\nuniform vec3 uBand;\nvarying float vPanoY;\n' + sh.fragmentShader.replace('#include <map_fragment>',
-          '#include <map_fragment>\n{ float fb = 1.0 - smoothstep(uBand.x, uBand.y, vPanoY); diffuseColor.rgb = mix(diffuseColor.rgb, uFogC, fb * uBand.z); }');
+        // uSnow — зимняя тема уровня: склоны и террасы панорамы светлеют до снега (полосы террас остаются оттенком)
+        sh.fragmentShader = 'uniform vec3 uFogC;\nuniform vec3 uBand;\nuniform float uSnow;\nvarying float vPanoY;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+          '#include <map_fragment>\n{ float sl = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.8, 0.84, 0.9) + vec3(0.2) * sl, uSnow * 0.82);\n  float fb = 1.0 - smoothstep(uBand.x, uBand.y, vPanoY); diffuseColor.rgb = mix(diffuseColor.rgb, uFogC, fb * uBand.z); }');
       };
       pano.material.customProgramCacheKey = () => 'rk-pano';
       pano.renderOrder = -19; pano.frustumCulled = false; root.add(pano); items.push(pano);
@@ -1258,6 +1623,16 @@
       const vill = (() => { const L = PANO.lights, N = Math.max(1, L.length), P = new Float32Array(N * 3), Cc = new Float32Array(N * 3), R = VK.rng(55); for (let i = 0; i < L.length; i++) { const [a, v] = L[i]; P.set([Math.sin(a) * 0.84, v * 0.62, Math.cos(a) * 0.84], i * 3); const b = 0.75 + R() * 0.25; Cc.set([b, b * 0.82, b * 0.55], i * 3); }
         const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(P, 3)); g.setAttribute('color', new T.BufferAttribute(Cc, 3)); return new T.Points(g, new T.PointsMaterial({ size: HI ? 2.6 : 2.0, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, fog: false, depthWrite: false })); })();
       vill.renderOrder = -18.5; vill.frustumCulled = false; root.add(vill); items.push(vill);
+      // снегопад (зимняя тема): хлопья вокруг камеры, падают и летят навстречу со скоростью бега; один вызов, только зимой
+      const SNN = HI ? 420 : 260, snP = new Float32Array(SNN * 3), snR = VK.rng(808), snPh = new Float32Array(SNN);
+      for (let i = 0; i < SNN; i++) { snP[i * 3] = (snR() - 0.5) * 26; snP[i * 3 + 1] = -4 + snR() * 16; snP[i * 3 + 2] = -34 + snR() * 40; snPh[i] = snR() * TAU; }
+      const snG = new T.BufferGeometry(); snG.setAttribute('position', new T.BufferAttribute(snP, 3).setUsage(T.DynamicDrawUsage)); snG.boundingSphere = new T.Sphere(new T.Vector3(), 1e4);
+      const snow = new T.Points(snG, new T.PointsMaterial({ map: K.snowTex, size: HI ? 0.16 : 0.2, sizeAttenuation: true, transparent: true, depthWrite: false, opacity: 0, color: 0xFFFFFF, fog: true }));
+      snow.frustumCulled = false; snow.visible = false; snow.renderOrder = 7; root.add(snow); items.push(snow);
+      // настроение темы (MOOD): текущие значения плавно (≈ 2 с) идут к цели — переход у ворот уровня без скачка
+      const MC = { n: 60, f: 240, t: [1, 1, 1], snow: 0, pano: 0, k: 0, ch: false };
+      // шаг к цели (без замыканий в кадре: коэффициент и флаг «изменилось» — в MC)
+      const mv = (cur, to) => { const d = to - cur; if (Math.abs(d) > 0.002) { MC.ch = true; return cur + d * MC.k; } return to; };
       // свет для актёров (героиня, пальтар, звери — тун-материалы со светом сцены)
       const hemi = new T.HemisphereLight(0xCFE0F0, 0xB9A27E, 0.62), sunL = new T.DirectionalLight(0xFFE2BE, 0.62);
       root.add(hemi); root.add(sunL); root.add(sunL.target);
@@ -1277,12 +1652,17 @@
       }
       const api = {
         fog, hemi, sun: sunL, root,
-        update(hour, dt, camera) {
+        update(hour, dt, camera, mood, speed) {
           dt = +dt || 0; tSky += dt; tick(dt);
           const L = lightAt(hour);
-          if (Math.abs(L.h - lastH) > 0.004) {
+          // настроение темы уровня: туман, оттенок, снегопад, снег на панораме
+          const MT = MOOD[mood] || MOOD.base; MC.k = dt > 0 ? 1 - Math.exp(-dt * 1.4) : 0; MC.ch = false;
+          MC.n = mv(MC.n, MT.fog[0]); MC.f = mv(MC.f, MT.fog[1]); MC.t[0] = mv(MC.t[0], MT.tint[0]); MC.t[1] = mv(MC.t[1], MT.tint[1]); MC.t[2] = mv(MC.t[2], MT.tint[2]); MC.snow = mv(MC.snow, MT.snow); MC.pano = mv(MC.pano, MT.pano);
+          if (Math.abs(L.h - lastH) > 0.004 || MC.ch) {
             lastH = L.h; applyLight(L); paintDome(L);
-            fog.color.setRGB(L.fog[0], L.fog[1], L.fog[2]); scene.background.setRGB(L.hor[0], L.hor[1], L.hor[2]); PU.uFogC.value.copy(fog.color);
+            LU.rlMul.value.setRGB(LU.rlMul.value.r * MC.t[0], LU.rlMul.value.g * MC.t[1], LU.rlMul.value.b * MC.t[2]);
+            fog.near = MC.n; fog.far = MC.f; PU.uSnow.value = MC.pano;
+            fog.color.setRGB(L.fog[0] * lerp(1, MC.t[0], 0.6), L.fog[1] * lerp(1, MC.t[1], 0.6), L.fog[2] * lerp(1, MC.t[2], 0.6)); scene.background.setRGB(L.hor[0], L.hor[1], L.hor[2]); PU.uFogC.value.copy(fog.color);
             const nk = L.n[7];
             pano.material.color.setRGB(lerp(1, L.fog[0] * 0.55 + 0.12, nk) * lerp(1, L.mul[0], 0.5), lerp(1, L.fog[1] * 0.55 + 0.12, nk) * lerp(1, L.mul[1], 0.5), lerp(1, L.fog[2] * 0.6 + 0.16, nk) * lerp(1, L.mul[2], 0.5));
             if (L.n[2] < 20 && nk < 0.5) { const w = sst(20, 4, L.n[2]); pano.material.color.multiply(tmp.setRGB(1, lerp(1, 0.86, w), lerp(1, 0.74, w))); }
@@ -1303,6 +1683,12 @@
             sunL.color.setRGB(lerp(sl, sr, dS) + 0.06 * lk * nd, lerp(sl, sg, dS) + 0.04 * lk * nd, lerp(sl, sb, dS)); sunL.intensity = L.n[1] * 0.9;
           }
           LU.rlP.value.z = tSky;
+          // снегопад: падает ~1,3 м/с с покачиванием, по ходу — навстречу со скоростью бега (в координатах у камеры)
+          const sk = MC.snow; snow.visible = sk > 0.02; snow.material.opacity = sk * 0.9;
+          if (snow.visible && dt > 0) { const sp = (+speed || 0) * dt;
+            for (let i = 0; i < SNN; i++) { const j = i * 3; snP[j + 1] -= (1.1 + (i % 5) * 0.12) * dt; snP[j] += Math.sin(tSky * 1.3 + snPh[i]) * 0.35 * dt; snP[j + 2] += sp;
+              if (snP[j + 1] < -4) snP[j + 1] += 16; if (snP[j + 2] > 6) snP[j + 2] -= 40; }
+            snG.attributes.position.needsUpdate = true; }
           if (camera) {
             const cp = camera.position, far = camera.far || 1000, Rr = Math.min(900, far * 0.9);
             if (Rr !== R0) { R0 = Rr; dome.scale.setScalar(Rr); pano.scale.set(Rr * 0.84, Rr * 0.62, Rr * 0.84); clouds.scale.setScalar(Rr * 0.92); stars.scale.setScalar(Rr * 0.96); vill.scale.setScalar(Rr * 0.995); sunS.scale.setScalar(Rr * 0.12); moon.scale.setScalar(Rr * 0.07); }
@@ -1492,7 +1878,79 @@
           bk.quadF([-1.0, y0 + 0.06, z0], [1.0, y0 + 0.06, z0], [1.0, y0 - 0.02, z0 + 0.02], [-1.0, y0 - 0.02, z0 + 0.02], mul(WOODD, 0.9), S.FLAT, [0, -0.5, 1]); }
         [-1.02, 1.02].forEach(x => { trd(bk, [x, 0, 2], [x, 0, -2], [x, top, -2], WOODD, S.FLAT, [Math.sign(x), 0, 0]); bar(bk, [x, 0.12, 2], [x, top + 0.12, -2], 0.09, WOOD); });
         [[0.6, 0.72], [-0.6, 1.8], [-1.9, top - 0.05]].forEach(([z, h]) => [-0.85, 0.85].forEach(x => bk.box(F, x, h / 2, z, 0.12, h, 0.12, { col: WOODD, skip: { py: 1 } }))); },
+      // свадебный стол: белая скатерть до земли, блюда с фруктами, круглые лепёшки и серебряный кувшин с чернью — кубачинский
+      // (в кувшине — компот)
+      table(bk) { const F = new K.Frame(0, 0, 0, 0), cl = rgb('#F6F2EA'), sv = C('silverWare');
+        bk.box(F, 0, 0.76, 0, 2.0, 0.06, 0.9, { col: cl }); bk.box(F, 0, 0.4, 0, 1.96, 0.7, 0.86, { col: mul(cl, 0.92), skip: { py: 1, ny: 1 } });
+        for (let i = 0; i < 4; i++) bk.box(F, -0.75 + i * 0.5, 0.5, 0.435, 0.3, 0.42, 0.01, { col: rgb(i % 2 ? '#C2405B' : '#3F78B8') });   // вышитые ленты по краю
+        const fr = [rgb('#D9455A'), rgb('#F2B33D'), rgb('#8EB84A'), rgb('#8E3A7A')];
+        [-0.65, 0.05].forEach((x, j) => { bk.cyl(x, 0.79, 0.05, 0.22, 0.24, 0.03, { seg: 10, col: sv }); for (let k = 0; k < 7; k++) { const a = k * 2.4, r = k ? 0.12 : 0; bk.sph(x + Math.cos(a) * r, 0.86 + (k ? 0 : 0.03), 0.05 + Math.sin(a) * r, 0.06, 0.055, 0.06, fr[(k + j) % 4], { seg: 5, rings: 3 }); } });
+        bk.cyl(-0.3, 0.79, -0.22, 0.17, 0.16, 0.04, { seg: 9, col: rgb('#D8A860') }); bk.cyl(0.4, 0.79, -0.25, 0.16, 0.15, 0.04, { seg: 9, col: rgb('#C99A50') });
+        const prof = [[0.08, 0], [0.12, 0.08], [0.1, 0.2], [0.05, 0.28], [0.04, 0.34], [0.06, 0.38]];
+        for (let i = 0; i < prof.length - 1; i++) bk.cyl(0.62, 0.79 + prof[i][1], 0.0, prof[i][0], prof[i + 1][0], prof[i + 1][1] - prof[i][1], { seg: 9, col: i === 2 ? rgb('#4A4E58') : sv, cap: i === prof.length - 2 }); },
+      // танцоры: v0 — парень в черкеске с газырями и папахе, руки в стороны (лезгинка); v1 — девушка в длинном бордовом платье с
+      // золотой каймой и белым платком, руки плавно вверх. Габарит 0,8 × 1,85 × 0,6
+      dancer(bk, v) { const F = new K.Frame(0, 0, 0, 0), skin = rgb('#F2D2BC');
+        if (v % 2 === 0) { const coat = rgb('#2F3A4E'), boot = rgb('#2A2624');
+          [-0.1, 0.1].forEach(x => bk.box(F, x, 0.4, 0, 0.13, 0.8, 0.15, { col: boot }));
+          bk.cyl(0, 0.55, 0, 0.3, 0.2, 0.62, { seg: 9, col: coat, cap: false }); bk.cyl(0, 1.1, 0, 0.2, 0.17, 0.45, { seg: 9, col: coat });
+          [-1, 1].forEach(sd => { for (let i = 0; i < 4; i++) bk.cyl(sd * 0.1, 1.2 + i * 0.06, 0.17, 0.012, 0.012, 0.07, { seg: 4, col: rgb('#E8E2D2'), cap: false }); });
+          bk.box(F, 0, 1.1, 0, 0.42, 0.05, 0.38, { col: rgb('#3A2A22') }); bk.box(F, 0, 1.1, 0.19, 0.1, 0.08, 0.03, { col: C('silverWare') });
+          tube(bk, [0.17, 1.47, 0], [0.38, 1.62, 0.02], 0.055, 6, coat, {}); tube(bk, [0.38, 1.62, 0.02], [0.38, 1.82, 0.05], 0.05, 6, coat, {});   // правая — вверх
+          tube(bk, [-0.17, 1.47, 0], [-0.4, 1.42, 0.05], 0.055, 6, coat, {}); tube(bk, [-0.4, 1.42, 0.05], [-0.4, 1.4, 0.32], 0.05, 6, coat, {});   // левая — вперёд
+          bk.sph(0, 1.62, 0, 0.11, 0.13, 0.11, skin, { seg: 7, rings: 5 }); bk.cyl(0, 1.67, 0, 0.13, 0.14, 0.17, { seg: 9, col: rgb('#F4F0E8') }); }
+        else { const dr = rgb('#8E2A3A'), gold = rgb('#E8C770'), sc = rgb('#FBF8F2');
+          bk.cyl(0, 0.0, 0, 0.36, 0.17, 1.15, { seg: 10, col: p => (p[1] < 0.12 ? gold : dr), cap: false }); bk.cyl(0, 1.15, 0, 0.17, 0.15, 0.32, { seg: 9, col: dr });
+          bk.box(F, 0, 1.1, 0, 0.36, 0.04, 0.3, { col: gold });
+          tube(bk, [0.15, 1.42, 0], [0.33, 1.6, 0.06], 0.045, 6, dr, {}); tube(bk, [0.33, 1.6, 0.06], [0.28, 1.8, 0.12], 0.04, 6, dr, {});
+          tube(bk, [-0.15, 1.42, 0], [-0.36, 1.5, 0.05], 0.045, 6, dr, {}); tube(bk, [-0.36, 1.5, 0.05], [-0.38, 1.68, 0.12], 0.04, 6, dr, {});
+          bk.sph(0, 1.6, 0, 0.11, 0.13, 0.11, skin, { seg: 7, rings: 5 });
+          bk.sph(0, 1.64, -0.02, 0.135, 0.15, 0.135, sc, { seg: 8, rings: 5, cut: 0 }); bk.cyl(0, 1.0, -0.08, 0.14, 0.24, 0.66, { seg: 8, col: sc, cap: false });   // платок на голове и по спине
+        } },
+      // санки: деревянные полозья с красными загибами, сиденье; на санках — малыш в красной шапке с помпоном и шарфе, машет
+      sled(bk) { const F = new K.Frame(0, 0, 0, 0), wd = C('wood'), red = rgb('#C2403A');
+        [-0.45, 0.45].forEach(x => { tube(bk, [x, 0.06, 0.45], [x, 0.06, -0.45], 0.035, 5, red, {}); tube(bk, [x, 0.06, 0.45], [x, 0.2, 0.55], 0.035, 5, red, {}); [0.3, -0.3].forEach(z => bar(bk, [x, 0.06, z], [x, 0.26, z], 0.04, wd)); });
+        for (let i = 0; i < 4; i++) bk.box(F, 0, 0.28, -0.36 + i * 0.24, 1.0, 0.04, 0.18, { col: mul(wd, 0.95 + (i % 2) * 0.08) });
+        const jk = rgb('#3F78B8'), skin = rgb('#F2D2BC');
+        bk.sph(0, 0.5, -0.05, 0.22, 0.22, 0.2, jk, { seg: 8, rings: 5 }); bk.sph(0, 0.76, -0.02, 0.12, 0.12, 0.12, skin, { seg: 7, rings: 5 });
+        bk.sph(0, 0.81, -0.03, 0.13, 0.08, 0.13, red, { seg: 8, rings: 4, cut: 0 }); bk.sph(0, 0.86, -0.03, 0.04, 0.04, 0.04, rgb('#FFFFFF'), { seg: 5, rings: 3 });
+        bk.box(F, 0, 0.66, 0.0, 0.26, 0.06, 0.24, { col: rgb('#F2C94C') });
+        tube(bk, [0.18, 0.58, 0], [0.34, 0.8, 0.05], 0.045, 6, jk, {}); tube(bk, [-0.18, 0.56, 0], [-0.3, 0.42, 0.22], 0.045, 6, jk, {}); },
+      // камушки с глазками (как на щите «Осторожно, камушки» дороги к селу): три круглых валуна, у каждого — глазки
+      rock(bk) { const RC = [rgb('#9C8E80'), rgb('#B3A596'), rgb('#8E8072')];
+        [[-0.42, 0.3, 0.05, 0.36], [0.38, 0.33, -0.05, 0.38], [0.0, 0.25, 0.22, 0.27]].forEach(([x, y, z, r], i) => {
+          bk.sph(x, y, z, r, r * 0.95, r * 0.9, (p, ny) => mul(RC[i], 0.84 + 0.22 * Math.max(0, ny)), { seg: 9, rings: 6 });
+          [-1, 1].forEach(sd => { bk.sph(x + sd * r * 0.3, y + r * 0.2, z + r * 0.84, r * 0.2, r * 0.22, r * 0.08, rgb('#FFFFFF'), { seg: 6, rings: 3 }); bk.sph(x + sd * r * 0.3 + sd * 0.01, y + r * 0.19, z + r * 0.9, r * 0.1, r * 0.11, r * 0.05, rgb('#3A2E3F'), { seg: 5, rings: 3 }); }); }); },
+      // снеговики: сугроб и на нём два снеговичка (морковки, угольки, шарфики разного цвета, на одном — маленькая папаха)
+      snowman(bk) { const sn = rgb('#F4F7FB');
+        bk.sph(0, 0.0, 0, 0.95, 0.32, 0.45, sn, { seg: 9, rings: 4, cut: 0 });
+        [[-0.48, '#C2405B', 1], [0.5, '#3F78B8', 0]].forEach(([x, scf, hat]) => { const y0 = 0.2;
+          bk.sph(x, y0 + 0.18, 0, 0.22, 0.2, 0.22, sn, { seg: 8, rings: 5 }); bk.sph(x, y0 + 0.47, 0, 0.15, 0.14, 0.15, sn, { seg: 8, rings: 5 });
+          bk.cyl(x, y0 + 0.33, 0, 0.13, 0.13, 0.05, { seg: 8, col: rgb(scf) });
+          tube(bk, [x, y0 + 0.48, 0.13], [x, y0 + 0.47, 0.28], 0.025, 5, rgb('#F08A2E'), { r1: 0.004 });
+          [-1, 1].forEach(sd => bk.sph(x + sd * 0.05, y0 + 0.53, 0.13, 0.018, 0.018, 0.018, rgb('#2A2624'), { seg: 4, rings: 2 }));
+          if (hat) bk.cyl(x, y0 + 0.58, 0, 0.1, 0.11, 0.1, { seg: 8, col: rgb('#2A2624') }); }); },
+      // сосульки: заснеженная балка галереи на столбах, с неё свисают сосульки (до 1,1 м) — подкат
+      icicles(bk) { const F = new K.Frame(0, 0, 0, 0), ice = rgb('#CFE6F4');
+        [-1.04, 1.04].forEach(x => bk.box(F, x, 0.85, 0, 0.14, 1.7, 0.14, { col: WOODD }));
+        bk.box(F, 0, 1.42, 0, 2.2, 0.28, 0.5, { col: C('blue'), cols: { py: rgb('#F4F7FB') } }); bk.box(F, 0, 1.62, 0, 2.24, 0.1, 0.56, { col: rgb('#F4F7FB') });
+        for (let i = 0; i < 11; i++) { const x = -0.95 + i * 0.19, L = 0.12 + ((i * 7) % 5) * 0.045 + (i % 3 === 0 ? 0.08 : 0); bk.cyl(x, 1.28 - L, 0.16, 0.0, 0.035 + (i % 2) * 0.01, L, { seg: 5, col: ice, cap: false }); } },
     };
+    // метки поперечных: круг-ковёр танцора (красный с золотой каймой и розеткой) и ледяная дорожка санок (с горки слева до конца,
+    // в конце — снежный валик-«тормоз»). Обе — отдельной сеткой в группе препятствия; ядро двигает фигуру, метка стоит на месте
+    function rugGeo(bk) { const n = 18, R0 = 0.95, y = 0.015;
+      for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU;
+        bk.quadF([Math.sin(a) * R0, y, Math.cos(a) * R0], [Math.sin(b) * R0, y, Math.cos(b) * R0], [Math.sin(b) * R0 * 0.82, y, Math.cos(b) * R0 * 0.82], [Math.sin(a) * R0 * 0.82, y, Math.cos(a) * R0 * 0.82], rgb('#E8C770'), S.FLAT, [0, 1, 0]);
+        trd(bk, [0, y, 0], [Math.sin(a) * R0 * 0.82, y, Math.cos(a) * R0 * 0.82], [Math.sin(b) * R0 * 0.82, y, Math.cos(b) * R0 * 0.82], i % 2 ? rgb('#B8303A') : rgb('#A82A34'), S.FLAT, [0, 1, 0]); }
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, x = Math.sin(a) * 0.42, z = Math.cos(a) * 0.42; bk.quadF([x - 0.09, y + 0.004, z], [x, y + 0.004, z - 0.14], [x + 0.09, y + 0.004, z], [x, y + 0.004, z + 0.14], rgb('#F2C94C'), S.FLAT, [0, 1, 0]); } }
+    function trackGeo(bk, lane) { const xf = (lane - 1) * LANE, x0 = -6.2, L = xf - x0, ice = rgb('#7FB4DA'), y = 0.012;
+      // в локальных координатах группы с x = xf (санки в конце): дорожка от x0 − xf до 0
+      bk.quadF([x0 - xf, y, 0.55], [0.35, y, 0.55], [0.35, y, -0.55], [x0 - xf, y, -0.55], p => mul(ice, 0.92 + 0.1 * Math.sin(p[0] * 3.1)), S.FLAT, [0, 1, 0]);
+      for (let x = x0 - xf + 0.6; x < -0.3; x += 1.2) bk.quadF([x, y + 0.004, 0.12], [x + 0.5, y + 0.004, 0], [x, y + 0.004, -0.12], [x - 0.1, y + 0.004, 0], rgb('#FFFFFF'), S.FLAT, [0, 1, 0]);   // стрелки по ходу санок
+      bk.sph(0.85, 0, 0, 0.32, 0.26, 0.6, rgb('#F4F7FB'), { seg: 7, rings: 3, cut: 0 });   // валик в конце
+      // флажок на валике: красно-белый, на шесте 1,6 м — «санки остановятся здесь» видно издалека, и на белом снегу
+      bk.cyl(0.85, 0, 0, 0.025, 0.025, 1.65, { seg: 5, col: rgb('#5A4A3E'), cap: false });
+      trd(bk, [0.85, 1.65, 0], [0.85, 1.25, 0], [1.4, 1.45, 0], rgb('#D8343C'), S.FLAT, [0, 0, 1]); trd(bk, [0.85, 1.65, 0], [1.4, 1.45, 0], [0.85, 1.25, 0], rgb('#B82A32'), S.FLAT, [0, 0, -1]); }
     // повозка без ослика (ослик — свой npc): кузов на колёсах, сено горкой; оглобли вперёд (к +z); колёса — отдельной сеткой (крутятся)
     function cartGeo(bk) { const F = new K.Frame(0, 0, -0.9, 0);
       bk.box(F, 0, 0.75, 0, 1.7, 0.12, 2.6, { col: WOOD, cols: { py: WOODD } });
@@ -1548,6 +2006,25 @@
       });
     }
 
+    // коза (серпантин): белая с рыжими пятнами, рожки назад, бородка, колокольчик — как корова, только меньше и шустрее
+    function makeGoat() {
+      return K.npc('goat', ({ n, body, P, face, M, GEO, capG }) => {
+        const w = M('#F2EEE6'), sp = M('#C98A4A'), hoof = M('#4A3E38'), horn = M('#D8C8A8'), bell = M('#E8C770', { emissive: '#C9A040', emissiveIntensity: 0.12 }), strap = M('#3F78B8');
+        P(body, capG(0.2, 0.42), w, [0, 0.6, 0], null, [PI / 2, 0, 0]); P(body, GEO.sph, sp, [0.12, 0.68, -0.12], [0.1, 0.12, 0.16], null, false);
+        n.legsF = new T.Group(); n.legsF.position.set(0, 0.42, 0.2); body.add(n.legsF);
+        n.legsB = new T.Group(); n.legsB.position.set(0, 0.42, -0.2); body.add(n.legsB);
+        [n.legsF, n.legsB].forEach(lg => [-1, 1].forEach(sd => { P(lg, GEO.cyl, w, [sd * 0.1, -0.19, 0], [0.045, 0.38, 0.045]); P(lg, GEO.sph, hoof, [sd * 0.1, -0.38, 0.01], [0.05, 0.03, 0.055], null, false); }));
+        n.extraDyn = [n.legsF, n.legsB];
+        n.tail = new T.Group(); n.tail.position.set(0, 0.78, -0.4); body.add(n.tail); P(n.tail, GEO.sph, w, [0, 0.05, -0.03], [0.04, 0.08, 0.04], [-0.6, 0, 0]);
+        P(body, GEO.torus, strap, [0, 0.82, 0.32], [0.1, 0.1, 0.08], [PI / 2 - 0.4, 0, 0], false); P(body, GEO.cyl, bell, [0, 0.7, 0.4], [0.035, 0.055, 0.035], null, false);
+        const head = new T.Group(); head.position.set(0, 0.95, 0.42); body.add(head); n.head = head;
+        P(head, GEO.sph, w, [0, 0, 0], [0.13, 0.14, 0.17]); P(head, GEO.sph, w, [0, -0.15, 0.06], [0.04, 0.08, 0.04], null, false);   // бородка
+        face(head, { er: 30, ex: 84, ey: 320, nose: '#B9776E', noseW: 14, noseH: 8, mouth: 'smile', white: true }, [0.13, 0.14, 0.17]);
+        [-1, 1].forEach(sd => { P(head, GEO.sph, w, [sd * 0.15, 0.04, -0.03], [0.08, 0.03, 0.05], [0, 0, -sd * 0.4]); P(head, GEO.cone, horn, [sd * 0.06, 0.18, -0.07], [0.028, 0.14, 0.028], [-0.6, 0, -sd * 0.2], false); });
+        n.walk = 1; n.noTilt = true;
+        n.extra = (t) => { const k = n.walk, f = n.gait || 8; n.legsF.rotation.x = Math.sin(t * f) * 0.45 * k; n.legsB.rotation.x = -Math.sin(t * f) * 0.45 * k; n.tail.rotation.x = Math.sin(t * 6 + n.ph) * 0.3; };
+      });
+    }
     // зверь из K.npc → одна сетка тела (тун + rim, как жители села) и одна сетка контура; части (ноги спереди/сзади, хвост, голова)
     // помечены атрибутом aPart и качаются в вершинном шейдере вокруг своих осей (uniform-ы — свои у экземпляра: клон материала,
     // программа общая). Было ~12–16 вызовов на корову (каждая подвижная группа — тело + контур), стало 3 (тело, контур, лицо)
@@ -1590,15 +2067,18 @@
       return { U, body: mB, facePivot: fp };
     }
     const OGEO = new Map(), OPOOL = new Map(), OLIVE = new Set();
-    function obGeo(key, fn) { let g = OGEO.get(key); if (!g) { const bk = new K.Baker('atlas'); fn(bk); snowify(bk); g = bk.build(); unkeep(g); addFx(g, bk.fxR); OGEO.set(key, g); } return g; }
+    function obGeo(key, fn, snow) { let g = OGEO.get(key); if (!g) { const bk = new K.Baker('atlas'); fn(bk); snowify(bk, snow, 0.55); g = bk.build(); unkeep(g); addFx(g, bk.fxR); OGEO.set(key, g); } return g; }
     const obMesh = (g, mat) => { const m = new T.Mesh(g, mat || matA); m.castShadow = m.receiveShadow = false; return m; };
     // скорости по умолчанию (м/с навстречу; ядро может задать ob.speed) — для анимации: бочки катятся, звери шагают, колёса крутятся
-    const OSPEED = { barrels: 4, cow: 2.2, cart: 6 };
+    const OSPEED = { barrels: 4, cow: 2.2, cart: 6, goat: 1.6 };
+    // opts.theme — тема уровня: у зимней — снег на верхних гранях (свой ключ пула и своя геометрия), opts.lane — для санок (длина
+    // ледяной дорожки до конечной полосы)
     function obstacle(id, opts) {
       opts = opts || {};
       const cat = CAT[id]; if (!cat) throw new Error('runnerKit.obstacle: нет в каталоге ' + id);
       const v = (opts.variant | 0) % 3, len = id === 'shed' ? clamp(Math.round((+opts.len || cat.dMin) / 2) * 2, cat.dMin, cat.dMax) : 0;
-      const key = id + '|' + (id === 'stall' || id === 'carpet' ? v : 0) + '|' + len, L = OPOOL.get(key);
+      const snow = !WIN && !!(THEME[opts.theme] && THEME[opts.theme].snow) && !cat.moving && !cat.lateral && id !== 'snowman' && id !== 'icicles', lane = clamp(opts.lane | 0, 0, 2);
+      const key = id + '|' + (id === 'stall' || id === 'carpet' || id === 'dancer' ? (id === 'dancer' ? v % 2 : v) : 0) + '|' + len + (snow ? '|w' : '') + (id === 'sled' ? '|' + lane : ''), L = OPOOL.get(key);
       let ob = L && L.length ? L.pop() : null;
       if (!ob) {
         const group = new T.Group(); group.name = 'runner:ob:' + id;
@@ -1613,14 +2093,24 @@
         } else if (id === 'barrels') {
           const g = obGeo('barrels', OB.barrels); ob.roll = [-0.4, 0.4].map(() => null);
           const m = obMesh(g); m.position.y = 0.4; group.add(m); ob.meshes.push(m); ob.rollMesh = m;
+        } else if (id === 'goat') { const n = makeGoat(); const A = bakeAnimal(n, [n.legsF, n.legsB, n.tail, n.head], [0.95, 0.42]); A.U.uPv0.value.set(0.42, 0.2, 0.42, -0.2); A.U.uPv1.value.set(0, 0.78, 0.95, 0.42);
+          n.root.scale.setScalar(1.2); group.add(n.root); ob.npc = n; ob.an = A; n.gait = 8;
         } else {
-          const g = obGeo(key, bk => OB[id](bk, v, len)); const m = obMesh(g); group.add(m); ob.meshes.push(m);
+          const g = obGeo(key, bk => OB[id](bk, v, len), snow); const m = obMesh(g); group.add(m); ob.meshes.push(m); ob.body = m;
+          // поперечные: метка на конечной полосе (ядро: ob.lat(x, xf) — фигура идёт, метка стоит); камушек: ob.fall(y, warn)
+          if (id === 'dancer') { const r = obMesh(obGeo('rug', rugGeo)); r.renderOrder = 1; group.add(r); ob.meshes.push(r); ob.mark = r; }
+          if (id === 'sled') { const r = obMesh(obGeo('track|' + lane, bk => trackGeo(bk, lane))); r.renderOrder = 1; group.add(r); ob.meshes.push(r); ob.mark = r; }
+          if (id === 'dancer' || id === 'sled') ob.lat = (x, xf) => { if (ob.mark) ob.mark.position.x = xf - x; ob.moving = Math.abs(x - xf) > 0.05; };
+          // предупреждение (warn ≥ 0, за 2,6 с): камень уже виден наверху, у кромки скалы, и покачивается — «вот-вот сорвётся»
+          // (тень на дороге за 50 м в портрете — пара пикселей по высоте, одной её мало); тень: до предупреждения её нет, с
+          // него — сразу 0,7 размера и растёт до 1,15 к падению (0,25 в начале на телефоне не читалась)
+          if (id === 'rock') ob.fall = (y, warn) => { const m2 = ob.body, k = y / 14, teeter = y > 13.9 && warn >= 0; m2.position.set(-4.2 * k, y, 0); m2.rotation.set(y * 0.35, 0, y * 0.2 + (teeter ? Math.sin(warn * 60) * 0.3 : 0)); m2.visible = y < 13.9 || warn >= 0; ob.shadowK = y > 0.01 ? (warn < 0 ? 0 : 0.7 + 0.45 * warn) : 1; };
         }
         // тень-пятно (vkit blobMat): размер — по габариту; рисуют все одним InstancedMesh (см. tick)
         ob.shadow = [cat.w * 1.1, (id === 'shed' ? len : id === 'cart' ? 4.0 : cat.d) * 1.08];
         ob.release = () => { if (!ob.live) return; ob.live = false; OLIVE.delete(ob); if (group.parent) group.parent.remove(group); group.position.set(0, 0, 0); group.rotation.set(0, 0, 0); group.visible = true; let P2 = OPOOL.get(key); if (!P2) OPOOL.set(key, P2 = []); P2.push(ob); };
       }
-      ob.live = true; OLIVE.add(ob);
+      ob.live = true; OLIVE.add(ob); ob.shadowK = 1; if (ob.mark) ob.mark.position.x = 0; if (ob.body && id === 'rock') { ob.body.position.set(0, 0, 0); ob.body.rotation.set(0, 0, 0); ob.body.visible = true; }
       ob.dir = opts.dir === -1 ? -1 : 1; ob.speed = opts.speed !== undefined ? +opts.speed : opts.dir === 0 ? 0 : (OSPEED[id] || 0);   // ядро: dir 0 — стоит (корова щиплет травку), 1 — навстречу
       ob.group.rotation.y = ob.dir < 0 ? PI : 0;   // dir −1 — уходит от героини (попутно)
       if (ob.npc) ob.npc.walk = ob.speed > 0.05 ? 1 : 0;
@@ -1701,7 +2191,7 @@
        ================================================================= */
     const matPow = keepO(new T.MeshMatcapMaterial({ matcap: matcapTex, vertexColors: true }));
     const matX2 = keepO(new T.MeshMatcapMaterial({ matcap: matcapTex, map: x2Tex, color: 0xFFF2D0 }));
-    const POWC = { magnet: '#9FD0FF', x2: '#FFD86A', glide: '#9FF0E0' };
+    const POWC = { magnet: '#9FD0FF', x2: '#FFD86A', glide: '#9FF0E0', mail: '#C9DAF0' };   // mail — кольчуга (роль EGGS)
     const PGEO = {};
     function powGeo(id) {
       if (PGEO[id]) return PGEO[id];
@@ -1728,7 +2218,7 @@
       let pw = L.pop();
       if (!pw) {
         const group = new T.Group(); group.name = 'runner:pow:' + id; const spin = new T.Group(); group.add(spin);
-        const m = id === 'x2' ? new T.Mesh(coinGeo, matX2) : new T.Mesh(powGeo(id), matPow);
+        const m = id === 'x2' ? new T.Mesh(coinGeo, matX2) : id === 'mail' ? mailMesh() : new T.Mesh(powGeo(id), matPow);
         if (id === 'x2') m.scale.setScalar(2.4); if (id === 'glide') m.scale.setScalar(1.1); if (id === 'magnet') m.position.y = 0.0;
         spin.add(m);
         if (id === 'x2') { const m2 = new T.Mesh(coinGeo, coinMat); m2.scale.setScalar(1.7); m2.position.set(0.32, -0.28, -0.08); spin.add(m2); }
@@ -1738,6 +2228,138 @@
         pw.release = () => { if (!pw.live) return; pw.live = false; PLIVE.delete(pw); if (group.parent) group.parent.remove(group); group.position.set(0, 0, 0); L.push(pw); };
       }
       pw.live = true; PLIVE.add(pw); return pw;
+    }
+    // кольчуга (роль EGGS; старое имя села по-персидски — «кольчужники»): рубашка из колечек — своя карта (кольца внахлёст,
+    // через ряд со сдвигом), блеск — тот же matcap «серебро». Выдерживает один удар — ядро
+    let mailGeo = null, matMail = null;
+    function mailMesh() {
+      if (!mailGeo) {
+        const [cv, c2] = K.cnv(64, 64); c2.fillStyle = '#6E7784'; c2.fillRect(0, 0, 64, 64);
+        for (let r = 0; r < 4; r++) for (let q = -1; q <= 4; q++) { const x = q * 16 + (r % 2 ? 8 : 0), y = r * 16 + 8;
+          c2.lineWidth = 3.4; c2.strokeStyle = '#EEF3F8'; c2.beginPath(); c2.arc(x, y, 6.6, 0, TAU); c2.stroke();
+          c2.lineWidth = 1.3; c2.strokeStyle = '#3E4652'; c2.beginPath(); c2.arc(x + 0.9, y + 0.9, 8.4, 0.3, 2.3); c2.stroke(); }
+        const t = keepO(new T.CanvasTexture(cv)); t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(4.5, 4.5); t.anisotropy = HI ? 4 : 2;
+        matMail = keepO(new T.MeshMatcapMaterial({ matcap: matcapTex, map: t, color: 0xF2F6FA }));
+        const sh = new T.Shape(); sh.moveTo(-0.22, -0.4); sh.lineTo(0.22, -0.4); sh.lineTo(0.22, 0.1); sh.lineTo(0.38, 0.0); sh.lineTo(0.46, 0.13); sh.lineTo(0.27, 0.33); sh.lineTo(0.1, 0.35);
+        sh.quadraticCurveTo(0, 0.25, -0.1, 0.35); sh.lineTo(-0.27, 0.33); sh.lineTo(-0.46, 0.13); sh.lineTo(-0.38, 0.0); sh.lineTo(-0.22, 0.1); sh.closePath();
+        mailGeo = keepO(new T.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.025, bevelSegments: 1, curveSegments: 4 })); mailGeo.translate(0, 0, -0.04);
+      }
+      const m = new T.Mesh(mailGeo, matMail); m.scale.setScalar(1.15); return m;
+    }
+    // щит кольчуги на героине: кольцо из колечек вокруг неё (спрайт, 1 вызов, пока кольчуга надета или после удара); ядро
+    // каждый кадр зовёт set(x, y, z, сила 0…1, время) — без выделений
+    function shield(scene) {
+      const [cv, c2] = K.cnv(128, 128); c2.translate(64, 64);
+      const g = c2.createRadialGradient(0, 0, 36, 0, 0, 63); g.addColorStop(0, 'rgba(200,225,255,0)'); g.addColorStop(0.72, 'rgba(214,232,255,0.4)'); g.addColorStop(1, 'rgba(214,232,255,0)'); c2.fillStyle = g; c2.fillRect(-64, -64, 128, 128);
+      for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; c2.strokeStyle = 'rgba(226,238,252,0.85)'; c2.lineWidth = 1.8; c2.beginPath(); c2.arc(Math.cos(a) * 53, Math.sin(a) * 53, 4.4, 0, TAU); c2.stroke(); }
+      const m = keepO(new T.SpriteMaterial({ map: keepO(new T.CanvasTexture(cv)), transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 }));
+      const sp = new T.Sprite(m); sp.name = 'runner:shield'; sp.visible = false; sp.renderOrder = 5; scene.add(sp);
+      return {
+        set(x, y, z, k, t) { const on = k > 0.01; if (sp.visible !== on) sp.visible = on; if (!on) return; sp.position.set(x, y + 0.95, z); const sc = 2.0 + Math.sin(t * 5) * 0.06; sp.scale.set(sc, sc * 1.15, 1); m.rotation = t * 0.7; m.opacity = 0.42 * k; },
+        get visible() { return sp.visible; }, dispose() { if (sp.parent) sp.parent.remove(sp); },
+      };
+    }
+    /* 10а. НАХОДКИ («Сокровища», роль EGGS): вещь крутится и покачивается (ядро), золотой ореол и мягкий столб света от земли —
+       издалека видно, что это не монета и не усилитель. 2 вызова (вещь и столб; ореол-спрайт был третьим — на закате у башни
+       вместе со щитом кольчуги это давало 89 из 90), пока находка в кадре (на трассе — одна за раз). Рецепты —
+       V.runnerEggs.model (Baker 'vc' + matcap), резной камень — плита с рельефом из атласа вывесок, монета «тутта» — наша монета
+       (на ней и так вьётся ветка «тутта») золотом */
+    const FGEO = {}, FPOOL = {}, FLIVE = new Set();
+    let matBeam = null, beamGeo = null, matTutta = null, stoneGeo = null;
+    function findMesh(id) {
+      if (id === 'tutta') { matTutta = matTutta || keepO(new T.MeshMatcapMaterial({ matcap: matcapTex, map: coinTex, color: 0xFFD27A })); const m = new T.Mesh(coinGeo, matTutta); m.scale.setScalar(1.7); return m; }
+      if (id === 'stone') {
+        if (!stoneGeo) { const bk = new K.Baker('atlas'), r = SIGN.rect.carv0, ru = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]], e = [r[0] + 0.002, r[1] + 0.002], ue = [e, e, e, e];
+          bk.box(new K.Frame(0, 0, 0, 0), 0, 0, 0, 0.66, 0.66, 0.16, { col: [1.1, 1.1, 1.1], uv: { pz: ru, nz: ru, px: ue, nx: ue, py: ue, ny: ue } }); stoneGeo = keepO(bk.build()); unkeep(stoneGeo); }
+        return new T.Mesh(stoneGeo, matSign);
+      }
+      let g = FGEO[id];
+      if (!g) { const bk = new K.Baker('vc'); let ok = false; try { ok = !!(EGG && EGG.model(id, bk, EH)); } catch (e) { console.warn('runnerKit: find', id, e); }
+        if (!ok || !bk.n) bk.sph(0, 0, 0, 0.3, 0.3, 0.3, [1, 0.85, 0.4], { seg: 10, rings: 6 });
+        g = FGEO[id] = keepO(bk.build()); unkeep(g); }
+      return new T.Mesh(g, matPow);
+    }
+    function find(id) {
+      const L = FPOOL[id] || (FPOOL[id] = []);
+      let fd = L.pop();
+      if (!fd) {
+        if (!matBeam) {
+          const [cv, c2] = K.cnv(4, 64), gr = c2.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, 'rgba(255,236,190,0)'); gr.addColorStop(0.6, 'rgba(255,220,140,0.18)'); gr.addColorStop(0.92, 'rgba(255,210,120,0.5)'); gr.addColorStop(1, 'rgba(255,206,110,0.62)'); c2.fillStyle = gr; c2.fillRect(0, 0, 4, 64);
+          matBeam = keepO(new T.MeshBasicMaterial({ map: keepO(new T.CanvasTexture(cv)), transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: true, color: 0xFFD27A }));
+          beamGeo = keepO(new T.CylinderGeometry(0.16, 0.42, 7, 10, 1, true)); beamGeo.translate(0, 3.5 - 1.05, 0);
+        }
+        const group = new T.Group(); group.name = 'runner:find:' + id; const spin = new T.Group(); group.add(spin);
+        spin.add(findMesh(id)); spin.scale.setScalar(1.2);
+        const beam = new T.Mesh(beamGeo, matBeam); beam.renderOrder = 3; group.add(beam);
+        fd = { id, group, spin, beam, t: Math.random() * 6, live: false };
+        // ближе 14 м столб света гаснет (на подходе он заслонял саму вещь), у самой вещи — искры (tick); ядро зовёт каждый кадр
+        fd.near = d => { const k = clamp((d - 5) / 14, 0, 1); matBeam.opacity = 0.35 + 0.65 * k; beam.visible = d > 2.5; };
+        fd.release = () => { if (!fd.live) return; fd.live = false; FLIVE.delete(fd); if (group.parent) group.parent.remove(group); group.position.set(0, 0, 0); L.push(fd); };
+      }
+      fd.live = true; FLIVE.add(fd); return fd;
+    }
+
+    /* =================================================================
+       10б. ВОРОТА УРОВНЯ: арка над улицей на границе уровней — каменные столбы на тротуарах, синяя резная перекладина (низ 5 м:
+       под ней свободно и с прыжка, и с крыши не достать — крыш у ворот нет, там передышка), доска с названием уровня (свой
+       холст на каждые ворота, перерисовка — раз при постановке), над ней серебряная розетка, флажки, фонарики на столбах.
+       2 вызова (арка — общий атлас, доска — своя карта). kit.gate() → { group, setSign(n, title, sub, named), release() }
+       ================================================================= */
+    const GATE = { geo: null, signGeo: null, pool: [], live: new Set() };
+    const GSW = HI ? 1024 : 512, GSH = Math.round(GSW * 0.28);
+    function gateGeo() {
+      const bk = new K.Baker('atlas'), F = new K.Frame(0, 0, 0, 0), st = [0.96, 0.94, 0.89], bl = C('blue'), wh = rgb('#F4F2EC');
+      [-1, 1].forEach(sd => { const x = sd * 4.9;
+        bk.box(F, x, 0.3, 0, 1.0, 0.6, 1.0, { col: mul(st, 0.92), s: S.RUBBLE, skip: { ny: 1 } });
+        bk.box(F, x, 2.85, 0, 0.74, 4.5, 0.74, { col: st, s: S.ASHLAR, skip: { ny: 1 } });
+        bk.box(F, x, 5.2, 0, 0.92, 0.3, 0.92, { col: bl, cols: { py: wh } });
+        lantern(bk, x - sd * 0.5, 3.6, 0.2, null, 1); bar(bk, [x, 3.98, 0.2], [x - sd * 0.5, 3.98, 0.2], 0.04, rgb('#34343A')); });
+      bk.box(F, 0, 5.25, 0, 10.6, 0.5, 0.42, { col: bl, cols: { py: mul(bl, 1.1), ny: mul(bl, 0.75) } });
+      for (let i = 0; i < 22; i++) { const x = -5.0 + i * 10 / 21; bk.box(F, x, 5.25, 0.215, 0.18, 0.18, 0.02, { col: wh, rot: PI / 4 }); }   // резные ромбы
+      bk.box(F, 0, 6.25, -0.02, 6.9, 1.62, 0.16, { col: bl, s: S.WASH });
+      // серебряная розетка над доской (как узор монеты): веер треугольников, чернёная середина, лепестки
+      const cy = 7.35, R0 = 0.48, sv = C('silverWare'), nl = rgb('#3E4250');
+      for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, b = (i + 1) / 16 * TAU; bk.tri([0, cy, 0.06], [Math.cos(a) * R0, cy + Math.sin(a) * R0, 0.06], [Math.cos(b) * R0, cy + Math.sin(b) * R0, 0.06], i % 2 ? sv : mul(sv, 0.9), S.FLAT, null, [0, 0, 1]); }
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, r1 = 0.18, r2 = 0.4; bk.quad([Math.cos(a - 0.2) * r1, cy + Math.sin(a - 0.2) * r1, 0.07], [Math.cos(a) * r2, cy + Math.sin(a) * r2, 0.07], [Math.cos(a + 0.2) * r1, cy + Math.sin(a + 0.2) * r1, 0.07], [0, cy, 0.07], nl, S.FLAT, null, [0, 0, 1]); }
+      bk.box(F, 0, 7.05, -0.02, 1.2, 0.2, 0.2, { col: bl });
+      // флажки под перекладиной (на ветру)
+      const n0 = bk.n; for (let i = 0; i < 18; i++) { const x = -4.25 + i * 8.5 / 17, c = FLAGC[i % FLAGC.length]; bk.tri([x - 0.17, 5.0, 0.22], [x + 0.17, 5.0, 0.22], [x, 4.62, 0.24], c, S.FLAT, null, [0, 0, 1]); bk.tri([x + 0.17, 5.0, 0.2], [x - 0.17, 5.0, 0.2], [x, 4.62, 0.18], mul(c, 0.82), S.FLAT, null, [0, 0, -1]); }
+      fxMark(bk, n0, 0, 0.7);
+      const g = bk.build(); unkeep(g); addFx(g, bk.fxR); own.push(g); return g;
+    }
+    function gateSignGeo() {
+      const bk = new K.Baker('atlas'), n0 = bk.n, w = 6.5, h = w * GSH / GSW, y = 6.25, col = [1.12, 1.12, 1.12];
+      bk.quad([-w / 2, y - h / 2, 0.07], [w / 2, y - h / 2, 0.07], [w / 2, y + h / 2, 0.07], [-w / 2, y + h / 2, 0.07], col, S.FLAT, [[0, 0], [1, 0], [1, 1], [0, 1]], [0, 0, 1]);
+      fxMark(bk, n0, 0.45, 0);
+      const g = bk.build(); unkeep(g); addFx(g, bk.fxR); own.push(g); return g;
+    }
+    // доска: кремовое поле, синяя двойная рамка с точками (кубачинская кайма), «УРОВЕНЬ 6» золотом сверху, название крупно,
+    // в «Мастерском круге» — снизу мелко тема круга
+    function paintGate(g, n, title, sub) {
+      const c = g.cx, W = GSW, H = GSH, k = W / 512;
+      c.clearRect(0, 0, W, H); c.fillStyle = '#FBF6EA'; c.fillRect(0, 0, W, H);
+      c.strokeStyle = '#24419D'; c.lineWidth = 7 * k; c.strokeRect(5 * k, 5 * k, W - 10 * k, H - 10 * k); c.lineWidth = 2 * k; c.strokeRect(14 * k, 14 * k, W - 28 * k, H - 28 * k);
+      c.fillStyle = '#24419D'; for (let x = 24 * k; x < W - 20 * k; x += 16 * k) { c.beginPath(); c.arc(x, 10 * k, 2 * k, 0, TAU); c.arc(x, H - 10 * k, 2 * k, 0, TAU); c.fill(); }
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#B07E22'; c.font = '900 ' + Math.round(22 * k) + 'px Nunito, system-ui, sans-serif'; c.fillText('УРОВЕНЬ ' + n, W / 2, (sub ? 34 : 38) * k);
+      let fs = 50; c.font = '700 ' + Math.round(fs * k) + 'px Comfortaa, Nunito, sans-serif';
+      while (fs > 24 && c.measureText(title).width > W - 60 * k) { fs -= 2; c.font = '700 ' + Math.round(fs * k) + 'px Comfortaa, Nunito, sans-serif'; }
+      c.fillStyle = '#7A2E3A'; c.fillText(title, W / 2, (sub ? 78 : 88) * k);
+      if (sub) { c.fillStyle = '#5A4A62'; c.font = '800 ' + Math.round(19 * k) + 'px Nunito, sans-serif'; c.fillText('· ' + sub + ' ·', W / 2, 116 * k); }
+    }
+    function gate() {
+      let g = GATE.pool.pop();
+      if (!g) {
+        const group = new T.Group(); group.name = 'runner:gate';
+        const arch = obMesh(GATE.geo || (GATE.geo = gateGeo()), matA); group.add(arch);
+        const [cv, cx] = K.cnv(GSW, GSH), tex = keepO(new T.CanvasTexture(cv)); tex.anisotropy = HI ? 4 : 2;
+        const mat = keepO(relit(new T.MeshBasicMaterial({ map: tex, vertexColors: true })));
+        const sign = new T.Mesh(GATE.signGeo || (GATE.signGeo = gateSignGeo()), mat); group.add(sign);
+        g = { group, tex, cv, cx, mat, sign, key: '', live: false, meshes: [arch, sign] };
+        g.setSign = (n, title, sub) => { const key = n + '|' + title + '|' + (sub || ''); if (g.key === key) return; g.key = key; paintGate(g, n, String(title || ''), sub ? String(sub) : ''); tex.needsUpdate = true; };
+        g.release = () => { if (!g.live) return; g.live = false; GATE.live.delete(g); if (group.parent) group.parent.remove(group); group.position.set(0, 0, 0); group.visible = true; GATE.pool.push(g); };
+      }
+      g.live = true; GATE.live.add(g); return g;
     }
 
     /* =================================================================
@@ -1769,7 +2391,8 @@
         emit(SP, x, y, z, 0, 0.4, 0, 0.2, 1.3, 0.3, 1, 0.98, 0.92, 1, 0);
         for (let i = 0; i < 10; i++) { const a = fxR() * TAU, sp = 1.4 + fxR() * 2.2, warm = fxR() < 0.35; emit(SP, x, y, z, Math.cos(a) * sp, 1.2 + fxR() * 2.6, Math.sin(a) * sp * 0.6, 0.35 + fxR() * 0.25, 0.42 + fxR() * 0.2, 0.05, 1, warm ? 0.88 : 0.97, warm ? 0.62 : 1, 1, -5); } },
       // пыль из-под ног: 6 мягких клубов, растут и тают (приземление, подкат, спотыкание)
-      dust(pos, k) { if (!pos) return; const x = pos.x !== undefined ? pos.x : pos[0], y = pos.y !== undefined ? pos.y : pos[1], z = pos.z !== undefined ? pos.z : pos[2], n = Math.round(6 * (k || 1)), cc = WIN ? [0.96, 0.97, 1] : [0.86, 0.78, 0.64];
+      // snow — снежная пыль (лёд зимнего уровня и в незимний сезон игры)
+      dust(pos, k, snow) { if (!pos) return; const x = pos.x !== undefined ? pos.x : pos[0], y = pos.y !== undefined ? pos.y : pos[1], z = pos.z !== undefined ? pos.z : pos[2], n = Math.round(6 * (k || 1)), cc = WIN || snow ? [0.96, 0.97, 1] : [0.86, 0.78, 0.64];
         for (let i = 0; i < n; i++) { const a = fxR() * TAU, sp = 0.6 + fxR() * 1.2; emit(DU, x + Math.cos(a) * 0.15, y + 0.12, z + Math.sin(a) * 0.15, Math.cos(a) * sp, 0.35 + fxR() * 0.5, Math.sin(a) * sp + 0.8, 0.55 + fxR() * 0.3, 0.35 + fxR() * 0.2, 1.0 + fxR() * 0.5, cc[0], cc[1], cc[2], 0.55, 0.3); } },
       // блеск: одна звёздочка (монеты, кувшин) — зовёт и сам kit
       glint(pos, s) { const x = pos.x !== undefined ? pos.x : pos[0], y = pos.y !== undefined ? pos.y : pos[1], z = pos.z !== undefined ? pos.z : pos[2]; emit(SP, x, y, z, 0, 0, 0, 0.35, (s || 0.5) * 0.3, (s || 0.5), 1, 1, 1, 0.9, 0); },
@@ -1802,15 +2425,22 @@
         if (ob.an.facePivot) ob.an.facePivot.rotation.x = Math.sin(ob.ph * 0.5) * 0.06 * walk + ob.graze; ob.an.body.position.y = Math.abs(Math.sin(ob.ph)) * 0.025 * walk;
         n.blinkT = (n.blinkT || 1) - dt; if (n.blinkT <= 0 && n.faceMat) { n.closed = !n.closed; n.faceMat.map = n.closed ? n.faceClosed : n.faceOpen; n.blinkT = n.closed ? 0.13 : 2.2 + fxR() * 3; } }
       if (ob.wheels) { ob.wheels[0].rotation.x += sp * dt / 0.46; ob.wheels[1].rotation.x += sp * dt / 0.46; }
+      // танцор: на перебежке — подскоки, в круге — пляшет на месте, поворачиваясь (лезгинка); санки на ходу — покачивание
+      if (ob.id === 'dancer' && ob.body) { ob.ph = (ob.ph || ob.t) + dt * (ob.moving ? 10 : 6.5); ob.body.position.y = Math.abs(Math.sin(ob.ph)) * (ob.moving ? 0.14 : 0.06); ob.body.rotation.y = ob.moving ? Math.sin(ob.ph * 0.5) * 0.25 : Math.sin(ob.ph * 0.35) * 1.1; }
+      else if (ob.id === 'sled' && ob.body) ob.body.rotation.z = ob.moving ? Math.sin(tK * 21 + ob.t) * 0.035 : 0;
       if (ob.rollMesh) ob.rollMesh.rotation.x += sp * dt / 0.39;
     }
     function shadowOb(ob) {
       if (_si >= SHAD.instanceMatrix.count || !ob.group.parent || !ob.group.visible) return; ob.group.updateMatrixWorld(); _m4.multiplyMatrices(_m5, ob.group.matrixWorld);
-      _m6.makeScale(ob.shadow[0], 1, ob.shadow[1]); _m6.setPosition(0, 0.015, 0); _m4.multiply(_m6); SHAD.setMatrixAt(_si++, _m4);
+      const k = ob.shadowK; _m6.makeScale(ob.shadow[0] * k, 1, ob.shadow[1] * k); _m6.setPosition(0, 0.015, 0); _m4.multiply(_m6); SHAD.setMatrixAt(_si++, _m4);
     }
     function stepPow(pw) {
       pw.t += _dt; const k = 1.7 + Math.sin(pw.t * 4) * 0.15; pw.halo.scale.set(k, k, k);
       if (Math.sin(pw.t * 2.1) > 0.995 && pw.group.parent) { pw.group.updateMatrixWorld(); _v3.set(0.2, 0.3, 0.2).applyMatrix4(pw.group.matrixWorld); FX.root.updateMatrixWorld(); FX.root.worldToLocal(_v3); fx.glint(_v3, 0.9); }
+    }
+    function stepFind(fd) {
+      fd.t += _dt; fd.beam.scale.x = fd.beam.scale.z = 1 + Math.sin(fd.t * 3.2) * 0.12;   // столб «дышит»
+      if (Math.sin(fd.t * 2.7) > 0.9 && fd.group.parent) { fd.group.updateMatrixWorld(); _v3.set((fxR() - 0.5) * 0.5, (fxR() - 0.3) * 0.6, 0.2).applyMatrix4(fd.group.matrixWorld); FX.root.updateMatrixWorld(); FX.root.worldToLocal(_v3); fx.glint(_v3, 1.1); }
     }
     function tick(dt) {
       if (!(dt > 0)) return; dt = Math.min(dt, 0.1); tK += dt; _dt = dt;
@@ -1819,7 +2449,7 @@
       _si = 0; FX.root.updateMatrixWorld(); _m5.copy(FX.root.matrixWorld).invert(); OLIVE.forEach(shadowOb);
       if (SHAD.count !== _si || _si) { SHAD.count = _si; SHAD.instanceMatrix.needsUpdate = true; }
       // усилители: вращает и качает ядро (group.rotation.y, y); здесь — дыхание ореола и редкий блик
-      PLIVE.forEach(stepPow);
+      PLIVE.forEach(stepPow); FLIVE.forEach(stepFind);
       // блеск монет: раз в ~0,2 с — звёздочка на случайной видимой монете
       glintT -= dt;
       if (glintT <= 0 && COINS.length) { glintT = 0.18 + fxR() * 0.12; const m = COINS[0];
@@ -1839,7 +2469,9 @@
       if (SHAD.count) { calls++; tris += 2 * SHAD.count; }
       COINS.forEach(m => { if (m.count > 0 && m.parent) { calls++; tris += trisOf(coinGeo) * m.count; } });
       PLIVE.forEach(pw => pw.group.traverse(m => { if ((m.isMesh || m.isSprite) && m.visible) { calls++; tris += m.isSprite ? 2 : trisOf(m.geometry); } }));
+      FLIVE.forEach(fd => { if (fd.group.parent && fd.group.visible) fd.group.traverse(m => { if ((m.isMesh || m.isSprite) && m.visible) { calls++; tris += m.isSprite ? 2 : trisOf(m.geometry); } }); });
       if (SKY.live) SKY.live.root.traverse(m => { if ((m.isMesh || m.isPoints || m.isSprite) && m.visible) { calls++; if (m.isMesh) tris += trisOf(m.geometry); } });
+      GATE.live.forEach(g => { if (g.group.parent && g.group.visible) g.meshes.forEach(m => { calls++; tris += trisOf(m.geometry); }); });
       [SP, DU].forEach(S2 => { if (S2.any) calls++; });
       return { tris: Math.round(tris), calls, segments: [...ALL].filter(s => s.live).length, built: ALL.size, obstacles: OLIVE.size, bg: { built: BGS.built, maxSlice: +BGS.maxSlice.toFixed(1), ms: Math.round(BGS.ms), job: BG ? BG.key : null, sync: BGS.sync, lastSync: BGS.lastSync } };
     }
@@ -1851,6 +2483,8 @@
       OGEO.forEach(g => g.dispose()); OGEO.clear();
       COINS.forEach(m => { if (m.parent) m.parent.remove(m); m.dispose(); }); COINS.length = 0;
       PLIVE.forEach(pw => { if (pw.group.parent) pw.group.parent.remove(pw.group); }); PLIVE.clear();
+      FLIVE.forEach(fd => { if (fd.group.parent) fd.group.parent.remove(fd.group); }); FLIVE.clear(); Object.keys(FPOOL).forEach(k => delete FPOOL[k]);
+      GATE.live.forEach(g => { if (g.group.parent) g.group.parent.remove(g.group); }); GATE.live.clear(); GATE.pool.length = 0; GATE.geo = GATE.signGeo = null;
       if (FX.root.parent) FX.root.parent.remove(FX.root);
       own.forEach(x => { try { x.dispose && x.dispose(); } catch (e) { /* уже */ } }); own.length = 0;
       K.dispose();
@@ -1860,7 +2494,8 @@
       LANE, SEG_LENS: SEG_LENS.slice(), CAT, quality: Q, named, season: WIN ? 'winter' : 'autumn',
       themes: THEMES.map(t => ({ id: t.id, title: t.title, titleN: t.titleN, hour: t.hour, name: named ? t.title : t.titleN })),
       ROAD: { half: ROAD, curb: CURB, walk: WALK, walkY: WALK_Y, garland: GAR },
-      segment, obstacle, coins, powerup, sky, fx, stats, dispose,
+      segment, obstacle, coins, powerup, sky, fx, stats, dispose, gate,
+      find, shield,            // пасхалки (роль EGGS): находка на трассе (id из V.runnerEggs.FINDS) и щит кольчуги на героине
       update: tick,            // если неба нет (стенд, тесты): время анимаций и частиц
       light: lightAt,          // свет часа (для актёров/интерфейса): { hor, fog, n: [hi, si, el, az, sat, glow, lamps, stars, clouds] … }
       // прогрев пула (по желанию ядра на заставке): по одному сегменту каждой длины для тем themeIds — без вставки в сцену
@@ -1870,12 +2505,17 @@
       prewarm(themeIds, n) {
         (themeIds || THEMES.map(t => t.id)).forEach(id => SEG_LENS.forEach(len => { for (let i = 0; i < (n || 1); i++) segment(id, len, Math.random, { landmark: null }).release(); }));
         const tmp = [];
-        Object.keys(CAT).forEach(id => { const vs = id === 'stall' || id === 'carpet' ? [0, 1, 2] : [0], ls = id === 'shed' ? [8, 10, 12, 14, 16] : [0], k = id === 'cow' || id === 'cart' ? 3 : 1;
-          vs.forEach(v => ls.forEach(l => { for (let i = 0; i < k; i++) tmp.push(obstacle(id, { variant: v, len: l || undefined, dir: 0 })); })); });
+        Object.keys(CAT).forEach(id => { const vs = id === 'stall' || id === 'carpet' ? [0, 1, 2] : id === 'dancer' ? [0, 1] : [0], ls = id === 'shed' ? [8, 10, 12, 14, 16] : [0], k = id === 'cow' || id === 'cart' || id === 'goat' ? 3 : 1;
+          const lanes = id === 'sled' ? [0, 1, 2] : [1], ths = CAT[id].moving || CAT[id].lateral ? [''] : ['', 'winter'];   // зимние — со снегом (свой пул)
+          vs.forEach(v => ls.forEach(l => lanes.forEach(ln => ths.forEach(th => { for (let i = 0; i < k; i++) tmp.push(obstacle(id, { variant: v, len: l || undefined, dir: 0, lane: ln, theme: th })); })))); });
         tmp.forEach(ob => ob.release());
-        ['magnet', 'x2', 'glide'].forEach(id => powerup(id).release());
+        ['magnet', 'x2', 'glide', 'mail'].forEach(id => powerup(id).release());
+        if (EGG) EGG.FINDS.forEach(f => find(f.id).release());   // находки — тоже из пула (рецепт + Baker ≈ 1–3 мс на вещь)
+        gate().release();
       },
-      _internal: { K, LU, matA, matG, matRoad, matSign, SIGN, POOL, ALL, segSteps, THEME },
+      _internal: { K, LU, matA, matG, matRoad, matSign, SIGN, POOL, ALL, segSteps, THEME,
+        cameoMesh(kind) { const bk = new K.Baker('atlas'); cameo(bk, new K.Frame(0, 0, 0, 0), kind); return meshOf(bk, matA, { name: 'cameo:' + kind }); },
+        trace(on) { TRACE = on ? [] : null; return TRACE; } },   // стенд пасхалок: житель отдельно
     };
   }
 

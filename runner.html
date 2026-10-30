@@ -8,8 +8,8 @@
   <meta name="theme-color" content="#CFE0F0" />
   <title>Бег · стенд раннера</title>
   <!-- Стенд режима «Бег по Кубачи» (не игра): сам себе хост — свой рендерер, героиня как в village.html (HERO3D + HeroOutfits +
-       HeroAnim), host → VILLAGE.runner.open. Параметры: ?seed=число &bot=1 (автопилот; bot=human — с реакцией 0,4 с и «впритык»)
-       &monkey=1 (случайные свайпы) &stage=n &auto=1 (сразу бежать, без заставки) &tut=1|0 (подсказки первого забега) &q=low|high
+       HeroAnim), host → VILLAGE.runner.open. Параметры: ?seed=число &bot=1 (автопилот; bot=human — «как человек»: реакция ≈ 0,42 ± 0,08 с, момент ± 45 мс) &hour=22 (свой час неба — замеры ночью)
+       &monkey=1 (случайные свайпы) &stage=n (с начала уровня n: 1…9, 10+ — «Мастерский круг») &auto=1 (сразу бежать, без заставки) &tut=1|0 (подсказки первого забега) &q=low|high
        &named=0 &season=winter &hero=off (без модели — капсула) &stub=1 (свои заглушки вместо набора графики/актёров/интерфейса;
        stub=kit,actors,ui — выборочно) &dpr=1 &look=<образ> &norender=1 &dbg=1 (числа в углу). Для тестов — window.__runner
        (state, start, input, bot, setStage, stats, sim, near, close, open) и window.__runnerReady. -->
@@ -47,6 +47,7 @@
   <script src="js/village/wedding.js" onerror="void 0"></script>
   <script src="js/village/paraglider.js" onerror="void 0"></script>
   <!-- волна «Бег по Кубачи»: графика, актёры, интерфейс (необязательные — без них ядро ставит свои заглушки) и ядро -->
+  <script src="js/village/runner_eggs.js" onerror="void 0"></script>
   <script src="js/village/runner_kit.js" onerror="void 0"></script>
   <script src="js/village/runner_actors.js" onerror="void 0"></script>
   <script src="js/village/runner_ui.js" onerror="void 0"></script>
@@ -129,8 +130,8 @@
     const stubQ = Q.get('stub'), stub = stubQ === '1' ? true : stubQ ? stubQ.split(',').reduce((o, k) => { o[k] = true; return o; }, {}) : null;
     const dbg = {
       seed: Q.get('seed') != null ? +Q.get('seed') : undefined, stage: Q.get('stage') ? +Q.get('stage') : undefined, auto: Q.get('auto') === '1',
-      tut: Q.get('tut') === '1' ? true : Q.get('tut') === '0' ? false : undefined, stub, render: Q.get('norender') === '1' ? false : undefined,
-      bot: Q.get('bot') === '1' ? true : Q.get('bot') === 'human' ? { react: 0.4, late: true } : Q.get('monkey') === '1' ? { monkey: true } : undefined,
+      tut: Q.get('tut') === '1' ? true : Q.get('tut') === '0' ? false : undefined, stub, render: Q.get('norender') === '1' ? false : undefined, hour: Q.get('hour') != null ? +Q.get('hour') : undefined,
+      bot: Q.get('bot') === '1' ? true : Q.get('bot') === 'human' ? { react: 0.42, human: true, jit: 0.045 } : Q.get('monkey') === '1' ? { monkey: true } : undefined,
     };
     let api = null;
     async function openRunner() {
@@ -157,7 +158,7 @@
     // отладочные числа
     if (Q.get('dbg') === '1') {
       $('dbg').style.display = 'block';
-      setInterval(() => { const a = cur(); if (!a) return; const s = a.state(), st = a.stats(); $('dbg').textContent = s.mode + ' · этап ' + s.stage + ' · ' + s.v.toFixed(1) + ' м/с\n' + st.tris + ' треуг · ' + st.calls + ' выз · логика ' + st.logicMs + ' мс\nпланов ' + st.plan.rows + ' · мин. запас ' + (isFinite(st.plan.minSlack) ? st.plan.minSlack.toFixed(2) : '—') + ' с'; }, 400);
+      setInterval(() => { const a = cur(); if (!a) return; const s = a.state(), st = a.stats(); $('dbg').textContent = s.mode + ' · уровень ' + s.level + ' (' + Math.round(s.lvlK * 100) + ' %) · ' + s.v.toFixed(1) + ' / ' + s.cap + ' м/с\n' + st.tris + ' треуг · ' + st.calls + ' выз · логика ' + st.logicMs + ' мс\nпланов ' + st.plan.rows + ' · мин. запас ' + (isFinite(st.plan.minSlack) ? st.plan.minSlack.toFixed(2) : '—') + ' с'; }, 400);
     }
 
     (async () => {

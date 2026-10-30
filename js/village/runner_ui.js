@@ -12,10 +12,15 @@
                «Как играть», «Выйти»; 'run' — HUD; 'pause', { score, coins, dist } — «Дальше» / «Выйти»;
                'over', { score, coins, dist, best, bestDist, record, stage, totalCoins, runs, named } — «Пальтар догнал!»,
                счёт, монеты, рекорд (✨ «Новый рекорд!»), «Ещё раз» / «Выйти»
-     ui.hud(h)       — каждый кадр, ОДИН объект { score, coins, dist, mult, stage, power: [{ id, t, T }] }: DOM трогаем только
-                       там, что изменилось (числа — textContent, кольцо таймера — не чаще 10 раз в секунду)
-     ui.banner(text) — «Этап 2 — Базарная площадь»: «Этап 2» мелко сверху, название крупно; сам уходит через 2,6 с
+     ui.hud(h)       — каждый кадр, ОДИН объект { score, coins, dist, mult, stage, level, lvlK (0…1 до следующего уровня, по сотым),
+                       power: [{ id, t, T }] }: DOM трогаем только там, что изменилось (числа — textContent, кольцо таймера — не
+                       чаще 10 раз в секунду, полоска уровня — transform по сотым)
+     ui.banner(text) — «Уровень 2 — Базарная площадь»: «Уровень 2» мелко сверху, название крупно; сам уходит через 2,6 с
      ui.tutorial(step) — 'lr' | 'up' | 'down' | null: подсказка свайпа (палец по стрелке)
+     пасхалки (роль EGGS, данные — V.runnerEggs): ui.find({ id, icon, name, fact, isNew, add, got, total }) — карточка находки
+       внизу (4,5 с, сквозь неё свайпы проходят); ui.secret({ id, icon, name, got, total }) — «Секрет!» (той же карточкой, по
+       очереди); ui.flash(text) — вспышка «селфи» на заставке; альбом «Сокровища» — кнопка на заставке и в карточке конца
+       (start/over: finds — биты сейва, factK — номер «Знаешь ли ты?», over: runFinds — найденное в забеге)
      ui.dispose()    — DOM, стили, таймеры
    VILLAGE.runnerUI.sound({ audio() → AudioContext | null, bus() → AudioNode | null }) → sfx(name, data) — синтезированные
      эффекты раннера через звук игры (G.audio / G.audioBus('sfx'): звук выключен — audio() даёт null, тишина). Имена — события
@@ -50,11 +55,21 @@
     '<circle cx="20" cy="20" r="3.2" fill="#F4F6F8" stroke="#8E959C"/>' +
     '<g fill="#B9C0C6">' + Array.from({ length: 16 }, (_, i) => { const a = i / 16 * Math.PI * 2; return `<circle cx="${(20 + Math.cos(a) * 16.6).toFixed(2)}" cy="${(20 + Math.sin(a) * 16.6).toFixed(2)}" r=".9"/>`; }).join('') + '</g>' +
     '<path d="M10 11 Q14 7 19 6.5" stroke="#FFFFFF" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".9"/></svg>';
+  // кольчуга (пасхалка: старое имя села по-персидски — «кольчужники»): рубашка из колечек — свой значок
+  const MAIL = '<svg class="rui-mail" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.2h8l5.2 4-2.6 3.2L17 9.3V21H7V9.3l-1.6 1.1L2.8 7.2z" fill="#C9D2DC" stroke="#5E6A78" stroke-width="1.2" stroke-linejoin="round"/>' +
+    '<g fill="none" stroke="#6E7A88" stroke-width=".9">' + [[10, 11], [14, 11], [12, 13.6], [10, 16.2], [14, 16.2], [12, 18.8], [10, 6.6], [14, 6.6]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.5"/>`).join('') + '</g></svg>';
   const POWER = {
     magnet: { icon: '🏺', name: 'Кувшин-магнит', cls: 'mag' },
-    x2: { icon: '×2', name: 'Двойное серебро', cls: 'x2' },
+    x2: { icon: '×2', name: '×2', cls: 'x2' },
     glide: { icon: '🪂', name: 'Параплан', cls: 'gl' },
+    mail: { icon: MAIL, name: 'Кольчуга', cls: 'ml' },
   };
+  // значки находок: эмодзи или свой рисунок (блюдо с чернью, расписная тарелка — эмодзи для них нет)
+  const ICO = {
+    'svg:niello': '<svg class="rui-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#DCE0E6" stroke="#8E959C"/><circle cx="12" cy="12" r="7.6" fill="none" stroke="#3A3F4E" stroke-width="1.2"/>' + [0, 45, 90, 135, 180, 225, 270, 315].map(a => `<ellipse cx="12" cy="7.8" rx="1.1" ry="2.4" fill="#3A3F4E" transform="rotate(${a} 12 12)"/>`).join('') + '<circle cx="12" cy="12" r="1.6" fill="#E8C770"/></svg>',
+    'svg:dish': '<svg class="rui-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#F6F2E6" stroke="#2F57A8" stroke-width="1.6"/><circle cx="12" cy="12" r="6.6" fill="none" stroke="#2F57A8" stroke-width=".9"/>' + [0, 60, 120, 180, 240, 300].map(a => `<ellipse cx="12" cy="8.4" rx="1.3" ry="2.3" fill="#2F57A8" transform="rotate(${a} 12 12)"/><circle cx="12" cy="3.6" r="1" fill="#3FA7A0" transform="rotate(${a + 30} 12 12)"/>`).join('') + '<circle cx="12" cy="12" r="1.7" fill="#3FA7A0"/></svg>',
+  };
+  const icon = k => (ICO[k] || esc(k || '✨'));
 
   /* ---------------------------------------------------------------------
      СТИЛИ (один <style> на интерфейс; классы rui-*)
@@ -98,7 +113,18 @@
 .rui-chip em{position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:900;color:#FFFDF9;background:rgba(58,46,63,.72);border-radius:8px;padding:0 5px;line-height:15px;white-space:nowrap}
 .rui-chip.low{animation:rui-blink .5s ease-in-out infinite alternate}
 @keyframes rui-blink{to{opacity:.45}}
-/* --- баннер этапа --- */
+/* --- уровень и полоска до следующего (справа под паузой; слева — значки усилителей) --- */
+.rui-lvl{position:absolute;right:var(--r-r);top:calc(var(--r-top) + 56px);width:128px;background:var(--r-glass);border-radius:14px;box-shadow:var(--r-shadow);padding:4px 10px 7px;
+  opacity:0;transition:opacity .25s;-webkit-backdrop-filter:blur(var(--hud-blur,8px));backdrop-filter:blur(var(--hud-blur,8px))}
+.rui.run .rui-lvl{opacity:1}
+.rui-lvl small{display:flex;align-items:baseline;justify-content:space-between;font-size:10.5px;font-weight:800;color:var(--r-ink2);letter-spacing:.02em;white-space:nowrap}
+.rui-lvl small b{font-size:15px;font-weight:900;color:var(--r-cherry);margin-left:3px}
+.rui-lvl small em{font-style:normal;font-size:10px;color:#A87A22}
+.rui-lvl i{display:block;height:7px;margin-top:3px;border-radius:4px;background:rgba(58,46,63,.12);overflow:hidden}
+.rui-lvl i s{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#F2C94C,#E2904E);transform-origin:0 50%;transform:scaleX(0);transition:transform .25s linear}
+.rui-lvl.up{animation:rui-lvlup .7s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes rui-lvlup{0%{transform:scale(1)}30%{transform:scale(1.18)}100%{transform:scale(1)}}
+/* --- баннер уровня --- */
 .rui-ban{position:absolute;left:50%;top:calc(var(--r-top) + 118px);transform:translate(-50%,-10px) scale(.85);opacity:0;pointer-events:none;
   background:linear-gradient(180deg,#FFFBEA,#FFF1C7);border:3px solid #E8C770;border-radius:22px;padding:8px 22px 9px;text-align:center;
   box-shadow:0 5px 0 rgba(168,122,34,.22),0 12px 26px rgba(58,46,63,.18);white-space:nowrap;max-width:calc(100% - 32px)}
@@ -176,6 +202,39 @@
 @keyframes rui-shine{to{background-position:300% 0}}
 .rui-start .foot{--rx:0}
 .rui-over-card .rui-coin{width:1.05em;height:1.05em}
+/* --- пасхалки (роль EGGS): значок кольчуги, «Знаешь ли ты?», карточка находки, вспышка селфи, альбом «Сокровища» --- */
+.rui .rui-mail{width:1.05em;height:1.05em;display:block}
+.rui-chip b .rui-mail{position:static;inset:auto;width:26px;height:26px;transform:none}
+.rui-chip.ml .fg{stroke:#8FA6BF}
+.rui-ico{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.18em}
+.rui-fact{margin:9px auto 0;max-width:330px;background:var(--r-glass);border-radius:14px;padding:6px 12px;font-weight:700;font-size:13px;line-height:1.3;color:#5A3E52;box-shadow:var(--r-shadow);text-wrap:balance}
+.rui-fact b{color:var(--r-cherry);font-weight:900}
+.rui-over-card .rui-fact{background:#F6EFF2;box-shadow:none;margin-top:8px;font-size:12.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.rui-find{position:absolute;left:50%;bottom:calc(var(--r-bot) + 10px);width:min(calc(100% - 24px),360px);transform:translate(-50%,30px);opacity:0;pointer-events:none;
+  display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#FFFBEA,#FFF1C7);border:2.5px solid #E8C770;border-radius:20px;padding:9px 12px 10px;
+  box-shadow:0 5px 0 rgba(168,122,34,.2),0 12px 26px rgba(58,46,63,.18);transition:opacity .25s,transform .3s cubic-bezier(.2,.9,.3,1.3)}
+.rui-find.on{opacity:1;transform:translate(-50%,0)}
+.rui-find>i{flex:none;font-style:normal;width:50px;height:50px;border-radius:16px;background:#FFFDF9;display:grid;place-items:center;font-size:30px;box-shadow:inset 0 0 0 2px #F2DFA6}
+.rui-find small{display:block;font-weight:900;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#A87A22}
+.rui-find b{display:block;font-family:var(--font-title,'Comfortaa','Nunito',sans-serif);font-weight:700;font-size:17px;color:#7A4A2A;line-height:1.15}
+.rui-find span{display:block;font-weight:700;font-size:12.5px;line-height:1.28;color:#6E5468;margin-top:2px}
+.rui-flash{position:absolute;inset:0;background:#FFFFFF;opacity:0;pointer-events:none}
+.rui-flash.on{animation:rui-flash .6s ease-out both}
+@keyframes rui-flash{0%{opacity:.9}100%{opacity:0}}
+.rui-cap{position:absolute;left:50%;top:36%;transform:translate(-50%,0);opacity:0;pointer-events:none;background:#FFFDF9;border-radius:16px;padding:7px 14px;font-weight:900;font-size:16px;color:#5A3E52;box-shadow:var(--r-shadow);white-space:nowrap}
+.rui-cap.on{animation:rui-cap 2.3s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes rui-cap{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}14%{opacity:1;transform:translate(-50%,0) scale(1.04)}22%{transform:translate(-50%,0) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-6px) scale(1)}}
+.rui-album{top:50%;transform:translate(-50%,-50%);text-align:left;animation:rui-pop .28s cubic-bezier(.2,.9,.3,1.3) both;max-height:calc(100% - 40px);overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+.rui-album h2,.rui-album h3{text-align:center}
+.rui-album h3{margin:14px 0 2px;font-family:var(--font-title,'Comfortaa','Nunito',sans-serif);font-weight:700;font-size:17px;color:#7A4A2A}
+.rui-album .cnt{margin:4px 0 0;text-align:center;font-weight:800;font-size:13.5px;color:var(--r-ink2)}
+.rui-al{display:grid;grid-template-columns:40px 1fr;gap:8px 10px;align-items:center;margin-top:10px}
+.rui-al i{font-style:normal;width:40px;height:40px;border-radius:13px;background:#FFF6DA;display:grid;place-items:center;font-size:22px;font-weight:900;color:#B9AEB8;box-shadow:inset 0 0 0 2px #F2DFA6}
+.rui-al i.off{background:#F1ECEF;box-shadow:none}
+.rui-al b{font-weight:900;font-size:14.5px}.rui-al span{display:block;font-size:12.5px;font-weight:700;color:var(--r-ink2);line-height:1.25}
+.rui-al i.off+div b{color:#A096A0}
+.rui-alb small{font-size:12px;font-weight:900;color:#A87A22;margin-left:3px}
+.rui-row .rui-alb{flex:.8}
 @media (max-width:380px){.rui-hud{gap:4px}.rui-pill{padding:4px 8px 3px}.rui-score{min-width:64px}.rui-score b{font-size:19px}.rui-coins{font-size:17px;padding:7px 9px 6px;gap:4px}
   .rui-dist{font-size:14px;padding:7px 8px 6px;gap:4px}.rui-mult{font-size:12px;padding:2px 5px 1px}.rui-pause{width:42px;height:42px}.rui-title{font-size:28px}}
 @media (max-height:760px){.rui-tut .pad{height:78px}.rui-tut .ar{font-size:40px}.rui-tut .fi{font-size:38px}.rui-tut p{font-size:16px;padding:8px 14px}}
@@ -190,7 +249,9 @@
   function texts(named) {
     const N = named !== false;
     return {
-      sub: N ? 'Убегай от пальтара — собирай серебро!' : 'Убегай от ряженого — собирай серебро!',
+      sub: N ? 'Убегай от пальтара — собирай серебро!' : 'Убегай от ряженого — собирай монетки!',
+      coins: N ? 'Серебряные монетки' : 'Монетки', x2: N ? 'Двойное серебро' : 'Двойные монетки',
+      album: N ? 'Сокровища Кубачи' : 'Сокровища мастеров',
       over: N ? 'Пальтар догнал!' : 'Ряженый догнал!',
       overLines: N
         ? ['Звяк-звяк! Он просто хотел поздороваться.', 'Пальтар доволен: догонялки удались!', 'Ещё разок? Бубенцы уже звенят!', 'Почти убежала! Он бегает быстро.']
@@ -220,14 +281,17 @@
       '<div class="rui-pill rui-dist"><b data-k="dist">0 м</b><span class="rui-mult" data-k="mult">×2</span></div>' +
       '<div class="rui-sp"></div><button class="rui-pause" aria-label="Пауза" title="Пауза"><i></i></button></div>' +
       '<div class="rui-pw"></div>' +
+      '<div class="rui-lvl" aria-label="Уровень"><small><span>уровень<b data-k="lv">1</b></span><em data-k="lvn"></em></small><i><s data-k="lvk"></s></i></div>' +
       '<div class="rui-ban"><small></small><b></b></div>' +
       '<div class="rui-tut"><div class="pad"><div class="ar"></div><div class="fi">👆</div></div><p></p></div>' +
-      '<div class="rui-scr rui-start"></div><div class="rui-scr rui-pause-scr"></div><div class="rui-scr rui-over"></div><div class="rui-scr rui-how"></div>';
+      '<div class="rui-find"><i></i><div><small></small><b></b><span></span></div></div><div class="rui-flash"></div><div class="rui-cap"></div>' +
+      '<div class="rui-scr rui-start"></div><div class="rui-scr rui-pause-scr"></div><div class="rui-scr rui-over"></div><div class="rui-scr rui-how"></div><div class="rui-scr rui-alb-scr"></div>';
     host.appendChild(el);
     const $ = s => el.querySelector(s);
-    const K = { score: $('[data-k=score]'), coins: $('[data-k=coins]'), dist: $('[data-k=dist]'), mult: $('[data-k=mult]'), coinIc: $('.rui-coins .rui-coin'), pw: $('.rui-pw'), ban: $('.rui-ban'), tut: $('.rui-tut') };
-    const S = { start: $('.rui-start'), pause: $('.rui-pause-scr'), over: $('.rui-over'), how: $('.rui-how') };
-    const last = { score: -1, coins: -1, dist: -1, mult: -1, pw: '' };
+    const K = { score: $('[data-k=score]'), coins: $('[data-k=coins]'), dist: $('[data-k=dist]'), mult: $('[data-k=mult]'), coinIc: $('.rui-coins .rui-coin'), pw: $('.rui-pw'), ban: $('.rui-ban'), tut: $('.rui-tut'),
+      lvl: $('.rui-lvl'), lv: $('[data-k=lv]'), lvn: $('[data-k=lvn]'), lvk: $('[data-k=lvk]'), find: $('.rui-find'), flash: $('.rui-flash'), cap: $('.rui-cap') };
+    const S = { start: $('.rui-start'), pause: $('.rui-pause-scr'), over: $('.rui-over'), how: $('.rui-how'), album: $('.rui-alb-scr') };
+    const last = { score: -1, coins: -1, dist: -1, mult: -1, pw: '', lv: -1, lvk: -1 };
     let cur = '', banT = 0, alive = true, lastStart = null;
     $('.rui-pause').addEventListener('click', e => { e.stopPropagation(); hap('light'); if (ctx.onPause) ctx.onPause(); });
 
@@ -241,6 +305,8 @@
         else if (a === 'exit') { if (ctx.onExit) ctx.onExit(); }
         else if (a === 'how') howTo(true);
         else if (a === 'howClose') howTo(false);
+        else if (a === 'album') album(true);
+        else if (a === 'albumClose') album(false);
       }));
     }
     function show(name) {
@@ -250,11 +316,12 @@
       d = d || {};
       lastStart = d;
       const title = d.title || (V.runner && V.runner.title ? V.runner.title(named, true) : 'Бег');
-      const stats = (d.best > 0 ? '<span>🏆 ' + fmt(d.best) + '</span>' : '') + (d.bestDist > 0 ? '<span>🏁 ' + fmtM(d.bestDist) + '</span>' : '') + (d.coins > 0 ? '<span>' + COIN + ' ' + fmt(d.coins) + '</span>' : '');
+      const stats = (d.best > 0 ? '<span>🏆 ' + fmt(d.best) + '</span>' : '') + (d.bestDist > 0 ? '<span>🏁 ' + fmtM(d.bestDist) + '</span>' : '') + (d.bestLevel > 1 ? '<span title="' + esc(d.bestLevelTitle || '') + '">🏔 ур. ' + (d.bestLevel | 0) + '</span>' : '') + (d.coins > 0 ? '<span>' + COIN + ' ' + fmt(d.coins) + '</span>' : '');
+      albMask = d.finds | 0;
       S.start.innerHTML = '<div class="head"><h1 class="rui-title">' + esc(title) + '</h1><p class="rui-sub">' + esc(TX.sub) + '</p>' +
-        (stats ? '<div class="rui-stats">' + stats + '</div>' : '') + '</div>' +
+        (stats ? '<div class="rui-stats">' + stats + '</div>' : '') + factLine(d.factK) + '</div>' +
         '<div class="foot"><button class="rui-go" data-a="start">Бежать!</button>' +
-        '<div class="rui-row"><button class="rui-soft' + (d.first ? ' rui-new' : '') + '" data-a="how">Как играть</button><button class="rui-soft" data-a="exit">Выйти</button></div></div>';
+        '<div class="rui-row"><button class="rui-soft' + (d.first ? ' rui-new' : '') + '" data-a="how">Как играть</button>' + albumBtn(d.finds) + '<button class="rui-soft" data-a="exit">Выйти</button></div></div>';
       bind(S.start);
     }
     function pauseScreen(d) {
@@ -270,13 +337,70 @@
       // карточка — сверху, кнопки — снизу: сцена поимки (пара посередине кадра, ~40–75 % высоты) остаётся видна, как на заставке
       S.over.innerHTML = '<div class="rui-card rui-over-card" data-runner-ui><h2>' + esc(TX.over) + '</h2><p class="line">' + esc(line) + '</p>' +
         '<div class="rui-rec' + (d.record ? ' on' : '') + '">✨ Новый рекорд! ✨</div>' +
+        (d.levelRecord && !d.record ? '<div class="rui-rec on">🏔 Дальше всех: уровень ' + (d.level | 0) + '!</div>' : '') +
         '<div class="rui-big">' + fmt(d.score) + '<small>очки</small></div>' +
-        '<div class="rui-facts"><span>' + COIN + ' +' + fmt(d.coins) + '</span><span>🏁 ' + fmtM(d.dist) + '</span>' + (d.stage > 1 ? '<span>🏔 этап ' + (d.stage | 0) + '</span>' : '') + '</div>' +
+        '<div class="rui-facts"><span>' + COIN + ' +' + fmt(d.coins) + '</span><span>🏁 ' + fmtM(d.dist) + '</span><span>🏔 уровень ' + ((d.level || d.stage) | 0) + '</span></div>' +
+        (d.levelTitle ? '<div class="rui-best" style="margin-top:4px">' + esc(d.levelTitle) + (d.bestLevel > ((d.level || d.stage) | 0) ? ' · лучший — уровень ' + (d.bestLevel | 0) : '') + '</div>' : '') +
+        overEgg(d) +
         '<div class="rui-best">' + (!d.record && d.best > d.score ? 'До рекорда\u00a0— ещё ' + fmt(d.best - d.score) + '\u00a0' + plural(d.best - d.score, 'очко', 'очка', 'очков') + (d.bestDist > d.dist ? ' (' + fmtM(d.bestDist - d.dist) + ')' : '') : 'Рекорд: ' + fmt(d.best)) +
           (d.totalCoins > 0 ? ' · всего монет: ' + fmt(d.totalCoins) : '') + '</div>' +
-        '</div><div class="foot"><div class="rui-row"><button class="rui-go" data-a="again">Ещё раз</button><button class="rui-soft" data-a="exit">Выйти</button></div></div>';
+        '</div><div class="foot"><div class="rui-row"><button class="rui-go" data-a="again">Ещё раз</button>' + albumBtn(d.finds) + '<button class="rui-soft" data-a="exit">Выйти</button></div></div>';
+      albMask = d.finds | 0;
       bind(S.over);
       if (d.record) hap('success');
+    }
+    /* --- пасхалки (V.runnerEggs): «Знаешь ли ты?», кнопка и экран альбома, находки забега в карточке конца --- */
+    const EG = () => V.runnerEggs || null;
+    const nmOf = x => (named ? x.name : (x.nameN || x.name));
+    let albMask = 0, albFrom = '';
+    function factLine(k) { const e = EG(); if (!e) return ''; return '<p class="rui-fact"><b>💡 Знаешь ли ты?</b> ' + esc(e.fact(k | 0, named)) + '</p>'; }
+    function albumBtn(mask) { const e = EG(); if (!e) return ''; return '<button class="rui-soft rui-alb" data-a="album" aria-label="Сокровища">🏺<small>' + e.bits((mask | 0) & e.FIND_MASK) + '/' + e.FINDS.length + '</small></button>'; }
+    // карточка конца: нашла что-то — первая находка забега с её фактом; нет — «Знаешь ли ты?» (одна строка-блок: карточка не
+    // растёт и не закрывает сцену поимки)
+    function overEgg(d) {
+      const e = EG(); if (!e) return '';
+      const rf = d.runFinds || [];
+      if (rf.length) { const f = e.FINDS[rf[0]], t = f ? e.text(f, named) : null; if (t) return '<p class="rui-fact"><b>' + icon(f.icon) + ' ' + esc(t.name) + (rf.length > 1 ? ' и ещё ' + (rf.length - 1) : '') + '!</b> ' + esc(t.fact) + '</p>'; }
+      return factLine((d.factK | 0) + 7);
+    }
+    // альбом «Сокровища»: найденное — значок, название и факт; ещё нет — «???», своя загадка и где чаще встречается; секреты — с подсказками
+    function album(on) {
+      const e = EG();
+      if (on && e) {
+        albFrom = cur;
+        const m = albMask | 0, LVL = (V.runner && V.runner.LEVELS) || [];
+        const where = th => { for (let i = 0; i < Math.min(9, LVL.length); i++) if (LVL[i].theme === th) return 'чаще — на уровне ' + (i + 1) + ' «' + (named ? LVL[i].title : (LVL[i].titleN || LVL[i].title)) + '».'; return 'ищи на трассе.'; };
+        let h = '<div class="rui-dim" data-runner-ui></div><div class="rui-card rui-album" data-runner-ui><h2>' + esc(TX.album) + '</h2>' +
+          '<p class="cnt">Найдено ' + e.bits(m & e.FIND_MASK) + ' из ' + e.FINDS.length + ' · секретов ' + e.bits(m >>> 16) + ' из ' + e.SECRETS.length + '</p><div class="rui-al">';
+        e.FINDS.forEach(f => { const ok = !!(m & (1 << f.bit)), t = e.text(f, named);
+          h += '<i class="' + (ok ? '' : 'off') + '">' + (ok ? icon(f.icon) : '?') + '</i><div><b>' + (ok ? esc(t.name) : '???') + '</b><span>' + (ok ? esc(t.fact) : esc(f.riddle || 'Блестит золотом и светится столбиком.') + ' ' + esc(where(f.th).replace(/^ч/, 'Ч'))) + '</span></div>'; });
+        h += '</div><h3>Секреты</h3><div class="rui-al">';
+        e.SECRETS.forEach(x => { const ok = !!(m & (1 << x.bit)); h += '<i class="' + (ok ? '' : 'off') + '">' + (ok ? esc(x.icon) : '?') + '</i><div><b>' + (ok ? esc(nmOf(x)) : '???') + '</b><span>' + esc(x.hint) + '</span></div>'; });
+        h += '</div><div class="btns"><button class="rui-go" data-a="albumClose">Понятно!</button></div></div>';
+        S.album.innerHTML = h; bind(S.album); show('album');
+      } else show(albFrom === 'over' ? 'over' : albFrom === 'start' ? 'start' : '');
+    }
+    // карточка находки / секрета внизу (сквозь неё свайпы проходят); по очереди, без наложения
+    const toastQ = []; let toastT = 0, toastT2 = 0, toastOn = false;
+    function toast(o) {
+      if (!alive) return;
+      if (toastOn) { if (toastQ.length < 4) toastQ.push(o); return; }
+      toastOn = true;
+      const f = K.find, sp = f.querySelector('span');
+      f.querySelector('i').innerHTML = icon(o.icon); f.querySelector('small').textContent = o.small; f.querySelector('b').textContent = o.name || ''; sp.textContent = o.text || ''; sp.style.display = o.text ? '' : 'none';
+      f.classList.add('on'); clearTimeout(toastT); clearTimeout(toastT2);
+      toastT = setTimeout(() => { f.classList.remove('on'); toastT2 = setTimeout(() => { toastOn = false; if (toastQ.length) toast(toastQ.shift()); }, 330); }, o.ms || 4200);
+    }
+    function toastClear() { toastQ.length = 0; clearTimeout(toastT); clearTimeout(toastT2); toastOn = false; K.find.classList.remove('on'); }
+    // d.mask — биты сейва (альбом и счётчик на кнопке — сразу свежие, без перерисовки экрана)
+    function bump(d) { if (d && d.mask != null) { albMask = d.mask | 0; const e = EG(), b = el.querySelector('.rui-alb small'); if (e && b) b.textContent = e.bits(albMask & e.FIND_MASK) + '/' + e.FINDS.length; } }
+    function find(d) { d = d || {}; bump(d); if (cur !== 'run') return; toast({ icon: d.icon, small: (d.isNew ? '✨ Находка! ' : 'Ещё одна! ') + (d.got | 0) + ' из ' + (d.total | 0) + (d.add ? ' · +' + d.add : ''), name: d.name, text: d.fact, ms: 4800 }); }
+    // секрет: в забеге — той же карточкой; на заставке (селфи) хватает подписи вспышки — альбом его и так покажет
+    function secret(d) { d = d || {}; bump(d); if (cur !== 'run') return; toast({ icon: d.icon, small: '🔓 Секрет! ' + (d.got | 0) + ' из ' + (d.total | 0), name: d.name, ms: 2600 }); }
+    function flash(text) {
+      if (!alive) return;
+      K.flash.classList.remove('on'); void K.flash.offsetWidth; K.flash.classList.add('on');
+      K.cap.textContent = text || ''; K.cap.classList.remove('on'); void K.cap.offsetWidth; K.cap.classList.add('on');
     }
     // «Как играть»: свайпы, усилители, кто догоняет (поверх заставки или паузы; «Понятно!» — назад)
     let howFrom = '';
@@ -287,10 +411,15 @@
           '<i>⇆</i><div><b>Свайп влево-вправо</b><span>сменить полосу (или стрелки, A / D)</span></div>' +
           '<i>↑</i><div><b>Свайп вверх</b><span>прыжок через сено, лавки и корзины (пробел, W)</span></div>' +
           '<i>↓</i><div><b>Свайп вниз</b><span>подкат под ковры и балки; в прыжке — быстро вниз (S)</span></div>' +
-          '<i>' + COIN + '</i><div><b>Серебряные монетки</b><span>с узором-розеткой: каждая\u00a0— 10\u00a0очков</span></div>' +
+          '<i>' + COIN + '</i><div><b>' + esc(TX.coins) + '</b><span>с узором-розеткой: каждая\u00a0— 10\u00a0очков; золотая\u00a0— за десять</span></div>' +
           '<i>🏺</i><div><b>Кувшин-магнит</b><span>монетки сами летят к тебе</span></div>' +
-          '<i style="font-size:17px">×2</i><div><b>Двойное серебро</b><span>каждая монетка — за две</span></div>' +
-          '<i>🪂</i><div><b>Параплан</b><span>полёт над улицей за монетками</span></div></div>' +
+          '<i style="font-size:17px">×2</i><div><b>' + esc(TX.x2) + '</b><span>каждая монетка — за две</span></div>' +
+          '<i style="font-size:26px">' + MAIL + '</i><div><b>Кольчуга</b><span>выдерживает один удар — со звоном</span></div>' +
+          '<i>✨</i><div><b>Находки</b><span>редкие сокровища со столбиком света — собери все в альбом</span></div>' +
+          '<i>🪂</i><div><b>Параплан</b><span>полёт над улицей за монетками</span></div>' +
+          '<i>🏔</i><div><b>Уровни</b><span>за аркой — новое место: свадьба, серпантин, зима, ночь… Чем дальше, тем быстрее и хитрее</span></div>' +
+          '<i>💃</i><div><b>Поперёк дороги</b><span>танцор идёт к своему кругу-ковру, санки — до конца ледяной дорожки: смотри на метку</span></div>' +
+          '<i>❄️</i><div><b>Лёд и камушки</b><span>на льду заносит — сворачивай чуть раньше; тень на дороге — туда упадёт камушек</span></div></div>' +
           '<p class="rui-note">' + esc(TX.chase) + '</p><div class="btns"><button class="rui-go" data-a="howClose">Понятно!</button></div></div>';
         bind(S.how); show('how');
       } else {
@@ -303,7 +432,7 @@
       cur = name;
       el.classList.toggle('run', name === 'run' || name === 'pause');
       if (name === 'run') { show(''); return; }
-      tutorial(null);
+      tutorial(null); toastClear();
       if (name === 'start') { startScreen(d); show('start'); clearBanner(); }
       else if (name === 'pause') { pauseScreen(d); show('pause'); }
       else if (name === 'over') { overScreen(d); show('over'); clearBanner(); el.classList.remove('run'); }
@@ -332,6 +461,13 @@
         const up = h.mult > last.mult && last.mult > 0; last.mult = h.mult; K.mult.textContent = '×' + h.mult; K.mult.classList.toggle('on', h.mult > 1);
         if (up && K.mult.animate) { try { K.mult.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.4)' }); } catch (e) { /* ok */ } }
       }
+      // уровень: номер (смена — «подпрыгивает»), справа — куда бежим («→ 4»), полоска — доля пройденного
+      const lv = h.level || h.stage || 1;
+      if (lv !== last.lv) { const up = last.lv > 0 && lv > last.lv; last.lv = lv; K.lv.textContent = String(lv); K.lvn.textContent = '→ ' + (lv + 1);
+        if (up) { K.lvl.classList.remove('up'); void K.lvl.offsetWidth; K.lvl.classList.add('up'); } }
+      const lk = h.lvlK || 0;
+      // новый уровень (доля упала) — полоска сразу пустая, без «стекания» 0,25 с от полной к нулю
+      if (lk !== last.lvk) { const back = lk < last.lvk; last.lvk = lk; K.lvk.style.transition = back ? 'none' : ''; K.lvk.style.transform = 'scaleX(' + lk + ')'; }
       // усилители: набор (порядок) — пересобрать только при смене состава
       const P = h.power || [];
       let key = ''; for (let i = 0; i < P.length; i++) key += P[i].id + ',';
@@ -367,11 +503,11 @@
     }
     function dispose() {
       if (!alive) return; alive = false;
-      clearTimeout(banT);
+      clearTimeout(banT); clearTimeout(toastT); clearTimeout(toastT2);
       if (el.parentNode) el.parentNode.removeChild(el);
       if (style.parentNode) style.parentNode.removeChild(style);
     }
-    return { screen, hud, banner, tutorial, dispose, get screenName() { return cur; }, el };
+    return { screen, hud, banner, tutorial, dispose, find, secret, flash, get screenName() { return cur; }, el };
   }
 
   /* ---------------------------------------------------------------------
@@ -408,6 +544,7 @@
     const S = {
       step: (a, out, t, d) => { const wood = d && d.kind === 'wood', k = (stepN++ % 2) ? 1 : 0.84; noise(a, out, t, wood ? 0.05 : 0.035, wood ? 0.028 : 0.022, wood ? 'lowpass' : 'bandpass', (wood ? 700 : 2000) * k, wood ? 0.7 : 1.4); },
       lane: (a, out, t) => noise(a, out, t, 0.13, 0.022, 'bandpass', 700, 1.2, 2100),
+      ice: (a, out, t) => noise(a, out, t + 0.03, 0.32, 0.02, 'highpass', 3200, 0.7, 1800),   // «шшш» — скользит по льду
       edge: (a, out, t) => { osc(a, out, 'sine', 150, t, 0.12, 0.05, { to: 90 }); osc(a, out, 'triangle', 620, t + 0.03, 0.12, 0.022, { to: 420 }); },
       jump: (a, out, t) => { osc(a, out, 'sine', 420, t, 0.15, 0.04, { to: 820, toT: 0.12 }); noise(a, out, t, 0.12, 0.012, 'bandpass', 900, 1, 2400); },
       land: (a, out, t, d) => { if (d && d.kind === 'top') { marimba(a, out, 196, t, 0.035, 0.12); noise(a, out, t, 0.05, 0.02, 'lowpass', 900); } else { osc(a, out, 'sine', 170, t, 0.09, 0.04, { to: 105 }); noise(a, out, t, 0.06, 0.016, 'lowpass', 700); } },
@@ -423,6 +560,8 @@
         const id = d && d.id;
         if (id === 'cow') { osc(a, out, 'sawtooth', 160, t, 0.55, 0.03, { to: 118, att: 0.08, lp: 600 }); }
         else if (id === 'cart') { noise(a, out, t, 0.3, 0.02, 'bandpass', 520, 3, 380); marimba(a, out, 220, t + 0.05, 0.02, 0.15); }
+        else if (id === 'rock') { osc(a, out, 'triangle', 560, t, 0.07, 0.04, { to: 340 }); osc(a, out, 'triangle', 830, t, 0.04, 0.015, { to: 520 }); noise(a, out, t, 0.12, 0.018, 'lowpass', 600); }   // «тук» камушка
+        else if (id === 'rockWarn') { for (let i = 0; i < 3; i++) osc(a, out, 'triangle', 900 + i * 130, t + i * 0.07, 0.03, 0.012, { to: 640 }); noise(a, out, t, 0.25, 0.012, 'bandpass', 1500, 1.5, 900); }   // шорох камешков со скалы — заранее
         else noise(a, out, t, 0.45, 0.025, 'lowpass', 300, 1, 180);
       },
       stumble: (a, out, t) => { osc(a, out, 'triangle', 560, t, 0.2, 0.035, { to: 300 }); osc(a, out, 'sine', 140, t + 0.04, 0.12, 0.04, { to: 90 }); },
@@ -437,6 +576,16 @@
       pause: (a, out, t) => osc(a, out, 'sine', 660, t, 0.08, 0.03, { to: 440 }),
       resume: (a, out, t) => osc(a, out, 'sine', 440, t, 0.08, 0.03, { to: 660 }),
       tap: (a, out, t) => { osc(a, out, 'sine', 880, t, 0.12, 0.035); osc(a, out, 'sine', 880 * 5.95, t, 0.05, 0.006); },
+      // пасхалки: находка — искристое арпеджио; секрет — «волшебный» перелив; золотая — низкий колокол и звон; кольчуга —
+      // звон колечек (шорох высоких + россыпь колокольчиков); «Мастерская работа!» — маленькие фанфары; звёздный дождь —
+      // нисходящая капель; селфи — щелчок затвора
+      find: (a, out, t) => { [783.99, 987.77, 1174.66, 1567.98, 1975.53].forEach((f, i) => bell(a, out, f, t + i * 0.07, 0.03, 0.7)); [3136, 3951].forEach((f, i) => bell(a, out, f, t + 0.38 + i * 0.05, 0.012, 0.4)); },
+      secret: (a, out, t) => [1318.5, 1567.98, 2093, 2637].forEach((f, i) => bell(a, out, f, t + i * 0.05, 0.02, 0.5)),
+      gold: (a, out, t) => { bell(a, out, 523.25, t, 0.045, 1.1); bell(a, out, 1046.5, t + 0.02, 0.03, 0.8); [1568, 2093, 2637].forEach((f, i) => bell(a, out, f, t + 0.08 + i * 0.05, 0.015, 0.4)); },
+      shield: (a, out, t) => { noise(a, out, t, 0.25, 0.04, 'highpass', 3200, 0.7); for (let i = 0; i < 6; i++) bell(a, out, 1800 + Math.random() * 1600, t + i * 0.03, 0.016, 0.3); osc(a, out, 'triangle', 330, t, 0.25, 0.03, { to: 220 }); },
+      master: (a, out, t) => { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => marimba(a, out, f, t + i * 0.08, 0.04, 0.22)); bell(a, out, 1568, t + 0.34, 0.03, 0.9); },
+      stars: (a, out, t) => [2637, 2349, 2093, 1760, 1568, 1319, 1175].forEach((f, i) => bell(a, out, f, t + i * 0.09, 0.016, 0.5)),
+      selfie: (a, out, t) => { noise(a, out, t, 0.03, 0.05, 'highpass', 2400, 0.8); noise(a, out, t + 0.07, 0.05, 0.04, 'bandpass', 1400, 1.2); },
     };
     return function sfx(name, d) {
       const fn = S[name]; if (!fn) return;
