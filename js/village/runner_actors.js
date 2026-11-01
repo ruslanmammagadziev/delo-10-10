@@ -10,8 +10,12 @@
                                      loadHero? (false — не грузить свою героиню, когда хост героиню не дал) }
      actors.hero   = { root, set(pose, k), update(dt, s) }   pose: 'idle' | 'run' | 'jump' (k — полёт, с) | 'slide' (k — длительность)
                                                             | 'stumble' (k ≈ 0,5–0,6) | 'caught' | 'glide' (k — весь полёт)
+                                                            | 'hang' (крыши: повисла на руках у края проёма, ноги болтаются)
      actors.paltar = { root, set(pose), update(dt, s), jingle(), crack() }   pose: 'idle' | 'run' | 'near' | 'catch' | 'cheer'
                                                             | 'selfie' (пасхалка заставки: рука с телефоном вверх, «класс», голова к ней)
+                                                            | 'help' (крыши: присел на краю и тянет к ней обе руки — вытащить)
+                     s.air — он в воздухе (прыжок по следу героини через проём: ноги «шпагатом», руки в стороны); s.wob 0…1 — после
+                     приземления «балансирует» (руки мельницей, качнулся вперёд-назад)
      actors.dispose()  — вернуть героиню хосту: родитель, место, поворот, масштаб, видимость, body; каз снять, если надевали мы
      actors.info()     — { hero: 'rig'|'statue'|'doll', paltar: 'wedding'|'box', tris, calls, kaz: 'own'|'host'|null, glide }
    Корень героини и пальтара ставит ядро (позиция; rotation.y = π − наклон — лицом в −z); всё внутри — актёры: кости, body,
@@ -49,8 +53,8 @@
   // «колокол» 0 → 1 → 0 на u 0…1 с нулевой скоростью на краях (поза входит и уходит без рывка)
   const bell = u => { const s = Math.sin(clamp(u, 0, 1) * PI); return s * s; };
   const angW = a => a - TAU * Math.round(a / TAU);
-  const POSES = ['idle', 'run', 'jump', 'slide', 'stumble', 'caught', 'glide'];
-  const PPOSES = ['idle', 'run', 'near', 'catch', 'cheer', 'selfie'];
+  const POSES = ['idle', 'run', 'jump', 'slide', 'stumble', 'caught', 'glide', 'hang'];
+  const PPOSES = ['idle', 'run', 'near', 'catch', 'cheer', 'selfie', 'help'];
   // кости, которые ведут позы раннера (поворот к цели); остальные — как у HeroAnim
   const OVB = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R', 'hand_L', 'hand_R', 'thigh_L', 'thigh_R', 'shin_L', 'shin_R', 'foot_L', 'foot_R'];
 
@@ -210,7 +214,7 @@
 
     // --- позы: состояние
     const st = { pose: 'idle', k: 0, t: 0, jumpN: 0, style: 0, air: false, landT: 9, wave: 5 + Math.random() * 3, waveT: -1, prevPose: 'idle', spin: 0, turn: 0, glideT: 0 };
-    const W = { jump: 0, slide: 0, stumble: 0, caught: 0, glide: 0, land: 0, idle: 1 };
+    const W = { jump: 0, slide: 0, stumble: 0, caught: 0, glide: 0, land: 0, idle: 1, hang: 0 };
     const AI = { speed: 0, idle: true, turnRate: 0, sitting: false, celebrate: false, waving: false };
     const OS = { sport: true, fly: false };
     // накопители поз (градусы) и веса по костям
@@ -247,6 +251,7 @@
       W.glide = damp(W.glide, p === 'glide' || s.glide ? 1 : 0, 7, dt);
       W.land = st.landT < 0.2 ? bell(st.landT / 0.2) * (1 - W.slide) : 0;
       W.idle = damp(W.idle, p === 'idle' ? 1 : 0, 6, dt);
+      W.hang = damp(W.hang, p === 'hang' ? 1 : 0, 14, dt);
 
       // --- HeroAnim: бег, стойка, «помахать» на заставке
       const moving = run && p !== 'caught' && s.speed > 0.5;
@@ -366,6 +371,16 @@
         ov('head', -6 * k1 + (6 + 4 * sw) * k2, 0, (10 * Math.sin(t * 3.2)) * k2, w); ov('spine', 6 * k1 - 4 * k2, 0, 3 * sw * k2, w);
         ov('thigh_L', -6 * k1, 0, 3, w); ov('thigh_R', 0, 0, -3, w);
       }
+      // вис на краю крыши (проём): руки вверх и чуть вперёд — держится за бортик, голова вверх к нему («ой-ой»), ноги
+      // болтаются и пытаются нащупать стену; корпус к стене
+      if (W.hang > 0.002) {
+        const w = W.hang, k1 = Math.sin(t * 7.5), k2 = Math.sin(t * 7.5 + 1.9);
+        ov('upperarm_L', -168, 0, 14, w); ov('upperarm_R', -168, 0, -14, w); ov('forearm_L', -18, 0, 0, w); ov('forearm_R', -18, 0, 0, w);
+        ov('hand_L', -20, 0, 0, w); ov('hand_R', -20, 0, 0, w);
+        ov('spine', 6, 0, 3 * k1, w); ov('chest', 4, 0, 0, w); ov('neck', -10, 0, 0, w); ov('head', -22, 6 * k2, 0, w);
+        ov('thigh_L', -10 - 22 * Math.max(0, k1), 0, 4, w); ov('shin_L', 18 + 40 * Math.max(0, k1), 0, 0, w); ov('foot_L', 20, 0, 0, w);
+        ov('thigh_R', -10 - 22 * Math.max(0, k2), 0, -4, w); ov('shin_R', 18 + 40 * Math.max(0, k2), 0, 0, w); ov('foot_R', 20, 0, 0, w);
+      }
       // вис под крылом: ноги вперёд и чуть болтаются, руки вверх к клевантам
       if (W.glide > 0.002) {
         const w = W.glide, sw = Math.sin(st.t * 1.6);
@@ -384,7 +399,7 @@
       // «пятно» пальто на белом казе ровно в центре кадра. На бегу (без других поз) плечо не заходит за вертикаль назад и не
       // отведено в сторону (отведение выдавливало плечо рукава сквозь накидку ещё сильнее — проверено кадрами сзади, 12 фаз
       // шага: при 25° пятно больше, при 0° — без пятен); взмах вперёд — как был
-      const wa = clamp(1 - (W.jump + W.slide + W.stumble + W.caught + W.glide) * 3, 0, 1);
+      const wa = clamp(1 - (W.jump + W.slide + W.stumble + W.caught + W.glide + W.hang) * 3, 0, 1);
       if (wa > 0.01) { armOut(B.upperarm_L, 1, wa); armOut(B.upperarm_R, -1, wa); }
       // и бедро: на махе назад больше 10° (в спринте до 32°) его верх выходил сквозь заднее полотнище юбки — светлый «язычок»
       // на тёмной юбке в 4 фазах из 12 (кадры сзади: 20° — меньше, 10° и 5° — чисто); мах вперёд не трогаем
@@ -394,6 +409,7 @@
       if (W.slide > 0.002) { hp.y = lerp(hp.y, 0.3, W.slide); hp.z = lerp(hp.z, 0.05, W.slide); }
       if (W.glide > 0.002) hp.y = lerp(hp.y, 0.86, W.glide);
       if (W.jump > 0.002) hp.y = lerp(hp.y, 0.86, W.jump * 0.8);
+      if (W.hang > 0.002) hp.y = lerp(hp.y, 0.9, W.hang);   // висит — ноги не ищут землю (IK стоя опустил бы таз)
     }
 
     const eA = new T.Euler(0, 0, 0, 'XYZ');
@@ -502,7 +518,7 @@
     if (rig) { inner.add(wh.group); hasWhip = !!(rig.a.pv && rig.a.pv.whip); }
     else { bx = boxPaltar(T, own); inner.add(bx.root); }
     scene.add(outer);
-    const st = { pose: 'idle', t: 0, ph: 0, jT: 9, cT: 9, peek: 0, speed: 0, wNear: 0, wRun: 0, wCatch: 0, wCheer: 0, wIdle: 1, side: 0, tx: 0, tz: 0, yaw: 0, wSelf: 0, it: 0 };
+    const st = { pose: 'idle', t: 0, ph: 0, jT: 9, cT: 9, peek: 0, speed: 0, wNear: 0, wRun: 0, wCatch: 0, wCheer: 0, wIdle: 1, side: 0, tx: 0, tz: 0, yaw: 0, wSelf: 0, it: 0, wAir: 0, wWob: 0, wHelp: 0 };
     // «селфи» (пасхалка заставки): телефон в левой руке — маленькая тёмная плитка на кости кисти, видна только в этой позе
     let phone = null;
     if (rig && rig.B && rig.B.handL) { const pg = new T.BoxGeometry(0.075, 0.14, 0.014), pm = new T.MeshBasicMaterial({ color: 0x2A2B33 }); own.push(pg, pm); phone = new T.Mesh(pg, pm); phone.position.set(0, -0.09, 0.03); phone.visible = false; rig.B.handL.add(phone); }
@@ -531,7 +547,8 @@
     }
     const RUNA = [[0.18, -0.85, 0], [0.05, 0.25, 1], P1, 1, 0], REACH = [U1, F1, P2, 0.5, 1], WAG = [U2, F2, P2, 0.85, 0];
     const SELFIE = [[0.38, 0.62, 0.68], [-0.12, 0.6, 0.79], [0, 0, -1], 1, 0];   // рука с телефоном: вверх-вперёд, ладонь к себе
-    const LU = [0, 0, 0], LF = [0, 0, 0], LIFTA = [LU, LF, P2, 0.7, 0];   // «поднял за талию»
+    const LU = [0, 0, 0], LF = [0, 0, 0], LIFTA = [LU, LF, P2, 0.7, 0];   // «поднял за талию» (и «подаёт руку» на крыше)
+    const WOBA = [U1, F1, P2, 0, 1], WOBB = [U2, F2, P2, 0, 1];             // «мельница» руками (балансирует на краю)
     // щелчок плёткой (как номер «whip» во дворе, но короче и вверх-наружу: от героини): 0..0,2 — рука к поясу за плёткой,
     // 0,2..1,35 — замах за голову → бросок вверх-вбок → волна по косичке, 1,35..1,6 — плётку на пояс
     const CR = { T: 1.6, draw: 0.2, back: 0.25 }, LOW = [[0.45, -0.25, 0.4], [0.15, -0.5, 0.75], P1, 1, 0];
@@ -573,6 +590,10 @@
       st.wCheer = damp(st.wCheer, p === 'cheer' ? 1 : 0, 6, dt);
       st.wIdle = damp(st.wIdle, p === 'idle' ? 1 : 0, 6, dt);
       st.wSelf = damp(st.wSelf, p === 'selfie' ? 1 : 0, 5, dt); st.it += dt;
+      // крыши: в воздухе (прыжок через проём по следу героини), «балансирует» после приземления, подаёт руку у края
+      st.wAir = damp(st.wAir, s.air ? 1 : 0, s.air ? 16 : 10, dt);
+      st.wWob = s.wob > 0 ? Math.sin(clamp(s.wob, 0, 1) * PI) : damp(st.wWob, 0, 10, dt);
+      st.wHelp = damp(st.wHelp, p === 'help' ? 1 : 0, 7, dt);
       if (phone) { const on = st.wSelf > 0.5; if (phone.visible !== on) phone.visible = on; }
       // фаза бега — по скорости (шаг ≈ 2,5 м на два шага, каденс до ≈ 8 шагов/с)
       st.ph = (st.ph + dt * TAU * Math.min(st.speed, 12) / 2.6) % (TAU * 64);
@@ -672,6 +693,28 @@
         q.L.fo[0] += Math.sin(t * 14) * 0.15; q.R.fo[0] -= Math.sin(t * 14) * 0.15;
         q.y = 0.16 * hop * k; q.twist = Math.sin(t * 3.5) * 0.3 * k; q.side = Math.sin(t * 7) * 0.06 * k; q.hx = -0.15 * k;
       }
+      // прыжок через проём (по следу героини): толчковая нога назад, маховая вперёд-вверх («шпагат»), руки в стороны и вверх —
+      // длинный и смешной, кольчуга подпрыгивает
+      if (st.wAir > 0.002) {
+        const k = st.wAir;
+        R.leg(q, 1, lerp(q.lx, -1.05, k), lerp(q.lk, 0.35, k)); R.leg(q, -1, lerp(q.rx, 0.55, k), lerp(q.rk, 1.25, k));
+        armBlend(q, 1, RUNA, R.AP.out, k); armBlend(q, -1, RUNA, R.AP.up, k * 0.8);
+        q.lean = lerp(q.lean, 0.32, k); q.hx = lerp(q.hx, -0.2, k); q.y += 0.05 * k;
+      }
+      // «балансирует» на краю после приземления: руки мельницей (в противофазе), качается вперёд-назад, голова мотается
+      if (st.wWob > 0.002) {
+        const k = st.wWob, a = Math.sin(t * 15), b = Math.cos(t * 15);
+        v3(U1, 0.9, 0.3 * a, 0.3 * b); v3(F1, 0.9, 0.35 * a, 0.3 * b); v3(U2, 0.9, -0.3 * a, -0.3 * b); v3(F2, 0.9, -0.35 * a, -0.3 * b);
+        armBlend(q, 1, RUNA, WOBA, k); armBlend(q, -1, RUNA, WOBB, k);
+        q.lean += 0.38 * Math.sin(t * 7.5) * k; q.side += 0.1 * Math.sin(t * 5) * k; q.hz += 0.25 * Math.sin(t * 9) * k;
+      }
+      // подаёт руку: присел на краю, корпус вперёд, обе руки вниз-вперёд к ней (ладони к ней), голова вниз
+      if (st.wHelp > 0.002) {
+        const k = st.wHelp, pull = st.pose === 'help' ? sst(0.55, 1.05, st.t) : 0, wig = Math.sin(t * 11) * 0.06 * (1 - pull);
+        v3(LU, 0.16, lerp(-0.62, -0.2, pull), 0.78); v3(LF, 0.1, lerp(-0.75, -0.1, pull) + wig, 0.66);
+        armBlend(q, 1, R.AP.hang, LIFTA, k); armBlend(q, -1, R.AP.hang, LIFTA, k);
+        R.crouch(q, lerp(0.42, 0.18, pull) * k); q.lean = lerp(q.lean, lerp(0.75, 0.25, pull), k); q.hx = lerp(q.hx, 0.35, k);
+      }
       // бубенцы: короткая встряска плеч
       if (st.jT < 0.4) { const k = 1 - st.jT / 0.4; q.side += Math.sin(st.jT * 60) * 0.09 * k; q.twist += Math.sin(st.jT * 45) * 0.06 * k; }
       // щелчок плёткой — поверх бега (ноги бегут, рука с плёткой — номер)
@@ -689,6 +732,8 @@
       else b.armR.rotation.z = 0;
       if (st.pose === 'cheer') { b.armL.rotation.x = b.armR.rotation.x = -2.8 + Math.sin(t * 9) * 0.2; }
       if (st.pose === 'selfie') { b.armL.rotation.x = -2.3; b.armL.rotation.z = 0.4; b.armR.rotation.x = -1.3; }
+      if (st.pose === 'help') { b.armL.rotation.x = b.armR.rotation.x = -1.2; b.body.rotation.x = 0.6; }
+      if (st.wAir > 0.3) { b.legL.rotation.x = -1.0; b.legR.rotation.x = 0.7; b.armL.rotation.z = 1.0; b.armR.rotation.z = -1.0; } else if (st.pose !== 'catch') { b.armL.rotation.z = 0; }
       if (st.jT < 0.4) b.body.rotation.z = Math.sin(st.jT * 60) * 0.06 * (1 - st.jT / 0.4); else b.body.rotation.z = 0;
     }
     return {

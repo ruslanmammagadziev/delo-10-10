@@ -26,7 +26,7 @@
      внутренности (тесты)
    Генератор: связки рядов, планировщик по полосам — ряд ставится, только если он проходим с КАЖДОЙ полосы, где героиня может
    быть свободна, с запасом реакции ≥ 0,45 с на текущей скорости (см. «ГЕНЕРАТОР» ниже); автопилот и «мартышка» — тесты этого.
-   УРОВНИ (LEVELS, волна 2): 9 уровней со своей обстановкой (тема набора графики), своими препятствиями и механиками, своим светом
+   УРОВНИ (LEVELS, волны 2–3): 10 уровней со своей обстановкой (тема набора графики), своими препятствиями и механиками, своим светом
    и «фишкой», дальше — бесконечный «Мастерский круг» (темы по кругу, сложность растёт). Граница уровня — ворота-арка с названием
    (kit.gate), перед ней и за ней ~2 с передышки (без рядов, дорожка монет), баннер «Уровень N — …», в HUD — полоска до следующего.
    С уровнем растут потолок скорости (11,6 → 26 м/с), плотность, доля двойных действий и движущихся (в том числе поперёк полос:
@@ -109,10 +109,23 @@
     obViewMv: 160,
     coinGap: 2.25, coinY: 0.85, coinsMax: 384,
     overFar: 150,                     // гирлянды сегмента, что начинается дальше, не рисуем (−1 вызов на сегмент; там они — в тумане)
+    // «По крышам» (волна 3). roofHole — у дальнего края проёма: стопы ниже его верха больше чем на столько, когда грудь доходит
+    // до стены, — не допрыгнула (уцепилась за край; на уступе впритык — обычный stepUp); roofDeep — провалилась ниже нижнего края
+    // проёма на столько — тоже сорвалась; roofWin — окно отрыва над проёмом не короче этого (с на скорости в точке), иначе на
+    // полосе — доска; roofEdge — ряды препятствий не ближе этого к краю крыши, м; roofCamY/Z/Look — камера на крышах выше и
+    // дальше и смотрит дальше вперёд (проём виден заранее, прыжок через него — целиком в кадре); roofDash — пальтар на крышах
+    // делает «рывок» раз в столько секунд (бежит следом и прыгает через проёмы — погоня видна), roofGapDash — на каком
+    // расстоянии; roofPlank — доля проёмов с доской на одной полосе / на двух (на «Мастерском круге» — реже); roofHang — сколько
+    // висит на краю, пока пальтар подаёт руку, и сколько вытягивает
+    roofHole: 0.05, roofDeep: 1.1, roofWin: 0.1, roofEdge: 1.6, roofCamY: 0.8, roofCamZ: 0.7, roofLook: 11, roofDash: [6, 10], roofGapDash: 4.4, roofDashOff: 1.5,
+    roofPlank: [0.32, 0.1], roofHang: [0.55, 0.5],
     trig: 2.4,                        // движущееся начинает идти навстречу за столько секунд до встречи
     camFovP: 64, camFovL: 52, camFovK: 6,
   };
-  const LOW = 1, MID = 2, HIGH = 3, BLOCK = 4, RAMP = 5;
+  // HOLE — проём между домами (на полосе, без опоры: только прыжок), PLANK — доска/галерея над проёмом или клин к уступу (опора от
+  // y0 к y1, вбок на неё не войти), LEDGE — уступ к дому выше впритык (прыжок). Эти три — «ряды профиля крыш»: места задаёт раскладка
+  // набора графики, а не генератор (virt — без своей картинки: проём и стена — в сегменте)
+  const LOW = 1, MID = 2, HIGH = 3, BLOCK = 4, RAMP = 5, HOLE = 6, PLANK = 7, LEDGE = 8;
   // каталог (SPEC): габарит столкновений w × (y0…y1) × d; top — верх — опора (бегать, «шагнуть»); move — скорость навстречу, м/с;
   // len — длина сарая (8…16). Без top сверху — «пружинка» (корова, бочки: отскок вверх, без штрафа)
   const CAT = {
@@ -138,8 +151,22 @@
     goat:    { cls: BLOCK, w: 0.8, y0: 0,    y1: 1.25, d: 1.3, move: [1, 2.2] },
     snowman: { cls: LOW,   w: 1.9, y0: 0,    y1: 0.9,  d: 0.9 },
     icicles: { cls: HIGH,  w: 2.2, y0: 1.05, y1: 1.7,  d: 0.6 },
+    // «По крышам» (волна 3): дымоход (обойти), бак, сундук, черепица, люк (прыжок; сверху — опора), кувшины (прыжок; сверху —
+    // «пружинка»), бельё на верёвке (подкат), перила галереи (прыжок или подкат); на крышах всё стоит на верхе дома (by)
+    chimney: { cls: BLOCK, w: 1.5, y0: 0,    y1: 2.3,  d: 1.3 },
+    tank:    { cls: LOW,   w: 1.9, y0: 0,    y1: 0.85, d: 1.1, top: true },
+    chest:   { cls: LOW,   w: 1.8, y0: 0,    y1: 0.7,  d: 0.8, top: true },
+    tiles:   { cls: LOW,   w: 1.8, y0: 0,    y1: 0.6,  d: 0.8, top: true },
+    jugs:    { cls: LOW,   w: 1.8, y0: 0,    y1: 0.62, d: 0.8 },
+    hatch:   { cls: LOW,   w: 1.6, y0: 0,    y1: 0.55, d: 1.0, top: true },
+    laundry: { cls: HIGH,  w: 2.2, y0: 1.05, y1: 2.4,  d: 0.3 },
+    rail:    { cls: MID,   w: 2.1, y0: 0.55, y1: 1.05, d: 0.3 },
+    // ряды профиля: длина — своя у каждого (vlen: проём — его длина, доска — тоже), высоты y0/y1 — края (ближний/дальний верх)
+    hole:    { cls: HOLE,  w: 2.4, y0: 0,    y1: 0,    d: 3,   virt: true, vlen: true },
+    ledge:   { cls: LEDGE, w: 2.4, y0: 0,    y1: 0,    d: 0.3, virt: true },
+    plank:   { cls: PLANK, w: 2.4, y0: 0,    y1: 0,    d: 3,   vlen: true },
   };
-  Object.keys(CAT).forEach(k => { CAT[k].id = k; CAT[k].cname = ['', 'low', 'mid', 'high', 'block', 'ramp'][CAT[k].cls]; });
+  Object.keys(CAT).forEach(k => { CAT[k].id = k; CAT[k].cname = ['', 'low', 'mid', 'high', 'block', 'ramp', 'hole', 'plank', 'ledge'][CAT[k].cls]; });
   // УРОВНИ (просьба: «чем дальше — тем сложнее, и чтобы уровни менялись»). У каждого — своя обстановка (theme — тема набора
   // графики: дома, свет, туман, погода), свой набор препятствий и механик и своя «фишка» (fx — для заметок и тестов). Поля:
   // len — длина, м (кратно 40: сегменты 40/60 ложатся ровно на границу — тема не меняется посреди сегмента, арка стоит на стыке);
@@ -164,6 +191,14 @@
       gap: [1.05, 1.5], inner: 0.45, coin: 0.78, snake: 0.35, pow: [340, 540],
       low: ['hay', 'bench', 'baskets', 'barrels'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall', 'shed'],
       pats: { two: 2.5, wall: 2, roof: 2, roofs: 3.5, barrels: 1.6, cow: 1, combo: 1.2, zig: 1, lows: 0.8, highs: 0.8, gates: 0.8, jslide: 0.6 } },
+    // волна 3: паркур по крышам (просьба: «бегаешь по крышам домов, с одного дома на другой прыгаешь… я убегаю от пальтара,
+    // прыгая по домам»). Трасса — раскладка крыш набора графики (дома 4,2…7,4 м, проёмы 2,4…4,6 м, уступы вверх ≤ 0,92 — прыжком,
+    // вниз — сход); генератор ставит ряды только на крышах, проём на полосе — прыжок или доска (запасная — всегда проходимо);
+    // вход — настил с улицы, выход — лестница на улицу к арке. Временно уровень 5 (порядок решит интегратор)
+    { theme: 'roofs', title: 'По крышам', titleN: 'По крышам', fx: 'паркур: проёмы между домами, доски-мостики, уступы; пальтар прыгает следом', len: 600, cap: 16.8, roofs: true,
+      gap: [1.0, 1.45], inner: 0.42, coin: 0.85, snake: 0.3, pow: [360, 560],
+      low: ['tank', 'chest', 'tiles', 'jugs', 'hatch', 'hay'], high: ['laundry', 'carpet'], mid: ['rail'], block: ['chimney'],
+      pats: { one: 1.6, two: 2.4, lows: 0.9, highs: 1.0, gates: 0.7, wall: 1.0, jslide: 0.4, zig: 0.5 } },
     { theme: 'tower', title: 'Вечер у башни', titleN: 'Вечер у башни', fx: 'повозки навстречу, закат', len: 600, cap: 17.5,
       gap: [0.98, 1.4], inner: 0.4, coin: 0.72, snake: 0.3, pow: [380, 600],
       low: ['hay', 'bench', 'baskets', 'barrels'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall', 'shed'],
@@ -189,11 +224,11 @@
   // движущиеся, что подходят к месту (EXTRA), зазоры ×0,96 за уровень (не меньше ×0,8), потолок +0,6 м/с (до 26), длина +40 м
   // (до 840), монет и усилителей ещё меньше. Ряды «всё на точный прыжок/подкат» (gates, highs) — не чаще веса 1: на 23+ м/с
   // базарный круг с его 1,6 давал «человеку» втрое больше аварий, чем соседние уровни (горб, а не рост). Готовится один раз
-  // (в забеге — без выделений): уровни 10…27 — два круга тем, дальше повторяется второй круг (потолки и зазоры там на пределе)
-  const CIRCLE0 = LEVELS.length + 1, CIRCLE_N = 18;
+  // (в забеге — без выделений): два круга тем, дальше повторяется второй круг (потолки и зазоры там на пределе)
+  const CIRCLE0 = LEVELS.length + 1, CIRCLE_N = 2 * LEVELS.length;
   const EXTRA = {
     masters: { cow: 0.8, cart: 1, barrels: 0.8, dance: 0.7 }, bazaar: { cow: 0.8, cart: 1, barrels: 0.8, dance: 0.8 }, school: { cart: 1.2, barrels: 1, dance: 0.6 },
-    kombinat: { cart: 1.2, dance: 0.6 }, tower: { dance: 0.8 }, wedding: { cow: 0.8, barrels: 0.8 }, serp: { barrels: 0.8 }, winter: { cart: 1 }, night: { sled: 0 },
+    kombinat: { cart: 1.2, dance: 0.6 }, roofs: {}, tower: { dance: 0.8 }, wedding: { cow: 0.8, barrels: 0.8 }, serp: { barrels: 0.8 }, winter: { cart: 1 }, night: { sled: 0 },
   };
   const LV = LEVELS.slice();
   for (let i = 0; i < CIRCLE_N; i++) {
@@ -216,6 +251,8 @@
     st.zigP = st.lowS.concat(st.high);
     st.blockS = st.block.filter(id => id !== 'shed'); if (!st.blockS.length) st.blockS = ['stall'];
     st.shed = st.block.indexOf('shed') >= 0;
+    // «стена» и «жердь» паттернов: на улицах — прилавок и шлагбаум, как было (без лишних чисел ГСЧ), на крышах — дымоход и перила
+    st.wallId = st.blockS.indexOf('stall') >= 0 ? 'stall' : st.blockS[0]; st.midId = st.mid.length ? st.mid[0] : 'gate';
     // крыши (сарай + настил) — только там, где есть дома: на серпантине и без сараев их нет
     if (!st.shed) { st.pats = Object.assign({}, st.pats); delete st.pats.roof; delete st.pats.roofs; }
     if (!st.high.length) { st.pats = Object.assign({}, st.pats); delete st.pats.jslide; }
@@ -236,6 +273,7 @@
     { id: 'bazaar', title: 'Базарная площадь', titleN: 'Базарная площадь', hour: 13 },
     { id: 'school', title: 'У школы', titleN: 'У школы', hour: 15 },
     { id: 'kombinat', title: 'Комбинат и крыши', titleN: 'Мастерские и крыши', hour: 16.5 },
+    { id: 'roofs', title: 'По крышам', titleN: 'По крышам', hour: 15.2 },
     { id: 'tower', title: 'Вечер у башни', titleN: 'Вечер у башни', hour: 18.6 },
     { id: 'wedding', title: 'Свадебный двор', titleN: 'Свадебный двор', hour: 16 },
     { id: 'serp', title: 'Серпантин над облаками', titleN: 'Серпантин над облаками', hour: 8.5 },
@@ -551,7 +589,10 @@
       tut: null, tutStep: 0, tutWait: null, sim: false, simSound: false, best: 0, bot: null, runs: 0, totalCoins: 0, bestDist: 0, lmBias: 0, dashT: 0, caughtT: 0, bestDist0: 0,
       // рывок пальтара: dashReq — сколько ещё ждать свободной улицы (запрошен у ворот или по таймеру 6+), dashOut — рывок оборван
       // (ряд близко) — отстаёт быстро; gateDash — у ворот какого уровня рывок уже запрошен; dashN/dashCut — счётчики для тестов
-      dashReq: 0, dashOut: false, gateDash: 0, dashCD: 30, dashN: 0, dashCut: 0, freeA: 99, gapFarL: 13,
+      dashReq: 0, dashOut: false, gateDash: 0, dashCD: 30, dashN: 0, dashCut: 0, freeA: 99, freeD: 99, gapFarL: 13,
+      // крыши (волна 3): roofs — уровень «По крышам», hangOn — висит на краю проёма, camB/roofK — камера (уровень крыш и доля
+      // «крышной» камеры), roofHint — подсказка «прыгай» у первого проёма показана, pWobN — счёт приземлений пальтара после проёма
+      roofs: false, hangOn: false, camB: 0, roofK: 0, roofHint: 0, pWobN: 0,
       // пасхалки: кольчуга (mailT — сколько ещё надета, invT — неуязвимость после удара), находки и секреты (foundMask — биты сейва
       // runner.finds: 0…13 — находки, 16…21 — секреты), runFinds — найденное в этом забеге (индексы FINDS), selfT — заставка
       mailT: 0, invT: 0, foundMask: 0, runFinds: [], runSecrets: [], starS: 0, masterT: -9, selfT: 0, selfOn: 0, eggN: { gold: 0, master: 0, stars: 0, shield: 0 },
@@ -559,7 +600,7 @@
     const Hh = { lane: 1, lane0: 1, x: 0, px: 0, x0: 0, x1: 0, lt: 1, ld: 0.16, vx: 0, y: 0, py: 0, vy: 0, ground: true, sup: 0, ph: CFG.height,
       g: 22, jT: 0.75, slideT: 0, slideD: 0.7, drop: false, slideOnLand: false, coyote: 0, bumpT: 0, bumpDir: 0, airT: 0, stepT: 0,
       glide: 0, glT: 0, glY0: 0, ceil: CFG.glideY, pose: 'idle', laneAt: -9, laneDir: 0, xs: 0 };
-    const P = { gap: CFG.gapStart, pgap: CFG.gapStart, x: 0, y: 0, pose: 'idle', jingleT: 0, crackT: 2, side: 1, off: 0 };
+    const P = { gap: CFG.gapStart, pgap: CFG.gapStart, x: 0, y: 0, pose: 'idle', jingleT: 0, crackT: 2, side: 1, off: 0, air: false, wobT: 0, py: 0 };
     // история героини для пальтара: он бежит по следу героини (прыгает там же, где прыгала она), отставая на gap метров
     const HN = 1024, hS = new Float64Array(HN), hX = new Float32Array(HN), hY = new Float32Array(HN); let hI = 0, hCount = 0;
 
@@ -576,7 +617,7 @@
     function dropInput(i) { for (let k = i + 1; k < inq.n; k++) { INQ[k - 1].d = INQ[k].d; INQ[k - 1].t = INQ[k].t; } inq.n--; }
 
     /* ---------- препятствия: записи из пула ---------- */
-    function Ob() { this.on = false; this.c = null; this.id = ''; this.cls = 0; this.lane = 1; this.x = 0; this.s = 0; this.ps = 0; this.d = 1; this.w = 1; this.y0 = 0; this.y1 = 1; this.top = false; this.u = 0; this.meet = 0; this.h = null; this.zc = 0; this.hitT = 0; this.ramped = false; this.len = 0; this.started = false; this.tut = 0; this.variant = 0; this.gone = false; this.lat = 0; this.x0 = 0; this.xf = 0; this.hops = 0; this.fallY = 0; this.landed = true; this.warn = 0; this.wOn = false; this.bj = NaN; }
+    function Ob() { this.on = false; this.c = null; this.id = ''; this.cls = 0; this.lane = 1; this.x = 0; this.s = 0; this.ps = 0; this.d = 1; this.w = 1; this.y0 = 0; this.y1 = 1; this.top = false; this.u = 0; this.meet = 0; this.h = null; this.zc = 0; this.hitT = 0; this.ramped = false; this.len = 0; this.started = false; this.tut = 0; this.variant = 0; this.gone = false; this.lat = 0; this.x0 = 0; this.xf = 0; this.hops = 0; this.fallY = 0; this.landed = true; this.warn = 0; this.wOn = false; this.bj = NaN; this.by = 0; this.wedge = false; }
     const OBP = []; for (let i = 0; i < 128; i++) OBP.push(new Ob());
     const obs = [];
     const bbox = new T.Box3(), zcCache = {}, OBO = { variant: 0, len: undefined, dir: 0, lane: 1, quality: o.quality, theme: '', lat: 0 };
@@ -585,7 +626,12 @@
       for (let i = 0; i < OBP.length; i++) if (!OBP[i].on) { r = OBP[i]; break; }
       if (!r) { r = new Ob(); OBP.push(r); }
       r.on = true; r.c = c; r.id = id; r.cls = c.cls; r.lane = lane; r.x = LX[lane]; r.s = s; r.ps = s; r.w = c.w; r.y0 = c.y0; r.y1 = c.y1; r.top = !!c.top;
-      r.len = id === 'shed' ? (opts && opts.len) || 12 : 0; r.d = id === 'shed' ? r.len : c.d; r.u = (opts && opts.u) || 0; r.meet = s; r.started = false; r.hitT = 0;
+      r.len = id === 'shed' ? (opts && opts.len) || 12 : c.vlen ? (opts && opts.len) || c.d : 0; r.d = id === 'shed' || c.vlen ? r.len : c.d; r.u = (opts && opts.u) || 0; r.meet = s; r.started = false; r.hitT = 0;
+      // на крышах всё стоит на верхе своего дома (by; ряды кладутся только внутри одной крыши); проём, доска и уступ — свои
+      // высоты краёв (ya — ближний/нижний верх, yb — дальний/верхний)
+      r.wedge = !!(opts && opts.wedge);
+      if (c.cls >= HOLE) { r.by = 0; r.y0 = opts && opts.ya !== undefined ? opts.ya : 0; r.y1 = opts && opts.yb !== undefined ? opts.yb : 0; }
+      else { r.by = pfB > pfA ? floorAt(s + r.d * 0.5) : 0; r.y0 += r.by; r.y1 += r.by; }
       r.ramped = !!(opts && opts.ramped); r.tut = (opts && opts.tut) || 0; r.variant = (opts && opts.variant) || 0; r.gone = false;
       if (r.u > 0) r.s = r.ps = s + r.u * CFG.trig;   // ждёт на месте встречи + путь за trig секунд (см. moveObs)
       // поперёк полос: танцор ждёт на тротуаре своей стороны, санки — наверху ледяной дорожки (слева, со стороны склона вверх);
@@ -597,7 +643,8 @@
       r.h = null;
       const t0 = performance.now();
       OBO.variant = r.variant; OBO.len = r.len || undefined; OBO.dir = r.u > 0 ? 1 : 0; OBO.lane = lane; OBO.theme = themes[thIx(stageAt(s))].id; OBO.lat = r.lat;
-      try { r.h = kit.obstacle(id, OBO); } catch (e) { console.warn('runner: obstacle', id, e); r.h = null; }
+      const kid = opts && opts.kitId ? opts.kitId : id;   // своя картинка (галерея во всю ширину — на средней полосе)
+      if (!c.virt && !(opts && opts.noVis)) { try { r.h = kit.obstacle(kid, OBO); } catch (e) { console.warn('runner: obstacle', kid, e); r.h = null; } }
       { const dt = performance.now() - t0; PERF.obMs += dt; PERF.obN++; if (dt > PERF.obMax) PERF.obMax = dt; }
       if (r.h && r.h.group) {
         // набор графики может строить препятствие от центра или от переднего края: ставим по середине его рамки по z
@@ -605,6 +652,8 @@
         if (zk[key] === undefined) { const g = r.h.group; g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.updateMatrixWorld(true); bbox.setFromObject(g); zk[key] = bbox.isEmpty() ? 0 : -(bbox.min.z + bbox.max.z) / 2; }
         r.zc = zk[key];
         track.add(r.h.group); r.h.group.visible = true;
+        // доска над проёмом: единичная по z — вытянуть на длину и наклонить от ближнего края к дальнему (середина — на (ya + yb)/2)
+        if (c.cls === PLANK) { const dy = r.y1 - r.y0; r.h.group.rotation.set(Math.atan2(dy, r.d), 0, 0); r.h.group.scale.set(1, 1, Math.hypot(r.d, dy)); r.by = (r.y0 + r.y1) * 0.5; }
       }
       obs.push(r);
       return r;
@@ -616,6 +665,7 @@
       obs[i] = obs[obs.length - 1]; obs.pop();
     }
     const rampH = (r, s) => clamp((s - r.s) / r.d, 0, 1) * r.y1;
+    const plankH = (r, s) => lerp(r.y0, r.y1, clamp((s - r.s) / r.d, 0, 1));
 
     /* ---------- монеты: типизированные массивы, один InstancedMesh (видимые — подряд, count) ---------- */
     const NC = CFG.coinsMax, cS = new Float64Array(NC), cX = new Float32Array(NC), cY = new Float32Array(NC), cSt = new Uint8Array(NC), cPh = new Float32Array(NC);
@@ -671,12 +721,21 @@
       let len = segLens.length > 1 && gen.rngS() < 0.35 ? segLens[1] : segLens[0];
       const rem = Math.round(lvStartN(st + 1) + G.s0 - segEnd), okLen = l => rem - l === 0 || rem - l >= 40;
       if (!okLen(len)) { for (let i = 0; i < segLens.length; i++) if (okLen(segLens[i])) { len = segLens[i]; break; } }
+      // «По крышам»: первый сегмент уровня — вход (улица → настил на первый дом), последний — спуск (лестница → улица к арке);
+      // оба по 60 м (набор заготавливает их заранее), остальные — так, чтобы последним выпал именно 60-метровый
+      let lmR;
+      if (stCfg(st).roofs && segLens.indexOf(60) >= 0) {
+        const first = Math.abs(segEnd - lvStart(st)) < 0.5, okR = l => (rem - l === 0 && l === 60) || rem - l === 60 || rem - l >= 100;
+        if (first) len = 60; else if (!okR(len)) { for (let i = 0; i < segLens.length; i++) if (okR(segLens[i])) { len = segLens[i]; break; } }
+        lmR = first ? 'roofIn' : rem - len === 0 ? 'roofOut' : undefined;
+      }
       r.on = true; r.s = segEnd; r.len = len; r.theme = th.id; r.h = null; r.clear = null;
       try {
-        SGO.s = segEnd; SGO.stage = st; SGO.level = st; SGO.k = segK; SGO.first = segK === 0;
+        SGO.s = segEnd; SGO.stage = st; SGO.level = st; SGO.k = segK; SGO.first = segK === 0; SGO.landmark = lmR;
         r.h = kit.segment(th.id, len, gen.rngS, SGO);
         if (r.h && r.h.group) { track.add(r.h.group); r.h.group.visible = true; r.len = r.h.len || len; r.clear = r.h.over && r.h.over.length ? r.h.over : (r.h.clear || null); }
       } catch (e) { console.warn('runner: segment', th.id, e); r.h = null; }
+      if (r.h && r.h.roofs && r.h.roofs.length) pfAdd(segEnd, r.h.roofs);
       segs.push(r); segEnd += r.len; segK++;
     }
     // дом-мост (seg.over: [{ z0, z1, y0 — свод, y1 — верх }], z — локальные, ≤ 0): конец первого моста на [a, b] в «s» или −1;
@@ -720,14 +779,75 @@
     }
 
     /* =====================================================================
+       ПРОФИЛЬ КРЫШ («По крышам», волна 3): пролёты из раскладки сегментов набора (seg.roofs: { k, z0 > z1, y0, y1 } в
+       локальных z) → в «s» по порядку: улица (0), крыша (верх), проём (дна нет — только доски), настил/лестница (высота по
+       ходу). Нет пролётов (улицы других уровней, набор-заглушка) — земля на нуле, всё как раньше. Пролёты позади (> 120 м)
+       выбрасываются, массивы типизированные — без выделений в беге
+       ===================================================================== */
+    const PF_STREET = 0, PF_ROOF = 1, PF_GAP = 2, PF_SLOPE = 3, PFKIND = { street: PF_STREET, roof: PF_ROOF, gap: PF_GAP, slope: PF_SLOPE };
+    const PFN = 256, pfS0 = new Float64Array(PFN), pfS1 = new Float64Array(PFN), pfK = new Uint8Array(PFN), pfY0 = new Float32Array(PFN), pfY1 = new Float32Array(PFN);
+    let pfA = 0, pfB = 0;
+    function pfAdd(segS, list) {
+      while (pfA < pfB && pfS1[pfA] < G.s - 120) pfA++;
+      if (pfB + list.length > PFN) { for (let i = pfA; i < pfB; i++) { const j = i - pfA; pfS0[j] = pfS0[i]; pfS1[j] = pfS1[i]; pfK[j] = pfK[i]; pfY0[j] = pfY0[i]; pfY1[j] = pfY1[i]; } pfB -= pfA; pfA = 0; }
+      for (let i = 0; i < list.length && pfB < PFN; i++) { const q = list[i]; pfS0[pfB] = segS - q.z0; pfS1[pfB] = segS - q.z1; pfK[pfB] = PFKIND[q.k] || 0; pfY0[pfB] = q.y0; pfY1[pfB] = q.y1; pfB++; }
+    }
+    // пролёт, где лежит s (−1 — профиля здесь нет: улица на нуле)
+    function pfIx(s) {
+      if (pfB === pfA || s < pfS0[pfA] || s >= pfS1[pfB - 1]) return -1;
+      let lo = pfA, hi = pfB - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (pfS0[m] <= s) lo = m; else hi = m - 1; }
+      return s < pfS1[lo] ? lo : -1;
+    }
+    const pfTopStart = i => (pfK[i] === PF_GAP ? NaN : pfK[i] === PF_STREET ? 0 : pfY0[i]);
+    const pfTopEnd = i => (pfK[i] === PF_GAP ? NaN : pfK[i] === PF_STREET ? 0 : pfY1[i]);
+    // высота опоры профиля в s: крыша — верх, настил/лестница — по ходу, улица — 0; проём — дно переулка (0: опоры нет)
+    function floorAt(s) {
+      const i = pfIx(s); if (i < 0) return 0;
+      const k = pfK[i]; if (k === PF_ROOF) return pfY0[i]; if (k === PF_SLOPE) return lerp(pfY0[i], pfY1[i], clamp((s - pfS0[i]) / Math.max(0.01, pfS1[i] - pfS0[i]), 0, 1)); return k === PF_GAP ? pfY0[i] : 0;
+    }
+    const isGap = s => { const i = pfIx(s); return i >= 0 && pfK[i] === PF_GAP; };
+    // уклон настила/лестницы (dy/ds) — для бега вниз по лестнице без «подлётов» на каждом шаге
+    const slopeAt = s => { const i = pfIx(s); return i >= 0 && pfK[i] === PF_SLOPE ? (pfY1[i] - pfY0[i]) / Math.max(0.01, pfS1[i] - pfS0[i]) : 0; };
+    // края проёма i: ближний (верх крыши до него) и дальний (после него); нет соседа — стык сегментов (там всегда 6 м)
+    const gapNear = i => (i > pfA && pfK[i - 1] !== PF_GAP ? pfTopEnd(i - 1) : 6);
+    const gapFar = i => (i + 1 < pfB && pfK[i + 1] !== PF_GAP ? pfTopStart(i + 1) : 6);
+    // «уровень крыш» в s — для камеры и монет: над проёмом — выше из двух краёв (камера не ныряет в переулок)
+    function refAt(s) { const i = pfIx(s); if (i < 0) return 0; return pfK[i] === PF_GAP ? Math.max(gapNear(i), gapFar(i)) : floorAt(s); }
+    // ближайшее событие профиля строго после s: проём (k 1), уступ вверх впритык (k 2), сход вниз впритык (k 3); в RE.
+    // Проём: s — ближний край, d — длина, ya/yb — верх ближнего и дальнего дома. Сегменты впереди достраиваются (набор
+    // отдаёт их из пула): событие не должно «выпасть» из-за того, что его сегмент ещё не взят
+    const RE = { k: 0, s: 0, d: 0, ya: 0, yb: 0 };
+    function nextEvent(after) {
+      const need = Math.max(after, gen.prevEnd, gen.front) + 110;
+      while (segEnd < need) addSegment();
+      for (let i = pfA; i < pfB; i++) {
+        const s0 = pfS0[i]; if (s0 <= after + 1e-6) continue;
+        if (pfK[i] === PF_GAP) { RE.k = 1; RE.s = s0; RE.d = pfS1[i] - s0; RE.ya = gapNear(i); RE.yb = gapFar(i); return RE; }
+        if (pfK[i] === PF_ROOF && i > pfA && pfK[i - 1] === PF_ROOF) {
+          const dy = pfY0[i] - pfY1[i - 1];
+          if (dy > CFG.stepUp - 0.02) { RE.k = 2; RE.s = s0; RE.d = 0; RE.ya = pfY1[i - 1]; RE.yb = pfY0[i]; return RE; }
+          if (dy < -0.3) { RE.k = 3; RE.s = s0; RE.d = 0; RE.ya = pfY1[i - 1]; RE.yb = pfY0[i]; return RE; }
+        }
+      }
+      return null;
+    }
+    // пролёт крыши, где лежит s (−1 — не крыша)
+    const roofIx = s => { const i = pfIx(s); return i >= 0 && pfK[i] === PF_ROOF ? i : -1; };
+
+    /* =====================================================================
        ГЕНЕРАТОР: связки рядов; планировщик по полосам гарантирует проходимость с запасом реакции
        R[L] — самая ранняя «s», когда героиня может быть свободна на полосе L (после всех поставленных рядов);
        LAT[L] — до какой «s» по полосе L нельзя пройти вбок (зад последнего препятствия в осях героини);
        OCC[L] — до какой «s» полоса занята (с учётом пути движущихся навстречу) — новый ряд туда не ставится.
        ===================================================================== */
-    const R_FREE = 0, R_JUMP = 1, R_SLIDE = 2, R_EITHER = 3, R_BLOCK = 4, R_RAMP = 5;
+    // R_PATH — доска над проёмом или клин к уступу: на своей полосе — просто бежать (без срока), с другой — успеть перейти на неё
+    // до начала доски (вбок на доску посреди проёма не войти)
+    const R_FREE = 0, R_JUMP = 1, R_SLIDE = 2, R_EITHER = 3, R_BLOCK = 4, R_RAMP = 5, R_PATH = 6;
     const gen = { rng: mulberry(1), rngS: mulberry(2), front: 0, prevEnd: 0, coinEnd: 0, coinLane: 1, nextPw: 400, lastGlide: -1e9, rows: 0, minSlack: INF, slackSum: 0, fails: 0, failLog: [], curPat: null, pushes: 0,
       gateLv: 1, breaths: 0, slackLv: new Float64Array(64),   // slackLv — наименьший запас реакции по уровням (тесты)
+      // крыши: курсор событий профиля (evS), доски решённого события (evPlanS/M), счётчики для тестов — проёмы, с досками,
+      // уступы, сходы по уровням; roofSaves — сколько раз понадобились запасные доски
+      evS: -INF, evPlanS: NaN, evPlanM: 0, roofSaves: 0, holeLv: new Uint16Array(64), plankLv: new Uint16Array(64), ledgeLv: new Uint16Array(64), dropLv: new Uint16Array(64),
       rowLv: new Uint16Array(64), comboLv: new Uint16Array(64), movLv: new Uint16Array(64),   // ряды, связки 2+ рядов, движущиеся — по уровням
       // пасхалки — своим генератором (rngE): расстановка рядов по тому же seed та же, что без них (автопилоты сравнимы);
       // curTr — номер текущей дорожки монет, goldLv — уровень, где золотая уже была; fd* — находка (уровень, где решали, точка
@@ -738,8 +858,10 @@
     // ramp: len — вся крыша после настила; chain — сколько сараев подряд (parts — их длины, между ними щель ROOFGAP)
     // lat — поперёк полос: 1 — танцор (шаги от тротуара side к своей полосе), 2 — санки (по ледяной дорожке слева), 3 — камушек со
     // скалы (тень, потом лежит)
-    function Ent() { this.on = false; this.id = ''; this.len = 0; this.u = 0; this.off = 0; this.variant = 0; this.tut = 0; this.chain = 1; this.parts = new Float64Array(3); this.lat = 0; this.side = 0; }
-    const ROWS = []; for (let k = 0; k < 4; k++) ROWS.push([new Ent(), new Ent(), new Ent()]);
+    function Ent() { this.on = false; this.id = ''; this.len = 0; this.u = 0; this.off = 0; this.variant = 0; this.tut = 0; this.chain = 1; this.parts = new Float64Array(3); this.lat = 0; this.side = 0; this.ya = 0; this.yb = 0; this.wedge = false; this.kit = ''; }
+    // ROWS[4] — ряд события профиля крыш (проём/уступ: собирается без ГСЧ — проверки «а пройдётся ли он после этого ряда»
+    // не сбивают последовательность генератора)
+    const ROWS = []; for (let k = 0; k < 5; k++) ROWS.push([new Ent(), new Ent(), new Ent()]);
     let nRows = 0;
     const PERM = [0, 1, 2];
     const ri = n => Math.floor(gen.rng() * n);
@@ -747,12 +869,13 @@
     const pick = arr => arr[ri(arr.length)];
     function shuffle() { for (let i = 2; i > 0; i--) { const j = ri(i + 1), t = PERM[i]; PERM[i] = PERM[j]; PERM[j] = t; } }
     function clearRows(n) { nRows = n; for (let k = 0; k < n; k++) for (let l = 0; l < 3; l++) ROWS[k][l].on = false; }
-    function ent(k, lane, id, len, u, off) { const e = ROWS[k][lane]; e.on = true; e.id = id; e.len = len || 0; e.u = u || 0; e.off = off || 0; e.variant = ri(4); e.tut = 0; e.chain = 1; e.parts[0] = e.len; e.lat = CAT[id].lat || 0; e.side = 0; return e; }
+    function ent(k, lane, id, len, u, off) { const e = ROWS[k][lane]; e.on = true; e.id = id; e.len = len || 0; e.u = u || 0; e.off = off || 0; e.variant = ri(4); e.tut = 0; e.chain = 1; e.parts[0] = e.len; e.lat = CAT[id].lat || 0; e.side = 0; e.wedge = false; e.kit = ''; return e; }
+    function entV(k, lane, id, len, off, ya, yb) { const e = ROWS[k][lane]; e.on = true; e.id = id; e.len = len; e.u = 0; e.off = off; e.variant = 0; e.tut = 0; e.chain = 1; e.lat = 0; e.side = 0; e.ya = ya; e.yb = yb; e.wedge = false; e.kit = ''; return e; }
     // когда игрок узнаёт, что в ряду: обычный ряд — сразу (виден издалека); поперёк полос — за latKnown с до встречи (конечная
     // полоса танцора или санок), камушек — когда видна тень. Планировщик отсчитывает запас реакции не раньше этого (RK)
     function rowKnownT(row) { let t = 0; for (let L = 0; L < 3; L++) { const e = row[L]; if (!e.on) continue; if (e.lat === 1 || e.lat === 2) t = Math.max(t, CFG.latKnown); else if (e.lat === 3) t = Math.max(t, CFG.rockWarn); } return t; }
     // протяжённость ряда по ходу (от фронта): глубина + путь движущегося навстречу — для передышки у ворот
-    function rowSpan(row, v) { let m = 0; for (let L = 0; L < 3; L++) { const e = row[L]; if (!e.on) continue; const c = CAT[e.id], d = e.id === 'shed' ? e.len : e.id === 'ramp' ? c.d + e.len : c.d; m = Math.max(m, e.off + d + (e.u > 0 ? e.u * CFG.trig : 0)); } return m; }
+    function rowSpan(row, v) { let m = 0; for (let L = 0; L < 3; L++) { const e = row[L]; if (!e.on) continue; const c = CAT[e.id], d = e.id === 'shed' || c.vlen ? e.len : e.id === 'ramp' ? c.d + e.len : c.d; m = Math.max(m, e.off + d + (e.u > 0 ? e.u * CFG.trig : 0)); } return m; }
     // настил + n сараев подряд в одной полосе (бег по крышам 2–3 с, а не < 1 с): щель между крышами — ROOFGAP (0,9 м — видно
     // «перебежала с крыши на крышу», но не ловушка: на любой скорости ≥ 9 м/с за щель она опускается меньше stepUp — и
     // просто бежит дальше; перепрыгнуть — тоже можно). Спрыгнуть вниз в щель нельзя — значит, тупика нет
@@ -780,8 +903,23 @@
     }
     const moveU = (id, st) => { const m = CAT[id].move; return m ? lerp(m[0], m[1], clamp(gen.rng() * 0.7 + (st - 3) * 0.12, 0, 1)) : 0; };
     // глубина ряда для полосы в осях героини (движущееся навстречу проходит быстрее: d·v/(v+u))
-    function effD(e, v) { if (!e.on) return 0; const c = CAT[e.id]; const d = e.id === 'shed' ? e.len : e.id === 'ramp' ? c.d + e.len : c.d; return e.u > 0 ? d * v / (v + e.u) : d; }
-    const JJ = { T: 0, H: 0, g: 0, vj: 0 };
+    function effD(e, v) { if (!e.on) return 0; const c = CAT[e.id]; const d = e.id === 'shed' || c.vlen ? e.len : e.id === 'ramp' ? c.d + e.len : c.d; return e.u > 0 ? d * v / (v + e.u) : d; }
+    const JJ = { T: 0, H: 0, g: 0, vj: 0 }, JH = { T: 0, H: 0, g: 0, vj: 0 };
+    // окно отрыва над проёмом или на уступ (центр героини отрывается в [es, ls]): fr — ближний край проёма (у уступа — стена),
+    // d — длина проёма (у уступа 0), dy — дальний верх минус ближний, tol — допуск у стены дальнего дома (проём — roofHole, уступ —
+    // stepUp). Позже ls — центр уже над проёмом или грудь на подъёме в стену; раньше es — опустится ниже дальнего края, не
+    // долетев. HW.tl — полёт до приземления на дальний верх. false — окно короче roofWin (на этой скорости — только доска)
+    const HW = { es: 0, ls: 0, tl: 0 };
+    function holeWin(fr, d, dy, v, tol) {
+      const J = jumpAt(v, JH), face = fr + d, need = dy - tol;
+      let tUp = 0; if (need > 0) { tUp = riseT(J, need); if (tUp === INF) return false; }
+      const D = J.vj * J.vj - 2 * J.g * need; if (D < 0) return false;
+      const tDn = (J.vj + Math.sqrt(D)) / J.g, Dl = J.vj * J.vj - 2 * J.g * dy;
+      HW.ls = Math.min(fr - 0.15, face - CFG.hd - v * tUp - 0.1);
+      HW.es = face - CFG.hd - v * tDn + 0.1;
+      HW.tl = Dl >= 0 ? (J.vj + Math.sqrt(Dl)) / J.g : tDn;
+      return HW.ls - HW.es >= v * CFG.roofWin;
+    }
     // требования ряда к полосам: RQ, LS (позже всего начать действие), BE (когда освободится, если начать в LS)
     function rowReq(row, f, v) {
       const J = jumpAt(v, JJ), Ts = slideDur(v), hd = CFG.hd;
@@ -790,6 +928,12 @@
         if (!e.on) { RQ[L] = R_FREE; continue; }
         const c = CAT[e.id], fr = f + e.off, d = effD(e, v);
         if (c.cls === RAMP) { RQ[L] = R_RAMP; LS[L] = fr - hd - v * 0.08; BE[L] = fr + d + v * Math.sqrt(2 * 2.4 / J.g) + 1.5; continue; }
+        // крыши: проём и уступ — прыжок в своё окно (holeWin), приземление — на дальний верх; доска/клин — R_PATH
+        if (c.cls === HOLE || c.cls === LEDGE) {
+          if (!holeWin(fr, c.cls === HOLE ? e.len : 0, e.yb - e.ya, v, c.cls === HOLE ? CFG.roofHole : CFG.stepUp)) { RQ[L] = R_BLOCK; continue; }
+          RQ[L] = R_JUMP; LS[L] = HW.ls; BE[L] = HW.ls + v * HW.tl + 0.3; continue;
+        }
+        if (c.cls === PLANK) { RQ[L] = R_PATH; LS[L] = fr - hd - v * 0.05; BE[L] = -INF; continue; }
         if (c.cls === BLOCK) { RQ[L] = R_BLOCK; continue; }
         let lsJ = INF, beJ = INF, lsS = INF, beS = INF;
         if (c.cls === LOW || c.cls === MID) {
@@ -817,7 +961,7 @@
         for (let L = 0; L < 3; L++) {
           if (R[L] === INF) continue;
           let arrive, ms, base;
-          if (L === L2) { arrive = R[L]; ms = base = R[L] > kn ? R[L] : kn; if (rq !== R_FREE && base + react > LS[L2]) continue; }
+          if (L === L2) { arrive = R[L]; ms = base = R[L] > kn ? R[L] : kn; if (rq !== R_FREE && rq !== R_PATH && base + react > LS[L2]) continue; }
           else {
             const lo = L < L2 ? L : L2, hi = L < L2 ? L2 : L, n = hi - lo;
             // свободна с base: и сама героиня (R), и полосы на пути вбок (LAT прежних рядов); + запас реакции
@@ -830,11 +974,11 @@
             if (bad) continue;
             if (rq !== R_FREE && arrive > LS[L2]) continue;
           }
-          const r = rq === R_FREE ? arrive : BE[L2];
+          const r = rq === R_FREE || rq === R_PATH ? arrive : BE[L2];
           if (r < R2[L2]) R2[L2] = r;
           SRC[L] = 1;
           // запас реакции: от «свободна» до последнего момента начать (смена полосы — внутри), с
-          const sl = rq === R_FREE ? INF : (LS[L2] - (arrive - ms) - base) / v;
+          const sl = rq === R_FREE || (rq === R_PATH && L === L2) ? INF : (LS[L2] - (arrive - ms) - base) / v;
           if (sl > SLK[L2]) SLK[L2] = sl;
           ok = true;
         }
@@ -844,7 +988,7 @@
       for (let L = 0; L < 3; L++) if (R[L] < INF && !SRC[L]) return false;
       return ok;
     }
-    const SPO = { len: 0, u: 0, variant: 0, tut: 0, lat: 0, side: 0 };
+    const SPO = { len: 0, u: 0, variant: 0, tut: 0, lat: 0, side: 0, ya: undefined, yb: undefined, wedge: false, kitId: undefined, noVis: false };
     function commitRow(row, f) {
       const v = vAt(f);
       let end = f, best = -INF;
@@ -854,7 +998,7 @@
         if (!e.on) continue;
         const fr = f + e.off, d = effD(e, v), c = CAT[e.id];
         LAT[L] = Math.max(LAT[L], fr + d + CFG.hd);
-        const dReal = e.id === 'shed' ? e.len : e.id === 'ramp' ? c.d + e.len : c.d;
+        const dReal = e.id === 'shed' || c.vlen ? e.len : e.id === 'ramp' ? c.d + e.len : c.d;
         OCC[L] = Math.max(OCC[L], fr + dReal + (e.u > 0 ? e.u * CFG.trig + 2 : 0) + 1.2);
         // крыша — необязательный путь, но ловушкой быть не должна: после спрыгивания с конца сарая на этой полосе —
         // свободно на время падения + запас реакции (иначе забежавший наверх упадёт прямо на жердь)
@@ -864,7 +1008,7 @@
           spawnOb('ramp', L, fr, { variant: e.variant });
           let sp = fr + c.d;
           for (let i = 0; i < e.chain; i++) { spawnOb('shed', L, sp, { len: e.parts[i], ramped: true, variant: (e.variant + i) & 3 }); sp += e.parts[i] + ROOFGAP; }
-        } else { SPO.len = e.len; SPO.u = e.u; SPO.variant = e.variant; SPO.tut = e.tut; SPO.lat = e.lat; SPO.side = e.side; spawnOb(e.id, L, fr, SPO); }
+        } else { SPO.len = e.len; SPO.u = e.u; SPO.variant = e.variant; SPO.tut = e.tut; SPO.lat = e.lat; SPO.side = e.side; SPO.ya = c.cls >= HOLE ? e.ya : undefined; SPO.yb = c.cls >= HOLE ? e.yb : undefined; SPO.wedge = e.wedge; SPO.kitId = e.kit || undefined; SPO.noVis = e.kit === '-'; spawnOb(e.id, L, fr, SPO); }
       }
       const li = Math.min(63, stageAt(f)); gen.rowLv[li]++;
       for (let L = 0; L < 3; L++) if (row[L].on && (row[L].u > 0 || row[L].lat)) { gen.movLv[li]++; break; }
@@ -960,12 +1104,15 @@
       gen.coinEnd = stop;
     }
     // монета дорожки — но не поверх усилителя (кувшин в монетах не читается)
-    function addTrail(s, x, y) { if (gen.pwL >= 0 && Math.abs(s - gen.pwS) < 1.3 && Math.abs(x - LX[gen.pwL]) < 0.5) return; if (gen.fdL >= 0 && Math.abs(s - gen.fdS) < 1.5 && Math.abs(x - LX[gen.fdL]) < 0.5) return; addCoin(s, x, y); }
+    // на крышах высота дорожки — от верха дома под монетой (над проёмом обычная дорожка не идёт: там — дуга прыжка, addTrailAbs)
+    function addTrail(s, x, y) { if (pfB > pfA) { const i = pfIx(s); if (i >= 0) { if (pfK[i] === PF_GAP) return; y += floorAt(s); } } addTrailAbs(s, x, y); }
+    function addTrailAbs(s, x, y) { if (gen.pwL >= 0 && Math.abs(s - gen.pwS) < 1.3 && Math.abs(x - LX[gen.pwL]) < 0.5) return; if (gen.fdL >= 0 && Math.abs(s - gen.fdS) < 1.5 && Math.abs(x - LX[gen.fdL]) < 0.5) return; addCoin(s, x, y); }
     const rampHs = (fr, s) => clamp((s - fr) / 4, 0, 1) * 2.4;
     // усилитель — в просвете перед рядом, на полосе, куда можно успеть
     function powerForGap(a, b) {
       if (b - a < 14 || a < gen.nextPw || G.tut) return;
       const mid = (a + b) / 2;
+      if (pfB > pfA) { const i = pfIx(mid); if (i >= 0 && (pfK[i] !== PF_ROOF || mid < pfS0[i] + 3 || mid > pfS1[i] - 3)) return; }   // крыши: только на крыше, не у края
       // на полосе дорожки монет (она и приведёт к нему); нельзя — на любой свободной
       let L = -1, n = 0;
       const okP = l => R[l] + 4 < mid && OCC[l] + 3 < mid;
@@ -974,11 +1121,13 @@
       if (L < 0) return;
       const st = stageAt(mid);
       let id = gen.rng() < 0.42 ? 'magnet' : gen.rng() < 0.6 ? 'x2' : 'glide';
-      if (id === 'glide' && (st < 2 || mid - gen.lastGlide < 900)) id = 'magnet';
+      // параплан — не на крышах и не перед ними (полёт на 6 м над улицей — ниже крыш; посадка — в проём)
+      if (id === 'glide' && (st < 2 || mid - gen.lastGlide < 900 || stCfg(st).roofs || stCfg(stageAt(mid + 450)).roofs)) id = 'magnet';
       if (id === 'glide') gen.lastGlide = mid;
       // кольчуга — со второго уровня, вместо кувшина или «×2» (своим генератором: ряды по seed те же)
       else if (st >= 2 && gen.rngE() < 0.2) id = 'mail';
-      spawnPw(id, L, mid); gen.pwS = mid; gen.pwL = L;
+      const pw = spawnPw(id, L, mid); if (pw && pfB > pfA) pw.y += floorAt(mid);
+      gen.pwS = mid; gen.pwL = L;
       // на первых уровнях часто (раз в ~40–50 с игрок их не встречал — «есть ли они вообще»), дальше — реже (LEVELS[].pow)
       const pc = stCfg(st); gen.nextPw = mid + rr(pc.pow[0], pc.pow[1]);
     }
@@ -993,6 +1142,7 @@
       if (gen.fdLv !== lv) { gen.fdLv = lv; const L0 = lvStart(lv), len = lvStart(lv + 1) - L0; gen.fdAt = gen.rngE() < CFG.findP ? L0 + len * (0.35 + 0.45 * gen.rngE()) : INF; gen.fdEnd = L0 + len * 0.9; }
       if (a < gen.fdAt || a > gen.fdEnd) return;
       const mid = (a + b) / 2;
+      if (pfB > pfA) { const i = pfIx(mid); if (i >= 0 && (pfK[i] !== PF_ROOF || mid < pfS0[i] + 3 || mid > pfS1[i] - 3)) return; }
       if (mid - gen.fdLast < CFG.findGap * vAt(mid)) return;   // рано — ждём следующего просвета этого же уровня
       let L = -1, n = 0;
       for (let l = 0; l < 3; l++) if (R[l] + 4 < mid && OCC[l] + 3 < mid && !(gen.pwL === l && Math.abs(gen.pwS - mid) < 6)) { n++; if (Math.floor(gen.rngE() * n) === 0) L = l; }
@@ -1002,7 +1152,7 @@
     }
     function spawnFind(i, lane, s) {
       if (FD.on) freeFind();
-      FD.on = true; FD.i = i; FD.s = s; FD.lane = lane; FD.x = LX[lane]; FD.y = 1.05; FD.h = null;
+      FD.on = true; FD.i = i; FD.s = s; FD.lane = lane; FD.x = LX[lane]; FD.y = 1.05 + (pfB > pfA ? floorAt(s) : 0); FD.h = null;
       try { if (kit.find) { FD.h = kit.find(FINDS[i].id); if (FD.h && FD.h.group) track.add(FD.h.group); } } catch (e) { console.warn('runner: find', e); FD.h = null; }
     }
     function freeFind() {
@@ -1017,10 +1167,10 @@
       const a = pick(st.twoP), b = pick(st.twoP);
       ent(0, PERM[0], a, a === 'shed' ? Math.round(rr(8, 16)) : 0); ent(0, PERM[1], b, b === 'shed' ? Math.round(rr(8, 16)) : 0); return 1;
     }
-    function patWall(st) { clearRows(1); shuffle(); ent(0, PERM[0], 'stall'); ent(0, PERM[1], gen.rng() < 0.3 && st.shed ? 'shed' : 'stall', 12); ent(0, PERM[2], pick(st.passP)); return 1; }
+    function patWall(st) { clearRows(1); shuffle(); ent(0, PERM[0], st.wallId); ent(0, PERM[1], gen.rng() < 0.3 && st.shed ? 'shed' : st.wallId, 12); ent(0, PERM[2], pick(st.passP)); return 1; }
     function patLows(st) { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, pick(st.lowS)); return 1; }
-    function patHighs(st) { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, pick(st.highS)); if (gen.rng() < 0.35) ent(0, ri(3), 'stall'); return 1; }
-    function patGates() { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, 'gate'); if (gen.rng() < 0.4) ent(0, ri(3), 'stall'); return 1; }
+    function patHighs(st) { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, pick(st.highS)); if (gen.rng() < 0.35) ent(0, ri(3), st.wallId); return 1; }
+    function patGates(st) { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, st.midId); if (gen.rng() < 0.4) ent(0, ri(3), st.wallId); return 1; }
     function patRoof(st) {
       clearRows(1); shuffle();
       const sn = stageNum(st), cp = sn <= 3 ? 0.35 : sn === 4 ? 0.85 : 0.5;   // этап 4 «крыши»: цепочкой почти всегда (доля на крышах ≈ 9 → 10+ %)
@@ -1040,7 +1190,7 @@
     }
     function patZig(st) {
       const n = 3; clearRows(n); let l = ri(3);
-      for (let k = 0; k < n; k++) { ent(k, l, k === 1 && st.shed && gen.rng() < 0.3 ? 'shed' : 'stall', 8); if (gen.rng() < 0.45) { const l2 = (l + 1 + ri(2)) % 3; ent(k, l2, pick(st.zigP)); } l = (l + 1 + ri(2)) % 3; }
+      for (let k = 0; k < n; k++) { ent(k, l, k === 1 && st.shed && gen.rng() < 0.3 ? 'shed' : st.wallId, 8); if (gen.rng() < 0.45) { const l2 = (l + 1 + ri(2)) % 3; ent(k, l2, pick(st.zigP)); } l = (l + 1 + ri(2)) % 3; }
       return n;
     }
     function patCow(st) { clearRows(1); shuffle(); ent(0, PERM[0], 'cow', 0, moveU('cow', stageNum(st))); if (gen.rng() < 0.5) ent(0, PERM[1], gen.rng() < 0.5 ? 'stall' : pick(st.lowS)); return 1; }
@@ -1090,8 +1240,8 @@
     }
     function patCombo(st) {
       clearRows(2); shuffle();
-      ent(0, PERM[0], pick(st.lowS)); ent(0, PERM[1], 'stall'); ent(0, PERM[2], 'stall');
-      ent(1, PERM[0], pick(st.highS)); ent(1, PERM[1], 'stall'); if (gen.rng() < 0.5) ent(1, PERM[2], 'stall');
+      ent(0, PERM[0], pick(st.lowS)); ent(0, PERM[1], st.wallId); ent(0, PERM[2], st.wallId);
+      ent(1, PERM[0], pick(st.highS)); ent(1, PERM[1], st.wallId); if (gen.rng() < 0.5) ent(1, PERM[2], st.wallId);
       return 2;
     }
     const stageNum = st => st.n;
@@ -1115,6 +1265,7 @@
       const st0 = stageAt(gen.front);
       while (gen.gateLv < st0) { gen.gateLv++; spawnGate(gen.gateLv, lvStart(gen.gateLv)); }
       const st = stCfg(st0), v = vAt(gen.front), B = lvStart(st0 + 1);
+      if (st.roofs && pfB > pfA) { genRoofs(st0, st); return; }   // без раскладки крыш (набор-заглушка) — обычные ряды
       // ряды этого уровня кончаются за brk0 с до арки (дальше — передышка)
       const lim = B - vAt(B) * CFG.brk0;
       const pf = choosePat(st); gen.curPat = pf; const n = pf(st);
@@ -1145,6 +1296,171 @@
       for (let L = 0; L < 3; L++) if (from < R[L]) R[L] = Math.max(from, B);
       gen.prevEnd = Math.max(gen.prevEnd, end); gen.front = gen.prevEnd;
     }
+    /* ---------- генератор «По крышам» ----------
+       Проёмы и уступы — на своих местах (раскладка набора, сдвинуть нельзя), курсор gen.evS — последнее поставленное. Между ними
+       — обычные паттерны уровня, но ряд встаёт, только если: (1) он целиком на одной крыше, не ближе roofEdge к краям крыши, и
+       приземление после него (R) — на этой же крыше; (2) следующее событие ПОСЛЕ него остаётся проходимым (planRow ряда события
+       на состоянии «после ряда», без ГСЧ). Ряд события: на каждой полосе — проём (прыжок в окно holeWin) или доска (R_PATH);
+       уступ — прыжок или клин. Доски решаются заранее (roofPlank), а если событие на своём месте непроходимо (скорость
+       «Мастерского круга», плотная связка перед ним) — добавляются запасные: одна, две, во всю ширину (галерея) — тогда проходимо
+       всегда, ловушек нет по построению. Сход вниз — без требований: только «свободна позже» на время падения */
+    const SR = new Float64Array(3), SLAT = new Float64Array(3), SOCC = new Float64Array(3);
+    function evPlanks(ev) {
+      if (gen.evPlanS === ev.s) return gen.evPlanM;
+      gen.evPlanS = ev.s; let m = 0;
+      if (ev.k === 1) {
+        const st = stCfg(stageAt(ev.s)), k = st.circle ? 0.5 : 1, r = gen.rng();
+        if (r < CFG.roofPlank[1] * k) { const a = ri(3); m = (1 << a) | (1 << ((a + 1 + ri(2)) % 3)); }
+        else if (r < (CFG.roofPlank[0] + CFG.roofPlank[1]) * k) m = 1 << ri(3);
+      }
+      gen.evPlanM = m; return m;
+    }
+    // ряд события (ROWS[4]); m — маска полос с доской (проём) или клином (уступ); все три над проёмом — галерея во всю ширину
+    // (картинка одна — на средней полосе, на крайних доски без своей картинки)
+    function evRow(ev, m) {
+      const row = ROWS[4]; for (let L = 0; L < 3; L++) row[L].on = false;
+      for (let L = 0; L < 3; L++) {
+        const pl = (m >> L) & 1;
+        if (ev.k === 1) { const e = entV(4, L, pl ? 'plank' : 'hole', ev.d, 0, ev.ya, ev.yb); if (pl) e.kit = m === 7 ? (L === 1 ? 'gallery' : '-') : 'plank'; }
+        else if (pl) { const e = entV(4, L, 'plank', 2.6, -2.6, ev.ya, ev.yb); e.wedge = true; e.kit = 'plank'; }
+        else entV(4, L, 'ledge', 0.3, 0, ev.ya, ev.yb);
+      }
+      return row;
+    }
+    // состояние планировщика «после ряда» (R ← R2 из planRow, LAT, OCC) — как commitRow, но без препятствий
+    function rowState(row, f) {
+      const v = vAt(f);
+      for (let L = 0; L < 3; L++) {
+        R[L] = R2[L]; const e = row[L]; if (!e.on) continue;
+        const c = CAT[e.id], fr = f + e.off, d = effD(e, v), dReal = e.id === 'shed' || c.vlen ? e.len : e.id === 'ramp' ? c.d + e.len : c.d;
+        LAT[L] = Math.max(LAT[L], fr + d + CFG.hd); OCC[L] = Math.max(OCC[L], fr + dReal + (e.u > 0 ? e.u * CFG.trig + 2 : 0) + 1.2);
+      }
+    }
+    // событие ev останется проходимым после ряда row на f (R2 — из planRow(row, f))
+    function afterOK(row, f, ev) {
+      for (let L = 0; L < 3; L++) { SR[L] = R[L]; SLAT[L] = LAT[L]; SOCC[L] = OCC[L]; }
+      rowState(row, f);
+      let ok = true;
+      if (ev.k === 3) { for (let L = 0; L < 3; L++) if (R[L] < INF && R[L] > ev.s - 0.3) ok = false; }   // приземлиться до схода
+      else ok = planRow(evRow(ev, evPlanks(ev)), ev.s, 0) && lanesKnown();
+      for (let L = 0; L < 3; L++) { R[L] = SR[L]; LAT[L] = SLAT[L]; OCC[L] = SOCC[L]; }
+      return ok;
+    }
+    // ряд на крыше: как placeRow, но не дальше lim, приземление — до конца крыши spEnd, событие после — проходимо
+    function placeRowRoof(row, f0, lim, spEnd, ev) {
+      let f = f0;
+      const knT = rowKnownT(row);
+      for (let L = 0; L < 3; L++) if (row[L].on && OCC[L] + 1.5 > f + row[L].off) f = OCC[L] + 1.5 - row[L].off;
+      for (let i = 0; i < 260; i++) {
+        if (f + rowSpan(row, vAt(f)) > lim) return -2;
+        // проходимая полоса (не дымоход) не должна «пропасть» для планировщика (R2 = ∞: «не успеть сюда по реакции»): тот, кто
+        // реагирует быстрее, всё равно окажется на ней — а проём впереди на своём месте не подождёт. Тогда — дальше по крыше
+        if (planRow(row, f, knT) && lanesKnown()) {
+          let ok = true; for (let L = 0; L < 3; L++) if (R2[L] < INF && R2[L] > spEnd - 0.3) ok = false;
+          if (ok && ev) { ok = afterOK(row, f, ev); if (ok) planRow(row, f, knT); }
+          if (!ok) return -2;
+          if (i) gen.pushes++;
+          for (let L = 0; L < 3; L++) { R0[L] = R[L]; OCC0[L] = OCC[L]; }
+          const end = commitRow(row, f);
+          coinsForRow(row, f, end);
+          return end;
+        }
+        f += 0.6;
+      }
+      gen.fails++;
+      if (gen.failLog.length < 8) gen.failLog.push({ lv: stageAt(f0), pat: (gen.curPat && gen.curPat.name) || '?', s: Math.round(f0 - G.s0), R: [Math.round(R[0] - f0), Math.round(R[1] - f0), Math.round(R[2] - f0)], roofs: 1 });
+      return -1;
+    }
+    // маски досок по возрастанию числа досок (запасные: сначала одна, потом две, потом все три)
+    const PLANKM = [1, 2, 4, 3, 5, 6, 7];
+    const lanesKnown = () => { for (let L = 0; L < 3; L++) if (RQ[L] !== R_BLOCK && !(R2[L] < INF)) return false; return true; };
+    function placeEvent(ev) {
+      const s0 = ev.s, v = vAt(s0), li = Math.min(63, stageAt(s0));
+      gen.evS = s0;
+      if (ev.k === 3) {   // сход вниз впритык: свободна позже — на время падения
+        const tF = Math.sqrt(2 * Math.max(0, ev.ya - ev.yb) / jumpAt(v, JJ).g);
+        for (let L = 0; L < 3; L++) if (R[L] < INF) R[L] = Math.max(R[L], s0 + v * tF + 0.4);
+        gen.prevEnd = Math.max(gen.prevEnd, s0 + 0.5); gen.front = Math.max(gen.prevEnd, gen.front + 1); gen.dropLv[li]++;
+        return;
+      }
+      // проходимо со всех полос, и ни одна проходимая не «пропадает» (как у рядов на крыше, lanesKnown)
+      let m = evPlanks(ev), row = evRow(ev, m), ok = planRow(row, s0, 0) && lanesKnown();
+      for (let t = 0; !ok && t < PLANKM.length; t++) { const mm = PLANKM[t]; if ((mm & m) !== m || mm === m) continue; row = evRow(ev, mm); ok = planRow(row, s0, 0) && lanesKnown(); if (ok) m = mm; }
+      if (!ok) { m = 7; row = evRow(ev, 7); planRow(row, s0, 0); }
+      if (m !== gen.evPlanM) gen.roofSaves++;
+      if (gen.evLog) { gen.evLog.push({ s: +(s0 - G.s0).toFixed(1), k: ev.k, d: +ev.d.toFixed(2), dy: +(ev.yb - ev.ya).toFixed(2), m, plan: gen.evPlanM, v: +v.toFixed(1), R: [R[0] - s0, R[1] - s0, R[2] - s0].map(x => (isFinite(x) ? +x.toFixed(1) : null)) }); if (gen.evLog.length > 400) gen.evLog.shift(); }   // тесты
+      if (ev.k === 1) { gen.holeLv[li]++; if (m) gen.plankLv[li]++; } else gen.ledgeLv[li]++;
+      for (let L = 0; L < 3; L++) { R0[L] = R[L]; OCC0[L] = OCC[L]; }
+      const end = commitRow(row, s0);
+      // монеты: дугой прыжка над проёмом (или по доске) — по полосе прошлой дорожки, иногда — к доске (чтобы доску заметили)
+      let L = gen.coinLane; if (!(R[L] < INF)) for (let l = 0; l < 3; l++) if (R[l] < INF) { L = l; break; }
+      if (m && m !== 7 && gen.rng() < 0.45) for (let l = 0; l < 3; l++) if (((m >> l) & 1) && R[l] < INF) L = l;
+      if (!G.tut) roofCoins(row, s0, L);
+      gen.coinLane = L;
+      gen.prevEnd = Math.max(gen.prevEnd, end); gen.front = Math.max(gen.prevEnd, gen.front + 1);
+    }
+    function roofCoins(row, f, L) {
+      gen.trN = (gen.trN % 65535) + 1; gen.curTr = gen.trN; trI = 0;
+      const t = TRL[gen.curTr & 31]; t.id = gen.curTr; t.n = 0; t.got = 0; t.end = -INF; t.on = true;
+      const e = row[L], v = vAt(f), x = LX[L], gap = CFG.coinGap;
+      let s = Math.max(gen.coinEnd + gap * 1.5, OCC0[L] + 2, f - 30);
+      if (e.id === 'plank') {   // по крыше к доске, по доске, чуть дальше
+        const a = f + e.off, b = a + e.len;
+        for (; s < a - 0.3; s += gap) addTrail(s, x, CFG.coinY);
+        for (; s < b + 3; s += gap) addTrailAbs(s, x, (s < b ? lerp(e.ya, e.yb, clamp((s - a) / e.len, 0, 1)) : e.yb) + CFG.coinY);
+        gen.coinEnd = s;
+      } else if (holeWin(f, e.id === 'hole' ? e.len : 0, e.yb - e.ya, v, e.id === 'hole' ? CFG.roofHole : CFG.stepUp)) {
+        // дуга прыжка из середины окна отрыва: показывает, где отталкиваться и куда долетит
+        const J = jumpAt(v, JJ), sj = (HW.es + HW.ls) * 0.5, tl = HW.tl, n = Math.max(4, Math.round(v * tl / 1.9));
+        for (; s < sj - 1.0; s += gap) addTrail(s, x, CFG.coinY);
+        for (let i = 0; i <= n; i++) { const tt = tl * i / n; addTrailAbs(sj + v * tt, x, e.ya + J.vj * tt - 0.5 * J.g * tt * tt + 0.62); }
+        gen.coinEnd = sj + v * tl + 0.5;
+      }
+      gen.curTr = 0; if (!t.n) t.on = false;
+    }
+    // голуби на крыше (украшение, своим ГСЧ пасхалок): взлетают, когда она близко
+    const BIRDS = []; for (let i = 0; i < 3; i++) BIRDS.push({ on: false, s: 0, x: 0, y: 0, h: null, t0: -1 });
+    function spawnBirds(s, x, y) {
+      let b = null; for (let i = 0; i < BIRDS.length; i++) if (!BIRDS[i].on) { b = BIRDS[i]; break; }
+      if (!b) return;
+      b.on = true; b.s = s; b.x = x; b.y = y; b.t0 = -1; b.h = null;
+      try { b.h = kit.obstacle('pigeons', OBO); if (b.h && b.h.group) track.add(b.h.group); } catch (e) { b.h = null; }
+      if (!b.h || !b.h.group) b.on = false;
+    }
+    function freeBirds(b) { if (b.h) { try { if (b.h.release) b.h.release(); else if (b.h.group.parent) b.h.group.parent.remove(b.h.group); } catch (e) { /* ok */ } } b.h = null; b.on = false; }
+    function genRoofs(st0, st) {
+      const B = lvStart(st0 + 1), lim = B - vAt(B) * CFG.brk0;
+      const ev = nextEvent(gen.evS), v = vAt(Math.max(gen.prevEnd, gen.front));
+      let f = gen.prevEnd + v * rr(st.gap[0], st.gap[1]);
+      if (ev && ev.s <= f + 2 && ev.s < B) { placeEvent(ev); return; }   // событие раньше ряда — сначала оно
+      let sp = roofIx(f);
+      if (sp < 0) { for (let i = pfA; i < pfB; i++) if (pfK[i] === PF_ROOF && pfS0[i] > f) { sp = i; break; } if (sp >= 0) f = Math.max(f, pfS0[sp] + CFG.roofEdge); }
+      if (sp >= 0 && (!ev || pfS0[sp] < ev.s) && pfS0[sp] < B) {
+        // от начала крыши — не ближе roofEdge, а после дома впритык с другой высотой — 3,5 м: сойдя на 0,15…0,25 м ниже, она
+        // ещё 0,1 с в воздухе, и ряд у самого стыка стоял бы на другой высоте, чем она (ковёр «в лоб» в подкате)
+        const m0 = sp > pfA && pfK[sp - 1] === PF_ROOF && Math.abs(pfY0[sp] - pfY1[sp - 1]) > 0.05 ? 3.5 : CFG.roofEdge;
+        f = Math.max(f, pfS0[sp] + m0);
+        const spEnd = pfS1[sp], lim2 = Math.min(lim, spEnd - CFG.roofEdge), evE = ev && ev.s <= spEnd + 0.01 ? ev : null;
+        if (f < lim2) {
+          const pf = choosePat(st); gen.curPat = pf; const n = pf(st), a = gen.prevEnd;
+          let placed = 0;
+          for (let k = 0; k < n; k++) {
+            if (k === 0) { powerForGap(a, f); findForGap(a, f); }
+            const end = placeRowRoof(ROWS[k], f, lim2, spEnd, evE);
+            if (end < 0) break;
+            placed++; gen.prevEnd = end; f = end + v * st.inner * rr(0.8, 1.3);
+          }
+          if (placed > 1) gen.comboLv[Math.min(63, st0)]++;
+          if (placed) {
+            const bs = gen.prevEnd + 4 + gen.rngE() * 6;
+            if (gen.rngE() < 0.3 && roofIx(bs) === sp && bs < spEnd - 3) spawnBirds(bs, gen.rngE() < 0.6 ? LX[Math.floor(gen.rngE() * 3)] : (gen.rngE() < 0.5 ? -4.3 : 4.3), pfY0[sp]);
+            gen.front = Math.max(gen.prevEnd, gen.front + 1); return;
+          }
+        }
+      }
+      if (ev && ev.s < B) { placeEvent(ev); return; }
+      breather(st0 + 1, B);   // ни ряда, ни события до конца уровня — передышка у ворот следующего
+    }
     function genReset(from) {
       gen.front = from; gen.prevEnd = from; gen.coinEnd = from;
       const v = vAt(from), react = CFG.react * v, lt = laneDur(v) * (stCfg(stageAt(from)).ice ? CFG.iceLane : 1) * v;
@@ -1156,13 +1472,13 @@
        ===================================================================== */
     const SCR = { y: 0 };
     function supportAt(x, s, feet) {
-      let best = 0;
+      let best = pfB > pfA ? floorAt(s) : 0;   // крыши: верх дома под ней (над проёмом — дно переулка: опоры нет)
       for (let i = 0; i < obs.length; i++) {
         const r = obs[i];
-        if (!r.top && r.cls !== RAMP) continue;
+        if (!r.top && r.cls !== RAMP && r.cls !== PLANK) continue;
         if (s < r.s - 0.05 || s > r.s + r.d + 0.05) continue;
         if (Math.abs(x - r.x) > r.w * 0.5 + 0.12) continue;
-        const h = r.cls === RAMP ? rampH(r, s) : r.y1;
+        const h = r.cls === RAMP ? rampH(r, s) : r.cls === PLANK ? plankH(r, s) : r.y1;
         if (h <= feet + CFG.stepUp && h > best) best = h;
       }
       return best;
@@ -1278,7 +1594,7 @@
       const hx = Hh.x, s = G.s, hd = CFG.hd, hw = CFG.hw, f0 = Hh.y + 0.04, f1 = Hh.y + (Hh.slideT > 0 ? CFG.slideH : CFG.height);
       const px = Hh.px, ps = G.ps, pf0 = Hh.py + 0.04, pf1 = Hh.py + Hh.ph;
       for (let i = 0; i < obs.length; i++) {
-        const r = obs[i]; if (r.hitT > 0 || !r.landed) continue;
+        const r = obs[i]; if (r.hitT > 0 || !r.landed || r.cls >= HOLE) continue;   // проём, доска, уступ — профиль крыш (roofCheck)
         if (s + hd <= r.s || s - hd >= r.s + r.d) continue;
         const wx = r.w * 0.5 + hw; if (Math.abs(hx - r.x) >= wx) continue;
         const pxOv = Math.abs(px - r.x) < wx, psOv = ps + hd > r.ps && ps - hd < r.ps + r.d;
@@ -1300,6 +1616,40 @@
         if (!pxOv) { stumble(r); if (G.mode !== 'run') return; continue; }   // боком при смене полосы — отскок
         crash(r); return;
       }
+    }
+    /* ---------- крыши: стена дома впереди и провал в проём (профиль, а не габариты препятствий) ----------
+       Грудь (s + hd) дошла до крыши, а стопы ниже верха крыши: после проёма (в воздухе) допуск CFG.roofHole — «не допрыгнула»,
+       у уступа впритык и с доски — обычный stepUp. Над проёмом без опоры ниже нижнего края на roofDeep — сорвалась.
+       Срыв в проём — не «авария в лоб»: уцепилась за дальний край, пальтар перепрыгивает проём и вытягивает героиню (stepCrash) */
+    function roofCheck() {
+      const sf = G.s + CFG.hd, i = pfIx(sf);
+      if (i >= 0 && (pfK[i] === PF_ROOF || pfK[i] === PF_SLOPE)) {
+        const top = floorAt(sf), gapB = i > pfA && pfK[i - 1] === PF_GAP && sf - pfS0[i] < 1.2;
+        const tol = Hh.ground || !gapB ? CFG.stepUp : CFG.roofHole;
+        if (Hh.y < top - tol) { roofFall(i, gapB ? 'gap' : 'ledge'); return; }
+      }
+      const j = pfIx(G.s);
+      if (j >= 0 && pfK[j] === PF_GAP && !Hh.ground && Hh.y < Math.min(gapNear(j), gapFar(j)) - CFG.roofDeep && j + 1 < pfB) roofFall(j + 1, 'gap');
+    }
+    // HG — вис на краю: откуда (s0, y0) и куда (s, y) дотянуться, верх дома (top), где пальтар разбегается (near — ближний край,
+    // nearTop) и куда приземляется (sp — на дальней крыше, перед ней)
+    const HG = { on: false, t: 0, s0: 0, y0: 0, s: 0, y: 0, top: 0, near: 0, nearTop: 0, sp: 0, x: 0, help: false, ht: 0, up: false };
+    function roofFall(i, kind) {
+      const top = pfTopStart(i), face = pfS0[i];
+      // кольчуга (и «призрак» тестов): подбрасывает на край — забег продолжается
+      if (G.mailT > 0 || G.invT > 0 || (G.bot && G.bot.ghost)) {
+        if (G.bot && G.bot.ghost && G.invT <= 0 && G.mailT <= 0) crash(null, kind);
+        else if (G.invT <= 0) { G.mailT = 0; G.invT = CFG.invT; G.eggN.shield++; EVD.id = kind; emit('shield', EVD); try { if (ui.banner) ui.banner('🛡️ Кольчуга — выручила!'); } catch (e) { /* ok */ } secret('mail'); }
+        Hh.y = Hh.py = top + 0.02; Hh.vy = 6.5; Hh.ground = false; Hh.g = jumpAt(G.v).g; Hh.drop = false; G.s = Math.max(G.s, face - CFG.hd + 0.02); setPose('jump', 0.5);
+        return;
+      }
+      if (kind === 'ledge') { G.s = G.ps = Math.min(G.s, face - CFG.hd - 0.06); crash(null, 'ledge'); return; }
+      const g = i - 1;   // проём перед этой крышей
+      HG.on = true; HG.t = 0; HG.s0 = G.s; HG.y0 = Hh.y; HG.s = face - CFG.hd - 0.05; HG.y = top - 1.85; HG.top = top; HG.x = Hh.x;
+      HG.near = g >= pfA && pfK[g] === PF_GAP ? pfS0[g] : face - 3; HG.nearTop = g >= pfA && pfK[g] === PF_GAP ? gapNear(g) : top; HG.sp = face + 0.65;
+      HG.help = false; HG.ht = 0; HG.up = false;
+      crash(null, 'gap');
+      G.hangOn = true; Hh.vy = 0; Hh.ground = false; Hh.slideT = 0; setPose('hang', 0);
     }
     // шаги танцора: за hopT — прыжок-перебежка на соседнюю полосу (smoothstep) с паузой в конце: ритм читается, полоса видна
     const hopX = (r, p) => { const n = r.hops, q = clamp(p, 0, 1) * n, k = Math.min(n - 1, Math.floor(q)), f = q - k; return lerp(r.x0, r.xf, (k + sst(0, 0.72, f)) / n); };
@@ -1359,9 +1709,12 @@
       if (Hh.bumpT > 0) Hh.bumpT = Math.max(0, Hh.bumpT - dt);
       // высота: опора, полёт, подкат, параплан
       if (Hh.glide) stepGlide(dt);
+      else if (G.hangOn) { /* висит на краю проёма: высоту ведёт stepCrash */ }
       else if (Hh.ground) {
         const sup = supportAt(Hh.x, G.s, Hh.y);
-        if (sup < Hh.y - 0.03) { Hh.ground = false; Hh.vy = 0; Hh.coyote = CFG.coyote; Hh.g = jumpAt(v).g; Hh.airT = 0; }
+        // вниз по лестнице спуска (крыши) — по ступеням, а не «подлётами» на каждом шаге: допуск — сколько ушла лестница за шаг
+        const sl = pfB > pfA ? slopeAt(G.s) : 0, tol = sl < 0 ? 0.03 - sl * (G.s - G.ps) * 1.6 : 0.03;
+        if (sup < Hh.y - tol) { Hh.ground = false; Hh.vy = 0; Hh.coyote = CFG.coyote; Hh.g = jumpAt(v).g; Hh.airT = 0; }
         else { Hh.y = sup; Hh.sup = sup; }
       } else {
         Hh.airT += dt; if (Hh.coyote > 0) Hh.coyote -= dt;
@@ -1371,6 +1724,7 @@
       }
       if (Hh.slideT > 0) { Hh.slideT -= dt; if (Hh.slideT <= 0) { if (overhead()) Hh.slideT = 0.03; else if (G.mode === 'run' && Hh.ground) setPose('run'); } }
       if (G.mode === 'run' && !Hh.glide) collide();
+      if (G.mode === 'run' && !Hh.glide && pfB > pfA) roofCheck();
       // шаги — для звука (на земле, не в подкате)
       if (Hh.ground && Hh.slideT <= 0 && v > 1 && !Hh.glide) { Hh.stepT -= dt; if (Hh.stepT <= 0) { Hh.stepT = 0.34 * Math.sqrt(CFG.v0 / v); EVD.kind = Hh.y > 0.3 ? 'wood' : 'stone'; emit('step', EVD); } }
       // монеты и усилители
@@ -1401,9 +1755,9 @@
       hI = (hI + 1) % HN; hS[hI] = G.s; hX[hI] = Hh.x; hY[hI] = Hh.glide ? 0 : Hh.y; if (hCount < HN) hCount++;
     }
     // сколько секунд бега до ближайшего ряда впереди (по точке встречи: у идущих навстречу — meet; сбитые и пройденные — не в счёт)
-    function freeAhead() {
+    function freeAhead(real) {   // real — без рядов профиля крыш (проёмы, доски, уступы)
       const v = Math.max(1, G.vBase); let m = 99;
-      for (let i = 0; i < obs.length; i++) { const r = obs[i]; if (r.hitT > 0 || r.gone) continue; const ds = (r.u > 0 ? r.meet : r.s) - G.s; if (ds > -0.3 && ds < m * v) m = Math.max(0, ds) / v; }
+      for (let i = 0; i < obs.length; i++) { const r = obs[i]; if (r.hitT > 0 || r.gone || (real && r.cls >= HOLE)) continue; const ds = (r.u > 0 ? r.meet : r.s) - G.s; if (ds > -0.3 && ds < m * v) m = Math.max(0, ds) / v; }
       return m;
     }
     // «рывок» пальтара (без штрафа, но погоню видно): у ворот уровня — в передышке перед аркой (последний ряд уровня позади,
@@ -1411,15 +1765,19 @@
     // (dashReq с): прежде рывок шёл сразу — на 8+ он вплотную закрывал низ кадра, пока подходили санки и калитки (до 20 % времени)
     function stepDash(dt) {
       G.freeA = freeAhead();
+      // на крышах проёмы и доски — не «ряд» для рывка: он бежит следом и прыгает через них (погоня видна); рывок — по таймеру
+      // (roofDash), обрывается только настоящим препятствием впереди
+      G.freeD = G.roofs ? freeAhead(true) : G.freeA;
+      if (G.roofs && G.nearT <= 0 && G.dashT <= 0 && G.dashReq <= 0) { G.dashCD -= dt; if (G.dashCD <= 0) { G.dashCD = CFG.roofDash[0] + G.rng() * (CFG.roofDash[1] - CFG.roofDash[0]); G.dashReq = 4; } }
       // у ворот: героиня миновала последний ряд уровня (за brk0 с до арки)
       if (G.gateDash !== G.stage && G.s >= G.lvS0 + G.lvLen - G.vBase * CFG.brk0) { G.gateDash = G.stage; G.dashReq = CFG.brk0 + 0.6; }
-      if (G.stage >= 6 && G.nearT <= 0 && G.dashT <= 0 && G.dashReq <= 0) { G.dashCD -= dt; if (G.dashCD <= 0) { G.dashCD = Math.max(18, 34 - G.stage * 1.6) + G.rng() * 6; G.dashReq = 6; } }
+      if (G.stage >= 6 && !G.roofs && G.nearT <= 0 && G.dashT <= 0 && G.dashReq <= 0) { G.dashCD -= dt; if (G.dashCD <= 0) { G.dashCD = Math.max(18, 34 - G.stage * 1.6) + G.rng() * 6; G.dashReq = 6; } }
       if (G.dashReq > 0) {
         G.dashReq -= dt;
-        if (G.nearT <= 0 && G.dashT <= 0 && G.freeA >= CFG.dashFree) { G.dashReq = 0; G.dashT = CFG.dashT; G.dashOut = false; G.dashN++; P.crackT = Math.min(P.crackT, 0.9); }
+        if (G.nearT <= 0 && G.dashT <= 0 && G.freeD >= (G.roofs ? 1.0 : CFG.dashFree)) { G.dashReq = 0; G.dashT = G.roofs ? CFG.dashT + 1 : CFG.dashT; G.dashOut = false; G.dashN++; P.crackT = Math.min(P.crackT, 0.9); }
       }
       // ряд близко — рывок обрывается, он отстаёт быстро
-      if (G.dashT > 0 && G.freeA < CFG.dashClear) { G.dashT = 0; G.dashOut = true; G.dashCut++; }
+      if (G.dashT > 0 && G.freeD < (G.roofs ? 0.7 : CFG.dashClear)) { G.dashT = 0; G.dashOut = true; G.dashCut++; }
     }
     // уровень n: тема, час неба, лёд, потолок скорости, пальтар (дальше — дольше рядом после спотыкания и догоняет быстрее)
     function setLevel(n) {
@@ -1430,6 +1788,7 @@
       // на дальних уровнях без ошибок он ближе (13 → 8 м: всё ещё за камерой, но бубенцы чаще и громче) — погоня плотнее на слух,
       // не закрывая кадр (рывки на 6+ теперь только на свободной улице, а она там почти только у ворот)
       G.gapFarL = n <= 5 ? CFG.gapFar : Math.max(8, CFG.gapFar - 0.7 * (n - 5));
+      G.roofs = !!c.roofs; if (G.roofs) G.dashCD = Math.min(G.dashCD, 3.5);   // крыши: первый рывок — скоро после входа
     }
     function stageBanner(rec) {
       const n = G.stage;
@@ -1592,10 +1951,10 @@
       let target = G.gapFarL || CFG.gapFar;
       if (G.mode === 'intro') target = CFG.gapStart;
       else if (orbit) target = 2.6;
-      else if (G.mode === 'crash' || G.mode === 'over') target = CFG.gapCatch;
+      else if (G.mode === 'crash' || G.mode === 'over') target = G.hangOn || HG.on ? hangGap() : CFG.gapCatch;   // вис над проёмом — на дальней крыше перед ней
       else if (G.nearT > 0) target = CFG.gapNear;
-      else if (G.dashT > 0) target = CFG.gapDash;
-      else if (G.runT < CFG.openT && (G.mode !== 'run' || G.freeA >= CFG.dashClear)) target = CFG.gapOpen;   // и на старте — не перед рядом
+      else if (G.dashT > 0) target = G.roofs ? CFG.roofGapDash : CFG.gapDash;
+      else if (G.runT < CFG.openT && (G.mode !== 'run' || G.freeD >= CFG.dashClear)) target = CFG.gapOpen;   // и на старте — не перед рядом
       if (G.mode === 'run' && G.nearT > 0) G.nearT -= dt;
       if (G.mode === 'run' && G.dashT > 0) G.dashT -= dt;
       P.pgap = P.gap;
@@ -1605,7 +1964,7 @@
       if (G.dashOut && (P.gap > 6 || G.dashT > 0 || G.nearT > 0)) G.dashOut = false;
       // вплотную без причины (конец старта, конец рывка), а впереди ряд — отойти быстро (на старте он иначе отставал 2 м/с и
       // стоял за героиней до встречи с первым рядом)
-      else if (!G.dashOut && G.mode === 'run' && G.runT > CFG.orbitT && G.dashT <= 0 && G.nearT <= 0 && G.freeA < CFG.dashClear && P.gap < 4.5) G.dashOut = true;
+      else if (!G.dashOut && G.mode === 'run' && G.runT > CFG.orbitT && G.dashT <= 0 && G.nearT <= 0 && G.freeD < CFG.dashClear && P.gap < 4.5) G.dashOut = true;
       const dash = G.dashT > 0 && G.nearT <= 0 && G.mode === 'run';
       const d = target - P.gap, rate = d < 0 ? (G.mode === 'crash' ? 16 : G.nearT > 0 ? (G.catchV || 9) : dash ? 12 : 5.5) : (G.dashOut ? 8 : G.runT < 6 ? 2.0 : P.gap < 6 && G.runT > CFG.openT + 1 ? 4.5 : 2.8);
       P.gap += clamp(d * (dash ? 4 : 3), -rate, rate) * dt;
@@ -1619,7 +1978,8 @@
       // по горизонтали видно ±16°, и на 1,65 м он уходил за край кадра целиком (погоню было только слышно)
       // рывок (и отход после него) — сбоку на dashOff с самого начала: он влетает в кадр с края, а не из-за камеры по оси, и ноги
       // героини видны (на 0,5 м за спиной на 3,4 м он закрывал героиню от колен вниз)
-      const offT = G.mode === 'intro' ? -0.75 : orbit ? -1.6 : G.mode === 'crash' || G.mode === 'over' ? 0.25 * P.side : (dash || G.dashOut) && G.nearT <= 0 ? P.side * CFG.dashOff : near ? P.side * lerp(1.05, 0.5, clamp(P.gap - 2.4, 0, 1)) : 0;
+      // крыши: рывок — ещё дальше вбок (roofDashOff): он прыгает через проём рядом с ней и не загораживает прыжок героини
+      const offT = G.mode === 'intro' ? -0.75 : orbit ? -1.6 : G.mode === 'crash' || G.mode === 'over' ? 0.25 * P.side : (dash || G.dashOut) && G.nearT <= 0 ? P.side * (G.roofs ? CFG.roofDashOff : CFG.dashOff) : near ? P.side * lerp(1.05, 0.5, clamp(P.gap - 2.4, 0, 1)) : 0;
       P.off = damp(P.off, offT, G.mode === 'intro' ? 40 : dash ? 6 : 3, dt);
       if (P.gap < CFG.jingleFar && G.mode !== 'intro' && G.mode !== 'over') {
         // бубенцы — всегда, пока он ближе jingleFar (громкость — по дистанции, у звука: EVD.n), чаще, когда близко
@@ -1656,6 +2016,15 @@
         }
       }
     }
+    // крыши: у первого проёма забега — подсказка «свайп вверх — прыжок» за ≈ 1,5 с (без замедления), гаснет в прыжке или через 1,8 с
+    function roofHint() {
+      if (G.roofHint === 0) {
+        if (G.mode !== 'run' || G.tut) return;
+        for (let i = 0; i < obs.length; i++) { const r = obs[i]; if (r.cls !== HOLE || r.lane !== Hh.lane) continue; const ds = r.s - G.s; if (ds > 0 && ds < G.v * 1.5) { G.roofHint = G.t; try { if (ui.tutorial) ui.tutorial('up'); } catch (e) { /* ok */ } break; } }
+        return;
+      }
+      if (!Hh.ground || G.mode !== 'run' || G.t - G.roofHint > 1.8) { G.roofHint = -1; try { if (ui.tutorial) ui.tutorial(null); } catch (e) { /* ok */ } }
+    }
     function tutInput(dir) {
       const w = G.tutWait, ok = (w === 'lr' && (dir === 'left' || dir === 'right')) || (w === 'up' && dir === 'up') || (w === 'down' && dir === 'down');
       if (!ok) return;
@@ -1673,6 +2042,8 @@
       for (let i = 0; i < PWS.length; i++) if (PWS[i].on) freePw(PWS[i]);
       for (let i = 0; i < GATES.length; i++) if (GATES[i].on) freeGate(GATES[i]);
       if (FD.on) freeFind();
+      for (let i = 0; i < BIRDS.length; i++) if (BIRDS[i].on) freeBirds(BIRDS[i]);
+      pfA = pfB = 0;
     }
     function reset(seed, stage) {
       releaseAll();
@@ -1699,6 +2070,9 @@
       segEnd = Math.floor((G.s - CFG.segBehindStart) / 40) * 40; segK = 0;
       gen.rows = 0; gen.minSlack = INF; gen.slackSum = 0; gen.fails = 0; gen.failLog.length = 0; gen.curPat = null; gen.pushes = 0; gen.coinLane = 1; gen.lastGlide = -1e9; gen.lastPat = null; gen.pwS = -1e9; gen.pwL = -1;
       gen.gateLv = st; gen.breaths = 0; gen.slackLv.fill(INF); gen.rowLv.fill(0); gen.comboLv.fill(0); gen.movLv.fill(0);
+      // крыши: курсор событий, доски, счётчики; вис, камера, пальтар
+      gen.evS = -INF; gen.evPlanS = NaN; gen.evPlanM = 0; gen.roofSaves = 0; gen.holeLv.fill(0); gen.plankLv.fill(0); gen.ledgeLv.fill(0); gen.dropLv.fill(0);
+      G.hangOn = false; HG.on = false; G.camB = 0; G.roofK = 0; G.roofHint = 0; G.pWobN = 0; G.freeD = 99; P.air = false; P.wobT = 0; P.py = 0;
       // первый ряд — ближе (было +34 и связки реже: первое обязательное действие — на 6–12-й секунде)
       genReset(G.s + 24);
       gen.nextPw = G.s + rr(200, 320);
@@ -1758,6 +2132,7 @@
     // пальцем — и карточка; под карточкой сцена идёт дальше (она смеётся, он радуется). Тап после 0,8 с — сразу карточка
     function stepCrash(dt) {
       G.crashT += dt;
+      if (G.hangOn) { stepHang(dt); return; }
       if (!G.caught && P.gap < CFG.gapCatch + 0.35) {
         G.caught = true; G.caughtT = 0; setPPose('catch'); setPose('caught', 0); emit('caught');
         // «ой!» — звёздочки над головой (те же искры, что у монеты)
@@ -1767,7 +2142,27 @@
       if (G.caught && G.caughtT > 1.3) finish();
       if (G.crashT > 3) { G.caught = true; finish(); }
     }
-    function skipCrash() { if (G.mode === 'crash' && G.crashT > 0.8) { G.caught = true; finish(); } }
+    function skipCrash() { if (G.mode === 'crash' && G.crashT > 0.8) { if (G.hangOn) hangUp(); G.caught = true; finish(); } }
+    // вис над проёмом (шуточно и не страшно): 0…0,22 с — дотянулась до дальнего края и повисла на руках; пальтар добегает по
+    // следу героини, перепрыгивает проём (дугой), встаёт на дальней крыше лицом к ней и подаёт руку (roofHang[0]); вытягивает
+    // (roofHang[1]) — она на крыше, дальше как обычно: «поднял — покружил», грозит пальцем, радуется
+    function stepHang(dt) {
+      HG.t += dt;
+      const k = sst(0, 0.22, HG.t);
+      if (!HG.up) { G.s = G.ps = lerp(HG.s0, HG.s, k); Hh.y = Hh.py = lerp(HG.y0, HG.y, k); Hh.vy = 0; Hh.sup = HG.top; }
+      if (!HG.help && HG.t > 0.3 && P.gap <= hangGap() + 0.3) { HG.help = true; HG.ht = 0; setPPose('help'); }
+      if (HG.help) {
+        HG.ht += dt;
+        const u = sst(CFG.roofHang[0], CFG.roofHang[0] + CFG.roofHang[1], HG.ht);
+        if (u > 0) { HG.up = true; Hh.y = Hh.py = lerp(HG.y, HG.top, u); G.s = G.ps = lerp(HG.s, HG.s + 0.6, u); Hh.sup = HG.top; }
+        if (u >= 1 && !G.caught) { hangUp(); G.caught = true; G.caughtT = 0; setPPose('catch'); setPose('caught', 0); emit('caught'); if (fx.coinBurst) { try { fx.coinBurst(V3.set(Hh.x, Hh.y + 1.85, 0)); } catch (e) { /* ok */ } } }
+      }
+      if (G.caught) { G.caughtT += dt; if (G.caughtT > 1.3) finish(); }
+      if (G.crashT > 4.5) { if (!G.caught) { hangUp(); G.caught = true; } finish(); }
+    }
+    function hangUp() { if (!G.hangOn) return; G.hangOn = false; Hh.y = Hh.py = HG.top; Hh.ground = true; Hh.sup = HG.top; G.s = G.ps = Math.max(G.s, HG.s + 0.6); }
+    // где стоит пальтар, когда подаёт руку: на дальней крыше перед ней (отрицательный gap — впереди неё)
+    const hangGap = () => -(HG.sp - HG.s);
     function screen(name, d) { try { if (ui.screen) ui.screen(name, d); } catch (e) { console.warn('runner: ui', e); } }
     function musicCmd(c) { if (host.music && !G.sim) { try { host.music(c, { speed: G.v }); } catch (e) { /* ok */ } } }
     function loadSave() {
@@ -1785,7 +2180,7 @@
     let acc = 0;
     const V3 = new T.Vector3(), CAM = { x: 0, y: 3.4, z: 6, tx: 0, ty: 1, tz: -8, roll: 0, fov: CFG.camFovP, init: false, lb: 0 };
     const AS = { camX: 0, camZ: 6, mode: 'intro', speed: 0, x: 0, y: 0, vy: 0, lat: 0, air: false, slide: 0, ground: 0, t: 0, glide: 0, near: false, gap: 0, pground: 0, caught: false, stage: 1, lane: 1 };
-    const PS = { mode: 'intro', speed: 0, x: 0, y: 0, t: 0, gap: 0, pground: 0, near: false, ground: 0, lat: 0, slide: 0, air: false, vy: 0, cdx: 0.45, cdz: 0.75, camX: 0, camZ: 6 };
+    const PS = { mode: 'intro', speed: 0, x: 0, y: 0, t: 0, gap: 0, pground: 0, near: false, ground: 0, lat: 0, slide: 0, air: false, vy: 0, cdx: 0.45, cdz: 0.75, camX: 0, camZ: 6, wob: 0, help: false };
     const HUDD = { score: 0, coins: 0, dist: 0, mult: 1, power: [], stage: 1, level: 1, lvlK: 0 };
     const HUDP = [{ id: 'magnet', t: 0, T: CFG.magnetT }, { id: 'x2', t: 0, T: CFG.x2T }, { id: 'glide', t: 0, T: CFG.glideT }, { id: 'mail', t: 0, T: CFG.mailT }];
     let slideVis = 0;
@@ -1798,11 +2193,13 @@
         if (G.mode === 'crash') stepCrash(dt);
         if (G.bot) botStep(dt);
         stepTutorial();
+        if (G.roofs && G.roofHint >= 0) roofHint();
         // генератор и уборка
         while (gen.front < G.s + CFG.genAhead) genPattern();
         while (segEnd < G.s + CFG.segAhead) addSegment();
         for (let i = obs.length - 1; i >= 0; i--) if (obs[i].s + obs[i].d < G.s - CFG.obBehind) freeOb(i);
         for (let i = 0; i < GATES.length; i++) if (GATES[i].on && GATES[i].s < G.s - 40) freeGate(GATES[i]);
+        for (let i = 0; i < BIRDS.length; i++) if (BIRDS[i].on && BIRDS[i].s < G.s - 12) freeBirds(BIRDS[i]);
         // позади старта улица держится, пока камера облетает героиню (смотрит и назад), потом — обычные 32 м
         const behind = G.runT < CFG.orbitT + 0.6 ? CFG.segBehindStart : CFG.segBehind;
         for (let i = segs.length - 1; i >= 0; i--) if (segs[i].s + segs[i].len < G.s - behind) freeSeg(i);
@@ -1854,18 +2251,24 @@
       for (let i = 0; i < obs.length; i++) {
         const r = obs[i]; if (!r.h || !r.h.group) continue;
         const sm = lerp(r.ps, r.s, a) + r.d * 0.5;
-        r.h.group.position.set(r.x, 0, -(sm - G.origin) + r.zc);
+        r.h.group.position.set(r.x, r.by, -(sm - G.origin) + r.zc);
         // поперёк полос: метка (круг-ковёр, ледяная дорожка) стоит на конечной полосе, фигура идёт к ней; камушек — высота и тень
         if (r.lat) { if (r.lat === 3) { if (r.h.fall) r.h.fall(r.fallY, r.warn); } else if (r.h.lat) r.h.lat(r.x, r.xf, r.x0); }
         // высокое пройденное (прилавок, ковёр, балка, сарай, повозка) рядом по x — между камерой (y ≈ 4) и героиней: закрывало
         // её целиком ~12 раз в минуту ровно тогда, когда надо видеть, где она. Прячем, как только оно целиком позади (на 0,4 м);
         // низкое (сено, лавки) остаётся до obBehind. Флаг защёлкивается: в сцене поимки ничего не «выпрыгивает» обратно.
         // Тонкое подвесное (ковёр, жердь) — сразу за спиной (0,05 м): иначе 0,1 с после подката оно ровно на луче камера → голова
-        if (runV && !r.gone && r.y1 > 1.6 && r.s + r.d < sR - (r.cls === HIGH ? 0.05 : 0.4) && Math.abs(r.x - xR) < 2.6) r.gone = true;
+        if (runV && !r.gone && r.cls !== PLANK && r.y1 - r.by > 1.6 && r.s + r.d < sR - (r.cls === HIGH ? 0.05 : 0.4) && Math.abs(r.x - xR) < 2.6) r.gone = true;
         const vis = r.s - sR < (r.u > 0 ? CFG.obViewMv : CFG.obView) && !r.gone; if (r.h.group.visible !== vis) r.h.group.visible = vis;
       }
       for (let i = 0; i < GATES.length; i++) { const g = GATES[i]; if (!g.on || !g.h || !g.h.group) continue; g.h.group.position.set(0, 0, -(g.s - G.origin)); const vis = g.s - sR < CFG.segView; if (g.h.group.visible !== vis) g.h.group.visible = vis; }
       for (let i = 0; i < PWS.length; i++) { const r = PWS[i]; if (!r.on || !r.h || !r.h.group) continue; r.h.group.position.set(r.x, r.y + Math.sin(G.t * 3 + i) * 0.12, -(r.s - G.origin)); r.h.group.rotation.y = G.t * 2.2; }
+      // голуби на крыше: сидят и клюют; она ближе 14 м — взлетают врассыпную (1,7 с) и пропадают в небе
+      for (let i = 0; i < BIRDS.length; i++) { const b = BIRDS[i]; if (!b.on || !b.h) continue;
+        const d = b.s - sR; if (b.t0 < 0 && d < 14 && G.mode !== 'intro') b.t0 = G.t;
+        const k = b.t0 < 0 ? 0 : clamp((G.t - b.t0) / 1.7, 0, 1);
+        b.h.group.position.set(b.x, b.y, -(b.s - G.origin)); const vis = d < CFG.obView && k < 1; if (b.h.group.visible !== vis) b.h.group.visible = vis;
+        if (vis && b.h.fly) b.h.fly(k, G.t); }
       // находка: качается и медленно крутится (сама вещь — spin; ореол и столб света стоят)
       if (FD.on && FD.h && FD.h.group) { const g = FD.h.group; g.position.set(FD.x, FD.y + Math.sin(G.t * 2.4) * 0.1, -(FD.s - G.origin)); if (FD.h.spin) FD.h.spin.rotation.y = G.t * 1.7; const d = FD.s - sR, vis = d < CFG.obView; if (g.visible !== vis) g.visible = vis; if (FD.h.near) FD.h.near(d); }
       // монеты: видимые — подряд в InstancedMesh, вращение вокруг вертикали
@@ -1891,15 +2294,33 @@
       AS.t = G.t; AS.glide = Hh.glide ? 1 : 0; AS.near = P.gap < 5; AS.gap = P.gap; AS.caught = G.caught; AS.stage = G.stage; AS.lane = Hh.lane;
       // пальтар — по следу героини
       const gR = lerp(P.pgap, P.gap, a), tr = trailAt(sR - gR);
+      // вис над проёмом: пальтар по следу героини добегает до ближнего края, перепрыгивает проём дугой и встаёт на дальней крыше
+      // лицом к ней (след героини дальше ближнего края — провал, по нему он не бежит)
+      let pTurn = 0;
+      if (HG.on && (G.mode === 'crash' || G.mode === 'over')) {
+        const ps = sR - gR;
+        if (ps > HG.near - 0.2) { const u = clamp((ps - HG.near + 0.2) / Math.max(0.5, HG.sp - HG.near + 0.2), 0, 1);
+          tr.y = lerp(HG.nearTop, HG.top, u) + 1.25 * 4 * u * (1 - u); tr.x = lerp(tr.x, HG.x + 0.5 * (HG.x > 0.5 ? -1 : 1), u); pTurn = sst(0.85, 1, u); }
+      }
       const pr = actors.paltar.root;
-      if (pr) { pr.position.set(tr.x + P.off, tr.y, gR); pr.rotation.y = PI + (G.mode === 'over' ? Math.sin(G.modeT * 1.3) * 0.2 : 0); pr.visible = gR < 30; }
+      if (pr) { pr.position.set(tr.x + P.off * (1 - pTurn), tr.y, gR); pr.rotation.y = PI * (1 - pTurn) + (G.mode === 'over' ? Math.sin(G.modeT * 1.3) * 0.2 : 0); pr.visible = gR < 30; }
       PS.mode = G.mode; PS.speed = G.mode === 'over' ? 0 : G.mode === 'intro' ? 0 : Math.max(G.v, G.mode === 'crash' ? 3 : 0); PS.x = tr.x; PS.y = tr.y; PS.t = G.t; PS.gap = gR; PS.near = gR < 5;
       PS.ground = PS.pground = AS.pground = Math.min(tr.y, supportAt(tr.x + P.off, sR - gR, tr.y));
+      // в воздухе (прыжок по следу героини через проём, сход с уступа) — поза прыжка; приземлился после проёма — каждый третий раз
+      // «балансирует» на краю (руки мельницей, качнулся вперёд-назад)
+      const pAir = tr.y - PS.pground > 0.3 && G.mode !== 'intro';
+      if (P.air && !pAir && G.roofs && (G.mode === 'run' || G.mode === 'start') && (++G.pWobN) % 3 === 1) P.wobT = 0.9;
+      P.air = pAir; if (P.wobT > 0) P.wobT = Math.max(0, P.wobT - dts);
+      PS.air = pAir; PS.vy = (tr.y - P.py) / Math.max(1e-3, dts); P.py = tr.y; PS.wob = P.wobT > 0 ? 1 - P.wobT / 0.9 : 0; PS.help = P.pose === 'help';
       PS.cdx = CC.pdx; PS.cdz = CC.pdz;   // поимка: где встать рядом с ней (выбор камеры поимки)
       AS.camX = PS.camX = CAM.x; AS.camZ = PS.camZ = CAM.z;   // конец забега: оба поворачиваются «в кадр»
       try { actors.hero.update(dts, AS); } catch (e) { if (!G.warnA) { G.warnA = true; console.warn('runner: actors.hero', e); } }
       try { actors.paltar.update(dts, PS); } catch (e) { if (!G.warnP) { G.warnP = true; console.warn('runner: actors.paltar', e); } }
       G.lmBias = lb;
+      // крыши: «уровень крыш» под камерой — плавно (на настиле растёт, над проёмом держится по краям, после спуска — к улице) и
+      // доля «крышной» камеры (выше и дальше), пока уровень — крыши и профиль есть
+      if (pfB > pfA || G.camB > 0.01) G.camB = damp(G.camB, pfB > pfA ? refAt(sR + 1.5) : 0, 4, dt);
+      G.roofK = damp(G.roofK, G.roofs && pfB > pfA && (G.mode === 'run' || G.mode === 'start' || G.mode === 'crash') ? 1 : 0, 1.5, dt);
       camUpdate(dt, xR, yR);
       if (sky) { try { sky.update(G.hour, dts, camera, themes[G.theme].id, G.v); } catch (e) { if (!G.warnS) { G.warnS = true; console.warn('runner: sky', e); } } }
       // HUD (объект переиспользуется; интерфейс сам решает, что перерисовать)
@@ -1917,10 +2338,12 @@
     }
     const CC = { ok: false, px: 0, py: 0, pz: 0, tx: 0, ty: 0, tz: 0, fov: 60, pdx: 0.45, pdz: 0.75 };
     // точка не внутри препятствия (с запасом) и отрезок до неё от груди героини не пересекает ни одного габарита
-    function camClear(px, py, pz, tx, ty, tz) {
-      if (Math.abs(px) > 4.6 || py < 0.4) return false;   // в фасадах и под мостовой — нельзя
+    function camClear(px, py, pz, tx, ty, tz, open) {   // open — сбоку открыто (вис над проёмом): за краем улицы можно
+      if ((Math.abs(px) > (open ? 5.6 : 4.6)) || py < G.camB + 0.4) return false;   // в фасадах и под мостовой (на крышах — под крышей) — нельзя
+      if (pfB > pfA && py < floorAt(G.s - pz) + 0.5) return false;
       for (let i = 0; i < obs.length; i++) {
-        const r = obs[i], y0 = r.y0 - 0.1, y1 = (r.cls === RAMP ? 2.4 : r.y1) + 0.2, zf = -(r.s - G.s), zb = -(r.s + r.d - G.s);
+        const r = obs[i]; if (r.cls >= HOLE) continue;
+        const y0 = r.y0 - 0.1, y1 = (r.cls === RAMP ? 2.4 : r.y1) + 0.2, zf = -(r.s - G.s), zb = -(r.s + r.d - G.s);
         // сама точка — с запасом 0,45 м (камера не в лавке), сверху — 0,8 м (иначе жердь или ковёр соседней полосы ложились
         // прямо под объектив и перечёркивали кадр поимки), луч — 0,15 м
         if (px > r.x - r.w * 0.5 - 0.45 && px < r.x + r.w * 0.5 + 0.45 && py > y0 - 0.3 && py < y1 + 0.8 && pz > zb - 0.45 && pz < zf + 0.45) return false;
@@ -1933,6 +2356,7 @@
       return true;
     }
     function crashCam(xR, yR, port) {
+      if (HG.on) { hangCam(xR, port); return; }
       // cs — сторона камеры (к середине улицы); пальтар на поимке встаёт ЗА героиней (+z 0,75) и чуть вбок (P.side): спереди
       // видно оба лица (он выше — голова над её плечом), сбоку они не загораживают друг друга (разнесены по глубине)
       const cs = xR > 0.5 ? -1 : xR < -0.5 ? 1 : -(P.side || 1), d = port ? 3.7 : 3.4, ty = yR + 1.1;
@@ -1963,17 +2387,35 @@
       // «конец забега» (под карточкой сверху — 35 % экрана, кнопки — снизу): взгляд выше (на лица), чуть дальше и шире
       CC.ox = xR + CC.pdx * 0.45; CC.oy = yR + 1.85; CC.oz = CC.pdz * 0.45;
     }
+    // вис над проёмом: камера сбоку над проёмом, чуть позади неё (со стороны середины улицы) — видно героиню на руках у стены
+    // и пальтара над ней на краю, лицом к нам: он перепрыгивает проём, присаживается и подаёт руку (спереди, с дальней крыши,
+    // он вставал прямо перед объективом и закрывал всё); потом — «конец забега» оттуда же
+    function hangCam(xR, port) {
+      // сбоку проём открыт (переулок до улицы) — камера может выйти за край крыш (±5,4: справа над улицей, слева над переулком)
+      const cs = xR > 0.5 ? -1 : xR < -0.5 ? 1 : -(P.side || 1), top = HG.top, ty = top - 0.15, yc = Math.max(top, HG.nearTop) + 0.7;
+      const C = [[cs * 5.4, yc, 2.6], [cs * 4.4, yc + 0.6, 3.4], [cs * 5.4, yc + 1.4, 0.6], [xR, top + 2.6, 5.2]];
+      let pick = C[C.length - 1];
+      for (let i = 0; i < C.length; i++) { if (camClear(C[i][0], C[i][1], C[i][2], xR, ty, 0.3, true)) { pick = C[i]; break; } }
+      CC.px = pick[0]; CC.py = pick[1]; CC.pz = pick[2]; CC.tx = xR; CC.ty = ty; CC.tz = -0.4; CC.fov = port ? 58 : 48; CC.ok = true;
+      CC.pdx = 0.55 * (xR > 0.5 ? -1 : 1); CC.pdz = -0.8;   // пальтар — впереди неё, на крыше (позади — проём)
+      CC.a0 = Math.atan2(CAM.x - xR, CAM.z); CC.r0 = Math.hypot(CAM.x - xR, CAM.z); CC.y0 = CAM.y;
+      CC.a1 = Math.atan2(CC.px - xR, CC.pz); CC.r1 = Math.hypot(CC.px - xR, CC.pz);
+      let da = CC.a1 - CC.a0; while (da > PI) da -= 2 * PI; while (da < -PI) da += 2 * PI; CC.da = da;
+      CC.ox = xR + CC.pdx * 0.45; CC.oy = top + 1.6; CC.oz = 0.6 + CC.pdz * 0.45;
+    }
     /* ---------- камера в стиле Subway Surfers: сзади-сверху, мягкий наклон при смене полосы, fov растёт со скоростью ---------- */
     function camUpdate(dt, xR, yR) {
       const asp = camera.aspect || 0.5, port = asp < 0.8;
       const vk = clamp((G.v - CFG.v0) / (CFG.vMax - CFG.v0), 0, 1);
       const near = clamp(1 - (P.gap - 2) / 4, 0, 1) * (G.mode === 'run' || G.mode === 'start' ? 1 : 0);
-      const supY = Hh.glide ? yR : Math.min(Hh.sup, yR), airY = yR - supY;
+      // крыши: отсчёт от уровня крыш cb (над проёмом опора — дно переулка: без этого камера ныряла бы в него на каждом прыжке)
+      const cb = G.camB, rk = G.roofK;
+      const supY = Hh.glide ? yR : Math.max(Math.min(Hh.sup, yR), cb - 0.6), airY = yR - supY;
       // забег: позиция и точка взгляда
-      let px = xR * 0.72, py = (port ? 3.45 : 3.0) + supY * 0.82 + airY * 0.3 + near * 0.55 + (Hh.glide ? 1.2 : 0), pz = (port ? 5.9 : 5.3) + vk * 0.5 + near * 0.6 + (Hh.glide ? 1.4 : 0);
+      let px = xR * 0.72, py = cb + (port ? 3.45 : 3.0) + (supY - cb) * 0.82 + airY * 0.3 + near * 0.55 + (Hh.glide ? 1.2 : 0) + rk * CFG.roofCamY, pz = (port ? 5.9 : 5.3) + vk * 0.5 + near * 0.6 + (Hh.glide ? 1.4 : 0) + rk * CFG.roofCamZ;
       CAM.lb = damp(CAM.lb, G.mode === 'run' && !Hh.glide ? G.lmBias : 0, 1.2, dt);
       px -= CAM.lb * 0.15;
-      let tx = xR * 0.82 + CAM.lb * 0.9, ty = 0.75 + supY * 0.85 + airY * 0.45 + (Hh.glide ? -0.6 : 0), tz = -8.5;
+      let tx = xR * 0.82 + CAM.lb * 0.9, ty = cb + 0.75 + (supY - cb) * 0.85 + airY * 0.45 + (Hh.glide ? -0.6 : 0), tz = -8.5 - rk * (CFG.roofLook - 8.5);
       let fov = (port ? CFG.camFovP : CFG.camFovL) + vk * CFG.camFovK;
       const m = G.mode, orbit = (m === 'start' || m === 'run') && G.runT < CFG.orbitT;
       if (m === 'intro' || orbit) {
@@ -1998,13 +2440,14 @@
         // взгляд переводится на героиню быстрее, чем едет камера (0,3 с против 0,9): иначе ~0,4 с камера смотрела в мостовую
         const kt = m === 'over' ? 1 : ease(clamp(G.modeT / 0.3, 0, 1));
         const a = CC.a0 + CC.da * k, r = lerp(CC.r0, CC.r1, k) * (1 - 0.18 * bow);
-        px = clamp(xR + Math.sin(a) * r, -4.4, 4.4); pz = Math.cos(a) * r; py = lerp(CC.y0, CC.py, k) + 0.7 * bow;
+        const xl = HG.on ? 5.6 : 4.4;
+        px = clamp(xR + Math.sin(a) * r, -xl, xl); pz = Math.cos(a) * r; py = lerp(CC.y0, CC.py, k) + 0.7 * bow;
         tx = lerp(tx, CC.tx, kt); ty = lerp(ty, CC.ty, kt); tz = lerp(tz, CC.tz, kt); fov = lerp(fov, CC.fov, k);
         // конец забега: под карточкой «догнал!» (верхние 35 % экрана) — оба лица в средней трети: взгляд выше (на лица) и
         // на середину пары, камера чуть дальше; переезд мягкий, 0,7 с (в 'over' G.modeT — с нуля)
         if (m === 'over') {
           const ko = ease(clamp(G.modeT / 0.7, 0, 1)), dx = CC.px - CC.ox, dy = CC.py - CC.oy, dz = CC.pz - CC.oz;
-          px = lerp(px, clamp(CC.ox + dx * 1.15, -4.4, 4.4), ko); py = lerp(py, CC.oy + dy * 1.15, ko); pz = lerp(pz, CC.oz + dz * 1.15, ko);
+          px = lerp(px, clamp(CC.ox + dx * 1.15, -xl, xl), ko); py = lerp(py, CC.oy + dy * 1.15, ko); pz = lerp(pz, CC.oz + dz * 1.15, ko);
           tx = lerp(tx, CC.ox, ko); ty = lerp(ty, CC.oy, ko); tz = lerp(tz, CC.oz, ko); fov = lerp(fov, CC.fov + 2, ko);
         }
       }
@@ -2044,7 +2487,10 @@
         const vr = r.u > 0 && r.started ? v + r.u : v;
         const t0 = (r.s - (s + hd)) / vr, t1 = (r.s + r.d - (s - hd)) / vr;
         if (t1 < 0 || t0 > BS * BDT) continue;
-        let val = r.cls === BLOCK ? 2 : r.cls === RAMP ? 3 : 1;
+        // крыши: доска над проёмом — свободно (на неё вбок с соседней доски можно), клин к уступу — как настил (только если уже на
+        // полосе); проём и уступ — «проходимо действием» (прыжок), вбок в проём не войти
+        if (r.cls === PLANK && !r.wedge) continue;
+        let val = r.cls === BLOCK ? 2 : r.cls === RAMP || r.cls === PLANK ? 3 : 1;
         if (r.cls === BLOCK && r.ramped) val = 3;
         if (high && r.top && r.y1 <= Hh.y + 0.3) val = r.ramped || r.id === 'shed' ? 3 : 1;
         // поперёк полос: «идеальный» знает конечную полосу сразу, «как человек» — только когда метку уже не спутать (latKnown);
@@ -2095,11 +2541,12 @@
     function botNext() {
       let best = null, bs = INF;
       for (let i = 0; i < obs.length; i++) {
-        const r = obs[i]; if (r.cls === BLOCK || r.cls === RAMP) continue;
+        const r = obs[i]; if (r.cls === BLOCK || r.cls === RAMP || r.cls === PLANK) continue;
         const x = r.lat === 1 || r.lat === 2 ? r.xf : r.x;   // поперёк полос: действие нужно у метки (там оно и встретится)
         if (Math.abs(Hh.x - x) >= r.w * 0.5 + CFG.hw - 0.05 && Math.abs(LX[Hh.lane] - x) >= r.w * 0.5 + CFG.hw) continue;
         if (r.s + r.d < G.s - CFG.hd) continue;
-        if (r.y1 <= Hh.sup + 0.05) continue;          // ниже опоры (на крыше) — не мешает
+        if (r.cls !== HOLE && r.cls !== LEDGE && r.y1 <= Hh.sup + 0.05) continue;          // ниже опоры (на крыше сарая) — не мешает
+        if ((r.cls === HOLE || r.cls === LEDGE) && G.s > r.s + 0.05) continue;            // уже над проёмом — поздно (в воздухе)
         if (r.s < bs) { bs = r.s; best = r; }
       }
       return best;
@@ -2137,6 +2584,16 @@
       if (B.human && r.bj !== r.bj) r.bj = gauss() * B.jit;   // свой сдвиг на каждое препятствие (NaN — ещё не задан)
       const jt = B.human ? r.bj : 0;
       const J = jumpAt(v, JJ), Ts = slideDur(v);
+      // крыши: проём и уступ — прыжок в окно holeWin (то же, что считает генератор), середина окна (late — как можно позже)
+      if (r.cls === HOLE || r.cls === LEDGE) {
+        if (!Hh.ground) return;
+        if (!holeWin(r.s, r.cls === HOLE ? r.d : 0, r.y1 - r.y0, v, r.cls === HOLE ? CFG.roofHole : CFG.stepUp)) return;
+        const lo = (HW.es - G.s) / v, hi = (HW.ls - G.s) / v;
+        if (hi < -0.01) { B.miss++; return; }
+        const at = (B.late ? hi - 0.02 : (lo + hi) / 2) + jt;
+        if (at <= 0.009) { binp('up', r, tf); B.lastAct = G.t; B.busy = G.t + J.T; B.rk = botRk(B); B.acts++; }
+        return;
+      }
       let wantJ = r.cls === LOW || (r.cls === MID && !(r.y1 > 0 && nextHighSoon(r)));
       if (r.cls === MID && Hh.y > 0.3) wantJ = true;
       if (r.cls === HIGH) wantJ = false;
@@ -2180,7 +2637,9 @@
         level: G.stage, levelTitle: lvTitle(G.stage), lvlK: +clamp((G.s - G.lvS0) / Math.max(1, G.lvLen), 0, 1).toFixed(3), cap: G.cap, ice: !!G.ice, gates: GATES.filter(g => g.on).map(g => ({ lv: g.lv, s: +(g.s - G.s).toFixed(1) })), breaths: gen.breaths,
         // пасхалки (тесты): кольчуга, находки и секреты, находка на трассе, счётчики
         mail: +G.mailT.toFixed(2), inv: +G.invT.toFixed(2), found: G.foundMask, runFinds: G.runFinds.slice(), runSecrets: G.runSecrets.slice(), eggs: Object.assign({}, G.eggN),
-        find: FD.on ? { id: FINDS[FD.i].id, s: +(FD.s - G.s).toFixed(1), lane: FD.lane } : null };
+        find: FD.on ? { id: FINDS[FD.i].id, s: +(FD.s - G.s).toFixed(1), lane: FD.lane } : null,
+        // крыши (тесты): уровень крыш, опора профиля под ней, вид пролёта, вис, сколько раз понадобились запасные доски
+        roofs: G.roofs, base: +floorAt(G.s).toFixed(2), span: (i => (i < 0 ? '' : ['street', 'roof', 'gap', 'slope'][pfK[i]]))(pfIx(G.s)), hang: G.hangOn, roofSaves: gen.roofSaves, camB: +G.camB.toFixed(2) };
     }
     function near(n) {   // ближайшие препятствия (для отладки и тестов)
       const out = [];
@@ -2192,6 +2651,9 @@
       const fin = [G.s, G.v, Hh.x, Hh.y, Hh.vy, P.gap, G.score];
       for (let i = 0; i < fin.length; i++) if (!isFinite(fin[i])) bad.push('nan' + i);
       if (Hh.y < -0.001) bad.push('below');
+      if (G.mode === 'run' && !Hh.glide && pfB > pfA) {   // крыши: не «внутри» дома (стопы ниже верха под ней)
+        const i = pfIx(G.s); if (i >= 0 && (pfK[i] === PF_ROOF || pfK[i] === PF_SLOPE) && Hh.y < floorAt(G.s) - 0.35) bad.push('inroof');
+      }
       if (G.mode === 'run' && !Hh.glide) {
         for (let i = 0; i < obs.length; i++) {
           const r = obs[i]; if (!r.top || r.hitT > 0) continue;
@@ -2203,6 +2665,8 @@
 
     return { G, H: Hh, P, gen, obs, segs, track, coinMesh, sky, input, frame, step, reset, intro, startRun, pause, resume, finish, skipCrash, state, near, invariants, botOn, emit, EV, thIx, GATES,
       releaseAll, stageAt, setStage(n) { G.stageStart = Math.max(1, n | 0); },
+      // крыши (тесты): пролёты профиля на [a, b] (s от старта уровня — как в state)
+      prof(a, b) { const out = []; for (let i = pfA; i < pfB; i++) if (pfS1[i] > a && pfS0[i] < b) out.push({ k: ['street', 'roof', 'gap', 'slope'][pfK[i]], s0: +pfS0[i].toFixed(2), s1: +pfS1[i].toFixed(2), y0: +pfY0[i].toFixed(2), y1: +pfY1[i].toFixed(2) }); return out; },
       // стенд и тесты пасхалок: находка i прямо впереди на её полосе, кольчуга, золотая монета впереди, звёздный дождь — «сейчас»
       egg: {
         find(i, ahead) { if (!EGG) return false; spawnFind(clamp(i | 0, 0, FINDS.length - 1), Hh.lane, G.s + (ahead || 30)); return true; },
@@ -2265,10 +2729,10 @@
       if (dbg.warm === false) return 0;
       // пул набора: темы уровня старта и следующего (9 тем целиком — 2,7 с на заставке); остальные фон набора достроит заранее
       try { if (kit.prewarm) { const n0 = game.G.stage || 1; const th = kit.themes && kit.themes.length ? kit.themes : THEMES; kit.prewarm([th[game.thIx(n0)].id, th[game.thIx(n0 + 1)].id], 1); } } catch (e) { console.warn('runner: prewarm', e); }
-      const ids = Object.keys(CAT);
+      const ids = Object.keys(CAT).filter(id => !CAT[id].virt).concat(['pigeons', 'gallery']);   // крыши: голуби и галерея — только картинки
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
-        try { const h = kit.obstacle(id, { variant: 0, len: id === 'shed' ? 12 : undefined, dir: CAT[id].move ? 1 : 0, lane: 1, quality }); if (h && h.group) { h.group.position.set(0, -40, -30); game.track.add(h.group); tmp.push(h); } } catch (e) { /* ok */ }
+        try { const h = kit.obstacle(id, { variant: 0, len: id === 'shed' ? 12 : undefined, dir: CAT[id] && CAT[id].move ? 1 : 0, lane: 1, quality }); if (h && h.group) { h.group.position.set(0, -40, -30); game.track.add(h.group); tmp.push(h); } } catch (e) { /* ok */ }
       }
       for (let len = 8; len <= 16; len++) { try { const h = kit.obstacle('shed', { variant: 0, len, dir: 0, lane: 1, quality }); if (h && h.group) { h.group.position.set(0, -40, -30); game.track.add(h.group); tmp.push(h); } } catch (e) { /* ok */ } }
       try { if (kit.gate) { const h = kit.gate(); if (h && h.group) { h.group.position.set(0, -40, -30); game.track.add(h.group); tmp.push(h); } } } catch (e) { /* ok */ }
