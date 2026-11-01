@@ -369,7 +369,7 @@
       if (on && e) {
         albFrom = cur;
         const m = albMask | 0, LVL = (V.runner && V.runner.LEVELS) || [];
-        const where = th => { for (let i = 0; i < Math.min(9, LVL.length); i++) if (LVL[i].theme === th) return 'чаще — на уровне ' + (i + 1) + ' «' + (named ? LVL[i].title : (LVL[i].titleN || LVL[i].title)) + '».'; return 'ищи на трассе.'; };
+        const where = th => { for (let i = 0; i < LVL.length && !LVL[i].circle; i++) if (LVL[i].theme === th) return 'чаще — на уровне ' + (i + 1) + ' «' + (named ? LVL[i].title : (LVL[i].titleN || LVL[i].title)) + '».'; return 'ищи на трассе.'; };
         let h = '<div class="rui-dim" data-runner-ui></div><div class="rui-card rui-album" data-runner-ui><h2>' + esc(TX.album) + '</h2>' +
           '<p class="cnt">Найдено ' + e.bits(m & e.FIND_MASK) + ' из ' + e.FINDS.length + ' · секретов ' + e.bits(m >>> 16) + ' из ' + e.SECRETS.length + '</p><div class="rui-al">';
         e.FINDS.forEach(f => { const ok = !!(m & (1 << f.bit)), t = e.text(f, named);
