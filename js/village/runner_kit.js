@@ -441,6 +441,25 @@
       const g = bk.build(); if (!g) return null; unkeep(g); addFx(g, bk.fxR, o.lampFn);
       const m = new T.Mesh(g, mat); m.matrixAutoUpdate = false; m.updateMatrix(); m.castShadow = m.receiveShadow = false; if (o.name) m.name = o.name; return m;
     }
+    // то же кусками — для фоновой сборки сегментов (bgStep): bk.build() целиком — перевод массивов в Float32Array одним шагом,
+    // 10…30 мс на сегмент (fix R4: один шаг фона выходил в 8–10 раз за SLICE прямо в кадре бега); здесь — по MB_CH чисел за
+    // шаг генератора, результат — в out.m
+    const MB_CH = 24000;
+    function* meshOfSteps(bk, mat, o, out) {
+      out.m = null; if (!bk || !bk.n) return;
+      snowify(bk, o.snow); yield 0;
+      const g = new T.BufferGeometry(), at = [['position', bk.P, 3], ['normal', bk.N, 3], ['color', bk.C, 3]];
+      if (bk.kind === 'atlas') at.push(['uv', bk.U, 2], ['strip', bk.Sx, 1]);
+      for (let q = 0; q < at.length; q++) { const src = at[q][1], a = new Float32Array(src.length);
+        for (let i = 0; i < src.length; i += MB_CH) { const e = Math.min(src.length, i + MB_CH); for (let j = i; j < e; j++) a[j] = src[j]; yield 0; }
+        g.setAttribute(at[q][0], new T.BufferAttribute(a, at[q][2])); }
+      { const src = bk.I, a = bk.n > 65535 ? new Uint32Array(src.length) : new Uint16Array(src.length);
+        for (let i = 0; i < src.length; i += MB_CH) { const e = Math.min(src.length, i + MB_CH); for (let j = i; j < e; j++) a[j] = src[j]; yield 0; }
+        g.setIndex(new T.BufferAttribute(a, 1)); }
+      g.computeBoundingSphere(); g.computeBoundingBox(); yield 0;
+      addFx(g, bk.fxR, o.lampFn); yield 0;
+      const m = new T.Mesh(g, mat); m.matrixAutoUpdate = false; m.updateMatrix(); m.castShadow = m.receiveShadow = false; if (o.name) m.name = o.name; out.m = m;
+    }
     const planeG = keepO(new T.PlaneGeometry(1, 1));
     function glazOf(list, name) {
       if (!list.length) return null;
@@ -1202,7 +1221,9 @@
       return { side: 0, z0: zc + dz, z1: zc - dz };
     }
     const LM = { tower: lmTower, kombinat: lmKombinat, school: lmSchool, cafe: lmCafe, bazaar: lmBazaar, wedding: lmWedding, bridge: lmBridge, view: lmView };
-    const RLM = { roofIn: 1, roofOut: 1 };   // «ориентиры» темы крыш: вход по настилу и спуск по лестнице (строит roofSteps)
+    // «ориентиры» темы крыш: вход по настилу и спуск по лестнице (строит roofSteps); roofLong — 60 м без событий внутри (проём
+    // только на стыке, дальше ряд домов впритык с малыми ступеньками): быстрые крыши «Мастерского круга» (ядро зовёт prepare)
+    const RLM = { roofIn: 1, roofOut: 1, roofLong: 1 };
 
     /* --- волна 2 (уровни): свадебный двор, музыканты, зимние сугробы, серпантин над облаками --- */
     // фигурка в национальном (музыканты, декор): черкеска с газырями, пояс с серебряной пряжкой, папаха; s — масштаб.
@@ -1310,7 +1331,7 @@
       const group = new T.Group(); group.name = 'runner:seg:' + th.id + (lmId ? ':' + lmId : '');
       const meshes = [], add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
       add(roadGeo(len, [], [], 'a')); yield 6;
-      add(meshOf(bk, matA, { name: 'street' })); yield 7;
+      { const mo = { m: null }; yield* meshOfSteps(bk, matA, { name: 'street' }, mo); add(mo.m); } yield 7;
       add(meshOf(bs, matSign, { name: 'signs' }));
       let tris = 0; meshes.forEach(m => { const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; });
       const seg = { group, len, theme: th.id, landmark: lmId || null, lm: c.lmInfo || null, over: c.over, garlands: [], overhead: null, meshes, tris, calls: meshes.length, buildMs: 0, key: '', live: false, used: 0 };
@@ -1344,6 +1365,14 @@
         return out;
       }
       const g0 = rr(2.8, 4.2), tail = mode === 'out' ? (len >= 60 ? 24 : 18) : 0, zEnd = len - tail, ev = [], ME = 21;
+      if (mode === 'long') {   // проём на стыке, дальше дома по 14…22 м впритык вровень (для рядов ядра — одна крыша), у первого
+        // иногда ступенька ≤ 0,25 м (не событие; ряды ядро ставит и за ней); последний — RHB
+        push('gap', 0, -g0, 0, 0);
+        const zs = []; for (let z = -g0; z > -len + 0.01;) { const w = rr(14, 22), z1 = len + z > w + 12 ? z - w : -len; zs.push([z, z1]); z = z1; }
+        const tt = zs.map(() => RHB); if (zs.length > 2 && R() < 0.5) tt[0] = RHB + [0.15, -0.15, 0.25, -0.25][Math.floor(R() * 4)];
+        for (let i = 0; i < zs.length; i++) push('roof', zs[i][0], zs[i][1], tt[i], tt[i]);
+        return out;
+      }
       // проёмы (волна 3, сведение): на стыке 2,8…4,2 м, внутри 3,3…4,6 м, дальний дом выше в 70 % (было 2,4…/45 %) — прыжки заметнее,
       // в пределах проверенного (окно отрыва ≥ roofWin, иначе доска)
       // внутренние события: |z| начала (между соседними — не меньше ME = 21 м: прыжок на 16,8 м/с, приземление и запас реакции
@@ -1361,15 +1390,18 @@
         if (!ok) { nE = Math.max(0, nE - 1); continue; }
         const tops = new Array(nE + 1);
         tops[nE] = mode === 'out' ? rr(4.4, 6.6) : RHB;
-        for (let i = nE - 1; i >= 0; i--) { const k = ev[i].k, dy = k === 'ledge' ? rr(0.55, 0.92) : k === 'drop' ? -rr(0.8, 1.8) : (R() < 0.7 ? rr(0.4, 0.92) : -rr(0, 1.6)); tops[i] = tops[i + 1] - dy; }
-        if (tops.some(t => t < 4.2 || t > 7.4) || tops[0] > RHB + 0.95) { if (tries > 30) nE = 0; continue; }
+        // проём: дальний дом выше на 0,45…0,92 или (fix R6: перепад виден — чаще и глубже) ниже на 0,7…1,6 м
+        for (let i = nE - 1; i >= 0; i--) { const k = ev[i].k, dy = k === 'ledge' ? rr(0.55, 0.92) : k === 'drop' ? -rr(0.8, 1.8) : (R() < 0.55 ? rr(0.45, 0.92) : -rr(0.7, 1.6)); tops[i] = tops[i + 1] - dy; }
+        if (tops.some(t => t < 4.2 || t > 7.4) || tops[0] > RHB + 0.92) { if (tries > 30) nE = 0; continue; }
         push('gap', 0, -g0, 0, 0);
         // крыша [za, zb] на высоте t: длинная (> 15 м) — два дома впритык, разные стены и уступ ≤ 0,25 м (шагом, без события)
-        const roof = (za, zb, t) => { if (za - zb > 15 && R() < 0.7) { const zm = za - (za - zb) * (0.4 + R() * 0.2), dy = [0, 0.15, -0.15, 0.25, -0.25][Math.floor(R() * 5)];
+        // fix R7: передний из двух домов не выше, чем «прошлый верх + 0,92» (pt — верх перед ним: за проёмом и на уступе): со
+        // ступенькой +0,25 дальний дом за проёмом выходил до +1,14 м — окно отрыва 0,18 с вместо обещанных ≥ 0,21
+        const roof = (za, zb, t, pt) => { if (za - zb > 15 && R() < 0.7) { const zm = za - (za - zb) * (0.4 + R() * 0.2), dy = Math.min([0, 0.15, -0.15, 0.25, -0.25][Math.floor(R() * 5)], pt + 0.92 - t);
             push('roof', za, zm, t + dy, t + dy); push('roof', zm, zb, t, t); } else push('roof', za, zb, t, t); };
         let z = -g0;
-        for (let i = 0; i < nE; i++) { const e = ev[i]; roof(z, -e.z, tops[i]); z = -e.z; if (e.k === 'gap') { push('gap', z, z - e.g, 0, 0); z -= e.g; } }
-        roof(z, -zEnd, tops[nE]);
+        for (let i = 0; i < nE; i++) { const e = ev[i]; roof(z, -e.z, tops[i], i ? tops[i - 1] : RHB); z = -e.z; if (e.k === 'gap') { push('gap', z, z - e.g, 0, 0); z -= e.g; } }
+        roof(z, -zEnd, tops[nE], nE ? tops[nE - 1] : RHB);
         if (mode === 'out') { const ze = -zEnd - (len >= 60 ? 12 : 10); push('slope', -zEnd, ze, tops[nE], 0); push('street', ze, -len, 0, 0); }
         return out;
       }
@@ -1411,13 +1443,19 @@
         if (dir > 0 && (!nb || nb.k === 'gap')) wallLantern(bk, Ff, (R() < 0.5 ? -1 : 1) * (1.2 + R() * 2.2), t - 1.05, 0.24, halos);
       };
       face(z0, 1, prev); face(z1, -1, next);
-      // крыша-двор: у большинства — глиняная укатанная (как плоские крыши села: тёплая серо-бурая, гладкая, пятнами), у других —
-      // плиты; по границам полос — швы-«дорожки» (полосы читаются, но не как разметка улицы); у каждого дома свой тон
-      const clay = R() < 0.62, rc = clay ? mul(mix(C('yard'), rgb('#9C8468'), 0.45 + R() * 0.25), 0.96 + R() * 0.08) : mul(C('slab'), 0.95 + R() * 0.08);
-      const rs = clay ? S.PLASTER : S.SLAB, ph = R() * 9;
+      // крыша-двор (fix R6: крыши читались как одна мощёная улица — ровное покрытие, швы полос как разметка): у каждого дома своя —
+      // глиняная укатанная (тёплая серо-бурая), беленая известью (светлая), плиты (серые) или земляная с травой; вдоль парапетов —
+      // тёмный желобок, по крыше — заплаты другого тона, на стыке с соседним домом впритык — каменный порожек поперёк
+      const rk = R(), clay = rk < 0.4, lime = rk >= 0.4 && rk < 0.65, earth = rk >= 0.85;
+      const rc = clay ? mul(mix(C('yard'), rgb('#9C8468'), 0.45 + R() * 0.25), 0.96 + R() * 0.08) : lime ? mul(rgb('#E4DCCB'), 0.95 + R() * 0.06)
+        : earth ? mul(mix(rgb('#A89070'), C('grass2'), 0.16), 0.97 + R() * 0.06) : mul(C('slab'), 0.95 + R() * 0.08);
+      const rs = clay || earth ? S.PLASTER : lime ? S.WASH : S.SLAB, ph = R() * 9, xi = RX - 0.34;
       for (let za = z0; za > z1 + 0.01; za -= 2.5) { const zb = Math.max(z1, za - 2.5);
-        bk.quadF([-RX, t, za], [RX, t, za], [RX, t, zb], [-RX, t, zb], p => mul(rc, 0.93 + 0.07 * Math.sin(p[2] * 1.3 + p[0] * 0.9 + ph) * Math.sin(p[2] * 0.37 - p[0] * 0.5)), rs, [0, 1, 0]);
-        for (let q = -1; q <= 1; q += 2) { const xc = q * LANE / 2; bk.quadF([xc - 0.07, t + 0.006, za], [xc + 0.07, t + 0.006, za], [xc + 0.07, t + 0.006, zb], [xc - 0.07, t + 0.006, zb], mul(rc, clay ? 0.86 : 0.86), S.FLAT, [0, 1, 0]); } }
+        bk.quadF([-xi, t, za], [xi, t, za], [xi, t, zb], [-xi, t, zb], p => mul(rc, 0.93 + 0.07 * Math.sin(p[2] * 1.3 + p[0] * 0.9 + ph) * Math.sin(p[2] * 0.37 - p[0] * 0.5)), rs, [0, 1, 0]);
+        for (let q = -1; q <= 1; q += 2) bk.quadF([q < 0 ? -xi : xi - 0.3, t + 0.004, za], [q < 0 ? -xi + 0.3 : xi, t + 0.004, za], [q < 0 ? -xi + 0.3 : xi, t + 0.004, zb], [q < 0 ? -xi : xi - 0.3, t + 0.004, zb], mul(rc, 0.72), S.FLAT, [0, 1, 0]); }
+      for (let i = 0, n = 1 + Math.floor(W / 6); i < n; i++) { const pw = 0.9 + R() * 1.8, pd = 0.8 + R() * 1.6, px = (R() - 0.5) * (2 * xi - pw - 0.8), pz = z0 - 0.6 - R() * Math.max(0.1, W - pd - 1.2);
+        bk.quadF([px - pw / 2, t + 0.006, pz], [px + pw / 2, t + 0.006, pz], [px + pw / 2, t + 0.006, pz - pd], [px - pw / 2, t + 0.006, pz - pd], mul(rc, R() < 0.5 ? 0.88 : 1.06), rs, [0, 1, 0]); }
+      if (prev && prev.k === 'roof') bk.box(new K.Frame(0, t, z0 - 0.15, 0), 0, 0.03, 0, 2 * xi, 0.06, 0.3, { col: mul(C('parapetCap'), 1.15), s: S.SLAB, skip: { ny: 1 } });
       // край у проёма или уступа: светлый каменный бортик и охристая полоса (видно, где отталкиваться), торец края — светлый
       const cap = mul(C('parapetCap'), 1.4), stripe = rgb('#F2AE30');
       // ночью полосы светятся тёплым (атрибут ламп aFx.x: днём — ничего), край проёма виден и в темноте
@@ -1432,6 +1470,8 @@
       // (всё снаружи полос, |x| ≥ 3,85): трубы, антенны, тарелка, горшки с геранью, кувшины, голуби
       const pc = mul(C('parapetCap'), 1.12), ph2 = [0.32, 0.42, 0.55][Math.floor(R() * 3)], pk = R(), pw = pk < 0.45 ? [0.97, 0.96, 0.93] : pk < 0.8 ? mul(side.c, 0.95) : C('blue');
       [-1, 1].forEach(sd => bk.box(new K.Frame(sd * (RX - 0.17), t, zc, 0), 0, ph2 / 2, 0, 0.34, ph2, W - 0.02, { col: pw, s: pk < 0.45 ? S.PLASTER : pk < 0.8 ? side.s : S.WASH, cols: { py: pc }, ss: { py: S.SLAB }, skip: { ny: 1 } }));
+      // углы дома — столбики выше парапета (видно, где кончается один дом и начинается другой)
+      [-1, 1].forEach(sd => [z0 - 0.22, z1 + 0.22].forEach(zq => bk.box(new K.Frame(sd * (RX - 0.2), t, zq, 0), 0, (ph2 + 0.26) / 2, 0, 0.44, ph2 + 0.26, 0.44, { col: mul(pw, 0.96), s: S.PLASTER, cols: { py: pc }, ss: { py: S.SLAB }, skip: { ny: 1 } })));
       if (R() < 0.45) { const xr = RX - 0.17, yT = t + ph2, rail = C('pipeRail'); bar(bk, [xr, yT + 0.55, z0 - 0.2], [xr, yT + 0.55, z1 + 0.2], 0.05, rail);
         const n = Math.max(1, Math.round(W / 2)); for (let i = 0; i <= n; i++) { const z = lerp(z0 - 0.2, z1 + 0.2, i / n); bar(bk, [xr, yT, z], [xr, yT + 0.57, z], 0.045, rail); } }
       for (let z = z0 - 1.2 - R() * 2; z > z1 + 1.0; z -= 3 + R() * 4) {
@@ -1486,7 +1526,7 @@
         for (let k = 0; k <= 5; k++) { const z = lerp(za, zb, k / 5), y = lerp(y0, 0, k / 5); bar(bk, [x, y + 0.3, z], [x, y + 1.27, z], 0.045, C('pipeRail')); } });
     }
     function* roofSteps(th, len, R, lmId, opts) {
-      const bk = new K.Baker('atlas'), gz = [], halos = [], mode = lmId === 'roofIn' ? 'in' : lmId === 'roofOut' ? 'out' : '';
+      const bk = new K.Baker('atlas'), gz = [], halos = [], mode = lmId === 'roofIn' ? 'in' : lmId === 'roofOut' ? 'out' : lmId === 'roofLong' ? 'long' : '';
       const c = { bk, gz, halos, R, len };
       const spans = roofLayout(len, R, mode), glow = 0.4;
       // 1. дома трассы, переулки в проёмах, настил/лестница, улица у начала и конца
@@ -1501,7 +1541,7 @@
           if (sp.k === 'slope' && sp.y1 > sp.y0) roofRamp(bk, sp.z0, sp.z1, sp.y0, sp.y1);
           else if (sp.k === 'slope') roofStairs(bk, sp.z0, sp.z1, sp.y0);
         }
-        if (i % 2 === 1) yield 1;
+        yield 1;   // по дому за шаг (дом с галереей — до 5 мс)
       }
       yield 2;
       // 2. улица внизу справа: мостовая, тротуар с бордюром, фонари; через улицу — дома пониже (фасадом к улице)
@@ -1521,7 +1561,7 @@
           const h = houseSpec(R, th, -1, Math.abs(xa), z - w / 2, w - 0.04, y0, st[0] + (R() < 0.5 ? 0 : st[1] - st[0]), Object.assign({ glow }, o));
           if (sideX > 0) h.x = xa + h.d / 2;
           list.push(h); z -= w + (o.lod && R() < 0.3 ? 0.8 + R() * 2 : 0); }
-        let k = 0; for (const h of linkRow(list)) { houseGeo(bk, gz, h, R, halos); if (++k % 4 === 0) yield 5; } };
+        let k = 0; for (const h of linkRow(list)) { houseGeo(bk, gz, h, R, halos); if (++k % 2 === 0) yield 5; } };
       yield* row(19.2, -3.4, [1, 2], { lod: true, flat: 0.7, gal: 0.5, backWin: true, yardLife: true, foot: 2.6 }, 1); yield 6;
       yield* row(27.4, -8.2, [1, 2], { lod: true, flat: 0.7, gal: 0.5, backWin: true, yardLife: true, foot: 2.6 }, 1); yield 7;
       yield* row(-RLX, RAL, [1, 2], { shops: 0, foot: 1.2 }, -1); yield 8;
@@ -1535,7 +1575,8 @@
         bk.quadF([-16.4, RAL, za], [-RX, RAL, za], [-RX, RAL, zb], [-16.4, RAL, zb], p => mul(C('tread'), 0.88 + 0.06 * Math.sin(p[2] * 1.1)), S.SLAB, [0, 1, 0]);
         retain(bk, -16.4, RAL - 0.1, RAL + 3.8, za, zb, 1);
         bk.quadF([-24.4, RAL + 3.8, za], [-16.4, RAL + 3.8, za], [-16.4, RAL + 3.8, zb], [-24.4, RAL + 3.8, zb], yardC(1), S.FLAT, [0, 1, 0]);
-        for (let k = 0; k < 9; k++) { const xOut = -24.4 - 6.4 * k, yT = RAL + 3.8 + 2.6 * (k + 1); terraceStep(bk, xOut - 5.2, xOut, yT, yT - 2.6, za, zb, k + 3, 1); } }
+        for (let k = 0; k < 9; k++) { const xOut = -24.4 - 6.4 * k, yT = RAL + 3.8 + 2.6 * (k + 1); terraceStep(bk, xOut - 5.2, xOut, yT, yT - 2.6, za, zb, k + 3, 1); }
+        yield 9; }   // террасы — по 20 м за шаг
       for (let i = 0, n = 1 + Math.floor(R() * 2.5); i < n; i++) tree(bk, 26.2 + R() * 0.6, -3.4, -R() * len, 'poplar', 0.9 + R() * 0.3, R);
       if (R() < 0.6) tree(bk, -16.0, RAL + 3.8, -R() * len, 'poplar', 1.1, R);
       for (let i = 0, n = Math.floor(R() * 3); i < n; i++) tree(bk, 40 + R() * 30, -16 - R() * 10, -R() * len, 'round', 1.2, R);
@@ -1543,7 +1584,7 @@
       // сетки: атлас + остекление (+ ореолы фонарей ночью)
       const group = new T.Group(); group.name = 'runner:seg:' + th.id + (lmId ? ':' + lmId : '');
       const meshes = [], add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
-      add(meshOf(bk, matA, { name: 'street' })); yield 11;
+      { const mo = { m: null }; yield* meshOfSteps(bk, matA, { name: 'street' }, mo); add(mo.m); } yield 11;
       add(glazOf(gz));
       if (halos.length) { const n = halos.length / 4, P = new Float32Array(n * 3), Cc = new Float32Array(n * 3);
         for (let i = 0; i < n; i++) { P.set([halos[i * 4], halos[i * 4 + 1], halos[i * 4 + 2]], i * 3); const k = halos[i * 4 + 3]; Cc.set([k, k * 0.92, k * 0.8], i * 3); }
@@ -2034,7 +2075,7 @@
       const group = new T.Group(); group.name = 'runner:seg:' + th.id + (lmId ? ':' + lmId : '');
       const meshes = [], add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
       add(roadGeo(len, halos, c.extra, th.road)); yield 7;
-      add(meshOf(bk, matA, { name: 'street' })); yield 8;
+      { const mo = { m: null }; yield* meshOfSteps(bk, matA, { name: 'street' }, mo); add(mo.m); } yield 8;
       add(glazOf(gz));
       add(meshOf(bs, matSign, { name: 'signs' }));
       const overhead = add(meshOf(bo, matA, { name: 'overhead' }));
@@ -2151,9 +2192,9 @@
       const meshes = [];
       const add = m => { if (m) { group.add(m); meshes.push(m); } return m; };
       add(roadGeo(len, halos, c.roadX, th.snow ? 'w' : th.road || '')); yield 11;
-      add(meshOf(bk, matA, { name: 'street', snow: th.snow })); yield 12;
-      add(glazOf(gz));
-      add(meshOf(bs, matSign, { name: 'signs' }));
+      { const mo = { m: null }; yield* meshOfSteps(bk, matA, { name: 'street', snow: th.snow }, mo); add(mo.m); } yield 12;
+      add(glazOf(gz)); yield 13;   // остекление и вывески — отдельными шагами (последний шаг сборки доходил до 13–23 мс)
+      add(meshOf(bs, matSign, { name: 'signs' })); yield 14;
       const overhead = add(meshOf(bo, matA, { name: 'overhead', snow: th.snow }));   // флажки — по два треугольника (лицо и изнанка), двусторонний материал не нужен
       if (halos.length) { const n = halos.length / 4, P = new Float32Array(n * 3), Cc = new Float32Array(n * 3);
         for (let i = 0; i < n; i++) { P.set([halos[i * 4], halos[i * 4 + 1], halos[i * 4 + 2]], i * 3); const k = halos[i * 4 + 3]; Cc.set([k, k * 0.92, k * 0.8], i * 3); }
@@ -2312,6 +2353,9 @@
       // «По крышам»: вход (настил, roofIn) — пока тема следующая, спуск (лестница, roofOut) — когда текущая; длина у обоих — 60
       // (длину выбирает ядро). Без заготовки они строились бы в кадре — на входе в уровень и у его конца
       for (let q = 0; q < 2; q++) { const t = q ? nextTh(th) : th; if (t.kind !== 'roofs') continue; const lm = q ? 'roofIn' : 'roofOut', k = keyOf(t.id, 60, lm); if (!avail(k)) return plan(t, 60, lm, k); }
+      // заказанные ядром варианты (prepare: быстрые крыши круга — roofLong): у текущей и следующей темы — как свой запас
+      for (let i = 0; i < WANT.length; i++) { const w = WANT[i]; if (w.th !== th && w.th !== nextTh(th)) continue; const a = avail(w.key);
+        if (a < 1 || (a < 2 && built(w.key) < PER_KEY)) return plan(w.th, w.len, w.lm, w.key); }
       if (ALL.size >= CAP - 1 && !hasForeign()) return null;   // остальное — только за счёт чужих тем
       // запас текущей темы: по одному каждой длины, потом по второму — пока построено не больше PER_KEY (без «+1»: тот лишний и
       // вытеснялся первым, и строился снова)
@@ -2319,6 +2363,14 @@
       const nx = nextTh(th);
       for (let i = 0; i < SEG_LENS.length; i++) { const len = SEG_LENS[i], k = keyOf(nx.id, len, null); if (!avail(k)) return plan(nx, len, null, k); }
       return null;
+    }
+    // prepare(themeId, len, lm) — ядро заранее заказывает вариант сегмента, который возьмёт позже (фон держит его в запасе, пока
+    // тема текущая или следующая; иначе первый же — сборка в кадре)
+    const WANT = [];
+    function prepare(themeId, len, lm) {
+      const th = THEME[themeId]; if (!th) return;
+      const key = keyOf(th.id, len, lm); for (let i = 0; i < WANT.length; i++) if (WANT[i].key === key) return;
+      WANT.push({ th, len, lm, key });
     }
     function bgDone(seg) { seg.key = BG.key; seg.buildMs = BG.ms; ALL.add(seg); BUILT.set(seg.key, (BUILT.get(seg.key) || 0) + 1); seg.used = segTick - 1; poolPush(seg); BGS.built++; BG = null; evict(null); }
     function bgStep() {
@@ -3538,7 +3590,7 @@
       LANE, SEG_LENS: SEG_LENS.slice(), CAT, quality: Q, named, season: WIN ? 'winter' : 'autumn',
       themes: THEMES.map(t => ({ id: t.id, title: t.title, titleN: t.titleN, hour: t.hour, name: named ? t.title : t.titleN })),
       ROAD: { half: ROAD, curb: CURB, walk: WALK, walkY: WALK_Y, garland: GAR },
-      segment, obstacle, coins, powerup, sky, fx, stats, dispose, gate,
+      segment, obstacle, coins, powerup, sky, fx, stats, dispose, gate, prepare,
       find, shield,            // пасхалки (роль EGGS): находка на трассе (id из V.runnerEggs.FINDS) и щит кольчуги на героине
       update: tick,            // если неба нет (стенд, тесты): время анимаций и частиц
       light: lightAt,          // свет часа (для актёров/интерфейса): { hor, fog, n: [hi, si, el, az, sat, glow, lamps, stars, clouds] … }
@@ -3548,6 +3600,7 @@
       // первая встреча в забеге — из пула, без постройки (до 20–30 мс на корову на слабом CPU)
       prewarm(themeIds, n) {
         (themeIds || THEMES.map(t => t.id)).forEach(id => SEG_LENS.forEach(len => { for (let i = 0; i < (n || 1); i++) segment(id, len, Math.random, { landmark: null }).release(); }));
+        WANT.forEach(w => { if (!themeIds || themeIds.indexOf(w.th.id) >= 0) segment(w.th.id, w.len, Math.random, { landmark: w.lm }).release(); });   // заказанные (prepare)
         const tmp = [];
         Object.keys(CAT).forEach(id => { const vs = id === 'stall' || id === 'carpet' || id === 'umbrella' || id === 'planter' || id === 'laundry' ? [0, 1, 2] : id === 'dancer' || id === 'kid' || id === 'rope' ? [0, 1] : [0], ls = id === 'shed' ? [8, 10, 12, 14, 16] : [0], k = id === 'cow' || id === 'cart' || id === 'goat' || id === 'trolley' || id === 'golfcar' ? 3 : 1;
           // волна 3: дети и официант — по полосам и сторонам (метка своя), длинная скакалка — по полосам; дворовые — без снега
