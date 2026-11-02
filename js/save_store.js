@@ -320,15 +320,18 @@
   const CHOICE = ['catHelper', 'drink', 'syrnik', 'bouquet'];
   const HANDLED = new Set(['v', '_s', 'updated', 'eps', 'stickers', 'finds', 'versions', 'ratings', 'riddles', 'team', 'invite', 'hudSeen',
     'engHint', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner'].concat(PREFS, FLAGS, CHOICE));
-  // раннер «Бег» (state.runner { best, bestDist, coins, runs, tut, last, bestLevel, finds }): рекорды и счётчики — максимум по копиям (сыграли
+  // раннер «Бег» (state.runner { best, bestDist, coins, runs, tut, last, bestLevel, lv, finds }): рекорды и счётчики — максимум по копиям (сыграли
   // позже на втором устройстве — рекорд первого не пропадает), подсказки пройдены — если хоть где-то, last — из самой новой
   // копии. Ключ «знакомый» — и в сжатую облачную копию попадает (≈ 80 символов)
   function mergeRunner(ord) {
     const rs = ord.map(c => c.runner).filter(isObj);
     if (!rs.length) return undefined;
     const nn = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.floor(v) : 0), mx = k => Math.max(...rs.map(r => nn(r[k])));
-    // bestLevel (уровни раннера) — тоже максимум; в старых копиях его нет — 1
-    return { best: mx('best'), bestDist: mx('bestDist'), coins: mx('coins'), runs: mx('runs'), tut: rs.some(r => r.tut === true), last: nn(rs[0].last), bestLevel: Math.max(1, mx('bestLevel')),
+    // bestLevel (уровни раннера) — тоже максимум; в старых копиях его нет — 1. lv — версия нумерации уровней: копия без lv —
+    // из таблицы волны 2 (9 уровней, круг с 10-го), её номер сначала переводим по месту в таблицу волны 3 (11 уровней, круг с 12-го;
+    // то же, что runner.js lvMigrate), иначе максимум смешал бы две нумерации («Ночь» 9 > «Свадьба» 7 — а это «Двор отеля»)
+    const V2 = [1, 1, 2, 3, 4, 6, 7, 8, 10, 11], lvOf = r => { const n = Math.max(1, nn(r.bestLevel)); return nn(r.lv) >= 3 ? n : n <= 9 ? V2[n] : n + 2; };
+    return { best: mx('best'), bestDist: mx('bestDist'), coins: mx('coins'), runs: mx('runs'), tut: rs.some(r => r.tut === true), last: nn(rs[0].last), bestLevel: Math.max(1, ...rs.map(lvOf)), lv: 3,
       finds: rs.reduce((m, r) => (m | nn(r.finds)) >>> 0, 0) };   // находки и секреты раннера (биты) — «или» по копиям: найденное на любом устройстве не теряется
   }
 

@@ -122,7 +122,7 @@
     // расстоянии; roofPlank — доля проёмов с доской на одной полосе / на двух (на «Мастерском круге» — реже); roofHang — сколько
     // висит на краю, пока пальтар подаёт руку, и сколько вытягивает
     roofHole: 0.05, roofDeep: 1.1, roofWin: 0.1, roofEdge: 1.6, roofCamY: 0.8, roofCamZ: 0.7, roofLook: 11, roofDash: [6, 10], roofGapDash: 4.4, roofDashOff: 1.5,
-    roofPlank: [0.32, 0.1], roofHang: [0.55, 0.5],
+    roofPlank: [0.14, 0.04], roofHang: [0.55, 0.5],   // волна 3 (сведение): доски реже (0,32/0,1 → 0,14/0,04) — больше прыжков с дома на дом
     trig: 2.4,                        // движущееся начинает идти навстречу за столько секунд до встречи
     camFovP: 64, camFovL: 52, camFovK: 6,
   };
@@ -145,7 +145,7 @@
     shed:    { cls: BLOCK, w: 2.1, y0: 0,    y1: 2.4,  d: 12,  top: true, len: [8, 16] },
     ramp:    { cls: RAMP,  w: 2.1, y0: 0,    y1: 2.4,  d: 4.0 },
     cart:    { cls: BLOCK, w: 2.0, y0: 0,    y1: 2.2,  d: 4.5, top: true, move: [4, 8] },
-    // уровни 6–8 (волна 2): свадебный стол (прыжок, можно пробежать по скатерти), танцор (поперёк полос → в круг-ковёр),
+    // свадьба, серпантин, зима (волна 2): свадебный стол (прыжок, можно пробежать по скатерти), танцор (поперёк полос → в круг-ковёр),
     // санки с ребёнком (поперёк по ледяной дорожке, низкие — перепрыгнуть), камушки со скалы (тень-предупреждение, потом лежат),
     // коза (как корова, поменьше), снеговики (прыжок; сверху — «пружинка»), сосульки на балке (подкат)
     table:   { cls: LOW,   w: 2.0, y0: 0,    y1: 0.8,  d: 0.9, top: true },
@@ -203,67 +203,70 @@
   // cap — потолок скорости, м/с; gap — «свободная улица» между связками, с; inner — зазор внутри связки сверх минимума
   // генератора, с; coin — доля связок с дорожкой монет; snake — доля «змеек» (монеты заранее зовут сменить полосу — подсказка,
   // с уровнем реже); pow — через сколько метров следующий усилитель; ice — лёд (смена полосы дольше и с заносом); пулы
-  // low/high/mid/block — что ставить; pats — веса паттернов (см. PAT). Кривая: первые ≈ 40 с — 9…11,6 м/с, редкие одиночные ряды и
-  // много монет; дальше каждый уровень быстрее (+1,1…1,5 м/с), плотнее (gap/inner меньше), больше двойных действий (jslide,
-  // combo, roofs) и движущихся (cow, cart, barrels, dance, sled, goats, rocks); запас реакции — всегда ≥ CFG.react
+  // low/high/mid/block — что ставить; pats — веса паттернов (см. PAT); react — запас реакции генератора на этом уровне, с
+  // (≥ CFG.react; волна 3 — им выровнена кривая аварий «человека»: у свадьбы, серпантина и отеля своя плотность и механики, без
+  // запаса сверху они давали горбы), rc — то же в первом «Мастерском круге» (нет — CFG.react). Кривая: первые ≈ 40 с — 9…11,6 м/с,
+  // редкие одиночные ряды и много монет; дальше каждый уровень быстрее (+1,4 м/с в начале … +0,9 к «Ночи»), длиннее (+40 м),
+  // плотнее (gap/inner меньше), больше двойных действий (jslide, combo, roofs) и движущихся (cow, cart, barrels, dance, sled, goats,
+  // rocks); запас реакции — всегда ≥ CFG.react
   const LEVELS = [
     { theme: 'masters', title: 'Улица мастеров', titleN: 'Улица мастеров', fx: 'много монет, всё по одному', len: 400, cap: 11.6,
-      gap: [1.35, 1.9], inner: 0.7, coin: 0.95, snake: 0.5, pow: [230, 380],
-      low: ['hay', 'bench'], high: [], mid: [], block: ['stall'], pats: { one: 0.8, two: 3, lows: 2, wall: 1.2 } },
-    { theme: 'bazaar', title: 'Базарная площадь', titleN: 'Базарная площадь', fx: 'ковры на верёвках и жерди: подкат', len: 480, cap: 13.0,
-      gap: [1.25, 1.75], inner: 0.6, coin: 0.88, snake: 0.45, pow: [260, 420],
-      low: ['baskets', 'hay', 'bench'], high: ['carpet'], mid: ['gate'], block: ['stall'], pats: { one: 3, two: 3, wall: 2, highs: 1.4, gates: 1.6, lows: 0.8 } },
+      gap: [1.45, 2], inner: 0.7, coin: 0.95, snake: 0.5, pow: [230, 380], react: 0.5, rc: 0.496,
+      low: ['hay', 'bench'], high: [], mid: [], block: ['stall'], pats: { one: 2.0, two: 2.4, lows: 0.4, wall: 1.2 } },
+    { theme: 'bazaar', title: 'Базарная площадь', titleN: 'Базарная площадь', fx: 'ковры на верёвках и жерди: подкат', len: 440, cap: 13.0,
+      gap: [1.4, 1.95], inner: 0.62, coin: 0.9, snake: 0.46, pow: [260, 430], react: 0.58, rc: 0.552,
+      low: ['baskets', 'hay', 'bench'], high: ['carpet'], mid: ['gate'], block: ['stall'], pats: { one: 3, two: 3, wall: 2, highs: 1.2, gates: 0.3, lows: 0.8 } },
     // волна 3: «Школьный двор» вместо «У школы» (улица у школы): беготня ВНУТРИ двора — корпус школы вдоль трассы, футбольное
     // поле, площадка с турниками; беговые полосы нарисованы на асфальте. Своё: скакалка в такт (rope), дети с мячом поперёк к
     // кружкам мелом (kids), мячи навстречу (balls, первые движущиеся), «прыжок-подкат». Стены — ворота с сеткой (wallS: что
     // ставить в паттерны «стена/зигзаг/связка» вместо прилавка). Крыш тут нет (они — со следующего уровня)
-    { theme: 'schoolyard', title: 'Школьный двор', titleN: 'Школьный двор', fx: 'скакалка в такт, дети с мячом бегут поперёк, мячи катятся навстречу', len: 560, cap: 14.5,
-      gap: [1.15, 1.6], inner: 0.5, coin: 0.82, snake: 0.4, pow: [300, 480],
+    { theme: 'schoolyard', title: 'Школьный двор', titleN: 'Школьный двор', fx: 'скакалка в такт, дети с мячом бегут поперёк, мячи катятся навстречу', len: 480, cap: 14.2,
+      gap: [1.35, 1.9], inner: 0.55, coin: 0.85, snake: 0.42, pow: [290, 480], react: 0.6, rc: 0.501,
       low: ['backpacks', 'sbench', 'balls'], high: ['goalF'], mid: ['bars'], block: ['goal'], wallS: ['goal'],
-      pats: { one: 1.8, two: 2.6, wall: 1.4, lows: 0.9, gates: 1.1, highs: 1, rope: 2.6, kids: 2.2, balls: 1.5, zig: 0.7, jslide: 0.5 } },
-    { theme: 'kombinat', title: 'Комбинат и крыши', titleN: 'Мастерские и крыши', fx: 'бег по крышам, бочки катятся', len: 560, cap: 16.0,
-      gap: [1.05, 1.5], inner: 0.45, coin: 0.78, snake: 0.35, pow: [340, 540],
+      pats: { one: 1.8, two: 2.0, wall: 1.4, lows: 0.5, gates: 0.4, highs: 0.8, rope: 2.2, kids: 2.2, balls: 1.5, zig: 0.7, jslide: 0.4 } },
+    { theme: 'kombinat', title: 'Комбинат и крыши', titleN: 'Мастерские и крыши', fx: 'бег по крышам, бочки катятся', len: 520, cap: 15.3,
+      gap: [1.1, 1.55], inner: 0.46, coin: 0.8, snake: 0.38, pow: [320, 520], react: 0.63,
       low: ['hay', 'bench', 'baskets', 'barrels'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall', 'shed'],
-      pats: { two: 2.5, wall: 2, roof: 2, roofs: 3.5, barrels: 1.6, cow: 1, combo: 1.2, zig: 1, lows: 0.8, highs: 0.8, gates: 0.8, jslide: 0.6 } },
+      pats: { two: 2.5, wall: 2, roof: 2, roofs: 2.6, barrels: 1.6, cow: 1, combo: 1.5, zig: 1, lows: 1, highs: 1, gates: 1, jslide: 0.9 } },
     // волна 3: паркур по крышам (просьба: «бегаешь по крышам домов, с одного дома на другой прыгаешь… я убегаю от пальтара,
-    // прыгая по домам»). Трасса — раскладка крыш набора графики (дома 4,2…7,4 м, проёмы 2,4…4,6 м, уступы вверх ≤ 0,92 — прыжком,
+    // прыгая по домам»). Трасса — раскладка крыш набора графики (дома 4,2…7,4 м, проёмы 2,8…4,6 м, уступы вверх ≤ 0,92 — прыжком,
     // вниз — сход); генератор ставит ряды только на крышах, проём на полосе — прыжок или доска (запасная — всегда проходимо);
-    // вход — настил с улицы, выход — лестница на улицу к арке. Временно уровень 5 (порядок решит интегратор)
-    { theme: 'roofs', title: 'По крышам', titleN: 'По крышам', fx: 'паркур: проёмы между домами, доски-мостики, уступы; пальтар прыгает следом', len: 600, cap: 16.8, roofs: true,
-      gap: [1.0, 1.45], inner: 0.42, coin: 0.85, snake: 0.3, pow: [360, 560],
+    // вход — настил с улицы, выход — лестница на улицу к арке. Уровень 5: после комбината (там крыши сараев — «подготовка»)
+    { theme: 'roofs', title: 'По крышам', titleN: 'По крышам', fx: 'паркур: проёмы между домами, доски-мостики, уступы; пальтар прыгает следом', len: 560, cap: 16.4, roofs: true,
+      gap: [0.88, 1.28], inner: 0.4, coin: 0.85, snake: 0.34, pow: [350, 570], react: 0.45,
       low: ['tank', 'chest', 'tiles', 'jugs', 'hatch', 'hay'], high: ['laundry', 'carpet'], mid: ['rail'], block: ['chimney'],
-      pats: { one: 1.6, two: 2.4, lows: 0.9, highs: 1.0, gates: 0.7, wall: 1.0, jslide: 0.4, zig: 0.5 } },
-    { theme: 'tower', title: 'Вечер у башни', titleN: 'Вечер у башни', fx: 'повозки навстречу, закат', len: 600, cap: 17.5,
-      gap: [0.98, 1.4], inner: 0.4, coin: 0.72, snake: 0.3, pow: [380, 600],
+      pats: { one: 0.4, two: 1.6, lows: 1.1, highs: 1.1, gates: 1.6, wall: 0.8, jslide: 1.6, zig: 0.5, combo: 1.0 } },
+    { theme: 'tower', title: 'Вечер у башни', titleN: 'Вечер у башни', fx: 'повозки навстречу, закат', len: 560, cap: 17.4,
+      gap: [0.9, 1.3], inner: 0.4, coin: 0.74, snake: 0.31, pow: [380, 620], react: 0.57,
       low: ['hay', 'bench', 'baskets', 'barrels'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall', 'shed'],
-      pats: { two: 2, wall: 1.4, roof: 1.5, roofs: 1.5, barrels: 1.2, cow: 1, cart: 2.2, combo: 1.6, zig: 1.1, lows: 1, highs: 1, gates: 1, jslide: 0.9 } },
-    { theme: 'wedding', title: 'Свадебный двор', titleN: 'Свадебный двор', fx: 'танцоры идут поперёк в круг-ковёр, столы, гирлянды', len: 600, cap: 18.8,
-      gap: [0.9, 1.32], inner: 0.36, coin: 0.68, snake: 0.28, pow: [420, 660],
+      pats: { two: 2, wall: 1.4, roof: 1.5, roofs: 1.5, barrels: 1.2, cow: 1, cart: 2.2, combo: 2.0, zig: 1.1, lows: 1.2, highs: 1, gates: 1.2, jslide: 1.3 } },
+    { theme: 'wedding', title: 'Свадебный двор', titleN: 'Свадебный двор', fx: 'танцоры идут поперёк в круг-ковёр, столы, гирлянды', len: 600, cap: 18.4,
+      gap: [0.96, 1.38], inner: 0.39, coin: 0.71, snake: 0.28, pow: [420, 670], react: 0.63,
       low: ['table', 'bench', 'baskets'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall'],
-      pats: { dance: 3.4, two: 2, wall: 1.2, lows: 1, highs: 1.1, gates: 0.9, combo: 1.2, jslide: 1.1, zig: 0.8, cart: 0.7 } },
-    { theme: 'serp', title: 'Серпантин над облаками', titleN: 'Серпантин над облаками', fx: 'обрыв справа, камушки со скалы (тень), козы, туман', len: 640, cap: 20.0,
-      gap: [0.85, 1.25], inner: 0.34, coin: 0.64, snake: 0.24, pow: [460, 720],
+      pats: { dance: 3.4, two: 2, wall: 1.2, lows: 0.6, highs: 1.1, gates: 0.7, combo: 1.2, jslide: 0.8, zig: 0.8, cart: 0.7 } },
+    { theme: 'serp', title: 'Серпантин над облаками', titleN: 'Серпантин над облаками', fx: 'обрыв справа, камушки со скалы (тень), козы, туман', len: 600, cap: 19.3,
+      gap: [0.92, 1.32], inner: 0.36, coin: 0.68, snake: 0.25, pow: [450, 720], react: 0.52,
       low: ['hay', 'rock'], high: ['beam'], mid: ['gate'], block: ['stall', 'goat'],
-      pats: { rocks: 3.2, goats: 2.2, two: 1.8, wall: 1, gates: 1.2, lows: 0.8, highs: 0.8, cart: 1.3, jslide: 1.2, combo: 1 } },
+      pats: { rocks: 3.2, goats: 2.2, two: 1.8, wall: 1, gates: 0.8, lows: 0.5, highs: 0.8, cart: 1.3, jslide: 0.9, combo: 1 } },
     // волна 3: «Двор отеля» — серпантин привёл на вершину, к курорту (корпус, перголы, корты, шезлонги, вид на горы и облака).
     // Своё: официант-енот с подносом идёт поперёк по ковровой дорожке (waiter), тележки для багажа и гольф-кар навстречу
     // (trolley, golf), зонт-парус и трос зиплайна (подкат), сетка падела (прыжок или подкат); стена — фонтан
-    { theme: 'hotel', title: 'Двор отеля', titleN: 'Двор отеля', fx: 'официант-енот идёт поперёк по дорожке, тележки и гольф-кар навстречу, зонты и зиплайн', len: 640, cap: 20.5,
-      gap: [0.83, 1.22], inner: 0.33, coin: 0.63, snake: 0.23, pow: [480, 750],
+    { theme: 'hotel', title: 'Двор отеля', titleN: 'Двор отеля', fx: 'официант-енот идёт поперёк по дорожке, тележки и гольф-кар навстречу, зонты и зиплайн', len: 640, cap: 20.2,
+      gap: [0.84, 1.22], inner: 0.34, coin: 0.65, snake: 0.23, pow: [480, 760], react: 0.58,
       low: ['lounger', 'suitcases', 'planter'], high: ['umbrella', 'zip'], mid: ['pnet'], block: ['fountain'], wallS: ['fountain'],
-      pats: { waiter: 3.0, trolley: 1.8, golf: 1.5, two: 2, wall: 1.1, lows: 1, highs: 1.2, gates: 1.1, jslide: 1.2, combo: 1, zig: 0.7 } },
-    { theme: 'winter', title: 'Зимние Кубачи', titleN: 'Зимняя улица', fx: 'снег, сосульки, снеговики, санки поперёк, лёд', len: 640, cap: 21.0, ice: true,
-      gap: [0.8, 1.18], inner: 0.32, coin: 0.62, snake: 0.22, pow: [500, 780],
+      pats: { waiter: 3.0, trolley: 1.8, golf: 1.5, two: 2, wall: 1.1, lows: 0.7, highs: 1.2, gates: 1.1, jslide: 1.2, combo: 1, zig: 0.7 } },
+    { theme: 'winter', title: 'Зимние Кубачи', titleN: 'Зимняя улица', fx: 'снег, сосульки, снеговики, санки поперёк, лёд', len: 640, cap: 21.1, ice: true,
+      gap: [0.77, 1.12], inner: 0.32, coin: 0.62, snake: 0.21, pow: [510, 810], react: 0.495,
       low: ['snowman', 'bench'], high: ['icicles'], mid: ['gate'], block: ['stall', 'shed'],
-      pats: { sled: 3.2, two: 2, wall: 1.2, lows: 1, highs: 1.2, roof: 1.2, gates: 1, jslide: 1.2, combo: 1, zig: 0.8 } },
+      pats: { sled: 3.2, two: 2, wall: 1.2, lows: 1.2, highs: 1.2, roof: 1.2, gates: 1, jslide: 1.5, combo: 1.3, zig: 0.8 } },
     { theme: 'night', title: 'Ночь над селом', titleN: 'Ночные огни', fx: 'фонари и окна, всё вперемешку', len: 680, cap: 22.0,
-      gap: [0.75, 1.1], inner: 0.3, coin: 0.6, snake: 0.2, pow: [540, 860],
+      gap: [0.75, 1.1], inner: 0.3, coin: 0.6, snake: 0.2, pow: [540, 860], react: 0.47,
       low: ['hay', 'bench', 'baskets', 'barrels'], high: ['carpet', 'beam'], mid: ['gate'], block: ['stall', 'shed'],
-      pats: { two: 2, wall: 1.3, roof: 1.3, roofs: 1.5, barrels: 1.3, cow: 1.1, cart: 2, combo: 1.8, zig: 1.1, lows: 1, highs: 1, gates: 1, jslide: 1.4, dance: 0.8 } },
+      pats: { two: 2, wall: 1.3, roof: 1.3, roofs: 1.5, barrels: 1.3, cow: 1.1, cart: 2, combo: 2.0, zig: 1.1, lows: 1, highs: 1, gates: 1, jslide: 1.6, dance: 0.8 } },
   ];
   // «Мастерский круг» (после последнего уровня таблицы — с волны 3 это 11-й): темы по кругу с первой, у каждой — свои препятствия и механики плюс «чужие»
-  // движущиеся, что подходят к месту (EXTRA), зазоры ×0,96 за уровень (не меньше ×0,8), потолок +0,6 м/с (до 26), длина +40 м
-  // (до 840), монет и усилителей ещё меньше. Ряды «всё на точный прыжок/подкат» (gates, highs) — не чаще веса 1: на 23+ м/с
+  // движущиеся, что подходят к месту (EXTRA), зазоры ×0,97 за уровень (не меньше ×0,8), потолок +0,5 м/с (до 26), длина +40 м
+  // (до 840), монет и усилителей ещё меньше. Ряды «всё на точный прыжок/подкат» (gates, highs) — не чаще веса 0,5…0,6: на 23+ м/с
   // базарный круг с его 1,6 давал «человеку» втрое больше аварий, чем соседние уровни (горб, а не рост). Готовится один раз
   // (в забеге — без выделений): два круга тем (с волны 3 уровней 11 — уровни 12…33), дальше повторяется второй круг (потолки и
   // зазоры там на пределе)
@@ -275,13 +278,19 @@
   };
   const LV = LEVELS.slice();
   for (let i = 0; i < CIRCLE_N; i++) {
-    const n = CIRCLE0 + i, b = LEVELS[i % LEVELS.length], L9 = LEVELS[LEVELS.length - 1], k = Math.max(0.8, Math.pow(0.96, i + 1)), pats = Object.assign({}, b.pats);
+    const n = CIRCLE0 + i, b = LEVELS[i % LEVELS.length], L9 = LEVELS[LEVELS.length - 1], k = Math.max(0.8, Math.pow(0.97, i + 1)), pats = Object.assign({}, b.pats);
     Object.keys(EXTRA[b.theme] || {}).forEach(id => { pats[id] = (pats[id] || 0) + EXTRA[b.theme][id]; });
     pats.jslide = (pats.jslide || 0) + 1; pats.combo = (pats.combo || 0) + 0.6; pats.one = 0;
-    if (pats.gates > 1) pats.gates = 1; if (pats.highs > 1) pats.highs = 1;
+    // «точные» ряды на 23+ м/с — жерди не больше 0,5, сплошные высокие — 0,6, низкие — 1, скакалка — 1,6: с весами своих уровней
+    // (базар — жерди 1,6, мастера — низкие 2, школа — скакалка 2,6) круг шёл горбами 0,6 → 1,15 → 0,87 аварий «человека»
+    if (pats.gates > 0.5) pats.gates = 0.5; if (pats.highs > 0.6) pats.highs = 0.6; if (pats.lows > 1) pats.lows = 1; if (pats.rope > 1.6) pats.rope = 1.6;
+    // волна 3: таблица выросла до 11 уровней — круг разгоняется мягче (+0,5 м/с и ×0,97 зазоров за уровень вместо +0,6 и ×0,96)
     LV.push(Object.assign({}, b, { title: 'Мастерский круг', titleN: 'Мастерский круг', sub: b.title, subN: b.titleN, circle: true, fx: 'смешение: ' + b.fx,
-      len: Math.min(840, 720 + 40 * i), cap: Math.min(26, 23 + 0.6 * i), gap: [Math.min(b.gap[0], L9.gap[0]) * k, Math.min(b.gap[1], L9.gap[1]) * k], inner: Math.min(b.inner, L9.inner) * k,
-      coin: Math.max(0.5, b.coin - 0.06), snake: 0.15, pow: [620, 1000], pats }));
+      len: Math.min(840, 720 + 40 * i), cap: Math.min(26, 23 + 0.5 * i), gap: [Math.min(b.gap[0], L9.gap[0]) * k, Math.min(b.gap[1], L9.gap[1]) * k], inner: Math.min(b.inner, L9.inner) * k,
+      coin: Math.max(0.5, b.coin - 0.06), snake: 0.15, pow: [620, 1000], pats,
+      // запас реакции круга: свой у первых трёх тем (подобран по аварийности «человека»: круг начинается на 23 м/с — без него
+      // мастера/базар/школа давали скачок от «Ночи»), дальше и во втором круге — CFG.react
+      react: i < LEVELS.length && b.rc ? b.rc : CFG.react }));
   }
   // пулы паттернов уровня — заранее (генератор не создаёт массивы на ходу)
   LV.forEach((st, i) => {
@@ -305,6 +314,12 @@
     if (!st.high.length) { st.pats = Object.assign({}, st.pats); delete st.pats.jslide; }
   });
   const STAGES = LV;   // старое имя (тесты прошлой волны)
+  // сейв лучшего уровня (bestLevel) — номер в нумерации таблицы. LV_SAVE — версия нумерации (ключ lv в state.runner): 3 — таблица
+  // волны 3 (11 уровней, круг с 12-го); нет ключа — сейв волны 2 (9 уровней, круг с 10-го). Старый номер переводим по МЕСТУ, а не
+  // по числу: дошла до «Вечера у башни» (был 5-й) — теперь это 6-й; круг сдвинулся на 2 (10 → 12). Так «лучший — уровень N» и
+  // баннер рекорда на заставке остаются честными: рекорд — только там, где она ещё не была (то же — в слиянии копий, save_store.js)
+  const LV_SAVE = 3, LV_V2 = [1, 1, 2, 3, 4, 6, 7, 8, 10, 11];
+  const lvMigrate = (n, ver) => { n = Math.max(1, Math.floor(+n || 1)); return ver >= LV_SAVE ? n : n <= 9 ? LV_V2[n] : n + 2; };
   // начала уровней (s от старта забега): LST[n] — где начинается уровень n (LST[1] = 0); дальше таблицы — шаг последнего уровня
   const LST = new Float64Array(LV.length + 2);
   for (let n = 2; n <= LV.length + 1; n++) LST[n] = LST[n - 1] + LV[n - 2].len;
@@ -643,7 +658,7 @@
       // «крышной» камеры), roofHint — подсказка «прыгай» у первого проёма показана, pWobN — счёт приземлений пальтара после проёма
       roofs: false, hangOn: false, camB: 0, roofK: 0, roofHint: 0, pWobN: 0,
       // пасхалки: кольчуга (mailT — сколько ещё надета, invT — неуязвимость после удара), находки и секреты (foundMask — биты сейва
-      // runner.finds: 0…13 — находки, 16…21 — секреты), runFinds — найденное в этом забеге (индексы FINDS), selfT — заставка
+      // runner.finds: 0…15 — находки, 16…21 — секреты), runFinds — найденное в этом забеге (индексы FINDS), selfT — заставка
       mailT: 0, invT: 0, foundMask: 0, runFinds: [], runSecrets: [], starS: 0, masterT: -9, selfT: 0, selfOn: 0, eggN: { gold: 0, master: 0, stars: 0, shield: 0 },
     };
     const Hh = { lane: 1, lane0: 1, x: 0, px: 0, x0: 0, x1: 0, lt: 1, ld: 0.16, vx: 0, y: 0, py: 0, vy: 0, ground: true, sup: 0, ph: CFG.height,
@@ -1001,8 +1016,17 @@
       }
     }
     // можно ли поставить ряд с фронтом f: пишет R2 (новые R) и SLK (запас реакции по полосам, с); true — проходимо
+    // запас реакции уровня (LEVELS[].react, с; волна 3): на уровнях со своей плотностью и механиками он больше CFG.react — так
+    // выровнена кривая аварий «человека» (реакция N(0,42; 0,08) с: запас сверх неё и решает, сколько он врезается). Ряд должен быть
+    // проходим с этим запасом — и ещё раз с CFG.react: достижимость полос (R2) и «без тупиков» считаются по CFG.react, иначе полосу,
+    // куда успевает только быстрый игрок, планировщик счёл бы «недостижимой» и не проверил бы выход из неё (ловушка для быстрых)
     function planRow(row, f, knT) {
-      const v = vAt(f), react = CFG.react * v, lt = laneDur(v) * (stCfg(stageAt(f)).ice ? CFG.iceLane : 1) * 1.12 * v, hd = CFG.hd;
+      const rk = stCfg(stageAt(f)).react;
+      if (rk > CFG.react && !planRow0(row, f, knT, rk)) return false;
+      return planRow0(row, f, knT, CFG.react);
+    }
+    function planRow0(row, f, knT, rk) {
+      const sc = stCfg(stageAt(f)), v = vAt(f), react = rk * v, lt = laneDur(v) * (sc.ice ? CFG.iceLane : 1) * 1.12 * v, hd = CFG.hd;
       const kn = knT > 0 ? f - v * knT : -INF;   // раньше этой точки игрок не знает конечной полосы (поперёк) — реакция не раньше
       rowReq(row, f, v);
       let ok = false;
@@ -1229,7 +1253,7 @@
     function patGates(st) { clearRows(1); for (let l = 0; l < 3; l++) ent(0, l, st.midId); if (gen.rng() < 0.4) ent(0, ri(3), st.wallId); return 1; }
     function patRoof(st) {
       clearRows(1); shuffle();
-      const sn = stageNum(st), cp = sn <= 3 ? 0.35 : sn === 4 ? 0.85 : 0.5;   // этап 4 «крыши»: цепочкой почти всегда (доля на крышах ≈ 9 → 10+ %)
+      const sn = stageNum(st), cp = sn <= 3 ? 0.35 : st.theme === 'kombinat' && !st.circle ? 0.85 : 0.5;   // «Комбинат и крыши» (4): цепочкой почти всегда (доля на крышах ≈ 9 → 10+ %)
       const len = roofChain(0, PERM[0], gen.rng() < cp ? 2 + ri(2) : 1).parts[0];
       const r = gen.rng();
       if (r < 0.45) ent(0, PERM[1], 'shed', len + Math.round(rr(0, 4)), 0, 4); else if (r < 0.8) ent(0, PERM[1], 'stall', 0, 0, rr(0, 4));
@@ -1299,10 +1323,15 @@
     // стена или низкое. С уровнем — иногда две подряд (прыжок, прыжок — в такт)
     function patRope(st) {
       const n = gen.rng() < (st.late ? 0.35 : 0.18) ? 2 : 1; clearRows(n);
+      // вторая скакалка — не ближе «прыжок + реакция» после первой (сдвиг off ряда): прыгнувший первую на своей полосе в последний
+      // миг приземлялся прямо перед второй (на 24 м/с ряды шли через 6,7 м), а планировщик, считая её «ушедшей» на свободную
+      // полосу, этого случая не проверял — идеальный бот на круге школы врезался (сведение волны 3)
+      const v = Math.min(CFG.vMax, st.cap), o2 = Math.max(0, Math.round(v * (jumpAt(v, JJ).T + CFG.react) + 1.1 - v * st.inner * 0.8));
       for (let k = 0; k < n; k++) {
-        if (gen.rng() < 0.45) { for (let l = 0; l < 3; l++) ent(k, l, 'rope').variant = 1; continue; }
-        shuffle(); ent(k, PERM[0], 'rope').variant = 0;
-        if (gen.rng() < 0.6) ent(k, PERM[1], gen.rng() < 0.5 ? st.wallId : pick(st.lowS));
+        const off = k ? o2 : 0;
+        if (gen.rng() < 0.45) { for (let l = 0; l < 3; l++) ent(k, l, 'rope', 0, 0, off).variant = 1; continue; }
+        shuffle(); ent(k, PERM[0], 'rope', 0, 0, off).variant = 0;
+        if (gen.rng() < 0.6) ent(k, PERM[1], gen.rng() < 0.5 ? st.wallId : pick(st.lowS), 0, 0, off);
       }
       return n;
     }
@@ -2024,7 +2053,7 @@
       const tx = EGG.text(f, named);
       try { if (ui.find) ui.find({ id: f.id, icon: f.icon, name: tx.name, fact: tx.fact, isNew, add, got: EGG.bits(G.foundMask & EGG.FIND_MASK), total: FINDS.length, mask: G.foundMask }); else if (ui.banner) ui.banner('Находка — ' + tx.name); } catch (e) { /* ok */ }
     }
-    // находки и секреты — в сейв сразу (state.runner.finds: биты 0…13 — находки, 16…21 — секреты; слияние копий — «или»)
+    // находки и секреты — в сейв сразу (state.runner.finds: биты 0…15 — находки, 16…21 — секреты; слияние копий — «или»)
     function saveFinds() {
       if (G.sim && !G.simSave) return;
       const sv = loadSave(), m = (sv.finds | G.foundMask) >>> 0; if (m === sv.finds) return; sv.finds = m; writeSave(sv);
@@ -2264,7 +2293,8 @@
       let sv = null; try { sv = host.save && host.save.get ? host.save.get() : null; } catch (e) { sv = null; }
       const o2 = sv && typeof sv === 'object' ? sv : {};
       const num = k => (typeof o2[k] === 'number' && isFinite(o2[k]) && o2[k] >= 0 ? o2[k] : 0);
-      return { best: num('best'), bestDist: num('bestDist'), coins: num('coins'), runs: num('runs'), tut: o2.tut === true, last: num('last'), bestLevel: Math.max(1, Math.floor(num('bestLevel'))), finds: Math.floor(num('finds')) >>> 0 };
+      // lv — версия нумерации уровней: старый сейв (без ключа) переводим в нумерацию этой таблицы; пишется уже с lv: LV_SAVE
+      return { best: num('best'), bestDist: num('bestDist'), coins: num('coins'), runs: num('runs'), tut: o2.tut === true, last: num('last'), bestLevel: lvMigrate(num('bestLevel'), num('lv')), lv: LV_SAVE, finds: Math.floor(num('finds')) >>> 0 };
     }
     function writeSave(sv) { try { if (host.save && host.save.set) host.save.set(sv); } catch (e) { console.warn('runner: save', e); } }
     function startData() { const sv = loadSave(); return { title: title(named, true), best: sv.best, bestDist: sv.bestDist, coins: sv.coins, runs: sv.runs, first: !sv.tut, named, bestLevel: sv.bestLevel, bestLevelTitle: lvTitle(sv.bestLevel), finds: sv.finds, factK: sv.runs, eggs: !!EGG }; }
@@ -3019,6 +3049,7 @@
   V.runner = {
     title, available, open, close, CAT, CFG, STAGES, THEMES, LANE, version: 2,
     LEVELS: LV, levelStart: lvStartN, levelAt: lvAtD, levelCfg: lvCfgN,   // уровни: таблица (с «Мастерским кругом»), начало, номер по пути
+    saveVersion: LV_SAVE, migrateLevel: lvMigrate,   // сейв: версия нумерации уровней и перевод старого bestLevel (тесты)
     get session() { return SESSION ? SESSION.api : null; },
     // для набора графики и тестов: параметры прыжка/подката на скорости
     jumpAt: v => Object.assign({}, jumpAt(v, {})), slideDur, laneDur,
