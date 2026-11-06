@@ -253,6 +253,8 @@
     const pos = new T.Vector3();
     // звук мотора (js/engine_sound.js): голос седана или кабриолета; один объект на машину — без новых объектов за кадр
     const ES = { kind: car && car.kind === 'sedan' ? 'sedan' : 'cabrio', speed: 0, vmax: cfg.vmax, throttle: 0, braking: false, onGround: true, driving: false };
+    // запись мотора — загодя: въехали в место с машиной (≈ 60–80 КБ, один раз за игру)
+    if (window.EngineSound && EngineSound.preload) EngineSound.preload(ES.kind);
     const collider = { type: 'box', x: 0, z: 0, w: 1.9, d: 4.1, ry: 0, y0: -1e4, y1: 1e4, id: 'car', kind: 'car', noCar: true, off: true };
     // W6: лёгкое касание (камушек со скалы): кузов чуть вздрагивает на подвеске; скорость и курс не меняются
     function tap(k) { k = clamp(k == null ? 0.3 : k, 0, 1); S.svy -= 0.9 * k; S.svr += (Math.random() - 0.5) * 2.4 * k; S.svp += (Math.random() - 0.5) * 1.2 * k; S.taps = (S.taps || 0) + 1; return true; }

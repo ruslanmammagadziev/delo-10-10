@@ -48,12 +48,14 @@
   const angDiffG = (a, b) => { let d = (a - b) % (PI * 2); if (d > PI) d -= PI * 2; if (d < -PI) d += PI * 2; return d; };
   WORLD.CAR_COLORS = [['жёлтый', '#FCD93A'], ['мятный', '#A8D8C4'], ['пудровый', '#F2B8C6'], ['сливочный', '#F6E3B8'], ['вишнёвый', '#D9566E'], ['небесный', '#A9C9EE'], ['графитовый', '#6F6A78']];
 
-  /* ---------- звук гудка: «би-бип» — две мягкие ноты (G.audioBus уважает «звук выкл»), иначе G.sfx('blip') ---------- */
+  /* ---------- звук гудка: «би-бип» — две мягкие ноты (G.audioBus уважает «Звук» игры), иначе свой WebAudio ---------- */
   let ownAC = null;
   function hornSound() {
     try {
-      const g = window.G; let ac = null, out = null;
-      if (g && typeof g.audioBus === 'function') { out = g.audioBus('sfx'); if (!out) return false; ac = out.context; }
+      // гудок — звук машины, как мотор: шина фона 'amb' (звучит и когда «Звук» не трогали; выключила сама — тишина);
+      // громкость прежняя: шина фона тише шины эффектов (0,45 против 0,85) — ноты громче на столько же (k)
+      const g = window.G; let ac = null, out = null, k = 1;
+      if (g && typeof g.audioBus === 'function') { out = g.audioBus('amb'); if (!out) return false; ac = out.context; k = 0.85 / 0.45; }
       else { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false; if (!ownAC) ownAC = new AC(); ac = ownAC; if (ac.state !== 'running') ac.resume(); out = ac.destination; }
       const t = ac.currentTime + 0.01;
       const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; lp.Q.value = 0.8; lp.connect(out);
@@ -64,7 +66,7 @@
         gn.gain.setValueAtTime(0.0001, t0); gn.gain.linearRampToValueAtTime(v, t0 + 0.018); gn.gain.setValueAtTime(v, t0 + dur - 0.04); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.06);
         o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t0 + dur + 0.1);
       });
-      note(t, 440, 0.12, 0.05); note(t + 0.17, 554, 0.17, 0.05);
+      note(t, 440, 0.12, 0.05 * k); note(t + 0.17, 554, 0.17, 0.05 * k);
       // мотор на миг тише (≈ −8 дБ), чтобы «би-бип» было слышно и на полном ходу
       if (window.EngineSound && EngineSound.duck) EngineSound.duck(0.4, 0.5);
       return true;
@@ -542,9 +544,12 @@
       return true;
     };
     const keepParent = obj => { if (obj && !st.parents.has(obj)) st.parents.set(obj, obj.parent || scene); };
-    function canEnter(x, z) { return st.mode === 'parked' && car.root.visible && Math.hypot(car.S.x - x, car.S.z - z) < 2.9 && Math.abs(car.S.v) < 0.3; }
+    // рядом с машиной — запись мотора загодя (EngineSound.preload: один раз за игру, дальше ничего не делает)
+    const preload = () => { if (window.EngineSound && EngineSound.preload) EngineSound.preload(car.sound ? car.sound.kind : 'cabrio'); };
+    function canEnter(x, z) { const ok = st.mode === 'parked' && car.root.visible && Math.hypot(car.S.x - x, car.S.z - z) < 2.9 && Math.abs(car.S.v) < 0.3; if (ok) preload(); return ok; }
     function enter(hero, opt = {}) {
       if (st.mode !== 'parked') return Promise.resolve(false);
+      preload();
       if (isLocked()) { emit('locked', {}); return Promise.resolve(false); }
       st.hero = hero; st.cat = opt.cat || null; st.dog = opt.dog || null; st.mode = 'enter';
       [hero && hero.root, st.cat, st.dog].forEach(keepParent);

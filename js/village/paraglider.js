@@ -395,7 +395,9 @@
     /* --- звук: ветер (шум через полосовой фильтр на общей шине фона) и короткие эффекты игры --- */
     const snd = (() => {
       const so = o.sound === false ? null : (o.sound || null);
-      const bus = () => { try { if (so && so.bus) return so.bus(); if (!so && window.G && window.G.audioBus) return window.G.audioBus('amb'); } catch (e) { /* нет звука */ } return null; };
+      // ветер — звук полёта, не фон: шина фона игры, но только при «Звук» вкл (G.soundMode() 'on'; «не трогала» — фоном звучат
+      // лишь мотор машин и музыка, js/engine.js)
+      const bus = () => { try { if (so && so.bus) return so.bus(); const g = window.G; if (!so && g && g.audioBus && (!g.soundMode || g.soundMode() === 'on')) return g.audioBus('amb'); } catch (e) { /* нет звука */ } return null; };
       const sfx = (k, x) => { try { if (so && so.sfx) so.sfx(k, x); else if (!so && window.G && window.G.sfx) window.G.sfx(k, x); } catch (e) { /* нет звука */ } };
       let src = null, gain = null, filt = null, buf = null, ctx = null;
       function start() {

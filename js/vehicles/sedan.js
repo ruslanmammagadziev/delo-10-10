@@ -998,13 +998,15 @@
   }
 
   /* =====================================================================
-     ЗВУК: гудок седана — «па-пам» (две ноты ниже, чем у купе); G.audioBus уважает «звук выкл»
+     ЗВУК: гудок седана — «па-пам» (две ноты ниже, чем у купе); G.audioBus уважает «Звук» игры (шина фона, как мотор)
      ===================================================================== */
   let ownAC = null;
   function hornSound() {
     try {
-      const g = window.G; let ac = null, out = null;
-      if (g && typeof g.audioBus === 'function') { out = g.audioBus('sfx'); if (!out) return false; ac = out.context; }
+      // гудок — звук машины, как мотор: шина фона 'amb' (звучит и когда «Звук» не трогали; выключила сама — тишина);
+      // громкость прежняя: шина фона тише шины эффектов (0,45 против 0,85) — ноты громче на столько же (k)
+      const g = window.G; let ac = null, out = null, k = 1;
+      if (g && typeof g.audioBus === 'function') { out = g.audioBus('amb'); if (!out) return false; ac = out.context; k = 0.85 / 0.45; }
       else { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false; if (!ownAC) ownAC = new AC(); ac = ownAC; if (ac.state !== 'running') ac.resume(); out = ac.destination; }
       const t = ac.currentTime + 0.01, lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 0.7; lp.connect(out);
       const note = (t0, f, dur, vol) => ['triangle', 'sawtooth'].forEach((w, i) => {
@@ -1013,7 +1015,7 @@
         gn.gain.setValueAtTime(0.0001, t0); gn.gain.linearRampToValueAtTime(v, t0 + 0.02); gn.gain.setValueAtTime(v, t0 + dur - 0.05); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.07);
         o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t0 + dur + 0.12);
       });
-      note(t, 370, 0.13, 0.05); note(t + 0.18, 466, 0.2, 0.05);
+      note(t, 370, 0.13, 0.05 * k); note(t + 0.18, 466, 0.2, 0.05 * k);
       // мотор на миг тише (≈ −8 дБ), чтобы «па-пам» было слышно и на полном ходу
       if (window.EngineSound && EngineSound.duck) EngineSound.duck(0.4, 0.55);
       return true;
@@ -1265,7 +1267,9 @@
       return true;
     };
     const keepParent = obj => { if (obj && !st.parents.has(obj)) st.parents.set(obj, obj.parent || scene); };
-    function canEnter(x, z) { return st.mode === 'parked' && car.root.visible && Math.hypot(car.S.x - x, car.S.z - z) < 3.4 && Math.abs(car.S.v) < 0.3; }
+    // рядом с машиной — запись мотора загодя (EngineSound.preload: один раз за игру, дальше ничего не делает)
+    const preload = () => { if (window.EngineSound && EngineSound.preload) EngineSound.preload('sedan'); };
+    function canEnter(x, z) { const ok = st.mode === 'parked' && car.root.visible && Math.hypot(car.S.x - x, car.S.z - z) < 3.4 && Math.abs(car.S.v) < 0.3; if (ok) preload(); return ok; }
     function petPlan(list, toCar) {
       return list.filter(p => p[0]).map(([obj, seat, door]) => {
         const stand = local2world(car.doorStand(door), new T.Vector3()), seatW = local2world(seat, new T.Vector3());
@@ -1275,6 +1279,7 @@
     function enter(hero, opt = {}) {
       if (st.mode !== 'parked') return Promise.resolve(false);
       if (st.locked) { emit('locked', {}); return Promise.resolve(false); }
+      preload();
       st.hero = hero; st.cat = opt.cat || null; st.dog = opt.dog || null; st.mode = 'enter';
       [hero && hero.root, st.cat, st.dog].forEach(keepParent);
       const stand = local2world(car.doorStand('fl'), new T.Vector3()), seatW = local2world(car.heroSeat, new T.Vector3());

@@ -99,31 +99,147 @@
     } catch (e) { /* ignore */ }
   }
   /* ---------- Звук: мягкая синтезированная палитра, «лепет» персонажей ----------
-     Всё синтезируется WebAudio, файлов нет. Цепочка: группы (эффекты, голоса, музыка мест, фон) → общий
-     ограничитель → выход. По умолчанию звук выключен (CONFIG.SOUND_DEFAULT), «Голоса» — отдельный переключатель
+     Эффекты синтезируются WebAudio (мотор машин — записи, js/engine_sound.js). Цепочка: группы (эффекты, голоса,
+     музыка мест, фон) → «ворота» (фон / остальное) → общий ограничитель → выход. «Голоса» — отдельный переключатель
      (долгое нажатие на 🔊). sfx(kind) — те же имена, что раньше (tap, ok, wrong, sticker, reveal, drum, blip) и новые
-     (door, step, chime, wave, flutter, pop, purr, meow). */
-  let actx = null, BUS = null, noiseBuf = null;
-  function audio() {
-    if (!state.sound) return null;
+     (door, step, chime, wave, flutter, pop, purr, meow).
+     РЕЖИМ ЗВУКА (желание автора: «чтобы рёв машин и музыка включались сами, без кнопки „Звук“») — soundMode():
+       'bg'  — «Звук» ни разу не трогали (state.soundSet нет — так у всех старых сохранений с sound:false по умолчанию):
+               звучит только фон — мотор машин и музыка (группы 'amb' и 'music'); кнопки, эффекты и голоса молчат;
+       'on'  — сама включила «Звук» (или сохранение со звуком): звучит всё;   'off' — сама выключила: тишина всего.
+     ambOn() — фон звучит ('bg' | 'on'). audio() — контекст только при «Звук» вкл (эффекты, голоса — как раньше);
+     audioBus('amb' | 'music') — и в 'bg'; null — молчать. «Ворота» закрываются сами (выключили на ходу — фон, уже
+     играющий в группе, тоже смолкает). Смена режима: G.onSound(f) → f(mode) (вернёт «отписаться») и событие
+     window 'delo:sound' { detail: { mode, amb, all } } — по ним живёт музыка мест (песня свадьбы и т. п.). Режим сменился
+     не тапом (сохранение из облака, другой вкладки, сброс) — то же самое: syncSound() после каждого слияния и при любом
+     вопросе о звуке (ambOn, audio, audioBus).
+     CONFIG.SOUND_DEFAULT — звук сразу «вкл»; CONFIG.SOUND_BG === false — без фона по умолчанию (как было раньше).
+     Контекст создаётся только после первого касания (иначе браузер не даст звук и ругнётся в консоль; в Telegram первое
+     касание — старт игры) и будится каждым следующим (после звонка, сворачивания). iPhone: режим «воспроизведение» —
+     звук и при беззвучном переключателе (navigator.audioSession.type = 'playback'; старые iOS — тихий HTMLAudio по кругу),
+     но только пока фон РЕАЛЬНО звучит: G.bgActive(ключ, true/false) — мотор за рулём ('engine', js/engine_sound.js),
+     песня во дворе ('song'). Фон смолк — через 3 с снова 'auto' (чужая музыка и подкасты не прерываются, пока в игре
+     нечему звучать: титул, прогулка). */
+  let actx = null, BUS = null, GATE = null, gateMode = null, noiseBuf = null;
+  const soundMode = () => (state.sound ? 'on' : state.soundSet || C.SOUND_BG === false ? 'off' : 'bg');
+  // режим, о котором уже знают ворота, iPhone, подписчики и значки: сменился не тапом «Звук» — догоняем (syncSound)
+  let knownMode = null;
+  function syncSound() {
+    const m = soundMode();
+    if (knownMode === null) { knownMode = m; return; }   // первое чтение сохранения — сообщать некому
+    if (m === knownMode) return;
+    knownMode = m; soundChanged(); paintSound();
+  }
+  const ambOn = () => { syncSound(); return soundMode() !== 'off'; };
+  // было касание (браузер разрешает звук): до него контекст не создаём (ни фон, ни «Звук» вкл)
+  let touched = false;
+  const activated = () => touched || !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
+  const quiet = p => { if (p && p.catch) p.catch(() => {}); };
+  function ctx() {
     try {
       if (!actx) {
+        if (!activated()) return null;   // до первого касания звук всё равно не пустят (и браузер ругнётся в консоль)
         actx = new (window.AudioContext || window.webkitAudioContext)();
         const comp = actx.createDynamicsCompressor();
         comp.threshold.value = -20; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25;
         const master = actx.createGain(); master.gain.value = 1;
         master.connect(comp); comp.connect(actx.destination);
-        const grp = v => { const g = actx.createGain(); g.gain.value = v; g.connect(master); return g; };
-        BUS = { master, sfx: grp(0.85), voice: grp(0.8), music: grp(0.55), amb: grp(0.45) };
+        const gate = () => { const g = actx.createGain(); g.connect(master); return g; };
+        GATE = { bg: gate(), fx: gate() };
+        const grp = (v, to) => { const g = actx.createGain(); g.gain.value = v; g.connect(to); return g; };
+        BUS = { master, sfx: grp(0.85, GATE.fx), voice: grp(0.8, GATE.fx), music: grp(0.55, GATE.bg), amb: grp(0.45, GATE.bg) };
+        gates(true);
       }
-      if (actx.state !== 'running' && !document.hidden) actx.resume();
+      if (actx.state !== 'running' && !document.hidden) quiet(actx.resume());
+      if (gateMode !== soundMode()) gates(false);   // страховка: ворота всегда по режиму
       return actx;
     } catch (e) { return null; }
   }
-  // группа для своих звуков мест (музыка пластинок, мелодии): громкость общая, через ограничитель
-  function audioBus(kind = 'music') { const a = audio(); return a && BUS ? BUS[kind] || BUS.sfx : null; }
-  // свёрнута игра — звук на паузе
-  document.addEventListener('visibilitychange', () => { try { if (!actx) return; if (document.hidden) actx.suspend(); else if (state.sound) actx.resume(); } catch (e) { /* ignore */ } });
+  function audio() { syncSound(); return state.sound ? ctx() : null; }
+  // группа для своих звуков мест (музыка пластинок, мелодии): громкость общая, через ограничитель; 'amb' и 'music' — фон
+  function audioBus(kind = 'music') {
+    if (kind === 'amb' || kind === 'music' ? !ambOn() : (syncSound(), !state.sound)) return null;
+    const a = ctx(); return a && BUS ? BUS[kind] || BUS.sfx : null;
+  }
+  // «ворота» по режиму: фон открыт в 'bg' и 'on', остальное — только в 'on' (now — сразу, иначе за ~0,1 с)
+  function gates(now) {
+    if (!actx || !GATE) return;
+    const m = soundMode(), t = actx.currentTime; gateMode = m;
+    [[GATE.bg, m !== 'off'], [GATE.fx, m === 'on']].forEach(([g, on]) => {
+      try { g.gain.cancelScheduledValues(t); if (now) g.gain.setValueAtTime(on ? 1 : 0, t); else g.gain.setTargetAtTime(on ? 1 : 0, t, 0.03); } catch (e) { /* ignore */ }
+    });
+  }
+  // iPhone: «воспроизведение» — звучит и при беззвучном переключателе; фон смолк или звук выключили — отдаём телефон другим
+  const IOS = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let quietEl = null, iosOn = false, iosOff = 0;
+  function quietWav() {   // 0,1 с тишины: wav 8 кГц, 8 бит, моно
+    const n = 800, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+    let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return 'data:audio/wav;base64,' + btoa(s);
+  }
+  // старые iOS (без audioSession): тихий элемент; load() в касании «разрешает» ему play() и потом, без касания (звука нет —
+  // сессию не трогает, чужую музыку не прерывает)
+  function quietMake(prime) {
+    if (navigator.audioSession || !IOS) return null;
+    try {
+      if (!quietEl) { quietEl = document.createElement('audio'); quietEl.setAttribute('x-webkit-airplay', 'deny'); quietEl.preload = 'auto'; quietEl.loop = true; quietEl.src = quietWav(); if (prime) quietEl.load(); }
+    } catch (e) { quietEl = null; }
+    return quietEl;
+  }
+  function iosPlayback(on) {
+    iosOn = !!on;
+    try { const S = navigator.audioSession; if (S) { const t = on ? 'playback' : 'auto'; if (S.type !== t) S.type = t; return; } } catch (e) { /* ignore */ }
+    try {
+      if (on) { const el = quietMake(false); if (el && el.paused) quiet(el.play()); }
+      else if (quietEl && !quietEl.paused) quietEl.pause();
+    } catch (e) { /* ignore */ }
+  }
+  // фон звучит (кто — ключ: 'engine', 'song'…): пока хоть один — «воспроизведение»; вернёт, звучит ли фон сейчас
+  const bgOn = new Set();
+  function bgActive(key, on) {
+    const k = String(key || 'bg'), had = bgOn.has(k);
+    if (on) bgOn.add(k); else bgOn.delete(k);
+    if (had !== !!on) iosSync(false);
+    return bgOn.size > 0;
+  }
+  // gesture — зовут из касания: play() тихого элемента наверняка пустят (и «разрешим» его на потом, если фон молчит)
+  function iosSync(gesture) {
+    const want = !!actx && bgOn.size > 0 && !document.hidden && soundMode() !== 'off';
+    if (want) { clearTimeout(iosOff); iosOff = 0; if (!iosOn || gesture) iosPlayback(true); return; }
+    if (!iosOn) { if (gesture) quietMake(true); return; }
+    if (document.hidden || soundMode() === 'off') { clearTimeout(iosOff); iosOff = 0; iosPlayback(false); return; }
+    // фон смолк (вышла из машины, ушла со двора) — не сразу: снова села через секунду — без переключений сессии
+    if (!iosOff) iosOff = setTimeout(() => { iosOff = 0; if (!(bgOn.size > 0 && !document.hidden && soundMode() !== 'off')) iosPlayback(false); }, 3000);
+  }
+  // касание будит звук: фон или «Звук» вкл — контекст создаётся (первое касание) или просыпается (после звонка, сворачивания)
+  function wakeAudio() {
+    if (navigator.userActivation && !navigator.userActivation.isActive) return;
+    touched = true;
+    if (document.hidden || !ambOn()) return;
+    if (ctx()) iosSync(true);
+  }
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, wakeAudio, { capture: true, passive: true }));
+  // свёрнута игра — звук на паузе (и «воспроизведение» отпускаем сразу); вернулась — фон звучит — снова
+  document.addEventListener('visibilitychange', () => {
+    try {
+      if (!actx) return;
+      if (document.hidden) quiet(actx.suspend()); else if (ambOn()) quiet(actx.resume());
+      iosSync(false);
+    } catch (e) { /* ignore */ }
+  });
+  // смена режима звука: ворота, iPhone, подписчики (музыка мест) и событие 'delo:sound'
+  const soundSubs = new Set();
+  function onSound(f) { if (typeof f === 'function') soundSubs.add(f); return () => soundSubs.delete(f); }
+  function soundChanged() {
+    const m = soundMode();
+    knownMode = m;
+    gates(false);
+    iosSync(false);
+    soundSubs.forEach(f => { try { f(m); } catch (e) { console.warn('onSound', e); } });
+    try { window.dispatchEvent(new CustomEvent('delo:sound', { detail: { mode: m, amb: m !== 'off', all: m === 'on' } })); } catch (e) { /* ignore */ }
+  }
   const env = (g, t, vol, att, dur) => { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + att + dur); };
   function osc(type, f, t, dur, vol, out, o = {}) {
     const a = actx, s = a.createOscillator(), g = a.createGain();
@@ -274,18 +390,28 @@
       babble(v, ch, { name: !!inName[i], last: i === lastV && /[!?]\s*$/.test(text) });
     };
   }
-  const soundIcon = () => (state.sound ? '🔊' : '🔇');
-  function toggleSound(btn) {
-    state.sound = !state.sound; save(); haptic('select');
-    if (btn) btn.textContent = soundIcon();
+  // значок и строка состояния: 🔉 — «не трогали» (только машины и музыка), 🔊 — весь звук, 🔇 — тишина
+  const soundIcon = () => ({ on: '🔊', bg: '🔉', off: '🔇' })[soundMode()];
+  const soundText = () => ({ on: 'вкл', bg: 'только машины и музыка', off: 'выкл' })[soundMode()];
+  // значки звука на экране: кнопки (bindSoundBtn, тап по ним), #hudSound, верхняя полоса и меню ☰ (js/world/hud.js)
+  const soundBtns = new Set();
+  function paintSound() {
+    soundBtns.forEach(b => { if (b.isConnected) b.textContent = soundIcon(); else soundBtns.delete(b); });
     const hb = $('#hudSound'); if (hb) hb.textContent = soundIcon();
-    if (window.HUD && HUD.topBar) HUD.topBar.refreshSound();
+    if (window.HUD && HUD.topBar) { try { HUD.topBar.refreshSound(); } catch (e) { /* ignore */ } }
+  }
+  // тап: «не трогали» → весь звук → тишина → весь звук… (выбор запоминается: state.soundSet)
+  function toggleSound(btn) {
+    state.sound = !state.sound; state.soundSet = 1; save(); haptic('select');
+    if (btn) soundBtns.add(btn);
+    syncSound(); paintSound();
     if (state.sound) { audio(); sfx('ok'); if (window.Voice) Voice.warm(); } else if (window.Voice) Voice.stop(0.05);
-    toast(state.sound ? 'Звук включён (на iPhone — если не стоит беззвучный режим)' + (voicesOff() ? '' : '. Долгое нажатие на 🔊 — голоса') : 'Звук выключен', 2000, { replace: true });
+    toast(state.sound ? '🔊 Звук включён — весь: и машины, и кнопки' + (voicesOff() ? '' : '. Долгое нажатие на 🔊 — голоса') : '🔇 Звук выключен — тишина', 2000, { replace: true });
   }
   // кнопка звука: тап — вкл/выкл, долгое нажатие — настройки (звук, голоса)
   function bindSoundBtn(btn) {
     if (!btn) return;
+    soundBtns.add(btn);
     let lp = null, long = false;
     btn.addEventListener('pointerdown', () => { long = false; clearTimeout(lp); lp = setTimeout(() => { long = true; haptic('medium'); soundSheet(); }, 550); });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, () => clearTimeout(lp)));
@@ -296,10 +422,10 @@
   function soundSheet() {
     if (document.querySelector('#layer .snd-sheet')) return;
     const m = document.createElement('div'); m.className = 'modal snd-sheet';
-    const row = (k, label, on) => `<button class="btn ${on ? '' : 'soft'} block" data-k="${k}" style="margin-top:10px">${label}: ${on ? 'вкл' : 'выкл'}</button>`;
+    const row = (k, label, on, txt) => `<button class="btn ${on ? '' : 'soft'} block" data-k="${k}" style="margin-top:10px">${label}: ${txt || (on ? 'вкл' : 'выкл')}</button>`;
     const draw = () => {
       m.innerHTML = `<div class="modal-card"><div class="title h3">Звук</div>
-        ${row('sound', '🔊 Звук', !!state.sound)}${voicesOff() ? '' : row('voices', '💬 Голоса', state.voices !== false) + row('narr', '📖 Рассказчик', state.narr !== false && state.voices !== false)}
+        ${row('sound', soundIcon() + ' Звук', !!state.sound, soundText())}${soundMode() === 'bg' ? '<p class="muted tiny" style="margin-top:8px;font-weight:700">Машины и музыка звучат сами, кнопки молчат. Нажми — будет весь звук, ещё раз — тишина.</p>' : ''}${voicesOff() ? '' : row('voices', '💬 Голоса', state.voices !== false) + row('narr', '📖 Рассказчик', state.narr !== false && state.voices !== false)}
         ${voicesOff() ? '' : '<p class="muted tiny" style="margin-top:10px;font-weight:700">Голоса — герои говорят вслух (где записи нет — мягкий «лепет»). Рассказчик читает текст без героя.</p>'}
         <button class="btn soft block" data-k="x" style="margin-top:12px">Готово</button></div>`;
     };
@@ -341,6 +467,7 @@
   })();
   const defaults = () => ({
     v: 1, sound: !!C.SOUND_DEFAULT,
+    soundSet: 0,   // 1 — игрок сам нажимал «Звук» (нет / 0 — не трогал: фон — машины и музыка — звучит сам, см. soundMode)
     name: '', bow: '#F08FA8', coat: '#E9D4B6', hair: '#4A3128',
     // образ героини (js/hero_looks.js): один из шести id; null — ещё не выбран (старый сейв берёт ближайший по bow/coat)
     look: null,
@@ -452,7 +579,8 @@
   // выборы игрока: что было на момент последней проверки; изменилось — метка времени (track перед записью и слиянием)
   let scal = null;
   const track = () => { if (SS) scal = SS.stampScalars(state, scal, Date.now()); };
-  const resync = () => { if (SS) scal = SS.scalarVals(state); };
+  // после каждого слияния (облако, другая вкладка, сброс): метки выборов и режим звука («Звук» могли выключить на другом устройстве)
+  const resync = () => { if (SS) scal = SS.scalarVals(state); syncSound(); };
   { const stash = readStash(); if (stash && SS) { SS.applyInPlace(state, SS.merge([state, stash], mopts())); writeLocal(); } }
   resync();
 
@@ -1238,7 +1366,7 @@
     C, TG, inTG, CFG_BAD, state: () => state, setState: s => { state = s; }, save, loadCloud, defaults, resetAll, wantsReset, markResetDone, look, setLook,
     mark, restartEp, saveInfo, saveLine, onSaveLate, setBootPhase, flushSave,
     $, esc, wait, skipDialogs, isSkipping, untilNotSkipping, onSkip, show, tapOnce, say, choose, ask, toast, suspicion, sparkle, sparkleAt, confetti,
-    haptic, sfx, audio, audioBus, babble: (who, ch) => babble(voiceOf(who), ch || 'а', {}), voiceLine, soundSheet, bindSoundBtn, toggleSound, soundIcon, setHud, giveSticker, registerFinds, giveFind, FINDS, notebook, exportNotebook, STICKERS, team, teamName, herName,
+    haptic, sfx, audio, audioBus, babble: (who, ch) => babble(voiceOf(who), ch || 'а', {}), voiceLine, soundSheet, bindSoundBtn, toggleSound, soundIcon, soundText, soundMode, ambOn, onSound, bgActive, setHud, giveSticker, registerFinds, giveFind, FINDS, notebook, exportNotebook, STICKERS, team, teamName, herName,
     addSpeakers, emojiAvatar, speakers, bumpNb, nbCount, nbExtras: null, nbBind: null, nbExtraCount: null, saveSizes: () => ({ main: mainRaw().length, town: (townRaw() || '').length }),
     wave, waved, onWave, nameOk, heroHi,
     tgUserFirstName, tgHeader, openTgLink, inviteLink, readInvite, shareLink, ep, step, fmtTime, activeNow, isReleased, layer, app,

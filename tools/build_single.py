@@ -39,8 +39,8 @@ STORY_ONLY=1 — промежуточная сборка без прогулки
                     window.__VOICE_INLINE (base64) перед js/voice.js; voice.js берёт их оттуда без сети — файл работает
                     и по file:// (двойной клик, отправка файлом). Папка voice/ рядом не копируется. Имя файла — с суффиксом
                     .all-in-one (например, dist/delo-10-10.preview.all-in-one.html). Файл большой (≈ +20 МБ).
-Звуки мест: папка audio/ (песня двора свадьбы, js/village/wedding_song.js) копируется рядом с итоговым файлом, как looks/
-  (site/index.html -> site/audio/); не встраивается никогда.
+Звуки: папка audio/ (записи моторов — js/engine_sound.js, песня двора свадьбы — js/village/wedding_song.js) копируется рядом
+  с итоговым файлом, как looks/ (site/index.html -> site/audio/); не встраивается никогда.
 Метка сборки (любая сборка, dev и --prod): первым встроенным скриптом идёт window.BUILD_INFO = { id, at }: id — первые 8 знаков
   sha1 всех скриптов собранного файла (считается до вставки метки: тот же код → тот же id), at — время сборки по Москве
   «ДД.ММ ЧЧ:ММ». Внизу меню ☰ — «версия 16.10 14:05 · 1a2b3c4d» (js/world/hud.js); без сборки (index.html/world.html) — «версия dev»."""
@@ -604,15 +604,17 @@ def copy_looks(out_file):
     print(f'образы: {len(names)} файлов, {size / 1048576:.1f} МБ -> {dst} (обновлено {n}); выкладывать папку looks/ рядом с index.html')
 # ===== /ОБРАЗЫ ======================================================================================================
 
-# ===== ЗВУКИ МЕСТ (AUDIO) — песня двора свадьбы и другие записи мест ===============================================
-# Папка audio/ (mp3 с хэшем в имени: audio/wedding.<sha1:8>.mp3 — js/village/wedding_song.js) копируется рядом с итоговым
-# файлом, как looks/: dist/delo-10-10.html + dist/audio/, --out site/index.html -> site/audio/. Записи не встраиваются никогда
-# (и в --embed-voices тоже: 3 МБ песни в base64 — +4 МБ к файлу, а грузится она лениво, только у двора). Без папки игра
-# работает — песни нет (модуль сам замолкает после ошибки загрузки). Лишние файлы в папке назначения удаляются.
+# ===== ЗВУКИ (AUDIO) — записи: мотор машин (tools/engine_audio.py) и музыка мест (песня двора свадьбы) =================
+# Папка audio/ (mp3 с хэшем содержимого в имени: engine_*.<sha1:8>.mp3 — js/engine_sound.js, wedding.<sha1:8>.mp3 —
+# js/village/wedding_song.js) копируется рядом с итоговым файлом, как looks/: dist/delo-10-10.html + dist/audio/,
+# --out site/index.html -> site/audio/. Записи не встраиваются никогда (и в --embed-voices тоже: 3 МБ песни в base64 —
+# +4 МБ к файлу, а грузится она лениво, только у двора; по file:// мотор звучит прежним синтезом). Без папки игра работает:
+# мотор — синтез WebAudio (js/engine_sound.js сам это понимает), песни нет (модуль замолкает после ошибки загрузки).
+# Лишние файлы в папке назначения удаляются.
 def copy_audio(out_file):
     src = os.path.join(ROOT, 'audio')
     if not os.path.isdir(src) or not any(f.endswith('.mp3') for f in os.listdir(src)):
-        print('звуки мест: папки audio/ нет — без песни во дворе свадьбы')
+        print('звуки: папки audio/ нет — мотор машин синтезом, без песни во дворе свадьбы')
         return
     dst = os.path.join(os.path.dirname(os.path.abspath(out_file)), 'audio')
     if os.path.abspath(dst) == os.path.abspath(src):
@@ -629,15 +631,16 @@ def copy_audio(out_file):
     for fn in os.listdir(dst):
         if fn not in names and os.path.isfile(os.path.join(dst, fn)):
             os.remove(os.path.join(dst, fn))
-    # путь в коде (FILE в js/village/wedding_song.js) должен совпасть с файлом в папке — иначе песни не будет, громко
-    try:
-        m = re.search(r"const FILE = '(audio/[^']+)'", open(os.path.join(ROOT, 'js', 'village', 'wedding_song.js'), encoding='utf-8').read())
-        if m and not os.path.isfile(os.path.join(dst, os.path.basename(m.group(1)))):
-            print(f'WARN: звуки мест: в js/village/wedding_song.js путь {m.group(1)}, а в audio/ такого файла нет')
-    except OSError:
-        pass
-    print(f'звуки мест: {len(names)} файлов, {size / 1048576:.1f} МБ -> {dst} (обновлено {n}); выкладывать папку audio/ рядом с index.html')
-# ===== /ЗВУКИ МЕСТ ==================================================================================================
+    # пути в коде должны совпасть с файлами в папке — иначе песни не будет (мотор — синтезом), громко
+    for js, rx in (('js/village/wedding_song.js', r"const FILE = '(audio/[^']+)'"), ('js/engine_sound.js', r'"file":"(engine_[^"]+\.mp3)"')):
+        try:
+            for path in re.findall(rx, open(os.path.join(ROOT, *js.split('/')), encoding='utf-8').read()):
+                if not os.path.isfile(os.path.join(dst, os.path.basename(path))):
+                    print(f'WARN: звуки: в {js} путь {path}, а в audio/ такого файла нет')
+        except OSError:
+            pass
+    print(f'звуки: {len(names)} файлов, {size / 1048576:.2f} МБ -> {dst} (обновлено {n}); выкладывать папку audio/ рядом с index.html')
+# ===== /ЗВУКИ =======================================================================================================
 
 
 def main():
@@ -669,7 +672,7 @@ def main():
             copy_voice(args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ГОЛОСА (VOICE)
         # ОБРАЗЫ (LOOKS): ролики не встраиваются никогда, папка looks/ всегда рядом
         copy_looks(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))
-        copy_audio(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ЗВУКИ МЕСТ: так же
+        copy_audio(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ЗВУКИ (AUDIO): так же
         return r
     html = build_html()
     os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
@@ -685,7 +688,7 @@ def main():
     if not args.embed_voices:
         copy_voice(out)   # ГОЛОСА (VOICE)
     copy_looks(out)   # ОБРАЗЫ (LOOKS)
-    copy_audio(out)   # ЗВУКИ МЕСТ (AUDIO)
+    copy_audio(out)   # ЗВУКИ (AUDIO)
 
 
 if __name__ == '__main__':

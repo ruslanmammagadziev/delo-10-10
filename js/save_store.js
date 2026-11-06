@@ -319,7 +319,7 @@
   const FLAGS = ['waved', 'introDone', 'walkedOnce', 'walked3d', 'catSweater', 'metBee'];
   const CHOICE = ['catHelper', 'drink', 'syrnik', 'bouquet'];
   const HANDLED = new Set(['v', '_s', 'updated', 'eps', 'stickers', 'finds', 'versions', 'ratings', 'riddles', 'team', 'invite', 'hudSeen',
-    'engHint', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner'].concat(PREFS, FLAGS, CHOICE));
+    'engHint', 'soundSet', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner'].concat(PREFS, FLAGS, CHOICE));
   // раннер «Бег» (state.runner { best, bestDist, coins, runs, tut, last, bestLevel, lv, finds }): рекорды и счётчики — максимум по копиям (сыграли
   // позже на втором устройстве — рекорд первого не пропадает), подсказки пройдены — если хоть где-то, last — из самой новой
   // копии. Ключ «знакомый» — и в сжатую облачную копию попадает (≈ 80 символов)
@@ -392,6 +392,8 @@
     PREFS.forEach(k => {
       const src = prefsLocal && has(L0, k) ? L0 : (has(N, k) ? N : ord.find(x => has(x, k)));
       if (src) out[k] = clone(src[k]);
+      // «Звук» и «сама нажимала Звук» (soundSet) — парой из одной копии: старая копия без soundSet не делает чужое «выкл» своим
+      if (src && k === 'sound' && has(src, 'soundSet')) out.soundSet = clone(src.soundSet);
     });
     const w = mergeWorld(ord, L0.world, prefsLocal);
     if (w !== undefined) out.world = w;
