@@ -32,6 +32,9 @@
                     (jingle — звон кольчуги, crack — щелчок плётки в воздухе, flash — «фото», say — короткий возглас ряженого);
                     h.setNight(k 0..1) — гирлянды-фонарики светят
      h.info       — { calls, tris, animals, bones }; h.lod — 0 близко / 1 средне / 2 далеко; h.dispose()
+     h.acoustics  — для песни двора (js/village/wedding_song.js): { x, y, z, ry — рамка двора; hx, z0, z1 — ограда в осях двора;
+                    top — высота стен; circle [x, z, r] — круг танца; band [x, z, r] — музыканты; gate [x, w] — ворота на z1 }
+     h.dance.sync(fn, bpm) — мини-игра по часам песни: fn() → доля удара (целое — удар) или null; удары и нажатия — по ней
    Бюджет: ≤ 40 вызовов и ≤ 60 тыс. треугольников на всю сцену. Все зверята и ряженые — ОДНА сетка со скелетом (SkinnedMesh) +
    контур + лица (атлас) + «ткани» (маски, кольчуги, платки — атлас 1024×2048): 4 вызова на всех. Реквизит — 2 сетки.
    ===================================================================== */
@@ -2696,6 +2699,7 @@
     /* --- мини-игра «в такт» --- */
     const dance = {
       active: false, t: 0, dur: 12, bpm: BPM, combo: 0, hits: 0, misses: 0, perfect: 0, beats: 0, lastBeat: -1, ang: 0, slot: null, on: null, result: null, tapped: new Set(),
+      clock: null, cb: 0, cbs: BEAT,   // часы песни двора (sync): последняя доля удара и длина удара песни, с
       start() {
         if (this.active) return { slot: this.slot, dur: this.dur, bpm: this.bpm };
         const hl = heroLocal();
@@ -2704,14 +2708,28 @@
         this.slot = { x: w.x, y: w.y, z: w.z, ry: A.ry + this.ang + PI };
         if (st.prank) endPrank();
         this.active = true; this.t = 0; this.combo = 0; this.hits = 0; this.misses = 0; this.perfect = 0; this.beats = 0; this.result = null; this.tapped = new Set();
+        this.clock = null; this.bpm = BPM; this.cbs = BEAT; this.lastBeat = -1;
         st.beatClap = true;
         this.fire({ type: 'start', text: pick(EV.danceStart, named).text, who: 'wed_drum', slot: this.slot, dur: this.dur, bpm: this.bpm });
         return { slot: this.slot, dur: this.dur, bpm: this.bpm };
       },
-      // нажатие: ближайший удар (каждые BEAT с) — точно ±0,1 с, хорошо ±0,2 с
+      // песня двора (js/village/wedding_song.js): fn() → доля удара песни (целое — удар бочки) или null, bpm — темп песни. Пока часы
+      // идут — удары («beat») и оценка нажатий по песне, а не по своему счёту (иначе барабан 116 в минуту спорил бы с песней 96);
+      // встали (песню выключили, свернули) — счёт идёт дальше своим временем с того же места. Танцоры и музыканты — как раньше
+      sync(fn, bpm) {
+        if (!this.active || typeof fn !== 'function') return false;
+        let b = null; try { b = fn(); } catch (e) { b = null; }
+        if (typeof b !== 'number' || !isFinite(b)) return false;
+        this.clock = fn; this.bpm = bpm > 0 ? bpm : BPM; this.cbs = 60 / this.bpm; this.cb = b; this.lastBeat = Math.floor(b);
+        return true;
+      },
+      clockNow() { let b = null; try { b = this.clock(); } catch (e) { b = null; } return typeof b === 'number' && isFinite(b) ? b : null; },
+      // нажатие: ближайший удар (каждые BEAT с; с песней — удар песни) — точно ±0,1 с, хорошо ±0,2 с
       tap() {
         if (!this.active) return { grade: 'none' };
-        const ph = this.t / BEAT, k = Math.round(ph), d = Math.abs(ph - k) * BEAT;
+        const cb = this.clock ? this.clockNow() : null;
+        const ph = this.clock ? (cb !== null ? cb : this.cb) : this.t / BEAT, bs = this.clock ? this.cbs : BEAT;
+        const k = Math.round(ph), d = Math.abs(ph - k) * bs;
         let grade = 'miss';
         if (!this.tapped.has(k)) { if (d <= 0.1) grade = 'perfect'; else if (d <= 0.2) grade = 'good'; }
         if (grade !== 'miss') { this.tapped.add(k); this.hits++; this.combo++; if (grade === 'perfect') this.perfect++; } else { this.combo = 0; this.misses++; }
@@ -2721,7 +2739,7 @@
       },
       stop() { if (!this.active) return null; return this.finish(); },
       finish() {
-        this.active = false; st.beatClap = false;
+        this.active = false; st.beatClap = false; this.clock = null;
         // точность: попадания минус половина лишних нажатий (стучать без остановки не выгодно)
         const acc = this.beats ? Math.max(0, (this.hits - 0.5 * this.misses) / this.beats) : 0;
         this.result = { hits: this.hits, misses: this.misses, beats: this.beats, perfect: this.perfect, acc: +acc.toFixed(2), text: pick(acc >= 0.5 ? EV.danceGood : EV.danceOk, named).text };
@@ -2731,7 +2749,14 @@
       update(dt) {
         if (!this.active) return;
         this.t += dt;
-        const k = Math.floor(this.t / BEAT);
+        let k;
+        if (this.clock) {
+          // песня встала — дальше своим временем; прыжок (стык петли, перемотка) — без «лишнего» удара
+          let b = this.clockNow();
+          if (b === null) b = this.cb + dt / this.cbs;
+          else if (b < this.cb - 0.5 || b > this.cb + 3) this.lastBeat = Math.floor(b);
+          this.cb = b; k = Math.floor(b);
+        } else k = Math.floor(this.t / BEAT);
         if (k !== this.lastBeat) { this.lastBeat = k; this.beats++; this.fire({ type: 'beat', n: k }); }
         if (this.t >= this.dur) this.finish();
       },
@@ -2841,8 +2866,18 @@
     stage.updateMatrixWorld(true);
 
     let tris = 0; [meshBody, meshOl, meshTex, meshFace, meshProps, meshCloth, meshLit, ...flagMeshes].forEach(m => { if (m) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+    // звук двора (песня, js/village/wedding_song.js): рамка двора (мир) и в его осях — ограда с галереями (z1 — стена с воротами),
+    // круг танца, музыканты, проём ворот: песня громче в круге и у музыкантов, тише к стенам, глуше за стеной, яснее напротив ворот
+    const acoustics = (() => {
+      const c = Math.cos(A.ry), s = Math.sin(A.ry), loc = (x, z) => [(x - A.x) * c - (z - A.z) * s, (x - A.x) * s + (z - A.z) * c];
+      const galW = Array.isArray(A.galleries) && A.galleries.length ? Math.max(...A.galleries.map(q => +q.w || 0)) : 0;
+      const gl = A.gate && isFinite(A.gate.x) && isFinite(A.gate.z) ? loc(A.gate.x, A.gate.z) : null;
+      const mus = animals.filter(a => a.role === 'zurna' || a.role === 'drum');
+      const band = mus.length ? [mus.reduce((q, a) => q + a.x, 0) / mus.length, mus.reduce((q, a) => q + a.z, 0) / mus.length, 1.2] : null;
+      return { x: A.x, y: A.y, z: A.z, ry: A.ry, hx: HW + galW, z0: -HD, z1: gl ? Math.max(HD, gl[1]) : HD, top: 5, circle: [RC[0], RC[1], R0], band, gate: gl ? [gl[0], +A.gate.w || 2.4] : null };
+    })();
     const h = {
-      group, stage, npcs, spots, colliders: worldCol, update, act, dance, setNight,
+      group, stage, npcs, spots, colliders: worldCol, update, act, dance, setNight, acoustics,
       onPrank(cb) { if (typeof cb === 'function') prankCbs.push(cb); return h; },
       onEvent(cb) { (st.evCb || (st.evCb = [])).push(cb); return h; },
       setHero(hero, anim) { st.hero = hero || null; st.heroAnim = anim || (hero && hero.rig ? hero.rig.anim : null); return h; },

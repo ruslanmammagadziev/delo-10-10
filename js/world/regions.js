@@ -1290,7 +1290,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.runner = true; S.moveTo = null;
       const res = await WORLD.runner.start({
         renderer, hero, quality: regionQ === 'high' ? 'high' : 'low',
-        pause: () => { cancelAnimationFrame(raf); raf = 0; bindInput(false); },
+        pause: () => { cancelAnimationFrame(raf); raf = 0; bindInput(false); songPause(false); },
         resume: () => {
           S.runner = false;
           if (!S.active) return;
@@ -1691,6 +1691,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const ret = { inCar: cap ? cap.inCar : false, at: rs.at, trip: Object.assign({}, S.trip) };
       cancelAnimationFrame(raf); raf = 0;
       bindInput(false);
+      songPause(true);
       hudEnd();
       document.body.classList.remove('wr-road-quiet');
       if (S.ck) { try { S.ck.on(false); } catch (e) { /* ok */ } S.ck = null; }
@@ -2132,6 +2133,19 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       await fade('', () => { S.inShop = null; setView(null); S.px = shop.door[0]; S.pz = shop.door[2]; S.py = h.ground(S.px, S.pz); S.ang = shop.door[3]; S.yaw = shop.door[3]; S.camInit = false; if (hero && hero.rig) hero.rig.prev = null; });
     }
 
+    /* ---------- песня двора свадьбы (VILLAGE.weddingSong, js/village/wedding_song.js) ----------
+       Каждый кадр: в селе — по месту героини (громче в круге и у музыкантов, тише к стенам, глухо за стеной); в другом месте
+       или без двора — затихает и встаёт на паузу. Окно диалога, карточка (blocked) — тише. Раннер и конец поездки — пауза
+       (вернулась во двор — с того же места); свёрнутая игра, «Звук» и «мёртвая рука» — внутри модуля */
+    const SONG = () => (V_() && V_().weddingSong) || null;
+    function songStep(dt) {
+      const sg = SONG(); if (!sg) return;
+      const W = S.rid === 'kubachi' && S.h ? S.h.wedding : null;
+      try { sg.update(dt, W ? { x: S.px, y: S.py, z: S.pz } : null, W, { duck: !!blkTick }); } catch (e) { if (!S.songErr) { S.songErr = true; console.warn('region song', e); } }
+    }
+    function songPause(stop) { const sg = SONG(); if (!sg) return; try { if (stop) sg.stop(0.6); else sg.pause(0.5); } catch (e) { /* звук не главное */ } }
+    const songBeat = () => { const sg = SONG(); try { return sg ? sg.beat() : null; } catch (e) { return null; } };
+
     /* ---------- W4A: свадьба во дворе (VILLAGE.wedding) — героиня приглашена на праздник ---------- */
     function onPrank(ev) {
       const W = S.h && S.h.wedding; if (!W || !ev) return;
@@ -2187,6 +2201,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       iaStop();
       const sl = d.slot; placeHero(sl.x, sl.z, sl.ry, sl.ry); S.sitting = null; S.view = null;
       S.dance = { W, beats: 0, taps: 0, slot: sl };
+      // песню двора слышно — мини-игра по ударам песни (бочка песни — и есть барабан: свой синтез молчит); не слышно — как раньше
+      { const sg = SONG(); S.dance.song = !!(sg && W.dance.sync && songBeat() !== null && W.dance.sync(songBeat, sg.BPM)); }
       // волна 4 (интегратор): свой кадр на танец — сверху-сбоку со стороны двора (как вид «Свадьба», но ближе): видно круг, её и молодых;
       // камера «за спиной» упиралась в стену двора или смотрела сквозь гирлянды
       { const V = S.h.camera && S.h.camera.views, v0 = V && V.wedding;
@@ -2196,13 +2212,18 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const tb = ui.tap;
       W.dance.on = ev => {
         if (!S.dance || !ui) return;
-        if (ev.type === 'beat') { S.dance.beats++; if (ev.n % 2 === 0) S.waveT = 0.42; tb.classList.add('beat'); setTimeout(() => tb && tb.classList.remove('beat'), 110); sfx('drum'); }
+        if (ev.type === 'beat') {
+          // танец начат, пока песня ещё не звучала (ждала касания или файла, снималась с паузы), а теперь песню слышно — дальше
+          // по ней: этот удар своего счёта (116 в минуту) пропускаем, барабан игры больше не стучит поверх песни (96)
+          if (!S.dance.song && songBeat() !== null) { const sg = SONG(); if (sg && W.dance.sync && W.dance.sync(songBeat, sg.BPM)) { S.dance.song = true; toast('Жми «Хоп!» в такт музыке', 2000); return; } }
+          S.dance.beats++; if (ev.n % 2 === 0) S.waveT = 0.42; tb.classList.add('beat'); setTimeout(() => tb && tb.classList.remove('beat'), 110); if (!S.dance.song || songBeat() === null) sfx('drum');
+        }
         else if (ev.type === 'hit') { if (ev.grade === 'perfect') S.cheerT = 0.45; if (ev.text) { tb.textContent = ev.text; clearTimeout(S.dance.tt); S.dance.tt = setTimeout(() => { if (ui) tb.textContent = 'Хоп!'; }, 380); } }
         else if (ev.type === 'end') endDance(ev);
       };
       tb.textContent = 'Хоп!'; show(tb, true); updKazBtn();
       const dr = npcBy(d.who || 'wed_drum'); if (dr && d.text) { bubble(npcHead(dr), d.text, dr.name, 2600); voiceBubble(dr.speaker || dr.id, d.text); dr.faceHero = 2; }
-      toast('Жми «Хоп!» в такт барабану', 2600);
+      toast(S.dance.song ? 'Жми «Хоп!» в такт музыке' : 'Жми «Хоп!» в такт барабану', 2600);
     }
     function endDance(res) {
       const D = S.dance; if (!D) return; S.dance = null; if (ui) show(ui.tap, false); updKazBtn();
@@ -3207,6 +3228,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { S.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
       try {
         blkTick = null; blkTick = blocked();
+        songStep(dt);   // песня двора свадьбы — по месту героини прошлого кадра (все ветки ниже: пешком, машина, полёт, зиплайн)
         // джойстик раз в кадр (сила и курс → joy.x/y, lx/ly) и бег — палец за краем кружка (только пешком: не в машине, не на
         // лестнице, не в полёте и не в игре)
         const noRun = S.zoneIn && !(S.zone && S.zone.run);   // волна 10: в зале кофейни не бегают (и Shift); волна «комбинат»: бег — по зоне (zone.run: длинный коридор)
@@ -3475,7 +3497,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         kazBtn: () => kazBtn(),
         car: () => ({ kind: car ? carKind() : null, own: ownCar, drv: drv ? drv.mode : null, cfg: drv ? { halfL: drv.cfg.halfL, halfW: drv.cfg.halfW } : null, lamps: S.carLamps }),
         pets: () => pets.map(p => ({ kind: p.kind, state: p.state, x: +p.x.toFixed(2), z: +p.z.toFixed(2), d: +Math.hypot(p.x - S.px, p.z - S.pz).toFixed(2), anim: !!p.I || !!p.cat, inScene: !!scene && p.root.parent === scene, onCar: !!(car && p.root.parent === car.body) })),
-        wed: () => { const W = S.h && S.h.wedding; return W ? { dance: !!S.dance, danceActive: W.dance.active, last: S.lastDance || null, treats: S.treats, treat: S.treat || null, prank: W.prankState, prankLog: S.prankLog.slice(), lod: W.lod } : null; },
+        wed: () => { const W = S.h && S.h.wedding; return W ? { dance: !!S.dance, danceActive: W.dance.active, danceSong: !!(S.dance && S.dance.song), danceBpm: W.dance.bpm, last: S.lastDance || null, treats: S.treats, treat: S.treat || null, prank: W.prankState, prankLog: S.prankLog.slice(), lod: W.lod } : null; },
+        song: () => { const sg = SONG(); return sg ? sg.debug() : null; },
         wedSpot: id => goSpot(id),
         danceTap: () => danceTap(),
         danceAuto: on => { S.danceAuto = !!on; return S.danceAuto; },

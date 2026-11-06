@@ -129,6 +129,7 @@
   <script src="js/village/bazaar.js" onerror="void 0"></script>
   <script src="js/village/kaz.js" onerror="void 0"></script>
   <script src="js/village/wedding.js" onerror="void 0"></script>
+  <script src="js/village/wedding_song.js" onerror="void 0"></script>
   <script src="js/village/hotel.js" onerror="void 0"></script>
   <script src="js/village/zipline.js" onerror="void 0"></script>
   <script src="js/interact.js" onerror="void 0"></script>
@@ -723,16 +724,22 @@
       const sl = d.slot; placeHero(sl.x, sl.z, sl.ry, sl.ry); S.sitting = null; S.view = null;
       if (hero && hero.rig) hero.rig.prev = null;
       S.dance = { W, beats: 0, taps: 0, slot: sl };
+      // песню двора слышно — удары и нажатия по ней (как в игре, js/world/regions.js)
+      { const sg = SONG(); S.dance.song = !!(sg && W.dance.sync && songBeat() !== null && W.dance.sync(songBeat, sg.BPM)); }
       const tb = $('tapBtn');
       W.dance.on = ev => {
         if (!S.dance) return;
-        if (ev.type === 'beat') { S.dance.beats++; if (ev.n % 2 === 0) S.waveT = 0.42; tb.classList.add('beat'); setTimeout(() => tb.classList.remove('beat'), 110); }
+        if (ev.type === 'beat') {
+          // песню стало слышно посреди танца (начат до неё) — дальше по ударам песни (как в игре, js/world/regions.js)
+          if (!S.dance.song && songBeat() !== null) { const sg = SONG(); if (sg && W.dance.sync && W.dance.sync(songBeat, sg.BPM)) { S.dance.song = true; toast('Жми «Хоп!» в такт музыке', 2000); return; } }
+          S.dance.beats++; if (ev.n % 2 === 0) S.waveT = 0.42; tb.classList.add('beat'); setTimeout(() => tb.classList.remove('beat'), 110);
+        }
         else if (ev.type === 'hit') { if (ev.grade === 'perfect') S.cheerT = 0.45; if (ev.text) { tb.textContent = ev.text; clearTimeout(S.dance.tt); S.dance.tt = setTimeout(() => { tb.textContent = 'Хоп!'; }, 380); } }
         else if (ev.type === 'end') endDance(ev);
       };
       tb.textContent = 'Хоп!'; tb.classList.add('on'); updKazBtn();
       const dr = npcBy(d.who || 'wed_drum'); if (dr && d.text) { bubble(npcHead(dr), d.text, dr.name, 2600); dr.faceHero = 2; }
-      toast('Жми «Хоп!» в такт барабану', 2600);
+      toast(S.dance.song ? 'Жми «Хоп!» в такт музыке' : 'Жми «Хоп!» в такт барабану', 2600);
     }
     function endDance(res) {
       const D = S.dance; if (!D) return; S.dance = null; $('tapBtn').classList.remove('on'); updKazBtn();
@@ -1173,6 +1180,15 @@
         if (ev.line) { const cow = h.npcs.filter(n => n.speaker === 'cow' && n.root.visible).sort((a, b) => Math.hypot(a.x - S.px, a.z - S.pz) - Math.hypot(b.x - S.px, b.z - S.pz))[0]; if (cow && Math.hypot(cow.x - S.px, cow.z - S.pz) < 16) later(1700, () => { bubble(npcHead(cow), ev.line.text, cow.name, 2600); cow.faceHero = 2.5; }); }
       });
     }
+    /* ---------- песня двора свадьбы (js/village/wedding_song.js): игры на стенде нет — свой AudioContext модуля (просыпается
+       первым касанием); ?song=0 — без песни. Карточка места открыта — тише, как в игре ---------- */
+    const SONG = () => (Q.get('song') === '0' ? null : V.weddingSong || null);
+    function songStep(dt) {
+      const sg = SONG(); if (!sg) return;
+      const W = S.rid === 'kubachi' && S.region ? S.region.wedding : null;
+      try { sg.update(dt, W ? { x: S.px, y: S.py, z: S.pz } : null, W, { duck: $('card').classList.contains('on') }); } catch (e) { if (!S.songErr) { S.songErr = true; console.warn('village: song', e); } }
+    }
+    const songBeat = () => { const sg = SONG(); try { return sg ? sg.beat() : null; } catch (e) { return null; } };
     let last = performance.now(), fpsAcc = 0, fpsN = 0;
     function tick() {
       requestAnimationFrame(tick);
@@ -1203,6 +1219,7 @@
       if (shadowProxy) { hero.root.updateMatrixWorld(true); shadowProxy.update(); }
       updCamera(dt);
       S.region.update(dt, { x: S.px, y: S.py, z: S.pz }, camera);
+      songStep(dt);
       pollEvents();
       if (dn) { if (dn.actorWarm) dn.actorWarm(S.region.indoor ? S.region.indoor() : 0); dn.update(dt, camera); const k = dn.lampsOn() ? Math.max(0.65, dn.night()) : dn.night() * 0.5; if (Math.abs(k - S.night) > 0.004 && S.region.setNight) { S.night = k; S.region.setNight(k); }
         const lo = dn.lampsOn(); if (car && car.setNight && lo !== S.carLamps) { S.carLamps = lo; try { car.setNight(lo ? 1 : 0); } catch (e) { /* ok */ } } }
@@ -1497,7 +1514,8 @@
       menu: () => { menu(); return true; },
       closeMenu: () => { closeMenu(); return true; },
       // свадьба: место (treat | dance | congrats), такт, итог танца, розыгрыш
-      wed: () => { const W = S.region && S.region.wedding; return W ? { dance: !!(S.dance), danceActive: W.dance.active, last: S.lastDance || null, treats: S.treats || 0, treat: S.treat || null, prank: W.prankState, prankLog: (S.prankLog || []).slice(), lod: W.lod } : null; },
+      wed: () => { const W = S.region && S.region.wedding; return W ? { dance: !!(S.dance), danceActive: W.dance.active, danceSong: !!(S.dance && S.dance.song), danceBpm: W.dance.bpm, last: S.lastDance || null, treats: S.treats || 0, treat: S.treat || null, prank: W.prankState, prankLog: (S.prankLog || []).slice(), lod: W.lod } : null; },
+      song: () => { const sg = SONG(); return sg ? sg.debug() : null; },
       wedSpot: id => { const sp = S.region.spots.find(s => s.id === id); if (!sp) return false; S.level = 'ground'; S.px = sp.x; S.pz = sp.z; S.py = S.region.ground(sp.x, sp.z); useSpot(sp); return true; },
       danceTap: () => danceTap(),
       danceAuto: on => { S.danceAuto = !!on; return S.danceAuto; },

@@ -17,7 +17,7 @@ LAYOUT = os.path.join(os.path.dirname(ROOT), 'plan2', 'kubachi_blockout', 'layou
 rd = lambda p: open(os.path.join(ROOT, p), encoding='utf-8').read()
 OPTIONAL = {'js/hero3d.js', 'js/hero_anim.js', 'js/world/kit.js', 'js/world/actors.js', 'js/world/car.js',
             'js/village/serpentine.js', 'js/village/drive.js', 'js/village/bazaar.js', 'js/village/kaz.js',
-            'js/village/wedding.js', 'js/village/hotel.js', 'js/village/zipline.js', 'js/village/summit.js',
+            'js/village/wedding.js', 'js/village/wedding_song.js', 'js/village/hotel.js', 'js/village/zipline.js', 'js/village/summit.js',
             'js/interact.js', 'js/daynight.js', 'js/vehicles/sedan.js',
             'js/village/kombinat_sign.js', 'js/village/kombinat_in.js', 'js/village/kombinat.js'}   # волна «комбинат»: вывеска, начинка, корпус
 
