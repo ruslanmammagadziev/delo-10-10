@@ -14,14 +14,20 @@
    MediaElementAudioSourceNode → «глухость» (lowpass) → стык → громкость → шина музыки игры G.audioBus('music') (у шины
    ограничитель общий со всеми звуками). Стенд без игры (village.html) — свой AudioContext с тем же ограничителем.
    iPhone: HTMLMediaElement.volume там не работает — громкость только узлами WebAudio. Элемент «разрешается» первым касанием
-   (play() в жесте; до приезда к двору — беззвучный прогрев и снова пауза), отказ play() без жеста — повтор на следующем
-   касании, без второго экземпляра: элемент и узлы — одни на всю игру. Сессию звука (navigator.audioSession) модуль не
-   трогает: на всю игру сессию ставит js/voice.js первым касанием ('playback' — звук и при беззвучном режиме, чужая музыка
-   встаёт); поэтому свёрнутая игра — пауза элемента сразу, в том же обработчике (иначе <audio> мог бы играть в фоне).
+   (play() в жесте; до приезда к двору — прогрев с выключенным звуком элемента (muted) и снова пауза: беззвучный элемент
+   сессию звука не берёт и чужую музыку не останавливает), отказ play() без жеста — повтор на следующем касании, без
+   второго экземпляра: элемент и узлы — одни на всю игру. Сессию звука (navigator.audioSession) модуль сам не трогает: ею
+   управляет js/engine.js — модуль только говорит, когда песня РЕАЛЬНО играет: G.bgActive('song', true) после настоящего
+   play() (не прогрева), false — на паузе, остановке, ошибке файла и dispose(). Пока фон звучит (мотор или песня) — 'playback'
+   (звук и при беззвучном переключателе, чужая музыка встаёт), смолк — через 3 с снова 'auto'. Свёрнутая игра — пауза
+   элемента сразу, в том же обработчике (иначе <audio> мог бы играть в фоне при 'playback').
    Нет WebAudio (или страница открыта файлом — там MediaElementSource отдаёт нули) — запасной путь: громкость самого
    элемента; там, где и громкости элемента нет (iOS), — тишина, а не песня на полную громкость поверх игры.
-   Файл грузится лениво: только когда героиня ближе LOAD_R к двору и «Звук» включён (не при старте игры и не в городе).
-   Уважает «Звук» игры (выключен — тишина за ~0,3 с, включили во дворе — песня плавно появляется), свёрнутую игру /
+   Файл грузится лениво: только когда героиня ближе LOAD_R к двору и фон игры звучит (не при старте игры и не в городе).
+   Песня — фон игры, как мотор машин (желание автора: «песня на свадьбе звучит сама, без кнопки „Звук“»): режим звука
+   js/engine.js — G.ambOn(): 'bg' («Звук» не трогали — так у всех по умолчанию и у старых сохранений) и 'on' — играет;
+   'off' (выключила сама) — тишина за ~0,15 с и пауза (G.onSound — сразу, не ждать шага); включили во дворе — песня плавно
+   появляется в том же касании. Уважает свёрнутую игру /
    Telegram (сразу пауза, вернулась — продолжение), окна диалога и карточки (o.duck: приглушение до 0,45 ≈ −7 дБ), выход из
    региона и раннер (stop / pause), «мёртвую руку»: шаги перестали приходить (пауза, шторка, карусель образов) — громкость
    сама уходит в ноль внутри аудио через 0,9 с, через 1,6 с без шагов элемент встаёт на паузу.
@@ -82,12 +88,28 @@
 
   const conf = () => (window.CONFIG ? CONFIG.WEDDING_SONG : undefined);
   const fileUrl = () => (typeof conf() === 'string' && conf() ? conf() : FILE);
-  // «Звук» игры (стенд без игры — всегда «да»), свой выключатель, свёрнутая игра, автор выключил песню
+  // фон игры звучит (G.ambOn: «Звук» не выключали — режимы 'bg' и 'on'; старая игра без режимов — «Звук» вкл; стенд без
+  // игры — всегда «да»), свой выключатель, свёрнутая игра, автор выключил песню
   function soundOn() {
     if (muted || hidden || disposed || conf() === false) return false;
     const gg = window.G;
+    if (gg && typeof gg.ambOn === 'function') { try { return !!gg.ambOn(); } catch (e) { return false; } }
     if (gg && typeof gg.state === 'function') { try { const st = gg.state(); return !!(st && st.sound); } catch (e) { return false; } }
     return true;
+  }
+  // песня реально играет (не прогрев) — игре (js/engine.js): iPhone держит режим «воспроизведение», пока фон звучит.
+  // Ключ один — повторы безвредны (множество, не счётчик)
+  let bgOn = false;
+  function bg(on) {
+    on = !!on; if (on === bgOn) return; bgOn = on;
+    const gg = window.G; if (gg && typeof gg.bgActive === 'function') { try { gg.bgActive('song', on); } catch (e) { /* ок */ } }
+  }
+  // смена режима звука (тап «Звук», облако, сброс): «выкл» — тишина и пауза сразу, не дожидаясь шага (ворота игры фон и так
+  // закрыли); «вкл»/«не трогали» — песню вернёт шаг (у двора — плавно). Подписка — один раз, при первом шаге
+  let unsub = null;
+  function subscribe() {
+    const gg = window.G; if (unsub || !gg || typeof gg.onSound !== 'function') return;
+    try { unsub = gg.onSound(m => { if (m === 'off' && el) pause(0.15); }); } catch (e) { unsub = null; }
   }
 
   /* ---------- громкость по месту ----------
@@ -159,13 +181,14 @@
   function volOk(e) { try { e.volume = 0.5; const ok = Math.abs(e.volume - 0.5) < 0.01; e.volume = 1; return ok; } catch (x) { return false; } }
   function create() {
     if (el || disposed) return !!el;
-    const o = output(); if (!o) return false;   // «Звук» выключен — ни файла, ни контекста
+    const o = output(); if (!o) return false;   // фон выключен («Звук» — 'off') или касания ещё не было — ни файла, ни контекста
     try {
       el = document.createElement('audio');
       el.preload = 'auto'; el.loop = true; el.setAttribute('playsinline', ''); el.setAttribute('webkit-playsinline', '');
       try { el.disableRemotePlayback = true; } catch (e) { /* ок */ }
       el.addEventListener('playing', onPlaying);
       el.addEventListener('seeked', onSeeked);
+      el.addEventListener('pause', onPauseEv);
       el.addEventListener('error', onError);
       stats.creates++;
       // WebAudio — главный путь; страница файлом (file://): MediaElementSource там молчит (CORS) — громкость элемента
@@ -198,9 +221,12 @@
   // неудача загрузки считается только здесь (событие 'error' элемента): play() в ту же минуту отказывает с NotSupportedError —
   // второй раз неудачу не считаем, иначе «три попытки» таяли до одной повторной
   function onError() {
-    stats.errors++; fails++; failT = performance.now(); pending = false;
+    stats.errors++; fails++; failT = performance.now(); pending = false; bg(false);
     console.warn('WeddingSong: файл не загрузился (' + fails + ')', el && el.error ? el.error.code : '');
   }
+  // элемент встал не нашей паузой (iOS: звонок, другое приложение забрало звук) — фон больше не звучит. Пока ждём свой
+  // play() (pending) — не верим: это запоздавшее событие прошлой паузы
+  function onPauseEv() { if (el && el.paused && !pending) bg(false); }
   // перемотка завершилась — в том числе петля (браузер на конце записи перематывает в начало): вход после стыка сразу по
   // событию, а не на следующем кадре (на медленных кадрах начало песни ждало бы кадр в тишине)
   function onSeeked() {
@@ -222,14 +248,20 @@
     const p0 = el.currentTime;
     expectAt = warm ? -1 : Math.max(p0, pos);
     pending = true; pauseAfter = !!warm; stats.plays++; if (warm) stats.warms++;
+    // прогрев — с выключенным звуком элемента: на iPhone беззвучный элемент не берёт сессию звука (чужая музыка не встаёт),
+    // а play() в жесте всё равно снимает с него запрет «только по касанию»
+    if (warm) { try { el.muted = true; } catch (e) { /* ок */ } }
     let p = null;
     try { p = el.play(); } catch (e) { p = Promise.reject(e); }
     Promise.resolve(p).then(() => {
       pending = false; unlocked = true; needGesture = false; stats.playOk++;
       // прогрев (или, пока ждали, вышла из слышимости) — снова пауза; после прогрева — на то место, где была
       if (pauseAfter || target < OFF) { pauseAfter = false; halt(); if (warm) { pos = p0; try { el.currentTime = p0; } catch (e) { /* ок */ } } }
+      else bg(true);   // настоящий запуск: песня звучит
+      if (warm) { try { el.muted = false; } catch (e) { /* ок */ } }
     }).catch(e => {
       pending = false; pauseAfter = false;
+      if (warm) { try { el.muted = false; } catch (x) { /* ок */ } }
       const n = e && e.name;
       // без жеста (iOS, автозапуск) — повтор на следующем касании; файл не загрузился (NotSupportedError, el.error) — уже
       // посчитало событие 'error'; прочее — передышка 3 с, чтобы шаг не звал play() каждый кадр
@@ -241,6 +273,7 @@
     if (!el) return;
     if (pending) { pauseAfter = true; return; }
     if (!el.paused) { pos = el.currentTime; try { el.pause(); } catch (e) { /* ок */ } stats.pauses++; }
+    bg(false);
   }
   // сразу тихо (свернули, выключили звук), потом пауза
   function hush(tc) {
@@ -270,9 +303,11 @@
     const now = performance.now();
     lastUpd = now; dt = clamp(+dt || 0, 0, 0.1);
     yardRef = yard || null;
+    if (!unsub) subscribe();
     const on = soundOn();
     const lv = yard && hero ? level(hero, yard) : null; lastLv = lv;
-    // ленивая загрузка: «Звук» включён и героиня ближе LOAD_R к двору (повтор после ошибки — через 30 с, не больше трёх раз)
+    // ленивая загрузка: фон звучит (и в 'bg' — «Звук» не трогали) и героиня ближе LOAD_R к двору (повтор после ошибки —
+    // через 30 с, не больше трёх раз)
     if (on && lv && lv.dCenter < LOAD_R && !el) create();
     if (el && fails && fails < 3 && now - failT > 30000 && el.error) { failT = now; try { el.src = fileUrl(); el.load(); } catch (e) { /* ок */ } }
     target = on && lv && el && !(el.error) ? BASE * lv.k * (o && o.duck ? DUCK : 1) : 0;
@@ -304,7 +339,7 @@
         // ещё не играет (ждёт файл, касание или живой контекст) — держим ноль: пойдёт — песня появится, а не включится
         if (el.paused || pending) { g.gain.setValueAtTime(0, t); cur = 0; }
         else {
-          // «Звук» выключили (свернули) — тишина сразу (~0,3 с), а не уходом за ворота
+          // фон выключили («Звук» — 'off', свернули) — тишина сразу (~0,3 с), а не уходом за ворота
           g.gain.setTargetAtTime(target, t, !on ? 0.08 : target > v ? T_UP : T_DN);
           // «мёртвая рука»: шаги не пришли (пауза, шторка, раннер) — через DEAD_S громкость сама уходит в ноль
           g.gain.setTargetAtTime(0, t + DEAD_S, 0.2);
@@ -328,11 +363,12 @@
   function stop(sec) { yardRef = null; lastLv = null; pause(sec); }
   function setMuted(b) { muted = !!b; if (muted) pause(0.3); }
   function dispose() {
-    disposed = true; hush(0.01);
+    disposed = true; hush(0.01); bg(false);
+    if (unsub) { try { unsub(); } catch (e) { /* ок */ } unsub = null; }
     if (watch) { clearInterval(watch); watch = 0; }
     document.removeEventListener('visibilitychange', onVis);
     GEST.forEach(ev => { document.removeEventListener(ev, onGesture, true); document.removeEventListener(ev, onGesture, false); });
-    if (el) { try { el.pause(); el.removeAttribute('src'); el.load(); } catch (e) { /* ок */ } el.removeEventListener('playing', onPlaying); el.removeEventListener('seeked', onSeeked); el.removeEventListener('error', onError); }
+    if (el) { try { el.pause(); el.removeAttribute('src'); el.load(); } catch (e) { /* ок */ } el.removeEventListener('playing', onPlaying); el.removeEventListener('seeked', onSeeked); el.removeEventListener('pause', onPauseEv); el.removeEventListener('error', onError); }
     setTimeout(() => { try { if (g) g.disconnect(); if (src) src.disconnect(); if (lp) lp.disconnect(); if (lg) lg.disconnect(); if (an) an.disconnect(); } catch (e) { /* ок */ } src = lp = lg = g = an = null; }, 80);
     if (ownAC) { try { ownAC.close(); } catch (e) { /* ок */ } ownAC = null; }
     el = null; yardRef = null;
@@ -391,7 +427,7 @@
       path, loaded: !!el, src: el ? el.currentSrc || el.src : null, ready: el ? el.readyState : 0, paused: el ? el.paused : true, pending, needGesture, unlocked,
       t: el ? +el.currentTime.toFixed(2) : 0, dur: el && isFinite(el.duration) ? +el.duration.toFixed(2) : null, loops, pos: +pos.toFixed(2),
       target: +target.toFixed(4), cur: +cur.toFixed(4), gain: g ? +g.gain.value.toFixed(4) : el && path === 'element' ? +el.volume.toFixed(4) : 0, seam: lg ? +lg.gain.value.toFixed(3) : 1,
-      cut: lp ? Math.round(lp.frequency.value) : null, ctx: ac ? ac.state : null, own: !!ownAC, on: soundOn(), hidden, muted,
+      cut: lp ? Math.round(lp.frequency.value) : null, ctx: ac ? ac.state : null, own: !!ownAC, on: soundOn(), bg: bgOn, elMuted: el ? el.muted : null, hidden, muted,
       lv: lastLv ? { k: +lastLv.k.toFixed(4), db: +lastLv.db.toFixed(1), dOut: +lastLv.dOut.toFixed(1), dCenter: +lastLv.dCenter.toFixed(1), inYard: lastLv.inYard, open: +lastLv.open.toFixed(2) } : null,
       beat: beat(), yard: !!yardRef, stats: Object.assign({}, stats),
     };
