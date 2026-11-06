@@ -602,6 +602,34 @@ def copy_looks(out_file):
     print(f'образы: {len(names)} файлов, {size / 1048576:.1f} МБ -> {dst} (обновлено {n}); выкладывать папку looks/ рядом с index.html')
 # ===== /ОБРАЗЫ ======================================================================================================
 
+# ===== ЗВУКИ (AUDIO) — записи: мотор машин (tools/engine_audio.py), музыка мест ======================================
+# Папка audio/ (mp3 с хэшем в имени) копируется рядом с итоговым файлом, как looks/: dist/delo-10-10.html + dist/audio/,
+# --out site/index.html -> site/audio/. Записи не встраиваются (и в --embed-voices тоже: по file:// мотор звучит
+# прежним синтезом). Без папки игра работает: мотор — синтез WebAudio (js/engine_sound.js сам это понимает).
+# Лишние файлы в папке назначения удаляются.
+def copy_audio(out_file):
+    src = os.path.join(ROOT, 'audio')
+    if not os.path.isdir(src) or not any(f.endswith('.mp3') for f in os.listdir(src)):
+        print('звуки: папки audio/ нет — мотор машин синтезом')
+        return
+    dst = os.path.join(os.path.dirname(os.path.abspath(out_file)), 'audio')
+    if os.path.abspath(dst) == os.path.abspath(src):
+        return
+    os.makedirs(dst, exist_ok=True)
+    names = {f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f)) and not f.startswith('.')}
+    n = size = 0
+    for fn in names:
+        a, b = os.path.join(src, fn), os.path.join(dst, fn)
+        size += os.path.getsize(a)
+        if not os.path.exists(b) or os.path.getsize(b) != os.path.getsize(a):
+            shutil.copy2(a, b)
+            n += 1
+    for fn in os.listdir(dst):
+        if fn not in names and os.path.isfile(os.path.join(dst, fn)):
+            os.remove(os.path.join(dst, fn))
+    print(f'звуки: {len(names)} файлов, {size / 1048576:.2f} МБ -> {dst} (обновлено {n}); выкладывать папку audio/ рядом с index.html')
+# ===== /ЗВУКИ =======================================================================================================
+
 
 def main():
     ap = argparse.ArgumentParser(description='Сборка игры в один HTML')
@@ -632,6 +660,7 @@ def main():
             copy_voice(args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ГОЛОСА (VOICE)
         # ОБРАЗЫ (LOOKS): ролики не встраиваются никогда, папка looks/ всегда рядом
         copy_looks(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))
+        copy_audio(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ЗВУКИ (AUDIO)
         return r
     html = build_html()
     os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
@@ -647,6 +676,7 @@ def main():
     if not args.embed_voices:
         copy_voice(out)   # ГОЛОСА (VOICE)
     copy_looks(out)   # ОБРАЗЫ (LOOKS)
+    copy_audio(out)   # ЗВУКИ (AUDIO)
 
 
 if __name__ == '__main__':

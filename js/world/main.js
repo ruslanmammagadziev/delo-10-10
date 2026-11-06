@@ -2459,6 +2459,8 @@
         else if (s.mode === 'ride') lbl = w.bike && w.bike.busy ? '' : 'Слезть';
         else if (s.sitting && !s.sitting.car) lbl = 'Встать';
         else {
+          // машина ближе ~14 м — запись её мотора загодя (js/engine_sound.js: один раз за игру, дальше ничего не делает)
+          if (window.EngineSound && EngineSound.preload && vehicles === 'drive') for (const k in w.cars) { const e = w.cars[k]; if (e.car.root.visible && Math.hypot(e.car.S.x - s.px, e.car.S.z - s.pz) < 14) EngineSound.preload(e.kind); }
           const d = nearDoor(), sp = nearSpot();
           if (sp && (!d || Math.hypot(s.px - sp.x, s.pz - sp.z) < Math.hypot(s.px - d.ax, s.pz - d.az))) { lbl = sp.act || 'Смотреть'; nearTxt = (sp.used && sp.bubble2) || sp.bubble || ''; const a = anchorOf(sp); nearPos = [a.x, a.y + 0.9, a.z]; }
           else if (d) { const st = doorState(d); if (d.kind === 'filler') { lbl = 'Постучать'; soft = true; } else if (st.open) lbl = 'Войти' + (st.label ? ' · ' + st.label : ''); else { lbl = 'Закрыто'; soft = true; } nearTxt = d.kind === 'filler' ? '' : st.label || ''; nearPos = [d.x, 3.0, d.z]; }

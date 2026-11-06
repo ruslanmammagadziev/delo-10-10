@@ -1,22 +1,33 @@
 /* =====================================================================
-   ЗВУК МОТОРА (желание автора: «чтобы машина при езде издавала рёв мотора — в зависимости от машины и скорости»).
-   Синтез WebAudio, без файлов. Два голоса:
-     'cabrio' — жёлтый кабриолет с мотором сзади: оппозитная «шестёрка» — звонкий, с хрипотцой, на сбросе газа
-                тихо «пф-пф» из труб;
-     'sedan'  — красный седан: V8 — ниже и бархатнее, на холостых неровное «бу-бу-бу».
-   Обороты считаются от скорости через три «передачи» автомата: на ровном ходу он переходит выше пораньше — чем быстрее
-   едет, тем выше обороты (медленно — спокойные ~2100, быстро — ~5500); на разгоне тянет передачи до ~90 % красной зоны,
-   слышны переключения (короткий провал газа). С места мотор раскручивается от газа (сцепление), газ отпущен — тише и
-   глуше (мотор тормозит), назад — своя «передача». Громче и ярче — со скоростью (плюс шорох ветра), с оборотами и с
-   разгоном. Посадка — короткий «врум» стартера, выход — мотор затихает. Гудок на миг приглушает мотор (duck).
-   Цепочка: импульсы выхлопа (PeriodicWave по порядку работы цилиндров) → «лопата» холостых (AM) → мягкое
-   насыщение (рёв под нагрузкой) + шум впуска → срез низа (телефонный динамик) → фильтр яркости → «резонанс трубы» →
-   громкость (+ шорох ветра) → «приглушка» гудка → шина фона игры G.audioBus('amb') или свой AudioContext (стенды без
-   игры). Шину фона приглушают голоса реплик, но голоса в игре выключены (CONFIG.VOICES false) — приглушения нет.
-   Уважает «Звук» игры (☰ → «Звук»; выключен — тишина), свёрнутую игру/Telegram (сразу тишина), iOS: контекст
-   «просыпается» первым касанием. «Звук» выключен, а она села за руль — один раз тост «включи звук — услышишь мотор»
-   (st.engHint; на стендах с ?debug=1 — только с ?enghint=1). Кадры перестали приходить (пауза, загрузка сцены) — мотор
-   сам затихает (автоматизация громкости внутри аудио: «мёртвая рука»), через 1,2 с тишины узлы останавливаются.
+   ЗВУК МОТОРА (желание автора: «чтобы машина при езде издавала рёв мотора — в зависимости от машины и скорости»;
+   потом — «вот ещё звуки» — свои записи моторов обеих машин).
+   Голоса — ЗАПИСИ (audio/engine_cabrio.<sha8>.mp3, audio/engine_sedan.<sha8>.mp3; делает tools/engine_audio.py из
+   присланных записей): в каждом файле две бесшовные петли с выровненным тоном — lo (медленный ход, начало первой
+   передачи) и hi (под нагрузкой, старшая передача):
+     'cabrio' — жёлтый кабриолет: звонкая оппозитная «шестёрка», на сбросе газа ещё и тихо «пф-пф» из труб;
+     'sedan'  — красный седан: V8 — ниже и бархатнее.
+   Запись не загрузилась (нет сети, файл открыт с диска) — прежний синтез WebAudio (импульсы выхлопа PeriodicWave
+   → «лопата» холостых → насыщение + шум впуска → фильтры → «резонанс трубы»), то же поведение.
+   Модель мотора общая: обороты считаются от скорости через три «передачи» автомата: на ровном ходу он переходит выше
+   пораньше — чем быстрее едет, тем выше обороты (медленно — спокойные ~2100, быстро — ~5500); на разгоне тянет передачи
+   до ~90 % красной зоны, слышны переключения (короткий провал газа). С места мотор раскручивается от газа (сцепление), газ
+   отпущен — тише и глуше (мотор тормозит), назад — своя «передача». Записи: тон — скорость воспроизведения петли
+   (0,7…1,9, у hi — мягкий потолок K.hx; растёт медленнее оборотов — степень K.e, без «бурундука»), lo и hi —
+   перекрёстно по тону (равная мощность), яркость — фильтр от нагрузки (газ отпущен — глуше), громкость — от скорости,
+   нагрузки и оборотов (+ шорох ветра).
+   Посадка — мотор «оживает» (стартер, обороты взлетают и садятся на холостые), выход — затихает с падением оборотов.
+   Гудок на миг приглушает мотор (duck). Цепочка записей: петли lo + hi (свои playbackRate и громкость) → срез низа и
+   басов, «середина» (динамик телефона) → фильтр яркости → громкость (+ шорох ветра) → «приглушка» гудка → шина фона
+   игры G.audioBus('amb') или свой AudioContext (стенды без игры).
+   Записи грузятся лениво: EngineSound.preload(kind) — при подходе к машине (город), въезде в регион с машиной и
+   на первом шаге за рулём; файл ≈ 60–80 КБ, декодируется целиком (decodeAudioData). Пока грузится (до 2 с) — тишина,
+   дальше — синтез; запись пришла на ходу — голос меняется сам.
+   Уважает режим звука игры: мотор — фон, звучит и когда «Звук» не трогали (G.ambOn(); «Звук» выключен самой — тишина),
+   свёрнутую игру/Telegram (сразу тишина), iOS: контекст «просыпается» первым касанием; пока узлы мотора живы —
+   G.bgActive('engine', true) (iPhone: режим «воспроизведение» только на это время). «Звук» выключила сама, а села за
+   руль — один раз тост «включи звук — услышишь мотор» (st.engHint; на стендах с ?debug=1 — только с ?enghint=1). Кадры
+   перестали приходить (пауза, загрузка сцены) — мотор сам затихает (автоматизация громкости внутри аудио: «мёртвая
+   рука»), через 1,2 с тишины узлы останавливаются.
 
    API: window.EngineSound = {
      setKind(kind) — 'cabrio' | 'sedan' (прочие имена — 'cabrio');
@@ -25,10 +36,11 @@
        сколько газа просит игрок (цель / vmax); braking — тормоз; onGround (true); driving false — мотор глохнет;
        шаги от другой машины после 0,6 с тишины (или от той же после 4 с) — мотор был заглохшим (при посадке стартер);
      park(o, dt) — шаг машины не за рулём (тот же объект o): только что ехала — мотор затихает с падением оборотов;
+     preload(kind) — загрузить запись заранее (повторно — ничего не делает); ready(kind) → запись готова;
      duck(k, sec) — на sec секунд приглушить мотор до доли k (гудок: 0,4 на 0,5 с ≈ −8 дБ), потом плавно вернуть;
      stop() — заглушить сразу; setMuted(bool) — свой выключатель поверх «Звук» игры;
-     debug() → { awake, kind, rpm, gear, load, dem, vol, cut, freq, wind, ctx } · meter() → { rms, peak, centroid }
-     (для проверки; meter — после «приглушки», до шины игры)
+     debug() → { awake, src: 'rec' | 'synth', kind, rpm, gear, load, vol, cut, rate: [lo, hi], mix, rec, ctx, … }
+     · meter() → { rms, peak, centroid } (для проверки; meter — после «приглушки», до шины игры)
    }
    ===================================================================== */
 (function () {
@@ -47,32 +59,92 @@
      bark — [порядок, глубина] «лая» внутри импульса; gears — верх каждой передачи (доля vmax); lp* — яркость (Гц);
      hp0 — срез низа на холостых (Гц; к красной зоне — 90): динамик телефона ниже ~300 Гц почти не играет;
      form — резонанс трубы [Гц, дБ, Q]; noise — шум впуска; lope — неровность холостых; rough — дрожь вспышек (от цикла
-     к циклу); pre0 / drive — насыщение на холостых / прибавка под газом */
+     к циклу); pre0 / drive — насыщение на холостых / прибавка под газом.
+     Записи: r0 — обороты модели, на которых петля lo звучит как записана; e — степень: тон петли ∝ (обороты / r0)^e
+     (e < 1 — тон растёт медленнее оборотов: на полном ходу ×1,3…1,4, а не ×2,8 — без «бурундука»); hx — потолок скорости
+     петли hi (мягкий: с hx − 0,2 тон дальше растёт всё медленнее и hx не достигает; кабриолет: полный ход ≈ 1,37, пик
+     разгона ≈ 1,41 — запись звучит не выше ~5 полутонов от «как записано»); sv — громкость записи (подогнана: на шине
+     игры — как прежний синтез); vb — доля громкости на холостых; vp — степень хода в громкости (седан: на ¼ хода громче,
+     как прежний синтез); cut0 — яркость (Гц) с отпущенным газом; ls — срез басов [Гц, дБ] и pk — «середина» [Гц, дБ, Q]:
+     динамик телефона ниже ~300 Гц почти не играет — без них записи (седан басовитый) на телефоне тише прежнего синтеза
+     при той же громкости на шине */
   const KINDS = {
     cabrio: {
       cyl: 6, fire: [1, 0, 1, 0, 1, 0], bankAmp: 0.86, bankLag: 0.006, tau: 0.14, bark: [5, 0.45], jit: 0.05,
       idle: 1000, red: 7200, gears: [0.42, 0.8, 1.22], lpBase: 1100, lpRpm: 2000, lpLoad: 1600, hp0: 170, form: [660, 6, 1.3],
       noise: 0.55, nbp: 3.2, lope: 0.06, rough: 0.2, pre0: 0.55, drive: 2.7, vol: 1.0, pops: true,
+      r0: 2000, e: 0.6, hx: 1.45, sv: 3.55, vb: 0.33, vp: 1, cut0: 1300, ls: [220, -4], pk: [1100, 4.5, 0.6],
     },
     sedan: {
       cyl: 8, fire: [1, 0, 0, 1, 0, 1, 1, 0], bankAmp: 0.74, bankLag: 0.012, tau: 0.2, bark: [3, 0.4], jit: 0.03,
       idle: 820, red: 6800, gears: [0.4, 0.78, 1.2], lpBase: 1050, lpRpm: 1500, lpLoad: 1200, hp0: 175, form: [300, 5, 1.2],
       noise: 0.32, nbp: 2.4, lope: 0.22, rough: 0.26, pre0: 0.75, drive: 1.6, vol: 0.68, pops: false,
+      r0: 1900, e: 0.75, hx: 1.6, sv: 4.3, vb: 0.5, vp: 0.6, cut0: 1100, ls: [300, -10], pk: [900, 6, 0.5],
     },
   };
   const kindOf = k => (k === 'sedan' ? 'sedan' : 'cabrio');
+  // записи: громкость (на шине игры как прежний синтез — проверка: полный ход ≈ −22…−23 дБFS RMS) и пределы скорости петли
+  const MASTER_R = 0.15, RATE = [0.7, 1.9], WIND_R = 0.3;
+  // файл: [lo, lo, hi, hi] — каждая петля дважды подряд; играет петля из середины пары (loopStart = a + n/2), поэтому
+  // задержка кодека mp3 в начале файла (≈ 25 мс: одни браузеры её срезают, другие нет) стык не ломает. f — опорная
+  // линия спектра петли, Гц (тон «как записано»): по ней lo и hi звучат в одном тоне
+  /* ЗАПИСИ МОТОРОВ — пишет tools/engine_audio.py, руками не править */
+  const REC = {"cabrio":{"file":"engine_cabrio.f3f5df4a.mp3","sr":44100,"lo":{"a":0,"n":39664,"f":220.29},"hi":{"a":79328,"n":71461,"f":292.77}},"sedan":{"file":"engine_sedan.cc5de0b4.mp3","sr":44100,"lo":{"a":0,"n":34847,"f":78.28},"hi":{"a":69694,"n":51290,"f":136.62}}};
+  /* /ЗАПИСИ МОТОРОВ */
+  // папка audio/ рядом с js/ (по адресу этого скрипта — годится и для стендов в подпапках); в однофайловой сборке скрипт
+  // встроен (адреса нет) — audio/ рядом с index.html (site/audio/)
+  const BASE = (() => { try { const s = document.currentScript && document.currentScript.src; if (s) return new URL('../audio/', s).href; } catch (e) { /* ignore */ } return 'audio/'; })();
+  const WAIT_MS = 2000;   // запись грузится дольше — играет синтез, пришла — голос меняется сам
+  // загрузка: kind → { st: 'net' | 'raw' (скачана, ждёт декодер) | 'dec' | 'ok' | 'fail', t0, buf, err }
+  const LOAD = {};
+  function preload(k) {
+    const kk = kindOf(k), r = REC[kk]; if (!r) return;
+    let L = LOAD[kk];
+    if (L) { if (L.st === 'raw') decode(kk); return; }
+    L = LOAD[kk] = { st: 'net', t0: performance.now(), buf: null, raw: null, err: '' };
+    let f = null;
+    try { f = fetch(BASE + r.file); } catch (e) { L.st = 'fail'; L.err = String(e); return; }
+    f.then(res => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('HTTP ' + res.status))))
+      .then(ab => { L.raw = ab; L.st = 'raw'; decode(kk); })
+      .catch(e => { L.st = 'fail'; L.err = String(e && e.message || e); });
+  }
+  // декодер: свой OfflineAudioContext (без касания и без «спящего» контекста), иначе контекст звука
+  let decAC = null;
+  function decoder() {
+    if (decAC) return decAC;
+    try { const O = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (O) return (decAC = new O(1, 1, 44100)); } catch (e) { /* ignore */ }
+    const o = awake ? { ac: awake.ac } : output(); return o ? o.ac : null;
+  }
+  function decode(kk) {
+    const L = LOAD[kk], r = REC[kk]; if (!L || L.st !== 'raw') return;
+    const ac = decoder(); if (!ac) return;
+    const ab = L.raw; L.raw = null; L.st = 'dec';
+    const need = (r.hi.a + 2 * r.hi.n) / r.sr - 0.05;
+    const ok = b => { if (L.st !== 'dec') return; if (b && b.duration >= need) { L.buf = b; L.st = 'ok'; } else { L.st = 'fail'; L.err = 'короткий файл'; } };
+    const bad = e => { if (L.st === 'dec') { L.st = 'fail'; L.err = String(e && e.message || e || 'decode'); } };
+    try { const q = ac.decodeAudioData(ab, ok, bad); if (q && q.then) q.then(ok, bad); } catch (e) { bad(e); }
+  }
+  const ready = k => { const L = LOAD[kindOf(k)]; return !!(L && L.st === 'ok'); };
+  // каким голосом звучать: запись готова — она; грузится (не дольше WAIT_MS) — ждём (null); иначе — синтез
+  function voiceWant() {
+    const L = LOAD[kind];
+    if (L && L.st === 'ok') return 'rec';
+    if (L && L.st !== 'fail' && performance.now() - L.t0 < WAIT_MS && !(awake && awake.type === 'syn')) return null;
+    return 'syn';
+  }
 
   /* ---------- состояние ---------- */
   let kind = 'cabrio', K = KINDS.cabrio, muted = false, hidden = false;
   // модель мотора (идёт и без звука: включили «Звук» на ходу — обороты уже верные)
-  const M = { rough: 0, rpm: 0, gear: 0, load: 0, dem: 0, av: 0, acc: 0, shiftT: 0, popCd: 0, wasLoad: 0, startT: 9, on: 0, t: 0, vol: 0, cut: 0, freq: 0, pre: 0, lope: 0, nf: 0, nv: 0, wv: 0, wf: 0, duckK: 1, duckT: 0, driving: false };
+  const M = { rough: 0, rpm: 0, gear: 0, load: 0, dem: 0, av: 0, acc: 0, shiftT: 0, popCd: 0, wasLoad: 0, startT: 9, on: 0, t: 0, vol: 0, cut: 0, freq: 0, pre: 0, lope: 0, nf: 0, nv: 0, wv: 0, wf: 0, duckK: 1, duckT: 0, driving: false, rl: 1, rh: 1, mix: 0 };
   let src = null, lastUpd = 0, lastLive = 0, lastWrite = 0, awake = null, ownAC = null, ownOut = null, sleepTimer = 0;
   const waves = new WeakMap(), noises = new WeakMap(), curves = new WeakMap();
 
-  // «Звук» игры выключен (или свой выключатель / игра свёрнута)
+  // фон игры молчит: «Звук» выключила сама (G.ambOn; старые сборки — state.sound) — или свой выключатель / игра свёрнута
   function soundOff() {
     if (muted || hidden) return true;
     const g = window.G;
+    if (g && typeof g.ambOn === 'function') { try { return !g.ambOn(); } catch (e) { return true; } }
     if (g && typeof g.state === 'function') { try { const st = g.state(); if (st && !st.sound) return true; } catch (e) { return true; } }
     return false;
   }
@@ -81,7 +153,7 @@
     const g = window.G;
     if (g && typeof g.audioBus === 'function') {
       let b = null; try { b = g.audioBus('amb'); } catch (e) { b = null; }
-      return b && b.context ? { ac: b.context, out: b, k: 1 } : null;
+      return b && b.context ? { ac: b.context, out: b, k: 1, game: true } : null;
     }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
     try {
@@ -132,12 +204,52 @@
   }
 
   /* ---------- узлы: собираются при посадке, останавливаются через 1,2 с тишины ---------- */
-  function wake() {
+  // пока узлы живы — фон игры звучит (iPhone: режим «воспроизведение» только на это время, js/engine.js G.bgActive)
+  function bgHold(on) { const g = window.G; if (g && typeof g.bgActive === 'function') { try { g.bgActive('engine', on); } catch (e) { /* ignore */ } } }
+  function wake(type) {
     if (awake) return awake;
     const o = output(); if (!o) return null;
+    const n = type === 'rec' ? wakeRec(o) : wakeSyn(o); if (!n) return null;
+    if (meterOn) attachMeter(n);
+    awake = n; lastWrite = 0;
+    if (o.game) bgHold(true);
+    if (!sleepTimer) sleepTimer = setInterval(checkSleep, 400);
+    return n;
+  }
+  // запись: две петли из буфера (lo, hi) → срез низа и басов → яркость → громкость; ветер — шум мимо фильтров; «приглушка»
+  function wakeRec(o) {
+    const ac = o.ac, r = REC[kind], L = LOAD[kind];
+    if (!r || !L || !L.buf) return null;
+    try {
+      const n = { ac, bus: o.out, type: 'rec', kind, srcs: [] };
+      const loop = p => {
+        const s = ac.createBufferSource(), g = ac.createGain(), a0 = (p.a + p.n / 2) / r.sr, len = p.n / r.sr;
+        s.buffer = L.buf; s.loop = true; s.loopStart = a0; s.loopEnd = a0 + len; g.gain.value = 0;
+        s.connect(g); n.srcs.push([s, a0 + Math.random() * len]); return { s, g };
+      };
+      n.lo = loop(r.lo); n.hi = loop(r.hi);
+      n.hp = ac.createBiquadFilter(); n.hp.type = 'highpass'; n.hp.frequency.value = 70; n.hp.Q.value = 0.7;
+      n.ls = ac.createBiquadFilter(); n.ls.type = 'lowshelf'; n.ls.frequency.value = K.ls[0]; n.ls.gain.value = K.ls[1];
+      n.pk = ac.createBiquadFilter(); n.pk.type = 'peaking'; n.pk.frequency.value = K.pk[0]; n.pk.gain.value = K.pk[1]; n.pk.Q.value = K.pk[2];
+      n.lp = ac.createBiquadFilter(); n.lp.type = 'lowpass'; n.lp.Q.value = 0.7; n.lp.frequency.value = 1500;
+      n.out = ac.createGain(); n.out.gain.value = 0;
+      n.wind = ac.createBufferSource(); n.wind.buffer = noiseOf(ac); n.wind.loop = true; n.wind.playbackRate.value = 0.77;
+      n.wbp = ac.createBiquadFilter(); n.wbp.type = 'bandpass'; n.wbp.Q.value = 0.55; n.wbp.frequency.value = 500;
+      n.wg = ac.createGain(); n.wg.gain.value = 0;
+      n.dk = ac.createGain(); n.dk.gain.value = 1;
+      n.lo.g.connect(n.hp); n.hi.g.connect(n.hp); n.hp.connect(n.ls); n.ls.connect(n.pk); n.pk.connect(n.lp); n.lp.connect(n.out);
+      n.wind.connect(n.wbp); n.wbp.connect(n.wg); n.wg.connect(n.out); n.out.connect(n.dk); n.dk.connect(o.out);
+      const t = ac.currentTime;
+      n.srcs.forEach(([s, at]) => s.start(t, at)); n.wind.start(t, Math.random() * 0.9);
+      n.srcs = n.srcs.map(x => x[0]).concat(n.wind);
+      return n;
+    } catch (e) { console.warn('EngineSound: wake', e); return null; }
+  }
+  // синтез (запасной голос): прежняя цепочка
+  function wakeSyn(o) {
     const ac = o.ac;
     try {
-      const n = { ac, bus: o.out };
+      const n = { ac, bus: o.out, type: 'syn' };
       n.osc = ac.createOscillator(); n.osc.setPeriodicWave(waveOf(ac, kind)); n.osc.frequency.value = 8; n.kind = kind;
       n.am = ac.createGain(); n.am.gain.value = 1;
       n.lfo = ac.createOscillator(); n.lfo.type = 'sine'; n.lfo.frequency.value = 4;
@@ -172,9 +284,7 @@
       tunePk(n);
       const t = ac.currentTime;
       n.osc.start(t); n.lfo.start(t); n.noise.start(t, Math.random() * 0.5); n.wind.start(t, Math.random() * 0.9);
-      if (meterOn) attachMeter(n);
-      awake = n; lastWrite = 0;
-      if (!sleepTimer) sleepTimer = setInterval(checkSleep, 400);
+      n.srcs = [n.osc, n.lfo, n.noise, n.wind];
       return n;
     } catch (e) { console.warn('EngineSound: wake', e); return null; }
   }
@@ -183,8 +293,9 @@
     const n = awake; awake = null;
     if (sleepTimer) { clearInterval(sleepTimer); sleepTimer = 0; }
     if (!n) return;
+    bgHold(false);
     // гаснет за ~10 мс, а не скачком (звук выключили на ходу — без щелчка)
-    try { const t = n.ac.currentTime; n.out.gain.cancelScheduledValues(t); n.out.gain.setTargetAtTime(0, t, 0.008); n.osc.stop(t + 0.07); n.lfo.stop(t + 0.07); n.noise.stop(t + 0.07); n.wind.stop(t + 0.07); } catch (e) { /* уже остановлены */ }
+    try { const t = n.ac.currentTime; n.out.gain.cancelScheduledValues(t); n.out.gain.setTargetAtTime(0, t, 0.008); n.srcs.forEach(s => { try { s.stop(t + 0.07); } catch (e) { /* уже */ } }); } catch (e) { /* уже остановлены */ }
     setTimeout(() => { try { n.out.disconnect(); n.dk.disconnect(); if (n.meter) n.meter.disconnect(); } catch (e) { /* ignore */ } }, 160);
   }
   // тишина дольше 1,2 с (вышла из машины, кадры не идут, звук выключен) — узлы долой
@@ -284,12 +395,17 @@
     if (hintNews) hintClear();
     if (!driving && M.on < 0.02) return;
     lastLive = nowMs;
-    const n = awake || wake(); if (!n) return;
+    // запись — лениво (первый шаг за рулём, если раньше не просили); готова на ходу или сменилась машина — новый голос
+    preload(kind);
+    const want = voiceWant();
+    if (awake && want && (awake.type !== want || awake.kind !== kind)) sleep();
+    const n = awake || (want ? wake(want) : null); if (!n) return;
     // запись в аудио — не чаще ~30 раз в секунду по настоящему времени (проверки гоняют шаг сотни раз за кадр)
     if (nowMs - lastWrite < 33 && !popNow) return;
     lastWrite = nowMs;
     if (popNow) pops(n);
     const L = M.load, wob = 1 + 0.006 * Math.sin(M.t * 5.3) + 0.004 * Math.sin(M.t * 11.7 + 1);
+    if (n.type === 'rec') { writeRec(n, L, rn, sp, wob); return; }
     M.freq = M.rpm / 120 * wob;
     M.pre = K.pre0 + 0.3 * K.drive * L * (0.5 + 0.5 * rn);
     const post = 0.85 / Math.max(0.2, Math.tanh(SAT * M.pre) / SATN);
@@ -326,7 +442,38 @@
       n.out.gain.cancelScheduledValues(t);
       n.out.gain.setTargetAtTime(M.vol, t, 0.05);
       n.out.gain.setTargetAtTime(0, t + 0.35, 0.1);
-    } catch (e) { /* узел закрыт — пересоберём */ awake = null; }
+    } catch (e) { /* узел закрыт — пересоберём */ awake = null; bgHold(false); }
+  }
+
+  // мягкий потолок скорости петли: до hx − 0,2 — как есть, выше — всё медленнее (tanh), hx не достигает
+  const soft = (x, hx) => { const k = (hx || RATE[1]) - 0.2; return x <= k ? x : k + 0.2 * Math.tanh((x - k) / 0.2); };
+  // запись: тон обеих петель от оборотов, смесь lo/hi по тону, яркость от нагрузки, громкость от хода; «мёртвая рука»
+  function writeRec(n, L, rn, sp, wob) {
+    const r = REC[n.kind], idle = K.idle;
+    // опорный тон: как петля lo на r0 оборотов; растёт медленнее оборотов (степень e)
+    const P = r.lo.f * Math.pow(Math.max(60, M.rpm) / K.r0, K.e) * wob;
+    M.freq = P; M.rl = clamp(P / r.lo.f, RATE[0], RATE[1]); M.rh = clamp(soft(P / r.hi.f, K.hx), RATE[0], RATE[1]);
+    // смесь: lo → hi там, где обе петли в своих пределах скорости (равная мощность, сглаженно)
+    const x0 = Math.max(r.lo.f * 1.08, r.hi.f * 0.72), x1 = Math.min(r.hi.f * 1.08, r.lo.f * 1.85);
+    let x = clamp(Math.log(P / x0) / Math.log(x1 / x0), 0, 1); x = x * x * (3 - 2 * x); M.mix = x;
+    // яркость: газ отпущен — глухо (~1,1–2 кГц), полный газ — открыто; с ходом чуть ярче
+    M.cut = Math.min(16000, K.cut0 * Math.pow(2, 3.4 * L) * (1 + 0.5 * rn) + 900 * sp);
+    // громкость: с места до полного хода ≈ +11 дБ (скорость и нагрузка), газ отпущен — тише; стартер — с нуля
+    M.vol = MASTER_R * K.sv * (K.vb + 0.5 * Math.pow(sp, K.vp) + 0.24 * L + 0.06 * rn) * M.on * (M.rpm < idle * 0.5 ? M.rpm / (idle * 0.5) : 1);
+    M.wv = WIND_R * sp * sp * (1 + 0.12 * Math.sin(M.t * 0.83) + 0.07 * Math.sin(M.t * 2.1 + 1)) / K.sv;
+    M.wf = 380 + 900 * sp;
+    try {
+      const t = n.ac.currentTime;
+      n.lo.s.playbackRate.setTargetAtTime(M.rl, t, 0.03); n.hi.s.playbackRate.setTargetAtTime(M.rh, t, 0.03);
+      n.lo.g.gain.setTargetAtTime(Math.cos(x * Math.PI / 2), t, 0.05); n.hi.g.gain.setTargetAtTime(Math.sin(x * Math.PI / 2), t, 0.05);
+      n.lp.frequency.setTargetAtTime(M.cut, t, 0.05);
+      n.wbp.frequency.setTargetAtTime(M.wf, t, 0.1);
+      n.wg.gain.setTargetAtTime(M.wv, t, 0.1);
+      // «мёртвая рука»: следующие кадры не пришли (пауза, загрузка сцены) — через 0,35 с мотор сам затихает
+      n.out.gain.cancelScheduledValues(t);
+      n.out.gain.setTargetAtTime(M.vol, t, 0.05);
+      n.out.gain.setTargetAtTime(0, t + 0.35, 0.1);
+    } catch (e) { /* узел закрыт — пересоберём */ awake = null; bgHold(false); }
   }
 
   function setKind(k) {
@@ -334,7 +481,8 @@
     if (kk === kind && KINDS[kk] === K) return;
     kind = kk; K = KINDS[kk];
     const n = awake;
-    if (n && n.kind !== kk) { try { n.osc.setPeriodicWave(waveOf(n.ac, kk)); n.kind = kk; tunePk(n); } catch (e) { /* ignore */ } }
+    // синтез меняет голос на месте; запись — пересоберёт следующий шаг (другие петли)
+    if (n && n.type === 'syn' && n.kind !== kk) { try { n.osc.setPeriodicWave(waveOf(n.ac, kk)); n.kind = kk; tunePk(n); } catch (e) { /* ignore */ } }
   }
   // машина не за рулём (выходит, стоит): каждый шаг контроллера посадки, где не зовётся update. Та, что ехала, глохнет —
   // обороты падают, звук затихает (~0,9 с), потом — ничего не делает; чужие машины не трогает
@@ -353,13 +501,14 @@
     try { const t = n.ac.currentTime; n.dk.gain.cancelScheduledValues(t); n.dk.gain.setTargetAtTime(k, t, 0.015); n.dk.gain.setTargetAtTime(1, t + sec, 0.12); } catch (e) { /* ignore */ }
   }
 
-  /* ---------- «Звук» игры выключен, а она села за руль: один раз тост «включи звук — услышишь мотор» ----------
+  /* ---------- «Звук» выключила сама, а села за руль: один раз тост «включи звук — услышишь мотор» ----------
+     («Звук» не трогала — мотор и так звучит: G.soundMode() 'bg' — тоста нет)
      В городе справа на полосе кнопка 🔇 — её коротко «качнёт»; в горах там скорость — тогда к ☰ → «Звук» (точка на строке
      меню). Один раз за игру (st.engHint); на стендах с ?debug=1 — только с ?enghint=1, чтобы тост не мешал проверкам */
   let hintTimer = 0, hintNews = false;
   function gameSoundOff() {
     const g = window.G; if (!g || typeof g.state !== 'function') return false;
-    try { const st = g.state(); return !!st && !st.sound; } catch (e) { return false; }
+    try { if (typeof g.soundMode === 'function') return g.soundMode() === 'off'; const st = g.state(); return !!st && !st.sound; } catch (e) { return false; }
   }
   function soundHint() {
     const g = window.G;
@@ -415,8 +564,9 @@
     return { rms: Math.sqrt(s / meterBuf.length), peak: p, centroid: e > 0 ? ef / e : 0, hiShare: e > 0 ? hi / e : 0 };
   }
   function debug() {
-    return { awake: !!awake, kind, rpm: Math.round(M.rpm), gear: M.gear, start: +Math.min(9, M.startT).toFixed(2), load: +M.load.toFixed(2), on: +M.on.toFixed(2), vol: +M.vol.toFixed(4), cut: Math.round(M.cut), freq: +M.freq.toFixed(2), noise: +M.nv.toFixed(4), dem: +M.dem.toFixed(2), wind: +M.wv.toFixed(4), duck: performance.now() < M.duckT ? M.duckK : 1, driving: M.driving, muted: soundOff(), ctx: awake ? awake.ac.state : ownAC ? ownAC.state : null, gain: awake ? +awake.out.gain.value.toFixed(4) : 0, dk: awake ? +awake.dk.gain.value.toFixed(3) : 1 };
+    const Lk = LOAD[kind];
+    return { awake: !!awake, src: awake ? (awake.type === 'rec' ? 'rec' : 'synth') : null, rec: Lk ? Lk.st : (REC[kind] ? 'idle' : 'none'), rate: [+M.rl.toFixed(3), +M.rh.toFixed(3)], mix: +M.mix.toFixed(3), kind, rpm: Math.round(M.rpm), gear: M.gear, start: +Math.min(9, M.startT).toFixed(2), load: +M.load.toFixed(2), on: +M.on.toFixed(2), vol: +M.vol.toFixed(4), cut: Math.round(M.cut), freq: +M.freq.toFixed(2), noise: +M.nv.toFixed(4), dem: +M.dem.toFixed(2), wind: +M.wv.toFixed(4), duck: performance.now() < M.duckT ? M.duckK : 1, driving: M.driving, muted: soundOff(), ctx: awake ? awake.ac.state : ownAC ? ownAC.state : null, gain: awake ? +awake.out.gain.value.toFixed(4) : 0, dk: awake ? +awake.dk.gain.value.toFixed(3) : 1 };
   }
 
-  window.EngineSound = { setKind, update, park, duck, stop, setMuted, debug, meter, KINDS, get kind() { return kind; } };
+  window.EngineSound = { setKind, update, park, preload, ready, duck, stop, setMuted, debug, meter, KINDS, REC, get kind() { return kind; } };
 })();

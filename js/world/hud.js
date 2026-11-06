@@ -779,7 +779,9 @@
   /* ---------- Встроенные строки меню: блокнот, звук, как играть ---------- */
   function builtins() {
     HUD.menu.add({ id: 'nb', elId: 'hudNb', icon: '📒', label: 'Блокнот', order: 20, badge: () => { const g = G_(); return g && g.nbCount ? g.nbCount() || '' : ''; }, onTap: () => { const g = G_(); if (g && g.notebook) g.notebook(); } });
-    HUD.menu.add({ id: 'sound', icon: () => { const g = G_(); return g ? g.soundIcon() : '🔊'; }, label: 'Звук', sub: 'долгое нажатие — настройки', order: 30, toggle: true,
+    // «Звук» не трогали — машины и музыка звучат сами (G.soundMode() 'bg'): так и пишем; тап — весь звук, ещё тап — тишина
+    HUD.menu.add({ id: 'sound', icon: () => { const g = G_(); return g ? g.soundIcon() : '🔊'; }, label: 'Звук', order: 30, toggle: true,
+      sub: () => { const g = G_(); return g && g.soundMode && g.soundMode() === 'bg' ? 'сейчас — только машины и музыка' : 'долгое нажатие — настройки'; },
       on: () => { const g = G_(); return !!(g && g.state && g.state().sound); },
       onTap: () => { const g = G_(); if (g && g.toggleSound) g.toggleSound(null); },
       onLong: () => { const g = G_(); if (g && g.soundSheet) g.soundSheet(); } });
