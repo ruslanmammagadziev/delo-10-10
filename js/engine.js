@@ -116,10 +116,11 @@
      CONFIG.SOUND_DEFAULT — звук сразу «вкл»; CONFIG.SOUND_BG === false — без фона по умолчанию (как было раньше).
      Контекст создаётся только после первого касания (иначе браузер не даст звук и ругнётся в консоль; в Telegram первое
      касание — старт игры) и будится каждым следующим (после звонка, сворачивания). iPhone: режим «воспроизведение» —
-     звук и при беззвучном переключателе (navigator.audioSession.type = 'playback'; старые iOS — тихий HTMLAudio по кругу),
-     но только пока фон РЕАЛЬНО звучит: G.bgActive(ключ, true/false) — мотор за рулём ('engine', js/engine_sound.js),
-     песня во дворе ('song'). Фон смолк — через 3 с снова 'auto' (чужая музыка и подкасты не прерываются, пока в игре
-     нечему звучать: титул, прогулка). */
+     звук и при беззвучном переключателе (navigator.audioSession.type = 'playback'; старые iOS — тихий HTMLAudio по кругу).
+     Хозяин сессии один — этот модуль (js/voice.js и музыка мест сессию не трогают): «Звук» вкл — 'playback' всю игру с первого
+     касания (звучит всё, как и раньше); 'bg' — только пока фон РЕАЛЬНО звучит: G.bgActive(ключ, true/false) — мотор за
+     рулём ('engine', js/engine_sound.js), песня во дворе ('song'); фон смолк — через 3 с снова 'auto' (чужая музыка и
+     подкасты не прерываются, пока в игре нечему звучать: титул, прогулка). «Звук» выкл и свёрнутая игра — 'auto' сразу. */
   let actx = null, BUS = null, GATE = null, gateMode = null, noiseBuf = null;
   const soundMode = () => (state.sound ? 'on' : state.soundSet || C.SOUND_BG === false ? 'off' : 'bg');
   // режим, о котором уже знают ворота, iPhone, подписчики и значки: сменился не тапом «Звук» — догоняем (syncSound)
@@ -149,6 +150,7 @@
         const grp = (v, to) => { const g = actx.createGain(); g.gain.value = v; g.connect(to); return g; };
         BUS = { master, sfx: grp(0.85, GATE.fx), voice: grp(0.8, GATE.fx), music: grp(0.55, GATE.bg), amb: grp(0.45, GATE.bg) };
         gates(true);
+        iosSync(false);   // контекст появился не в касании «будильника» (включили «Звук» кнопкой) — сессия по режиму сразу
       }
       if (actx.state !== 'running' && !document.hidden) quiet(actx.resume());
       if (gateMode !== soundMode()) gates(false);   // страховка: ворота всегда по режиму
@@ -204,14 +206,20 @@
     if (had !== !!on) iosSync(false);
     return bgOn.size > 0;
   }
+  // нужен ли сейчас режим «воспроизведение»: «Звук» вкл — всегда (как до режимов: звучит всё); 'bg' — пока звучит фон.
+  // Старые iOS без audioSession: тихий элемент по кругу — только ради фона (при «вкл» без фона — как раньше, без него)
+  function iosWant() {
+    const m = soundMode();
+    return !!actx && !document.hidden && m !== 'off' && (bgOn.size > 0 || (m === 'on' && !!navigator.audioSession));
+  }
   // gesture — зовут из касания: play() тихого элемента наверняка пустят (и «разрешим» его на потом, если фон молчит)
   function iosSync(gesture) {
-    const want = !!actx && bgOn.size > 0 && !document.hidden && soundMode() !== 'off';
-    if (want) { clearTimeout(iosOff); iosOff = 0; if (!iosOn || gesture) iosPlayback(true); return; }
-    if (!iosOn) { if (gesture) quietMake(true); return; }
+    if (iosWant()) { clearTimeout(iosOff); iosOff = 0; if (!iosOn || gesture) iosPlayback(true); return; }
+    // выключили звук, свернули — 'auto' сразу, кто бы ни поставил 'playback' раньше (сессия у документа одна)
     if (document.hidden || soundMode() === 'off') { clearTimeout(iosOff); iosOff = 0; iosPlayback(false); return; }
+    if (!iosOn) { if (gesture) quietMake(true); return; }
     // фон смолк (вышла из машины, ушла со двора) — не сразу: снова села через секунду — без переключений сессии
-    if (!iosOff) iosOff = setTimeout(() => { iosOff = 0; if (!(bgOn.size > 0 && !document.hidden && soundMode() !== 'off')) iosPlayback(false); }, 3000);
+    if (!iosOff) iosOff = setTimeout(() => { iosOff = 0; if (!iosWant()) iosPlayback(false); }, 3000);
   }
   // касание будит звук: фон или «Звук» вкл — контекст создаётся (первое касание) или просыпается (после звонка, сворачивания)
   function wakeAudio() {

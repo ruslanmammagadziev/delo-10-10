@@ -12,8 +12,9 @@
    • Одновременно говорит один: новая реплика в окне диалога гасит предыдущую; облачка встают в очередь.
    • Реплика закрыта / «пропустить» — голос гаснет за ~0,08 с. Пока говорит голос, музыка мест чуть тише.
    • Файлы грузятся лениво, с кэшем (последние 16) и предзагрузкой следующих реплик сцены.
-   • iOS / Telegram: аудио «разблокируется» первым касанием; при включённом звуке — audioSession 'playback'
-     (на iPhone голос слышен и при беззвучном режиме, где это поддерживается).
+   • iOS / Telegram: аудио «разблокируется» первым касанием. Режим iPhone «воспроизведение» (audioSession 'playback':
+     голос слышен и при беззвучном переключателе) здесь не трогается — им управляет один хозяин, js/engine.js
+     («Звук» вкл — всю игру, фон — пока звучит, выкл — сразу 'auto').
    API: Voice.line(who, text, { mode: 'line'|'bubble', onFail }) → ручка { stop(fade) } или null (нет записи);
         Voice.preload(lines), Voice.stop(), Voice.has(who, text), Voice.ready (Promise манифеста),
         Voice.stats(), Voice.misses() — реплики без записи (для tools/voice_harvest.json), Voice.log.
@@ -237,9 +238,7 @@
   function unlock() {
     if (unlocked || !st().sound) return;
     const a = actx(); if (!a) return;
-    try {
-      if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
-    } catch (e) { /* ignore */ }
+    // сессию iPhone (audioSession) не трогаем: ставит и снимает сессию js/engine.js (иначе два хозяина спорят)
     try {
       if (a.state !== 'running') a.resume();
       const b = a.createBuffer(1, 1, 22050), s = a.createBufferSource(); s.buffer = b; s.connect(a.destination); s.start(0);

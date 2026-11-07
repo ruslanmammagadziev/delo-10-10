@@ -35,6 +35,8 @@
      h.acoustics  — для песни двора (js/village/wedding_song.js): { x, y, z, ry — рамка двора; hx, z0, z1 — ограда в осях двора;
                     top — высота стен; circle [x, z, r] — круг танца; band [x, z, r] — музыканты; gate [x, w] — ворота на z1 }
      h.dance.sync(fn, bpm) — мини-игра по часам песни: fn() → доля удара (целое — удар) или null; удары и нажатия — по ней
+     h.setClock(fn, bpm) — часы ритма двора (музыканты, круг танцоров, хлопки гостей, пляска ряженых): fn() → доля удара или
+                    null (по умолчанию — песня двора VILLAGE.weddingSong.beat(), js/village/wedding_song.js); null — свой счёт
    Бюджет: ≤ 40 вызовов и ≤ 60 тыс. треугольников на всю сцену. Все зверята и ряженые — ОДНА сетка со скелетом (SkinnedMesh) +
    контур + лица (атлас) + «ткани» (маски, кольчуги, платки — атлас 1024×2048): 4 вызова на всех. Реквизит — 2 сетки.
    ===================================================================== */
@@ -1399,9 +1401,41 @@
        ДВИЖЕНИЕ
        --------------------------------------------------------------------- */
     const BPM = 116, BEAT = 60 / BPM;
+    /* часы ритма двора: st.bt — доля удара (целое — удар барабана), st.bps — ударов в секунду. Свой счёт — BPM (116 в минуту);
+       песню двора слышно (VILLAGE.weddingSong.beat() или h.setClock) — барабанщик, зурна, круг танцоров, хлопки гостей и пляска
+       ряженых идут по песне (96 в минуту, удар — на бочку): темп и доля подтягиваются плавно (~0,4 с), поза не прыгает;
+       песня смолкла — дальше своим темпом с той же доли. Мини-игра «в такт» — по тем же часам песни (dance.sync) */
+    let clockFn = null, clockBpm = 0;
+    function songBeat() {
+      let b = null;
+      try {
+        if (clockFn) b = clockFn();
+        else { const sg = window.VILLAGE && window.VILLAGE.weddingSong; b = sg && typeof sg.beat === 'function' ? sg.beat() : null; }
+      } catch (e) { b = null; }
+      return typeof b === 'number' && isFinite(b) ? b : null;
+    }
+    // песню слышно — доля двора привязана к ней: st.bt = доля песни + сдвиг; сдвиг при «захвате» — тот, что есть (поза не
+    // прыгает), дальше за ~0,4 с уходит к целому (удар двора = удар песни). Время — по часам страницы, а не по шагу (шаг обрезан
+    // 0,1 с — на медленных кадрах двор отставал бы от песни). Скачок доли (стык петли, склейка записи, перемотка) — в сдвиг
+    function beatStep(dt) {
+      const b = songBeat(), now = performance.now() / 1000, sg = window.VILLAGE && window.VILLAGE.weddingSong;
+      if (b === null) {
+        st.bps += (1 / BEAT - st.bps) * Math.min(1, dt * 2.5);
+        st.bt += dt * st.bps; st.bPrev = null; st.song = false;
+        return;
+      }
+      const bps = ((clockFn ? clockBpm : sg && sg.BPM) || BPM) / 60;
+      const first = st.bPrev === null, rdt = first ? 0 : clamp(now - st.bNow, 0, 0.5);
+      if (first) st.bOff = st.bt - b;
+      else { const jump = (b - st.bPrev) - rdt * bps; if (Math.abs(jump) > 0.3) st.bOff -= jump; }
+      st.bOff += (Math.round(st.bOff) - st.bOff) * Math.min(1, rdt * 2.5);
+      st.bPrev = b; st.bNow = now;
+      st.bps += (bps - st.bps) * Math.min(1, rdt * 2.5);
+      st.bt = b + st.bOff; st.song = true;
+    }
     const ring = animals.filter(a => a.role === 'dance');
     const pal = animals.filter(a => a.role === 'paltar');
-    const st = { t: 0, a0: 0, spin: 0.32, gap: 0, gapAng: 0, lod: 0, heroIn: 0, prankDone: false, prank: null, events: [], night: 0, beatN: -1, shower: -1, congrats: -1, hero: null, heroAnim: null };
+    const st = { t: 0, bt: 0, bps: 1 / BEAT, song: false, bPrev: null, bNow: 0, bOff: 0, a0: 0, spin: 0.32, gap: 0, gapAng: 0, lod: 0, heroIn: 0, prankDone: false, prank: null, events: [], night: 0, beatN: -1, shower: -1, congrats: -1, hero: null, heroAnim: null };
     ring.forEach((a, i) => { a.ang = i / ring.length * TAU; a.angT = a.ang; });
     // маршрут ряженых (оси двора): две дуги — восточная и западная, туда и обратно, снаружи круга танца. Не по северной полосе
     // у помоста (там живут дети) и не мимо места «В круг — танцевать» у ворот (там героиня, а за ней — камера)
@@ -1424,7 +1458,7 @@
       } else a.look *= Math.max(0, 1 - dt * 3);
     }
     function pose(a, t, dt) {
-      const B = a.B, s = a.spec, ph = a.ph, beat = (st.t / BEAT);
+      const B = a.B, s = a.spec, ph = a.ph, beat = st.bt;
       if (a.role === 'paltar') { lookUpd(a, dt); palPose(a, t, beat, dt); return; }
       // сброс к позе покоя
       B.body.rotation.set(0, 0, 0); B.body.position.y = a.rest.hipY; B.body.scale.set(1, 1, 1);
@@ -1442,14 +1476,16 @@
           const other = a.id === 'wed_bride' ? -1 : 1; B.head.rotation.y = Math.max(0, Math.sin(t * 0.37 + ph)) * 0.45 * other;
           if (st.congrats >= 0) { const k = Math.sin(clamp(st.congrats / 2.4, 0, 1) * PI); B.armL.rotation.z = 0.12 + 2.2 * k; B.armL.rotation.x = -0.3; B.armL.rotation.y = Math.sin(t * 12) * 0.35 * k; B.head.rotation.x = 0.25 * k; }
         }
-        if (s.eat && st.beatClap) { const k = 0.5 + 0.5 * Math.sin(beat * TAU); B.armL.rotation.x = B.armR.rotation.x = -1.2; B.armL.rotation.y = -0.6 * k; B.armR.rotation.y = 0.6 * k; }
+        // хлопки гостей (мини-игра «в такт»): ладони сходятся на удар (k = 1 — на целой доле часов двора)
+        if (s.eat && st.beatClap) { const k = 0.5 + 0.5 * Math.cos(beat * TAU); B.armL.rotation.x = B.armR.rotation.x = -1.2; B.armL.rotation.y = -0.6 * k; B.armR.rotation.y = 0.6 * k; }
       } else if (a.role === 'zurna') {
         B.armL.rotation.x = B.armR.rotation.x = -1.25; B.armL.rotation.z = -0.35; B.armR.rotation.z = 0.35;
         B.head.rotation.x = 0.25 + Math.sin(beat * PI) * 0.06; B.head.scale.x = 1 + Math.max(0, Math.sin(beat * TAU)) * 0.06;   // щёки «дуют»
         B.body.rotation.z = Math.sin(beat * PI) * 0.06; B.root.position.y = (a.spec.y || 0) + Math.abs(Math.sin(beat * PI)) * 0.02;
         B.legL.rotation.x = Math.max(0, Math.sin(beat * PI)) * 0.3;
       } else if (a.role === 'drum') {
-        const hitL = Math.pow(Math.max(0, Math.sin(beat * PI)), 3), hitR = Math.pow(Math.max(0, -Math.sin(beat * PI)), 3);
+        // палочки бьют на удар (на целой доле часов двора — при песне это бочка), левая и правая по очереди
+        const hb = Math.sin((beat - 0.5) * PI), hitL = Math.pow(Math.max(0, hb), 3), hitR = Math.pow(Math.max(0, -hb), 3);
         B.armL.rotation.x = -1.0 - 0.7 * (1 - hitL); B.armR.rotation.x = -1.0 - 0.7 * (1 - hitR);
         B.armL.rotation.z = -0.25; B.armR.rotation.z = 0.25;
         B.body.rotation.x = 0.04 * (hitL + hitR); B.head.rotation.z = Math.sin(beat * PI * 0.5) * 0.08;
@@ -1735,20 +1771,20 @@
           // дуэт — в 1,7 м по дуге от напарника (от того места, где он пляшет; ближе — отталкиваются и топчутся)
           return ringSpot(o ? Math.atan2(o.px - RC[0], o.pz - RC[1]) + 1.7 / (R0 + 1.2) : Math.atan2(a.px - RC[0], a.pz - RC[1]), R0 + 1.2, a);
         },
-        dur: () => (8 + Math.floor(RP() * 3) * 4) * BEAT, face: a => (a.spin || Math.floor(st.t / BEAT) % 8 === 6 ? null : RC),
+        dur: () => (8 + Math.floor(RP() * 3) * 4) / st.bps, face: a => (a.spin || Math.floor(st.bt) % 8 === 6 ? null : RC),
         end(a) { a.spin = false; a.spinB = undefined; },
         pose(a, q, t, beat) {
           const bi = Math.floor(beat), f = beat - bi, sdL = bi % 2 ? 1 : -1, hop = Math.sin(f * PI);
           // на ударе обе ноги одинаково чуть согнуты — смена ноги без скачка ступней
           leg(q, sdL, 0.05 - 0.7 * hop, 0.1 + 1.1 * hop); leg(q, -sdL, 0.05, 0.1);
           q.y = 0.06 * hop; q.lean = -0.08; q.hx = -0.15;
-          const sw = Math.floor(beat / 4) % 2 ? 1 : -1, blend = sst(0, 0.34 / BEAT, beat % 4);
+          const sw = Math.floor(beat / 4) % 2 ? 1 : -1, blend = sst(0, 0.34 * st.bps, beat % 4);
           armMix(q, sw, AP.over, AP.side, Math.floor(beat / 4) > 0 ? 1 - blend : 1); armMix(q, -sw, AP.side, AP.over, Math.floor(beat / 4) > 0 ? 1 - blend : 1);
           // каждые 8 ударов — полный оборот за два удара (лицом к кругу его не тянет, пока крутится: раньше поворот спорил с
           // разворотом к кругу и выходило только «туда-обратно» на четверть оборота)
           if (bi % 8 === 6 && a.spinB !== bi) { a.spinB = bi; a.spinA = 0; }
           a.spin = a.spinB !== undefined && bi - a.spinB < 2 && a.spinA < TAU;
-          if (a.spin) { const dd = Math.min(TAU - a.spinA, TAU / (2 * BEAT) * (a.dtLast || 0)); a.pry += dd; a.spinA += dd; }
+          if (a.spin) { const dd = Math.min(TAU - a.spinA, TAU * st.bps / 2 * (a.dtLast || 0)); a.pry += dd; a.spinA += dd; }
           q.twist = Math.sin(beat * PI) * 0.1;
         },
       },
@@ -2666,7 +2702,7 @@
         const x = RC[0] + Math.sin(a.ang) * R0, z = RC[1] + Math.cos(a.ang) * R0;
         a.B.root.position.x = x; a.B.root.position.z = z;
         // лицом к центру, с поворотом по ходу круга
-        a.B.root.rotation.y = a.ang + PI + Math.sin(st.t / BEAT * PI * 0.25 + i) * 0.5;
+        a.B.root.rotation.y = a.ang + PI + Math.sin(st.bt * PI * 0.25 + i) * 0.5;
       });
     }
     function updateCandy(dt) {
@@ -2715,7 +2751,8 @@
       },
       // песня двора (js/village/wedding_song.js): fn() → доля удара песни (целое — удар бочки) или null, bpm — темп песни. Пока часы
       // идут — удары («beat») и оценка нажатий по песне, а не по своему счёту (иначе барабан 116 в минуту спорил бы с песней 96);
-      // встали (песню выключили, свернули) — счёт идёт дальше своим временем с того же места. Танцоры и музыканты — как раньше
+      // встали (песню выключили, свернули) — счёт идёт дальше своим временем с того же места. Танцоры, музыканты и хлопки гостей —
+      // по часам двора (beatStep): при песне — тоже по ней
       sync(fn, bpm) {
         if (!this.active || typeof fn !== 'function') return false;
         let b = null; try { b = fn(); } catch (e) { b = null; }
@@ -2800,6 +2837,7 @@
     function update(dt, heroPos, cam) {
       dt = Math.min(0.1, Math.max(0, dt || 0));
       st.t += dt; const t = st.t;
+      beatStep(dt);
       st.heroPos = heroPos || null;
       // LOD: по камере (если дали) и по героине
       const cw = toW(0, 0);
@@ -2827,7 +2865,7 @@
         if (inYard && st.heroIn > 6 && !st.prankDone && !st.prank && !dance.active && !talking && !reacting && st.t > (st.prankRetryT || 0) && st.t > (st.heroReactT || 0) && st.t > (st.talkEndT === undefined ? -1 : st.talkEndT + 6)) startPrank();
       }
       if (!showCrowd) return;
-      const beatN = Math.floor(t / BEAT); if (beatN !== st.beatN) { st.beatN = beatN; if (st.lod === 0) emit('beat', { n: beatN }); }
+      const beatN = Math.floor(st.bt); if (beatN !== st.beatN) { st.beatN = beatN; if (st.lod === 0) emit('beat', { n: beatN }); }
       if (st.congrats >= 0) { st.congrats += dt; if (st.congrats > 2.6) st.congrats = -1; }
       if (st.shower >= 0) st.shower += dt;
       // каждые ~40 с — сладости над невестой (сами, без героини)
@@ -2880,6 +2918,9 @@
       group, stage, npcs, spots, colliders: worldCol, update, act, dance, setNight, acoustics,
       onPrank(cb) { if (typeof cb === 'function') prankCbs.push(cb); return h; },
       onEvent(cb) { (st.evCb || (st.evCb = [])).push(cb); return h; },
+      setClock(fn, bpm) { clockFn = typeof fn === 'function' ? fn : null; clockBpm = bpm > 0 ? bpm : BPM; return h; },
+      // часы ритма сейчас: доля удара, темп (в минуту), идут ли по песне — для проверок
+      beatInfo() { return { beat: st.bt, bpm: st.bps * 60, song: st.song }; },
       setHero(hero, anim) { st.hero = hero || null; st.heroAnim = anim || (hero && hero.rig ? hero.rig.anim : null); return h; },
       // регион: fn() → true, пока героиня занята (окно диалога, шторка, угощение) — возгласы ряженых молчат, розыгрыш ждёт
       setBusy(fn) { st.busyFn = typeof fn === 'function' ? fn : null; return h; },
