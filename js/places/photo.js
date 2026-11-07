@@ -16,8 +16,8 @@
 
   const BD = [
     { n: 'Звёзды', line: 'Звёзды. Ни одна не опоздала.', css: 'radial-gradient(circle at 18% 22%, #FFD98A 0 2px, transparent 3px), radial-gradient(circle at 72% 14%, #FFD98A 0 2.5px, transparent 3.5px), radial-gradient(circle at 84% 46%, #FFE9B8 0 2px, transparent 3px), radial-gradient(circle at 30% 58%, #FFE9B8 0 1.5px, transparent 2.5px), radial-gradient(circle at 58% 34%, #FFD98A 0 1.5px, transparent 2.5px), radial-gradient(circle at 12% 80%, #FFD98A 0 2px, transparent 3px), radial-gradient(circle at 90% 84%, #FFE9B8 0 1.5px, transparent 2.5px), linear-gradient(180deg, #252B4A, #3A4270)' },
-    { n: 'Осенний парк', line: 'Осенний парк. Листья не падают — нарисованы.', css: 'radial-gradient(ellipse 9px 5px at 20% 24%, #F7B267 98%, transparent), radial-gradient(ellipse 8px 5px at 76% 18%, #C2405B 98%, transparent), radial-gradient(ellipse 9px 5px at 62% 52%, #9FD6BE 98%, transparent), radial-gradient(ellipse 8px 5px at 14% 66%, #C2405B 98%, transparent), radial-gradient(ellipse 9px 5px at 86% 74%, #F7B267 98%, transparent), radial-gradient(ellipse 7px 4px at 40% 86%, #9FD6BE 98%, transparent), linear-gradient(180deg, #FFF4E4, #F6E2C6)' },
-    { n: 'Кинозал', line: 'Кинозал. Енот одобрил бы.', css: 'linear-gradient(180deg, rgba(232,199,112,.9) 0 7%, transparent 7%), repeating-linear-gradient(90deg, #B9364F 0 16px, #A12E45 16px 24px, #93283E 24px 30px, #A12E45 30px 36px)' },
+    { n: 'Осенний парк', line: 'Осенний парк. Листья не падают — нарисованы.', css: 'radial-gradient(ellipse 9px 5px at 20% 24%, #F7B267 98%, transparent), radial-gradient(ellipse 8px 5px at 76% 18%, #B5520E 98%, transparent), radial-gradient(ellipse 9px 5px at 62% 52%, #9FD6BE 98%, transparent), radial-gradient(ellipse 8px 5px at 14% 66%, #B5520E 98%, transparent), radial-gradient(ellipse 9px 5px at 86% 74%, #F7B267 98%, transparent), radial-gradient(ellipse 7px 4px at 40% 86%, #9FD6BE 98%, transparent), linear-gradient(180deg, #FFF4E4, #F6E2C6)' },
+    { n: 'Кинозал', line: 'Кинозал. Енот одобрил бы.', css: 'linear-gradient(180deg, rgba(232,199,112,.9) 0 7%, transparent 7%), repeating-linear-gradient(90deg, #B8433A 0 16px, #A0382F 16px 24px, #8E2E2A 24px 30px, #A0382F 30px 36px)' },
     { n: 'Снегопад', line: 'Снегопад. Нарисованный — не тает.', wk: 5, css: 'radial-gradient(circle at 20% 20%, #fff 0 2.5px, transparent 3.5px), radial-gradient(circle at 70% 12%, #fff 0 2px, transparent 3px), radial-gradient(circle at 46% 40%, #fff 0 3px, transparent 4px), radial-gradient(circle at 86% 50%, #fff 0 2px, transparent 3px), radial-gradient(circle at 12% 62%, #fff 0 2px, transparent 3px), radial-gradient(circle at 60% 78%, #fff 0 2.5px, transparent 3.5px), radial-gradient(circle at 30% 88%, #fff 0 2px, transparent 3px), linear-gradient(180deg, #CFDDF0, #E8F0FA)' },
   ];
   const PROPS = [
@@ -38,11 +38,11 @@
     } else if (i === 1) {
       const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#FFF4E4'); g.addColorStop(1, '#F3DDBE'); c.fillStyle = g; c.fillRect(0, 0, W, H);
       c.fillStyle = 'rgba(201,138,92,.18)'; [[60, 120, 70], [300, 90, 80], [190, 200, 60]].forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); });
-      const cols = ['#F7B267', '#C2405B', '#9FD6BE', '#E8955A'];
+      const cols = ['#F7B267', '#B5520E', '#9FD6BE', '#E8955A'];
       for (let k = 0; k < 40; k++) { const x = q() * W, y = q() * H, s = 9 + q() * 8, a = q() * 6; c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = cols[k % 4]; c.beginPath(); c.moveTo(0, -s); c.quadraticCurveTo(s * 0.8, 0, 0, s); c.quadraticCurveTo(-s * 0.8, 0, 0, -s); c.fill(); c.restore(); }
     } else if (i === 2) {
-      for (let x = 0; x < W; x += 32) { const g = c.createLinearGradient(x, 0, x + 32, 0); g.addColorStop(0, '#93283E'); g.addColorStop(0.45, '#C2405B'); g.addColorStop(1, '#93283E'); c.fillStyle = g; c.fillRect(x, 0, 32, H); }
-      c.fillStyle = '#E8C770'; c.fillRect(0, 0, W, 34); c.fillStyle = '#B9364F'; for (let x = 0; x < W; x += 32) { c.beginPath(); c.arc(x + 16, 34, 16, 0, PI); c.fill(); }
+      for (let x = 0; x < W; x += 32) { const g = c.createLinearGradient(x, 0, x + 32, 0); g.addColorStop(0, '#8E2E2A'); g.addColorStop(0.45, '#B8433A'); g.addColorStop(1, '#8E2E2A'); c.fillStyle = g; c.fillRect(x, 0, 32, H); }
+      c.fillStyle = '#E8C770'; c.fillRect(0, 0, W, 34); c.fillStyle = '#B8433A'; for (let x = 0; x < W; x += 32) { c.beginPath(); c.arc(x + 16, 34, 16, 0, PI); c.fill(); }
       c.fillStyle = 'rgba(255,233,184,.25)'; c.beginPath(); c.ellipse(W / 2, H * 0.62, 150, 110, 0, 0, 7); c.fill();
     } else {
       const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#CFDDF0'); g.addColorStop(1, '#EEF4FB'); c.fillStyle = g; c.fillRect(0, 0, W, H);
@@ -63,8 +63,8 @@
       const glow = (c, e, i) => toon(c, { emissive: new T.Color(e), emissiveIntensity: i });
       const basic = (c, x) => R.keep(new T.MeshBasicMaterial(Object.assign({ color: new T.Color(c) }, x || {})));
       const M = {
-        cream: toon('#FFF8F0'), lav: toon('#D9CCF4'), lavD: toon('#B9A8E0'), ink: toon('#3A2E3F'), wood: toon('#B98C6A'), woodD: toon('#8E6248'),
-        gold: glow('#E8C770', '#B8903A', 0.16), cherry: toon('#C2405B'), pink: toon('#F08FA8'), plum: toon('#6E5A7E'), mint: toon('#BFE6D3'),
+        cream: toon('#FFF8F0'), lav: toon('#D9CCF4'), lavD: toon('#B9A8E0'), ink: toon('#3B2A20'), wood: toon('#B98C6A'), woodD: toon('#8E6248'),
+        gold: glow('#E8C770', '#B8903A', 0.16), cherry: toon('#B5520E'), pink: toon('#F39A2B'), plum: toon('#6E5A7E'), mint: toon('#BFE6D3'),
         soft: glow('#FFFDF9', '#FFF4DE', 0.55), glass: glow('#CFE0F0', '#CFE0F0', 0.2),
       };
       const hitM = basic('#FFFFFF', { visible: false });
@@ -98,17 +98,17 @@
       const PR = [0, 1, 2, 3, 4].map(i => [1024 + i * 168, 0, 160, 200]);
       PR.forEach(([x, y], i) => {
         ac.fillStyle = '#FFFFFF'; ac.fillRect(x, y, 160, 200);
-        const bgc = ['#FFF1C8', '#E2E6F2', '#FBE1E7', '#F4F0EA', '#DCEBF5'][i]; ac.fillStyle = bgc; ac.fillRect(x + 10, y + 10, 140, 140);
+        const bgc = ['#FFF1C8', '#E2E6F2', '#FCE7CC', '#F4F0EA', '#DCEBF5'][i]; ac.fillStyle = bgc; ac.fillRect(x + 10, y + 10, 140, 140);
         const cx = x + 80, cy = y + 84;
         if (i === 0) { // пчела, смазанная
           ac.globalAlpha = 0.35; for (let k = 0; k < 3; k++) { ac.fillStyle = '#F5C542'; ac.beginPath(); ac.ellipse(cx - 18 + k * 12, cy, 26, 18, 0, 0, 7); ac.fill(); }
           ac.globalAlpha = 1; ac.fillStyle = '#F5C542'; ac.beginPath(); ac.ellipse(cx + 8, cy, 26, 18, 0, 0, 7); ac.fill();
-          ac.fillStyle = '#3A2E3F'; [-6, 8, 22].forEach(dx => ac.fillRect(cx + dx, cy - 17, 5, 34)); ac.fillStyle = 'rgba(255,255,255,.8)'; ac.beginPath(); ac.ellipse(cx + 4, cy - 22, 12, 8, -0.5, 0, 7); ac.fill();
+          ac.fillStyle = '#3B2A20'; [-6, 8, 22].forEach(dx => ac.fillRect(cx + dx, cy - 17, 5, 34)); ac.fillStyle = 'rgba(255,255,255,.8)'; ac.beginPath(); ac.ellipse(cx + 4, cy - 22, 12, 8, -0.5, 0, 7); ac.fill();
         } else if (i === 1) { // енот с платочком
           ac.fillStyle = '#9AA1AB'; ac.beginPath(); ac.arc(cx, cy + 6, 34, 0, 7); ac.fill(); ac.beginPath(); ac.moveTo(cx - 30, cy - 14); ac.lineTo(cx - 22, cy - 40); ac.lineTo(cx - 10, cy - 24); ac.fill(); ac.beginPath(); ac.moveTo(cx + 30, cy - 14); ac.lineTo(cx + 22, cy - 40); ac.lineTo(cx + 10, cy - 24); ac.fill();
           ac.fillStyle = '#454B55'; ac.beginPath(); ac.ellipse(cx, cy, 30, 11, 0, 0, 7); ac.fill(); ac.fillStyle = '#fff'; [-12, 12].forEach(dx => { ac.beginPath(); ac.arc(cx + dx, cy, 5, 0, 7); ac.fill(); });
           ac.fillStyle = '#7FB3E0'; [-12, 12].forEach(dx => { ac.beginPath(); ac.ellipse(cx + dx, cy + 12, 3, 6, 0, 0, 7); ac.fill(); });
-          ac.fillStyle = '#F7C9D3'; ac.beginPath(); ac.moveTo(cx + 20, cy + 26); ac.lineTo(cx + 52, cy + 18); ac.lineTo(cx + 42, cy + 46); ac.closePath(); ac.fill();
+          ac.fillStyle = '#F9CF9C'; ac.beginPath(); ac.moveTo(cx + 20, cy + 26); ac.lineTo(cx + 52, cy + 18); ac.lineTo(cx + 42, cy + 46); ac.closePath(); ac.fill();
         } else if (i === 2) { // Пудра и гусёнок
           ac.fillStyle = '#F2C9A0'; ac.beginPath(); ac.ellipse(cx - 18, cy + 18, 30, 22, 0, 0, 7); ac.fill(); ac.beginPath(); ac.arc(cx - 34, cy - 6, 18, 0, 7); ac.fill(); ac.fillStyle = '#F8DCC0'; ac.beginPath(); ac.arc(cx - 34, cy - 22, 13, 0, 7); ac.fill();
           ac.fillStyle = '#F2A9BE'; ac.beginPath(); ac.ellipse(cx - 34, cy - 34, 8, 4, 0, 0, 7); ac.fill();
@@ -121,20 +121,20 @@
         }
         R.text(ac, ['жу', 'енот', 'пудра', 'солнце?', 'голубь'][i], cx, y + 176, 30, '#8C7A88', { f: 'Caveat', w: 700 });
       });
-      { const x = 1024, y = 220; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x, y, 160, 110, 14); ac.fill(); ac.strokeStyle = '#C2405B'; ac.lineWidth = 6; R.rrect(ac, x + 8, y + 8, 144, 94, 10); ac.stroke(); R.text(ac, 'УЛИКА', x + 80, y + 58, 44, '#C2405B', { max: 128 }); }
+      { const x = 1024, y = 220; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x, y, 160, 110, 14); ac.fill(); ac.strokeStyle = '#B5520E'; ac.lineWidth = 6; R.rrect(ac, x + 8, y + 8, 144, 94, 10); ac.stroke(); R.text(ac, 'УЛИКА', x + 80, y + 58, 44, '#B5520E', { max: 128 }); }
       { const x = 1200, y = 220, cx = x + 100, cy = y + 100; ac.fillStyle = '#F7B267';
         for (let k = 0; k < 12; k++) { const a = k / 12 * PI * 2; ac.beginPath(); ac.moveTo(cx + Math.cos(a - 0.14) * 60, cy + Math.sin(a - 0.14) * 60); ac.lineTo(cx + Math.cos(a) * 96, cy + Math.sin(a) * 96); ac.lineTo(cx + Math.cos(a + 0.14) * 60, cy + Math.sin(a + 0.14) * 60); ac.closePath(); ac.fill(); }
         ac.fillStyle = '#FFD45E'; ac.beginPath(); ac.arc(cx, cy, 64, 0, 7); ac.fill(); ac.strokeStyle = '#C98A5C'; ac.lineWidth = 3; ac.setLineDash([6, 6]); ac.beginPath(); ac.arc(cx, cy, 56, 0, 7); ac.stroke(); ac.setLineDash([]);
         ac.fillStyle = '#9E6B2E'; [-20, 20].forEach(dx => { ac.beginPath(); ac.arc(cx + dx, cy - 8, 6, 0, 7); ac.fill(); }); ac.strokeStyle = '#9E6B2E'; ac.lineWidth = 5; ac.lineCap = 'round'; ac.beginPath(); ac.arc(cx, cy + 4, 22, 0.3, PI - 0.3); ac.stroke(); }
       { const x = 1536, y = 220; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x + 4, y + 4, 504, 120, 30); ac.fill(); ac.strokeStyle = '#B9A8E0'; ac.lineWidth = 6; R.rrect(ac, x + 14, y + 14, 484, 100, 24); ac.stroke();
-        R.text(ac, 'СВЕТОПИСЬ', x + 256, y + 66, 56, '#3A2E3F', { f: 'Comfortaa', w: 700, max: 430 }); }
+        R.text(ac, 'СВЕТОПИСЬ', x + 256, y + 66, 56, '#3B2A20', { f: 'Comfortaa', w: 700, max: 430 }); }
       { const x = 1536, y = 360; ac.fillStyle = '#2C2638'; R.rrect(ac, x, y, 320, 96, 18); ac.fill(); R.text(ac, 'ВЫХОД', x + 160, y + 50, 58, '#BFF0CE'); }
 
       /* --- пол, стены, панели --- */
       box(fx, M.woodD, 0, -0.07, -D / 2, W + 0.4, 0.14, D + 0.2);
       { const fl = put(fx, GEO.plane, floorM, [0, 0.002, -D / 2], [W, D, 1], [-PI / 2, 0, 0]); fl.castShadow = false; }
       const [wcv, wc] = R.cnv(256, 256);
-      wc.fillStyle = '#FFF4EC'; wc.fillRect(0, 0, 256, 256);
+      wc.fillStyle = '#FFF3E2'; wc.fillRect(0, 0, 256, 256);
       wc.fillStyle = '#EFE6F6'; [[40, 40], [168, 40], [104, 120], [232, 120], [40, 200], [168, 200]].forEach(([x, y]) => { wc.beginPath(); wc.arc(x, y, 5, 0, 7); wc.fill(); });
       const wT = R.tex(wcv); wT.wrapS = wT.wrapT = T.RepeatWrapping; wT.repeat.set(1.4, 1.4);
       const wallM = toon('#FFFFFF', { map: wT });
@@ -325,8 +325,8 @@
 .ph-set { display: flex; flex-direction: column; gap: 4px; }
 .ph-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 0 6px; }
 .ph-chips .chip { font-size: 14px; min-height: 40px; padding: 8px 11px; display: inline-flex; align-items: center; gap: 6px; }
-.ph-sw { width: 18px; height: 18px; border-radius: 6px; display: inline-block; box-shadow: inset 0 0 0 1.5px rgba(58,46,63,.15); }
-.ph-card { background: #fff; width: min(300px, 80vw); margin: 6px auto 4px; padding: 12px 12px 10px; border-radius: 6px; box-shadow: 0 8px 22px rgba(58,46,63,.22); transform: rotate(-3.4deg); }
+.ph-sw { width: 18px; height: 18px; border-radius: 6px; display: inline-block; box-shadow: inset 0 0 0 1.5px rgba(59,42,32,.15); }
+.ph-card { background: #fff; width: min(300px, 80vw); margin: 6px auto 4px; padding: 12px 12px 10px; border-radius: 6px; box-shadow: 0 8px 22px rgba(59,42,32,.22); transform: rotate(-3.4deg); }
 .ph-img { position: relative; aspect-ratio: 1; border-radius: 3px; overflow: hidden; }
 .ph-img .ph-hero { position: absolute; left: 50%; bottom: -4%; width: 50%; transform: translateX(-50%); }
 .ph-img .ph-hero svg, .ph-img .ph-cat svg { width: 100%; height: auto; display: block; }
@@ -334,11 +334,11 @@
 .ph-img .ph-cat.ghost { opacity: .55; }
 .ph-img .ph-cat.ghost.b { transform: translateX(14px); }
 .ph-img .ph-prop { position: absolute; left: 66%; bottom: 30%; font-size: 30px; line-height: 1; transform: rotate(-8deg); filter: drop-shadow(0 2px 2px rgba(0,0,0,.2)); }
-.ph-img .ph-prop.sign { font-size: 14px; font-weight: 900; color: #C2405B; background: #FFFDF9; border: 3px solid #C2405B; border-radius: 6px; padding: 3px 5px; font-family: var(--font); }
-.ph-cap { font-family: var(--font-hand); font-size: 25px; font-weight: 700; text-align: center; color: #4A3A55; margin-top: 6px; line-height: 1.1; }
+.ph-img .ph-prop.sign { font-size: 14px; font-weight: 900; color: #B5520E; background: #FFFDF9; border: 3px solid #B5520E; border-radius: 6px; padding: 3px 5px; font-family: var(--font); }
+.ph-cap { font-family: var(--font-hand); font-size: 25px; font-weight: 700; text-align: center; color: #4B3424; margin-top: 6px; line-height: 1.1; }
 .ph-sub { font-size: 11.5px; font-weight: 800; color: #9A8EA0; text-align: center; letter-spacing: .03em; }
 .ph-count { background: rgba(255,253,249,.18); }
-.ph-count b { font-family: var(--font-title); font-weight: 700; font-size: 150px; color: #FFFDF9; text-shadow: 0 6px 0 rgba(58,46,63,.25), 0 0 40px rgba(255,240,206,.8); animation: phNum .9s ease both; }
+.ph-count b { font-family: var(--font-title); font-weight: 700; font-size: 150px; color: #FFFDF9; text-shadow: 0 6px 0 rgba(59,42,32,.25), 0 0 40px rgba(255,240,206,.8); animation: phNum .9s ease both; }
 @keyframes phNum { 0% { transform: scale(1.6); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 85% { opacity: 1; } 100% { transform: scale(.85); opacity: 0; } }
 .ph-flash { background: #FFFFFF; animation: phFlash .14s ease-out both; }
 @keyframes phFlash { from { opacity: 1; } to { opacity: .85; } }

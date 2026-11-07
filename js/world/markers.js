@@ -20,22 +20,22 @@
 
     // значки рисуются путями (без эмодзи-шрифта): лупа, замок, точка, «НОВОЕ», галочка
     const icons = {};
-    const pin = (draw) => { const [cv, c] = cnv(128, 128); c.fillStyle = '#C2405B'; c.beginPath(); c.arc(64, 58, 50, 0, 7); c.fill(); c.beginPath(); c.moveTo(46, 98); c.lineTo(82, 98); c.lineTo(64, 125); c.fill(); c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(64, 58, 42, 0, 7); c.fill(); draw(c); return cv; };
+    const pin = (draw) => { const [cv, c] = cnv(128, 128); c.fillStyle = '#B5520E'; c.beginPath(); c.arc(64, 58, 50, 0, 7); c.fill(); c.beginPath(); c.moveTo(46, 98); c.lineTo(82, 98); c.lineTo(64, 125); c.fill(); c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(64, 58, 42, 0, 7); c.fill(); draw(c); return cv; };
     const iconTex = kind => {
       if (icons[kind]) return icons[kind];
       let cv;
-      if (kind === 'case') cv = pin(c => { c.strokeStyle = '#C2405B'; c.lineWidth = 9; c.beginPath(); c.arc(58, 52, 18, 0, 7); c.stroke(); c.lineCap = 'round'; c.lineWidth = 11; c.beginPath(); c.moveTo(71, 65); c.lineTo(86, 80); c.stroke(); });
+      if (kind === 'case') cv = pin(c => { c.strokeStyle = '#B5520E'; c.lineWidth = 9; c.beginPath(); c.arc(58, 52, 18, 0, 7); c.stroke(); c.lineCap = 'round'; c.lineWidth = 11; c.beginPath(); c.moveTo(71, 65); c.lineTo(86, 80); c.stroke(); });
       else if (kind === 'star') cv = pin(c => { c.fillStyle = '#E8A93A'; c.beginPath(); for (let i = 0; i < 10; i++) { const a = -PI / 2 + i * PI / 5, r = i % 2 ? 13 : 30; c.lineTo(64 + Math.cos(a) * r, 58 + Math.sin(a) * r); } c.closePath(); c.fill(); });
-      else if (kind === 'heart') cv = pin(c => { c.fillStyle = '#E8607E'; c.beginPath(); c.moveTo(64, 82); c.bezierCurveTo(30, 60, 40, 30, 64, 46); c.bezierCurveTo(88, 30, 98, 60, 64, 82); c.fill(); });
+      else if (kind === 'heart') cv = pin(c => { c.fillStyle = '#E2672A'; c.beginPath(); c.moveTo(64, 82); c.bezierCurveTo(30, 60, 40, 30, 64, 46); c.bezierCurveTo(88, 30, 98, 60, 64, 82); c.fill(); });
       else if (kind === 'done') { [cv] = cnv(128, 128); const c = cv.getContext('2d'); c.fillStyle = '#5FAE84'; c.beginPath(); c.arc(64, 64, 52, 0, 7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 14; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(38, 66); c.lineTo(57, 85); c.lineTo(91, 46); c.stroke(); }
-      else if (kind === 'new') { [cv] = cnv(64, 64); const c = cv.getContext('2d'); c.fillStyle = '#F08FA8'; c.beginPath(); c.arc(32, 32, 24, 0, 7); c.fill(); c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(25, 25, 7, 0, 7); c.fill(); }
+      else if (kind === 'new') { [cv] = cnv(64, 64); const c = cv.getContext('2d'); c.fillStyle = '#F39A2B'; c.beginPath(); c.arc(32, 32, 24, 0, 7); c.fill(); c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(25, 25, 7, 0, 7); c.fill(); }
       else if (kind === 'fresh') { [cv] = cnv(192, 72); const c = cv.getContext('2d'); c.fillStyle = '#9E6B2E'; rrect(c, 0, 0, 192, 72, 20); c.fill(); text(c, 'НОВОЕ', 96, 38, 40, '#FFD98A'); }
       icons[kind] = keep(new T.CanvasTexture(cv));
       return icons[kind];
     };
-    const soonTex = sub => { const [cv, c] = cnv(256, 112); c.fillStyle = '#FFF6EE'; rrect(c, 2, 2, 252, 108, 26); c.fill(); c.strokeStyle = '#8E89A6'; c.lineWidth = 6; rrect(c, 10, 10, 236, 92, 20); c.stroke();
-      c.fillStyle = '#8E89A6'; rrect(c, 30, 50, 44, 36, 8); c.fill(); c.strokeStyle = '#8E89A6'; c.lineWidth = 7; c.beginPath(); c.arc(52, 50, 13, PI, 0); c.stroke();
-      text(c, sub || 'скоро', 160, 58, 44, '#6E6272', { f: 'Comfortaa', w: 700, max: 150 }); return new T.CanvasTexture(cv); };
+    const soonTex = sub => { const [cv, c] = cnv(256, 112); c.fillStyle = '#FFF6EE'; rrect(c, 2, 2, 252, 108, 26); c.fill(); c.strokeStyle = '#8E8478'; c.lineWidth = 6; rrect(c, 10, 10, 236, 92, 20); c.stroke();
+      c.fillStyle = '#8E8478'; rrect(c, 30, 50, 44, 36, 8); c.fill(); c.strokeStyle = '#8E8478'; c.lineWidth = 7; c.beginPath(); c.arc(52, 50, 13, PI, 0); c.stroke();
+      text(c, sub || 'скоро', 160, 58, 44, '#735E4E', { f: 'Comfortaa', w: 700, max: 150 }); return new T.CanvasTexture(cv); };
 
     const live = new Map();   // id → метка
     const group = new T.Group(); group.name = 'markers'; scene.add(group);
@@ -47,7 +47,7 @@
       const own = x => { m.own.push(x); return x; };
       const style = spec.style || 'case';
       if (style === 'case') {
-        const U = { uT: { value: 0 }, uCol: { value: new T.Color(spec.color || '#F2557A') }, uCore: { value: new T.Color('#FFC23A') }, uNear: { value: 1 } };
+        const U = { uT: { value: 0 }, uCol: { value: new T.Color(spec.color || '#F28A2E') }, uCore: { value: new T.Color('#FFC23A') }, uNear: { value: 1 } };
         const mat = own(new T.ShaderMaterial({ uniforms: U, transparent: true, depthWrite: false, side: T.DoubleSide, fog: false, vertexShader: BEAM_VS, fragmentShader: BEAM_FS }));
         m.beam = new T.Mesh(beamGeo, mat); m.beam.renderOrder = 5; m.beam.frustumCulled = false; g.add(m.beam); m.U = U;
         const rm = own(new T.MeshBasicMaterial({ color: '#FFD45E', transparent: true, opacity: 0.85, depthWrite: false, fog: false }));

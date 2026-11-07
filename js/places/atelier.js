@@ -16,7 +16,7 @@
 
   /* ---------- Комната ---------- */
   if (window.City3D && City3D.registerRoom) City3D.registerRoom(P, {
-    look: { sky: '#F6E4EA', gnd: '#C9A39A', hi: 0.66, sun: '#FFE4CC', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #6E3D57 0%, #3A2434 72%)', rim: ['#FFD9C8', 0.22], fog: '#3A2434' },
+    look: { sky: '#F6EADA', gnd: '#C9A39A', hi: 0.66, sun: '#FFE4CC', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #4E3424 0%, #2A1D14 72%)', rim: ['#FFD9C8', 0.22], fog: '#2A1D14' },
     cam: { portrait: { dx: 0, y: 3.9, dz: 5.6, ly: 0.75, lz: -2.3, fov: 52 }, landscape: { dx: 0.2, y: 3.7, dz: 6.2, ly: 1.2, lz: -2.0, fov: 46 } },
     build(R) {
       const { T, group: g, put, box, cyl, rbox, plane, toon, GEO } = R;
@@ -79,7 +79,7 @@
         R.text(ac, 'ПРИМЕРОЧНАЯ', x + 256, y + 66, 54, '#C2405B', { f: 'Comfortaa', w: 700, max: 430 });
       }
       { // табличка «ВЫХОД»
-        const x = 1536, y = 136; ac.fillStyle = '#3A2434'; R.rrect(ac, x, y, 320, 96, 18); ac.fill(); R.text(ac, 'ВЫХОД', x + 160, y + 50, 58, '#BFF0CE');
+        const x = 1536, y = 136; ac.fillStyle = '#2A1D14'; R.rrect(ac, x, y, 320, 96, 18); ac.fill(); R.text(ac, 'ВЫХОД', x + 160, y + 50, 58, '#BFF0CE');
       }
       // эскизы мод в рамках: силуэты с бантом и беретом
       const sketch = (x, y, coat, bow) => {
@@ -98,9 +98,9 @@
       { const fl = put(fx, GEO.plane, floorM, [0, 0.002, -D / 2], [W, D, 1], [-PI / 2, 0, 0]); fl.castShadow = false; }
       aplane(fx, [1024, 0, 512, 512], [0.2, 0.008, -2.6], [2.2, 2.2, 1], [-PI / 2, 0, 0]).receiveShadow = true;
       const [wcv, wc] = R.cnv(256, 256);
-      wc.fillStyle = '#FBE1E7'; wc.fillRect(0, 0, 256, 256);
-      wc.fillStyle = '#FDECEF'; wc.fillRect(0, 0, 64, 256); wc.fillRect(128, 0, 64, 256);
-      const wbow = (x, y) => { wc.fillStyle = '#F4C3CF'; [-1, 1].forEach(s => { wc.beginPath(); wc.ellipse(x + s * 7, y, 7, 4.5, s * 0.4, 0, 7); wc.fill(); }); wc.beginPath(); wc.arc(x, y, 3, 0, 7); wc.fill(); };
+      wc.fillStyle = '#F8EBD2'; wc.fillRect(0, 0, 256, 256);
+      wc.fillStyle = '#FBF2E2'; wc.fillRect(0, 0, 64, 256); wc.fillRect(128, 0, 64, 256);
+      const wbow = (x, y) => { wc.fillStyle = '#E9C27A'; [-1, 1].forEach(s => { wc.beginPath(); wc.ellipse(x + s * 7, y, 7, 4.5, s * 0.4, 0, 7); wc.fill(); }); wc.beginPath(); wc.arc(x, y, 3, 0, 7); wc.fill(); };
       wbow(32, 64); wbow(160, 192); wbow(96, 128); wbow(224, 0); wbow(224, 256);
       const wT = R.tex(wcv); wT.wrapS = wT.wrapT = T.RepeatWrapping; wT.repeat.set(1.4, 1.4);
       const wallM = toon('#FFFFFF', { map: wT });
@@ -400,13 +400,13 @@
     } catch (e) { /* ушла */ }
   }
 
-  if (G.addSpeakers) G.addSpeakers({ sheep: { name: () => 'Кашемира', art: () => G.emojiAvatar('🐑', '#FBE1E7') } });
+  if (G.addSpeakers) G.addSpeakers({ sheep: { name: () => 'Кашемира', art: () => G.emojiAvatar('🐑', '#F5DFA8') } });
 
   Town.place({
     id: P, kind: 'new', storySafe: true,   // проверено: без спойлеров серии 1 — можно заходить во время дела
     name: 'Ателье «Бант и берет»', short: 'Ателье',
     sign: 'БАНТ и БЕРЕТ', motto: 'ателье · примерочная · зеркало',
-    icon: '🎀', color: '#FBE1E7',
+    icon: '🎀', color: '#F5DFA8',
     street: { x: -11.0, w: 3.4, doorDx: 0, bkey: null },
     room: P, opens: 0,
     host: { who: 'sheep', npc: 'sheep' },

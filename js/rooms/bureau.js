@@ -20,7 +20,7 @@
       const texM = (cv, x) => toon('#FFFFFF', Object.assign({ map: R.tex(cv) }, x || {}));
       const addM = (map, c, op) => basic(c || '#FFFFFF', { map, transparent: true, opacity: op === undefined ? 1 : op, depthWrite: false, blending: T.AdditiveBlending, fog: false });
       const hitM = basic('#FFFFFF', { visible: false });
-      const BOOK = ['#F08FA8', '#8FB3D9', '#F7B267', '#BFE6D3', '#B9A5E8', '#C2405B', '#FFE08A'].map(c => toon(c));
+      const BOOK = ['#D9A441', '#8FB3D9', '#F7B267', '#BFE6D3', '#B9A5E8', '#C2405B', '#FFE08A'].map(c => toon(c));
       // близкие цвета — общими материалами: после склейки каждый материал = один вызов отрисовки
       const M = {
         cream: toon('#FFF6E8'), navy: toon('#2F3A5A'), navyL: toon('#44568A'),
@@ -74,17 +74,17 @@
         el(488, 236, '#FFF3E0'); el(466, 216, '#6C8BC2'); el(436, 190, '#FFF3E0'); el(426, 182, '#8FAFDD');
         for (let i = 0; i < 44; i++) { const a = i / 44 * PI * 2; c.fillStyle = i % 2 ? '#FFD45E' : '#FFF6E8'; c.beginPath(); c.arc(512 + Math.cos(a) * 451, 256 + Math.sin(a) * 203, 7, 0, 7); c.fill(); }
         for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2, x = 512 + Math.cos(a) * 330, y = 256 + Math.sin(a) * 128;
-          c.fillStyle = '#F4C7D0'; for (let k = 0; k < 5; k++) { const b = k / 5 * PI * 2; c.beginPath(); c.arc(x + Math.cos(b) * 11, y + Math.sin(b) * 11, 9, 0, 7); c.fill(); }
+          c.fillStyle = '#F2CF9A'; for (let k = 0; k < 5; k++) { const b = k / 5 * PI * 2; c.beginPath(); c.arc(x + Math.cos(b) * 11, y + Math.sin(b) * 11, 9, 0, 7); c.fill(); }
           c.fillStyle = '#FFE08A'; c.beginPath(); c.arc(x, y, 7, 0, 7); c.fill(); }
         el(170, 80, '#6C8BC2'); el(150, 66, '#FFF3E0');
-        for (let i = 0; i < 8; i++) { const a = i / 8 * PI * 2; c.fillStyle = i % 2 ? '#F4C7D0' : '#BFE6D3'; c.beginPath(); c.ellipse(512 + Math.cos(a) * 82, 256 + Math.sin(a) * 34, 30, 15, a, 0, 7); c.fill(); }
+        for (let i = 0; i < 8; i++) { const a = i / 8 * PI * 2; c.fillStyle = i % 2 ? '#F2CF9A' : '#BFE6D3'; c.beginPath(); c.ellipse(512 + Math.cos(a) * 82, 256 + Math.sin(a) * 34, 30, 15, a, 0, 7); c.fill(); }
         c.fillStyle = '#FFD45E'; c.beginPath(); c.ellipse(512, 256, 30, 16, 0, 0, 7); c.fill();
       }, 0, 512);
       aplane(dc, [0, 512, 1024, 512], [0, 0.008, -2.5], [4.6, 2.3, 1], [-PI / 2, 0, 0]);
       draw(c => {
         c.fillStyle = '#44568A'; R.rrect(c, 4, 4, 248, 376, 40); c.fill();
         c.strokeStyle = '#FFF3E0'; c.lineWidth = 10; R.rrect(c, 24, 24, 208, 336, 26); c.stroke();
-        c.fillStyle = '#F4C7D0'; c.beginPath(); c.moveTo(128, 236); c.bezierCurveTo(70, 190, 86, 136, 128, 162); c.bezierCurveTo(170, 136, 186, 190, 128, 236); c.fill();
+        c.fillStyle = '#F2CF9A'; c.beginPath(); c.moveTo(128, 236); c.bezierCurveTo(70, 190, 86, 136, 128, 162); c.bezierCurveTo(170, 136, 186, 190, 128, 236); c.fill();
       }, 900, 262, 0.42);
       aplane(dc, [900, 262, 107.5, 161.3], [-4.02, 0.01, -1.6], [0.72, 1.08, 1], [-PI / 2, 0, 0]);
 

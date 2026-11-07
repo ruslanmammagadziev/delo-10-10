@@ -31,7 +31,7 @@
     if (!TG) return;
     try { TG.ready(); TG.expand(); } catch (e) { /* ignore */ }
     try { if (tgAt('7.7')) TG.disableVerticalSwipes(); } catch (e) { /* ignore */ }
-    tgHeader('#FFF4EC');
+    tgHeader('#FFF3E2');
   }
   function tgHeader(color) {
     try { if (inTG && tgAt('6.9')) { TG.setHeaderColor(color); TG.setBackgroundColor(color); } } catch (e) { /* ignore */ }
@@ -837,7 +837,7 @@
   // места прогулки регистрируют своих говорящих сами
   const addSpeakers = o => Object.assign(speakers, o || {});
   // круглый значок с эмодзи — аватар для новых героев
-  const emojiAvatar = (emoji, bg = '#FBE1E7') => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="${esc(bg)}"/><circle cx="50" cy="50" r="44" fill="none" stroke="#fff" stroke-width="4" opacity=".7"/><text x="50" y="55" font-size="52" text-anchor="middle" dominant-baseline="middle">${esc(emoji)}</text></svg>`;
+  const emojiAvatar = (emoji, bg = '#FCE7CC') => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="${esc(bg)}"/><circle cx="50" cy="50" r="44" fill="none" stroke="#fff" stroke-width="4" opacity=".7"/><text x="50" y="55" font-size="52" text-anchor="middle" dominant-baseline="middle">${esc(emoji)}</text></svg>`;
 
   /* ---------- Экраны ---------- */
   function show(html, cls = '') {
@@ -1020,7 +1020,7 @@
     heart: c => `<svg viewBox="0 0 20 20"><path d="M10,18 C2,12 1,6 5,3.6 C7.4,2.2 9.2,3.6 10,5.2 C10.8,3.6 12.6,2.2 15,3.6 C19,6 18,12 10,18 Z" fill="${c}"/></svg>`,
   };
   function sparkle(x, y, opts = {}) {
-    const n = opts.n || 12, colors = opts.colors || ['#FFD25E', '#F08FA8', '#BFE6D3', '#B9A5E8', '#FFFFFF'];
+    const n = opts.n || 12, colors = opts.colors || ['#FFD25E', '#F39A2B', '#BFE6D3', '#B9A5E8', '#FFFFFF'];
     const r = app.getBoundingClientRect();
     if (x === undefined) { x = r.width / 2; y = r.height / 2; }
     for (let i = 0; i < n; i++) {
@@ -1061,15 +1061,15 @@
   function stCitizen() {
     let edge = '';
     for (let i = 0; i < 9; i++) { const k = 12 + i * 9.5; edge += `<circle cx="${k}" cy="8" r="3.2"/><circle cx="${k}" cy="92" r="3.2"/><circle cx="8" cy="${k}" r="3.2"/><circle cx="92" cy="${k}" r="3.2"/>`; }
-    return `<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="4" fill="#FFFDF9"/><g fill="#fff">${edge}</g><rect x="14" y="14" width="72" height="72" rx="6" fill="#FBE1E7"/>
-      <path d="M30,74 L30,50 L50,34 L70,50 L70,74 Z" fill="#FFF1A8" stroke="#3A2E3F" stroke-width="2.4" stroke-linejoin="round"/><path d="M26,52 L50,31 L74,52" fill="none" stroke="#C2405B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-      <rect x="44" y="58" width="12" height="16" rx="6" fill="#C2405B"/><rect x="34" y="54" width="7" height="7" rx="1.5" fill="#BFE6D3"/><rect x="59" y="54" width="7" height="7" rx="1.5" fill="#BFE6D3"/>
-      <path d="M50,24 C44,16 34,18 38,25 C40,28 46,26 50,24 C54,26 60,28 62,25 C66,18 56,16 50,24 Z" fill="#F08FA8" stroke="#C2405B" stroke-width="1.6"/><circle cx="50" cy="24" r="3" fill="#C2405B"/></svg>`;
+    return `<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="4" fill="#FFFDF9"/><g fill="#fff">${edge}</g><rect x="14" y="14" width="72" height="72" rx="6" fill="#FCE7CC"/>
+      <path d="M30,74 L30,50 L50,34 L70,50 L70,74 Z" fill="#FFF1A8" stroke="#3B2A20" stroke-width="2.4" stroke-linejoin="round"/><path d="M26,52 L50,31 L74,52" fill="none" stroke="#B5520E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="44" y="58" width="12" height="16" rx="6" fill="#B5520E"/><rect x="34" y="54" width="7" height="7" rx="1.5" fill="#BFE6D3"/><rect x="59" y="54" width="7" height="7" rx="1.5" fill="#BFE6D3"/>
+      <path d="M50,24 C44,16 34,18 38,25 C40,28 46,26 50,24 C54,26 60,28 62,25 C66,18 56,16 50,24 Z" fill="#F39A2B" stroke="#B5520E" stroke-width="1.6"/><circle cx="50" cy="24" r="3" fill="#B5520E"/></svg>`;
   }
   function stSleuth() {
-    return `<svg viewBox="0 0 100 100"><circle cx="42" cy="42" r="24" fill="#E8F4FF" stroke="#3A2E3F" stroke-width="6"/><circle cx="42" cy="42" r="24" fill="none" stroke="#C9A24A" stroke-width="2.4"/>
-      <path d="M34,32 Q40,26 48,28" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M60,60 L82,82" stroke="#3A2E3F" stroke-width="11" stroke-linecap="round"/><path d="M61,61 L80,80" stroke="#B98C6A" stroke-width="6" stroke-linecap="round"/>
-      <path d="M42,14 C34,4 22,8 28,15 C31,18 38,16 42,14 C46,16 53,18 56,15 C62,8 50,4 42,14 Z" fill="#F08FA8" stroke="#C2405B" stroke-width="1.6"/><circle cx="42" cy="14" r="3" fill="#C2405B"/></svg>`;
+    return `<svg viewBox="0 0 100 100"><circle cx="42" cy="42" r="24" fill="#E8F4FF" stroke="#3B2A20" stroke-width="6"/><circle cx="42" cy="42" r="24" fill="none" stroke="#C9A24A" stroke-width="2.4"/>
+      <path d="M34,32 Q40,26 48,28" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M60,60 L82,82" stroke="#3B2A20" stroke-width="11" stroke-linecap="round"/><path d="M61,61 L80,80" stroke="#B98C6A" stroke-width="6" stroke-linecap="round"/>
+      <path d="M42,14 C34,4 22,8 28,15 C31,18 38,16 42,14 C46,16 53,18 56,15 C62,8 50,4 42,14 Z" fill="#F39A2B" stroke="#B5520E" stroke-width="1.6"/><circle cx="42" cy="14" r="3" fill="#B5520E"/></svg>`;
   }
   // по два места под улики каждой будущей серии
   const SEASON_SLOTS = ['film', 'scroll', 'desserts', 'note', 'secret', 'pockets']
@@ -1220,17 +1220,17 @@
       try { await Promise.all(['700 64px Caveat', '900 34px Nunito', '800 26px Nunito', '700 40px Comfortaa'].map(f => document.fonts.load(f, 'Аб' + herName()))); } catch (e) { /* ignore */ }
       const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
       const c = cv.getContext('2d');
-      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#FCE4EA'); g.addColorStop(1, '#FFF4EC');
+      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#FFE8C6'); g.addColorStop(1, '#FFF3E2');
       c.fillStyle = g; c.fillRect(0, 0, W, H);
       c.fillStyle = '#FFFDF9'; roundRect(c, 70, 150, W - 140, H - 300, 48); c.fill();
       c.strokeStyle = '#EEF1F6'; c.lineWidth = 2;
       for (let y = 230; y < H - 170; y += 44) { c.beginPath(); c.moveTo(100, y); c.lineTo(W - 100, y); c.stroke(); }
       for (let x = 100; x < W - 100; x += 44) { c.beginPath(); c.moveTo(x, 190); c.lineTo(x, H - 170); c.stroke(); }
-      c.fillStyle = 'rgba(247,201,211,.9)'; c.save(); c.translate(W / 2, 150); c.rotate(-.04); c.fillRect(-120, -26, 240, 52); c.restore();
-      c.fillStyle = '#C2405B'; c.textAlign = 'center';
+      c.fillStyle = 'rgba(240,190,110,.9)'; c.save(); c.translate(W / 2, 150); c.rotate(-.04); c.fillRect(-120, -26, 240, 52); c.restore();
+      c.fillStyle = '#B5520E'; c.textAlign = 'center';
       c.font = '700 40px Comfortaa, Nunito, sans-serif'; c.fillText('ДЕЛО № 10/10', W / 2, 290);
-      c.fillStyle = '#3A2E3F'; c.font = '900 34px Nunito, sans-serif'; c.fillText('Блокнот следователя', W / 2, 345);
-      c.font = '700 64px Caveat, Nunito, sans-serif'; c.fillStyle = '#4A3A55'; c.fillText(herName(), W / 2, 440, W - 200);
+      c.fillStyle = '#3B2A20'; c.font = '900 34px Nunito, sans-serif'; c.fillText('Блокнот следователя', W / 2, 345);
+      c.font = '700 64px Caveat, Nunito, sans-serif'; c.fillStyle = '#4B3424'; c.fillText(herName(), W / 2, 440, W - 200);
       // героиня по рисунку — сразу растром (SVG с вложенной картинкой Safari рисует на canvas ненадёжно); кадр 120×188 без растяжения
       const lk = { look: look(), bow: state.bow, coat: state.coat, hair: state.hair, mood: 'happy', magnifier: true };
       const hero = (Art.heroineRaster && await Art.heroineRaster(lk)) || await svgToImg(Art.heroine(lk));
@@ -1242,22 +1242,22 @@
         const col = i % 3, row = Math.floor(i / 3);
         const x = 160 + col * 270, y = 1010 + row * 300;
         c.save(); c.translate(x + 110, y + 110); c.rotate((((i * 37) % 9) - 4) * Math.PI / 180);
-        c.fillStyle = '#fff'; c.shadowColor = 'rgba(58,46,63,.15)'; c.shadowBlur = 20; c.shadowOffsetY = 8;
+        c.fillStyle = '#fff'; c.shadowColor = 'rgba(59,42,32,.15)'; c.shadowBlur = 20; c.shadowOffsetY = 8;
         roundRect(c, -110, -110, 220, 220, 44); c.fill(); c.shadowColor = 'transparent';
         if (im) c.drawImage(im, -90, -90, 180, 180);
         c.restore();
-        c.fillStyle = '#6E6272'; c.font = '800 26px Nunito, sans-serif'; c.fillText(STICKERS[k].title, x + 110, y + 260, 250);
+        c.fillStyle = '#735E4E'; c.font = '800 26px Nunito, sans-serif'; c.fillText(STICKERS[k].title, x + 110, y + 260, 250);
         i++;
       }
       const ep = state.eps[1];
-      c.fillStyle = '#3A2E3F'; c.font = '900 32px Nunito, sans-serif';
+      c.fillStyle = '#3B2A20'; c.font = '900 32px Nunito, sans-serif';
       const line = ep && ep.recap ? 'Серия\u00A01: краткий пересказ' : ep && ep.done ? `Серия\u00A01 пройдена за ${fmtTime(ep.time || 0)}` : 'Серия\u00A01: расследование идёт';
       c.fillText(line, W / 2, H - 230);
       try {
         const tl = window.Town && Town.exportLine ? Town.exportLine() : '';
-        if (tl) { c.fillStyle = '#6E6272'; c.font = '800 28px Nunito, sans-serif'; c.fillText(tl, W / 2, H - 282, W - 200); }
+        if (tl) { c.fillStyle = '#735E4E'; c.font = '800 28px Nunito, sans-serif'; c.fillText(tl, W / 2, H - 282, W - 200); }
       } catch (e) { /* ignore */ }
-      if (state.ratings[1]) { c.fillStyle = '#C2405B'; c.font = '700 40px Comfortaa, Nunito, sans-serif'; c.fillText(`Оценка серии: ${state.ratings[1]}/10`, W / 2, H - 175); }
+      if (state.ratings[1]) { c.fillStyle = '#B5520E'; c.font = '700 40px Comfortaa, Nunito, sans-serif'; c.fillText(`Оценка серии: ${state.ratings[1]}/10`, W / 2, H - 175); }
       const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
       if (!blob) throw new Error('no blob');
       try {

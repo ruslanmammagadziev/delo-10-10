@@ -29,29 +29,29 @@
   Town.style(P, `
 .kz-sheet .sheet-card { background: #FFFDF9; }
 .kz-paper { font-family: Georgia, "Times New Roman", "PT Serif", serif; font-weight: 500; color: #2E2A33; display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
-.kz-mast { text-align: center; border-bottom: 3px double #3A2E3F; padding-bottom: 6px; }
+.kz-mast { text-align: center; border-bottom: 3px double #3B2A20; padding-bottom: 6px; }
 .kz-name { font-weight: 700; font-size: 25px; letter-spacing: .04em; line-height: 1.05; }
-.kz-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 11.5px; font-style: italic; color: #6E6272; border-top: 1px solid #3A2E3F; margin-top: 6px; padding-top: 4px; }
+.kz-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 11.5px; font-style: italic; color: #735E4E; border-top: 1px solid #3B2A20; margin-top: 6px; padding-top: 4px; }
 .kz-shut { font-family: var(--font-hand); font-size: 18px; color: #8C6A4F; text-align: center; margin-top: -2px; }
 .kz-h1 { font-weight: 700; font-size: 21px; line-height: 1.18; margin: 2px 0 0; }
 .kz-h2 { font-weight: 700; font-size: 17px; line-height: 1.22; margin: 0; padding-top: 8px; border-top: 1px solid #D9CFC6; }
 .kz-cols { display: grid; grid-template-columns: 1fr 1.45fr; gap: 10px; }
-.kz-box { border: 1.5px solid #3A2E3F; border-radius: 4px; padding: 7px 9px; font-size: 13.5px; line-height: 1.35; background: #FFF8EC; }
-.kz-box b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; font-family: var(--font); font-weight: 900; color: #9E2F47; }
+.kz-box { border: 1.5px solid #3B2A20; border-radius: 4px; padding: 7px 9px; font-size: 13.5px; line-height: 1.35; background: #FFF8EC; }
+.kz-box b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; font-family: var(--font); font-weight: 900; color: #6B3517; }
 .kz-cross { display: flex; align-items: center; gap: 10px; border-top: 1px dashed #B9A9A0; padding-top: 9px; }
 .kz-clue { flex: 1; font-size: 13.5px; line-height: 1.3; }
-.kz-clue i { display: block; font-family: var(--font-hand); font-style: normal; font-size: 19px; color: #C2405B; line-height: 1.1; margin-top: 2px; }
+.kz-clue i { display: block; font-family: var(--font-hand); font-style: normal; font-size: 19px; color: #B5520E; line-height: 1.1; margin-top: 2px; }
 .kz-cells { appearance: none; border: 0; background: none; padding: 0; display: flex; cursor: pointer; flex: none; }
-.kz-cells span { width: 34px; height: 34px; border: 1.5px solid #3A2E3F; margin-left: -1.5px; display: grid; place-items: center; font-family: var(--font-hand); font-size: 26px; font-weight: 700; color: #4A4A6A; background: #fff; }
+.kz-cells span { width: 34px; height: 34px; border: 1.5px solid #3B2A20; margin-left: -1.5px; display: grid; place-items: center; font-family: var(--font-hand); font-size: 26px; font-weight: 700; color: #4A4A6A; background: #fff; }
 .kz-cells span:first-child { margin-left: 0; }
 .kz-cells.on span { animation: kzPen .35s ease both; }
 .kz-cells.on span:nth-child(2) { animation-delay: .18s; } .kz-cells.on span:nth-child(3) { animation-delay: .36s; }
 @keyframes kzPen { from { color: transparent; transform: scale(.7); } }
 .kz-nav { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font); }
-.kz-nav button { appearance: none; border: 0; background: #F4ECE4; color: #3A2E3F; border-radius: 12px; padding: 9px 12px; font: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer; }
+.kz-nav button { appearance: none; border: 0; background: #F4ECE4; color: #3B2A20; border-radius: 12px; padding: 9px 12px; font: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer; }
 .kz-nav button:disabled { opacity: .35; cursor: default; }
 .kz-knock { align-self: center; font-family: var(--font); }
-.kz-bubble { align-self: center; max-width: 92%; background: #fff; border: 2px solid #E8DCCF; border-radius: 16px; padding: 8px 12px; font-family: var(--font); font-weight: 700; font-size: 14px; text-align: center; color: #3A2E3F; animation: pop .3s cubic-bezier(.2,1.5,.4,1) both; }
+.kz-bubble { align-self: center; max-width: 92%; background: #fff; border: 2px solid #E8DCCF; border-radius: 16px; padding: 8px 12px; font-family: var(--font); font-weight: 700; font-size: 14px; text-align: center; color: #3B2A20; animation: pop .3s cubic-bezier(.2,1.5,.4,1) both; }
 .kz-bubble.hidden { display: none; }
 `);
 

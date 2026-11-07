@@ -181,12 +181,12 @@
     const tor = (c, R, rr, p, r) => P.push({ g: new T.TorusGeometry(R, rr, 6, 18), c, m: m4(T, p, r), own: true, ol: false });
     // ручка
     cyl('#8ED3E6', 0.0115, 0.0125, 0.2, [0, 0.07, 0], null, 10);
-    cyl('#F6A6C0', 0.0135, 0.0135, 0.05, [0, -0.005, 0], null, 10);         // мягкая розовая обмотка под кулак
+    cyl('#F7B26A', 0.0135, 0.0135, 0.05, [0, -0.005, 0], null, 10);         // мягкая розовая обмотка под кулак
     sph('#FFF6EE', [0, -0.035, 0], [0.016, 0.016, 0.016]);                    // шарик на конце
     // головка: розовая середина, «гармошка» и жёлтые торцы вдоль z
-    cyl('#F2667F', 0.045, 0.045, 0.07, [0, HAMMER_HEAD[1], 0], [PI / 2, 0, 0], 16);
+    cyl('#F07F3A', 0.045, 0.045, 0.07, [0, HAMMER_HEAD[1], 0], [PI / 2, 0, 0], 16);
     [-1, 1].forEach(s => {
-      tor('#D94E6A', 0.046, 0.006, [0, HAMMER_HEAD[1], s * 0.022], null);
+      tor('#D2602A', 0.046, 0.006, [0, HAMMER_HEAD[1], s * 0.022], null);
       cyl('#FFD166', 0.05, 0.043, 0.026, [0, HAMMER_HEAD[1], s * 0.047], [PI / 2, 0, 0], 16);
       tor('#F2B84B', 0.047, 0.005, [0, HAMMER_HEAD[1], s * 0.052], null);
       cyl('#FFE29A', 0.038, 0.038, 0.004, [0, HAMMER_HEAD[1], s * 0.061], [PI / 2, 0, 0], 16);
@@ -327,7 +327,7 @@
       c.fillStyle = 'rgba(255,255,255,.85)'; c.beginPath(); c.ellipse(25, 26, 5, 3.5, -0.6, 0, TAU); c.fill();
     });
     TX.heart = atlasDraw(64, 64, c => {
-      heartPath(c, 32, 34, 20); c.fillStyle = '#FF86A8'; c.fill(); c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = '#E0507A'; c.stroke();
+      heartPath(c, 32, 34, 20); c.fillStyle = '#FFA54A'; c.fill(); c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = '#E0702A'; c.stroke();
       c.fillStyle = 'rgba(255,255,255,.8)'; c.beginPath(); c.ellipse(22, 24, 5, 3, -0.7, 0, TAU); c.fill();
     });
     TX.puff = atlasDraw(64, 64, c => {
@@ -350,7 +350,7 @@
         c.font = '900 72px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
         c.lineWidth = 16; c.strokeStyle = '#4A3A48'; c.strokeText(text, w / 2, h / 2 + 4);
         const g = c.createLinearGradient(0, 18, 0, h - 18);
-        const cs = col === 'pink' ? ['#FFE1EC', '#FF8FB1'] : col === 'blue' ? ['#F2FBFF', '#9AD3F2'] : col === 'green' ? ['#F1FFD8', '#A9DB6A'] : ['#FFF3A6', '#FFA45A'];
+        const cs = col === 'pink' ? ['#FFE8C8', '#FFA040'] : col === 'blue' ? ['#F2FBFF', '#9AD3F2'] : col === 'green' ? ['#F1FFD8', '#A9DB6A'] : ['#FFF3A6', '#FFA45A'];
         g.addColorStop(0, cs[0]); g.addColorStop(1, cs[1]); c.fillStyle = g; c.fillText(text, w / 2, h / 2 + 4);
         c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.7)'; c.strokeText(text, w / 2, h / 2 + 2);
       };
@@ -381,7 +381,7 @@
         c.lineJoin = 'round'; rrect(c, 5, 5, w - 10, h - 32, 26); c.fillStyle = '#FFFFFF'; c.fill(); c.lineWidth = 5; c.strokeStyle = '#4A3A48'; c.stroke();
         c.beginPath(); c.moveTo(w / 2 - 16, h - 29); c.lineTo(w / 2, h - 6); c.lineTo(w / 2 + 14, h - 29); c.closePath(); c.fill(); c.stroke();
         c.fillStyle = '#FFFFFF'; c.fillRect(w / 2 - 13, h - 34, 25, 8);
-        c.font = font; c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = font; c.fillStyle = '#3B2A20'; c.textAlign = 'center'; c.textBaseline = 'middle';
         lines.forEach((l, i) => c.fillText(l, w / 2, 5 + 22 + 25 + i * 50 - 2));
       }));
       tx.userData.lines = lines.length;
@@ -513,8 +513,8 @@
         { g: sphG, c: '#E6F6FF', m: m4(T, [0, -0.008, 0.012], null, [0.019, 0.016, 0.022]), ol: false },
         { g: sphG, c: '#8FCBF2', m: m4(T, [0, 0.022, 0.026], null, [0.02, 0.02, 0.02]) },
         { g: coneG, c: '#FFC24D', m: m4(T, [0, 0.019, 0.05], [PI / 2, 0, 0], [0.007, 0.016, 0.007]) },
-        { g: sphG, c: '#3A2E3F', m: m4(T, [0.011, 0.028, 0.039], null, [0.0042, 0.0042, 0.0042]), ol: false },
-        { g: sphG, c: '#3A2E3F', m: m4(T, [-0.011, 0.028, 0.039], null, [0.0042, 0.0042, 0.0042]), ol: false },
+        { g: sphG, c: '#3B2A20', m: m4(T, [0.011, 0.028, 0.039], null, [0.0042, 0.0042, 0.0042]), ol: false },
+        { g: sphG, c: '#3B2A20', m: m4(T, [-0.011, 0.028, 0.039], null, [0.0042, 0.0042, 0.0042]), ol: false },
         { g: sphG, c: '#FFB3C7', m: m4(T, [0.014, 0.017, 0.036], null, [0.005, 0.003, 0.003]), ol: false },
         { g: sphG, c: '#FFB3C7', m: m4(T, [-0.014, 0.017, 0.036], null, [0.005, 0.003, 0.003]), ol: false },
         { g: coneG, c: '#7AB8E2', m: m4(T, [0, 0.006, -0.038], [-PI / 2 - 0.4, 0, 0], [0.012, 0.024, 0.006]) },
@@ -687,7 +687,7 @@
     /* ---------- белый платочек «сдаюсь» ---------- */
     TX.flag = keepT(canvasTex(T, 96, 68, c => {      // белый платочек с тёмной каёмкой и розовым сердечком (видно и на светлом фоне)
       c.fillStyle = '#FFFFFF'; rrect(c, 3, 3, 90, 62, 10); c.fill(); c.lineWidth = 5; c.strokeStyle = '#4A3A48'; c.stroke();
-      heartPath(c, 48, 36, 11); c.fillStyle = '#FF86A8'; c.fill();
+      heartPath(c, 48, 36, 11); c.fillStyle = '#FFA54A'; c.fill();
     }));
     const FLAG = { stickG: keepG(new T.CylinderGeometry(0.008, 0.008, 0.48, 6)), clothG: keepG(new T.PlaneGeometry(0.22, 0.156, 6, 3)), stickM: toonM('#B98A5E'), clothM: toonM('#FFFFFF', { side: T.DoubleSide, map: TX.flag }), pool: [] };
     FLAG.clothG.translate(0.1, 0, 0); FLAG.stickG.translate(0, 0.24, 0);
@@ -1644,22 +1644,22 @@
        ===================================================================== */
     const host = o.buttonsHost || null;
     const UI = { bonk: null, toss: null, chip: null, bl: '', tl: '', cl: '', ck: null, hudOn: false, hudN: 0, saved: null };
-    const HAM_SVG = '<svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><rect x="14.2" y="12" width="3.6" height="17" rx="1.8" fill="#8ED3E6" stroke="#4A3A48" stroke-width="1.6"/><rect x="5" y="4" width="22" height="10" rx="4" fill="#F2667F" stroke="#4A3A48" stroke-width="1.6"/><rect x="3" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/><rect x="24" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/></svg>';
+    const HAM_SVG = '<svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><rect x="14.2" y="12" width="3.6" height="17" rx="1.8" fill="#8ED3E6" stroke="#4A3A48" stroke-width="1.6"/><rect x="5" y="4" width="22" height="10" rx="4" fill="#F07F3A" stroke="#4A3A48" stroke-width="1.6"/><rect x="3" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/><rect x="24" y="4.6" width="5" height="8.8" rx="2" fill="#FFD166" stroke="#4A3A48" stroke-width="1.4"/></svg>';
     const HAM_BTN = '<i>' + HAM_SVG + '</i><b>Пиу!</b>';
     const CSS = `
-:where(.pf-btn){position:absolute;right:23px;bottom:calc(242px + var(--safe-bottom,0px));width:62px;height:62px;padding:0;border:0;border-radius:50%;background:rgba(255,253,249,.95);color:var(--cherry,#C2405B);font:inherit;font-family:Nunito,system-ui,sans-serif;font-weight:900;font-size:12.5px;line-height:1.05;box-shadow:0 4px 0 rgba(58,46,63,.16),0 8px 18px rgba(58,46,63,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:19;cursor:pointer;user-select:none;-webkit-user-select:none;transition:transform .08s,box-shadow .08s}
+:where(.pf-btn){position:absolute;right:23px;bottom:calc(242px + var(--safe-bottom,0px));width:62px;height:62px;padding:0;border:0;border-radius:50%;background:rgba(255,253,249,.95);color:var(--cherry,#B5520E);font:inherit;font-family:Nunito,system-ui,sans-serif;font-weight:900;font-size:12.5px;line-height:1.05;box-shadow:0 4px 0 rgba(59,42,32,.16),0 8px 18px rgba(59,42,32,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:19;cursor:pointer;user-select:none;-webkit-user-select:none;transition:transform .08s,box-shadow .08s}
 :where(.pf-btn) i{font-style:normal;font-size:21px;line-height:1;display:block;height:24px}
 :where(.pf-btn) b{display:block;white-space:nowrap}
-:where(.pf-btn):active,:where(.pf-btn.go){transform:translateY(3px) scale(.95);box-shadow:0 1px 0 rgba(58,46,63,.16)}
+:where(.pf-btn):active,:where(.pf-btn.go){transform:translateY(3px) scale(.95);box-shadow:0 1px 0 rgba(59,42,32,.16)}
 :where(.pf-btn.hidden){display:none}
 :where(.pf-toss){bottom:calc(316px + var(--safe-bottom,0px))}
-:where(.pf-btn.pet){color:#D9718E}
+:where(.pf-btn.pet){color:#C9783A}
 :where(.pf-btn.snow){color:#3E7FA6}
 :where(.pf-btn.leaf){color:#C2702E}
 :where(.pf-inline) .pf-btn{position:relative;right:auto;bottom:auto}
-:where(.pf-chip){position:absolute;left:50%;top:calc(64px + var(--safe-top,0px));transform:translateX(-50%);z-index:21;background:rgba(255,253,249,.96);color:var(--ink,#3A2E3F);font-family:Nunito,system-ui,sans-serif;font-weight:900;font-size:14px;padding:8px 14px;border-radius:16px;box-shadow:0 3px 0 rgba(58,46,63,.12),0 8px 18px rgba(58,46,63,.1);white-space:nowrap;pointer-events:none}
+:where(.pf-chip){position:absolute;left:50%;top:calc(64px + var(--safe-top,0px));transform:translateX(-50%);z-index:21;background:rgba(255,253,249,.96);color:var(--ink,#3B2A20);font-family:Nunito,system-ui,sans-serif;font-weight:900;font-size:14px;padding:8px 14px;border-radius:16px;box-shadow:0 3px 0 rgba(59,42,32,.12),0 8px 18px rgba(59,42,32,.1);white-space:nowrap;pointer-events:none}
 :where(.pf-chip) em{font-style:normal;color:#3E7FA6}
-:where(.pf-chip) u{text-decoration:none;color:var(--cherry,#C2405B)}
+:where(.pf-chip) u{text-decoration:none;color:var(--cherry,#B5520E)}
 :where(.pf-chip.end){background:#EAF6FD}
 :where(.pf-chip.hidden){display:none}
 `;

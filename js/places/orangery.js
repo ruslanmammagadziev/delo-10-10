@@ -59,7 +59,7 @@
         for (let i = 0; i < 26; i++) { const x = q() < 0.5 ? q() * (px0 - 30) : px1 + 24 + q() * (512 - px1 - 30), y = q() * 512; c.fillStyle = ['rgba(143,174,98,.35)', 'rgba(127,176,138,.3)', 'rgba(238,154,85,.35)'][i % 3]; c.beginPath(); c.ellipse(x, y, 10 + q() * 16, 6 + q() * 8, q() * 3, 0, 7); c.fill(); } }
       { const c = ac, ox = 512, oy = 0, w = 512, h = 256;   // за стеклом: кусты и дома улицы, мягко
         const gr = c.createLinearGradient(0, oy, 0, oy + h); gr.addColorStop(0, '#D6DEE4'); gr.addColorStop(1, '#EAE6DE'); c.fillStyle = gr; c.fillRect(ox, oy, w, h);
-        [['#E6D2DA', 30, 70, 90], ['#F0DEC8', 140, 52, 80], ['#DCD4EA', 236, 80, 96], ['#F2D7CF', 352, 60, 84], ['#E2E0EC', 450, 74, 70]].forEach(([col, x, y, ww]) => {
+        [['#E8D3BC', 30, 70, 90], ['#F0DEC8', 140, 52, 80], ['#DCD4EA', 236, 80, 96], ['#F2D7CF', 352, 60, 84], ['#E2E0EC', 450, 74, 70]].forEach(([col, x, y, ww]) => {
           c.fillStyle = col; c.fillRect(ox + x, oy + y, ww, h - y); c.fillStyle = '#C9B8C8'; c.beginPath(); c.moveTo(ox + x - 6, oy + y); c.lineTo(ox + x + ww / 2, oy + y - 26); c.lineTo(ox + x + ww + 6, oy + y); c.fill();
           c.fillStyle = '#FFE3B0'; for (let i = 0; i < 2; i++) c.fillRect(ox + x + 14 + i * (ww - 40), oy + y + 24, 12, 16);
         });

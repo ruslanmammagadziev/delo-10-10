@@ -82,20 +82,20 @@
         // вывеска «СТОРОНА Б»
         rr(0, 100, 640, 168, 34, '#6E6272'); c.strokeStyle = '#FFF1A8'; c.lineWidth = 6; R.rrect(c, 12, 112, 616, 144, 26); c.stroke();
         R.text(c, 'СТОРОНА Б', 320, 170, 86, '#FFF1A8', { f: 'Comfortaa', w: 700, max: 560 });
-        R.text(c, 'пластинки · будка · джаз', 320, 230, 34, '#F7C9D3', { w: 800, max: 520 });
+        R.text(c, 'пластинки · будка · джаз', 320, 230, 34, '#F9CF9C', { w: 800, max: 520 });
         // пластинка-эмблема
         const disc = (x, y, r, lab) => { c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.strokeStyle = 'rgba(255,255,255,.14)'; c.lineWidth = 2; for (let k = 0.45; k < 0.97; k += 0.09) { c.beginPath(); c.arc(x, y, r * k, 0, 7); c.stroke(); } c.fillStyle = lab; c.beginPath(); c.arc(x, y, r * 0.34, 0, 7); c.fill(); c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(x, y, r * 0.05, 0, 7); c.fill(); };
-        disc(735, 85, 82, '#F7C9D3'); R.text(c, 'Б', 735, 78, 30, '#C2405B', { f: 'Comfortaa', w: 700 });
-        rr(830, 80, 190, 90, 18, '#FFF1A8'); R.text(c, 'новинки', 925, 112, 30, '#C2405B', { f: 'Comfortaa', w: 700, max: 170 }); R.text(c, 'сторона А и Б', 925, 148, 20, '#6E6272', { w: 800, max: 170 });
+        disc(735, 85, 82, '#F9CF9C'); R.text(c, 'Б', 735, 78, 30, '#B5520E', { f: 'Comfortaa', w: 700 });
+        rr(830, 80, 190, 90, 18, '#FFF1A8'); R.text(c, 'новинки', 925, 112, 30, '#B5520E', { f: 'Comfortaa', w: 700, max: 170 }); R.text(c, 'сторона А и Б', 925, 148, 20, '#6E6272', { w: 800, max: 170 });
         // табличка у саксофона
         rr(830, 0, 190, 70, 14, '#E8C770'); R.text(c, 'А. Сакс · 1846', 925, 37, 26, '#6B4A2E', { w: 800, max: 170 });
         // коврик: лавандовый овал с пластинкой
         { const cx = 320, cy = 480; const el = (rx, ry, f) => { c.fillStyle = f; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill(); };
           el(316, 196, '#FFF4EC'); el(300, 182, '#B9A5E8'); el(276, 160, '#D9CCF4');
-          for (let i = 0; i < 40; i++) { const a = i / 40 * PI * 2; c.fillStyle = i % 2 ? '#F7C9D3' : '#FFF4EC'; c.beginPath(); c.arc(cx + Math.cos(a) * 288, cy + Math.sin(a) * 171, 6, 0, 7); c.fill(); }
-          c.save(); c.translate(cx, cy); c.scale(1, 0.62); c.fillStyle = '#6E6272'; c.beginPath(); c.arc(0, 0, 170, 0, 7); c.fill(); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 4; for (let k = 60; k < 168; k += 18) { c.beginPath(); c.arc(0, 0, k, 0, 7); c.stroke(); } c.fillStyle = '#F7C9D3'; c.beginPath(); c.arc(0, 0, 56, 0, 7); c.fill(); c.fillStyle = '#FFF1A8'; c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill(); c.restore(); }
+          for (let i = 0; i < 40; i++) { const a = i / 40 * PI * 2; c.fillStyle = i % 2 ? '#F9CF9C' : '#FFF4EC'; c.beginPath(); c.arc(cx + Math.cos(a) * 288, cy + Math.sin(a) * 171, 6, 0, 7); c.fill(); }
+          c.save(); c.translate(cx, cy); c.scale(1, 0.62); c.fillStyle = '#6E6272'; c.beginPath(); c.arc(0, 0, 170, 0, 7); c.fill(); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 4; for (let k = 60; k < 168; k += 18) { c.beginPath(); c.arc(0, 0, k, 0, 7); c.stroke(); } c.fillStyle = '#F9CF9C'; c.beginPath(); c.arc(0, 0, 56, 0, 7); c.fill(); c.fillStyle = '#FFF1A8'; c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill(); c.restore(); }
         // ярлыки ящиков
-        [['ДЖАЗ', '#F7C9D3'], ['ОСЕНЬ', '#FFE08A'], ['ТИШИНА', '#BFE6D3']].forEach(([s, f], i) => { rr(650, 180 + i * 65, 180, 60, 14, f); R.text(c, s, 740, 211 + i * 65, 34, '#6E6272', { f: 'Comfortaa', w: 700, max: 160 }); });
+        [['ДЖАЗ', '#F9CF9C'], ['ОСЕНЬ', '#FFE08A'], ['ТИШИНА', '#BFE6D3']].forEach(([s, f], i) => { rr(650, 180 + i * 65, 180, 60, 14, f); R.text(c, s, 740, 211 + i * 65, 34, '#6E6272', { f: 'Comfortaa', w: 700, max: 160 }); });
         // будка
         rr(650, 380, 360, 70, 20, '#FFF4EC'); R.text(c, '♪ будка прослушивания', 830, 416, 30, '#6E6272', { w: 800, max: 330 });
         // афиши (придуманные, без реальных названий)
@@ -124,7 +124,7 @@
         wc.fillStyle = '#FFF1A8'; wc.fillRect(0, 0, 256, 256);
         wc.fillStyle = '#FFF7CC'; wc.fillRect(0, 0, 44, 256); wc.fillRect(128, 0, 44, 256);
         const note = (x, y, col) => { wc.fillStyle = col; wc.beginPath(); wc.ellipse(x, y, 9, 7, -0.4, 0, 7); wc.fill(); wc.fillRect(x + 6, y - 30, 3.5, 30); wc.beginPath(); wc.moveTo(x + 9, y - 30); wc.quadraticCurveTo(x + 22, y - 22, x + 18, y - 10); wc.lineTo(x + 9, y - 20); wc.fill(); };
-        note(86, 70, '#D9CCF4'); note(214, 198, '#F7C9D3'); note(86, 198, '#F7C9D3'); note(214, 70, '#D9CCF4');
+        note(86, 70, '#D9CCF4'); note(214, 198, '#F9CF9C'); note(86, 198, '#F9CF9C'); note(214, 70, '#D9CCF4');
         const wT = R.tex(wcv); wT.wrapS = wT.wrapT = T.RepeatWrapping;
         const wallM = tn('#FFFFFF', { map: wT });
         rbox(dc, M.butter, 0, H / 2, -D - 0.1, W + 0.4, H, 0.2, 0.04);
@@ -184,7 +184,7 @@
       rbox(st, M.cream, CX + 0.2, CT + 0.07, CZ, 0.56, 0.08, 0.44, 0.03);
       const [pcv, pc] = R.cnv(256, 256);
       { pc.fillStyle = '#2E2A3B'; pc.fillRect(0, 0, 256, 256); pc.strokeStyle = 'rgba(255,255,255,.15)'; pc.lineWidth = 2; for (let k = 50; k < 126; k += 9) { pc.beginPath(); pc.arc(128, 128, k, 0, 7); pc.stroke(); }
-        pc.fillStyle = '#F7C9D3'; pc.beginPath(); pc.arc(128, 128, 42, 0, 7); pc.fill(); pc.fillStyle = '#C2405B'; pc.fillRect(110, 100, 36, 10); pc.fillStyle = '#FFF4EC'; pc.beginPath(); pc.arc(128, 128, 5, 0, 7); pc.fill(); }
+        pc.fillStyle = '#F9CF9C'; pc.beginPath(); pc.arc(128, 128, 42, 0, 7); pc.fill(); pc.fillStyle = '#B5520E'; pc.fillRect(110, 100, 36, 10); pc.fillStyle = '#FFF4EC'; pc.beginPath(); pc.arc(128, 128, 5, 0, 7); pc.fill(); }
       const platter = new T.Group(); platter.position.set(CX + 0.15, CT + 0.125, CZ); g.add(platter);
       put(platter, GEO.cyl, tn('#FFFFFF', { map: R.tex(pcv) }), [0, 0, 0], [0.18, 0.02, 0.18]).castShadow = false;
       cyl(st, M.gold, CX + 0.4, CT + 0.15, CZ - 0.12, 0.025, 0.06);
@@ -240,7 +240,7 @@
         c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(196, 92, 46, 0, 7); c.fill(); c.fillStyle = '#FFF1A8'; c.beginPath(); c.arc(196, 92, 15, 0, 7); c.fill();
         c.fillStyle = 'rgba(255,244,236,.9)'; R.rrect(c, 12, 168, 232, 76, 14); c.fill();
         R.text(c, recOf(w), 128, 196, 26, '#6E6272', { f: 'Comfortaa', w: 700, max: 220 });
-        R.text(c, 'пластинка недели', 128, 228, 18, '#C2405B', { w: 800, max: 220 });
+        R.text(c, 'пластинка недели', 128, 228, 18, '#B5520E', { w: 800, max: 220 });
         weekTex.needsUpdate = true;
       };
       paintWeek(0);

@@ -34,8 +34,8 @@
     },
     g_cocoa: {
       label: '«Зефир» · какао', short: 'Какао', theme: 'cocoa',
-      front: { sign: 'Зефир', sub: 'какао', col: '#9C5B4A', awning: '#F7C9D3', door: '#8A4E40', goods: ['#F7C9D3', '#FFFDF9', '#B07A5A'] },
-      look: { wall: '#F6E1E4', wall2: '#E8C3C8', floor: '#B9876E', accent: '#F7C9D3', bg: 'radial-gradient(130% 90% at 50% 30%, #6A3F48 0%, #3A2430 72%)' },
+      front: { sign: 'Зефир', sub: 'какао', col: '#9C5B4A', awning: '#E3AE7E', door: '#8A4E40', goods: ['#F7C9D3', '#FFFDF9', '#B07A5A'] },
+      look: { wall: '#F3E1CC', wall2: '#E2C3A4', floor: '#B9876E', accent: '#E3AE7E', bg: 'radial-gradient(130% 90% at 50% 30%, #4A3226 0%, #261C17 72%)' },
       host: { id: 'g_llama', name: 'Лама Мокко', emoji: '🦙', body: '#F3E6D2', belly: '#FFF7EC', ear: 'long', apron: '#9C5B4A', hat: 'none', nose: '#B07A5A', neck: true },
       hello: [{ who: 'g_llama', text: 'Добро пожаловать в «Зефир»! Какао горячее, зефирки мягкие, настроение — по желанию.' }],
       again: [{ who: 'g_llama', text: 'О, снова ты! Чашка с кошачьими ушками как раз свободна.' }],
@@ -97,8 +97,8 @@
     },
     g_umbrella: {
       label: '«Капля» · зонтики', short: 'Зонтики', theme: 'umbrella',
-      front: { sign: 'Капля', sub: 'зонтики', col: '#D9657E', awning: '#F7C9D3', door: '#B85068', goods: ['#F08FA8', '#9DB8E0', '#F3CF73'] },
-      look: { wall: '#FBEAEE', wall2: '#F0CCD5', floor: '#B98F7C', accent: '#F08FA8', bg: 'radial-gradient(130% 90% at 50% 30%, #6A3A4C 0%, #3A2230 72%)' },
+      front: { sign: 'Капля', sub: 'зонтики', col: '#3F8A86', awning: '#CFE6E0', door: '#2F6F6B', goods: ['#E8833A', '#9DB8E0', '#F3CF73'] },
+      look: { wall: '#F7F1E6', wall2: '#E2D6BF', floor: '#B98F7C', accent: '#E8833A', bg: 'radial-gradient(130% 90% at 50% 30%, #3E3428 0%, #241D16 72%)' },
       host: { id: 'g_duck', name: 'Утка Капа', emoji: '🦆', body: '#FFE58A', belly: '#FFF4C2', ear: 'none', apron: '#D9657E', hat: 'none', nose: '#F3A65A', beak: true },
       hello: [{ who: 'g_duck', text: 'Кря! Заходи под крышу. Зонтики любой расцветки, даже в горошек.' }],
       again: [{ who: 'g_duck', text: 'Кря-кря, снова ты! Зонтики просохли, горошек на месте.' }],
@@ -110,7 +110,7 @@
     g_yarn: {
       label: '«Клубок» · пряжа', short: 'Пряжа', theme: 'yarn',
       front: { sign: 'Клубок', sub: 'пряжа', col: '#B0705A', awning: '#F3D2B0', door: '#965E4A', goods: ['#EFA3B5', '#C7A8DD', '#F3CF73'] },
-      look: { wall: '#FAEDE4', wall2: '#EED5C4', floor: '#B48E76', accent: '#EFA3B5', bg: 'radial-gradient(130% 90% at 50% 30%, #644036 0%, #3A2622 72%)' },
+      look: { wall: '#FAEDE4', wall2: '#EED5C4', floor: '#B48E76', accent: '#E8A07A', bg: 'radial-gradient(130% 90% at 50% 30%, #644036 0%, #3A2622 72%)' },
       host: { id: 'g_alpaca', name: 'Альпака Пряжа', emoji: '🦙', body: '#FFF6EE', belly: '#FFFFFF', ear: 'long', apron: '#B0705A', hat: 'none', nose: '#C9A08A', neck: true, fluffy: true },
       hello: [{ who: 'g_alpaca', text: 'Привет! Пряжа своя, тёплая, немножко с характером. Смотри, выбирай, гладь.' }],
       again: [{ who: 'g_alpaca', text: 'Ты вернулась! Клубки как раз разобраны по цветам.' }],
@@ -124,7 +124,7 @@
   const regSpeakers = () => {
     const G = window.G; if (!G || !G.addSpeakers) return;
     const sp = {};
-    Object.keys(I).forEach(id => { const h = I[id].host; sp[h.id] = { name: () => h.name, art: () => G.emojiAvatar(h.emoji || '✦', '#FBE1E7') }; });
+    Object.keys(I).forEach(id => { const h = I[id].host; sp[h.id] = { name: () => h.name, art: () => G.emojiAvatar(h.emoji || '✦', '#FCE7CC') }; });
     G.addSpeakers(sp);
   };
   regSpeakers();
@@ -197,7 +197,7 @@
   Object.keys(I).forEach(id => {
     const def = I[id], L = def.look;
     City3D.registerRoom(id, {
-      look: { sky: '#F6E8EC', gnd: '#C9A39A', hi: 0.7, sun: '#FFE4C8', si: 0.46, off: [-3, 7.5, 6], bg: L.bg, rim: ['#FFD9C0', 0.2], fog: '#3B2A3C' },
+      look: { sky: '#F6EEE2', gnd: '#C9A39A', hi: 0.7, sun: '#FFE4C8', si: 0.46, off: [-3, 7.5, 6], bg: L.bg, rim: ['#FFD9C0', 0.2], fog: '#2A211C' },
       cam: { portrait: { dx: 0, y: 7.4, dz: 5.4, ly: 0.7, lz: -1.0, fov: 58 }, landscape: { dx: 0, y: 4.8, dz: 7.0, ly: 1.1, lz: -1.5, fov: 46 } },
       build(R) {
         const { T, group: g, put, box, sph, cyl, rbox, plane, toon, GEO } = R;

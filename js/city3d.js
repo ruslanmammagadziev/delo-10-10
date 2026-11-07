@@ -61,31 +61,31 @@
   function makeSigns() {
     const S = {};
     S.cinema = (() => { const [cv, c] = cnv(1024, 336); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 1024, 336, 44); c.fill();
-      text(c, 'КИНОТЕАТР', 512, 84, 58, '#C2405B'); text(c, 'Саспенс', 512, 218, 136, '#9E2F47', { f: 'Comfortaa', w: 700, max: 900 }); return cv; })();
+      text(c, 'КИНОТЕАТР', 512, 84, 58, '#B8433A'); text(c, 'Саспенс', 512, 218, 136, '#8E2E2A', { f: 'Comfortaa', w: 700, max: 900 }); return cv; })();
     S.poster1 = (() => { const [cv, c] = cnv(256, 368); c.fillStyle = '#463A4E'; c.fillRect(0, 0, 256, 368);
-      c.fillStyle = '#FFF4EC'; c.beginPath(); c.arc(128, 140, 52, 0, 7); c.fill(); c.fillStyle = '#2F2834'; c.beginPath(); c.arc(128, 140, 24, 0, 7); c.fill();
+      c.fillStyle = '#FFF3E2'; c.beginPath(); c.arc(128, 140, 52, 0, 7); c.fill(); c.fillStyle = '#2F2834'; c.beginPath(); c.arc(128, 140, 24, 0, 7); c.fill();
       c.fillStyle = '#fff'; c.beginPath(); c.arc(138, 130, 8, 0, 7); c.fill();
-      text(c, 'ТИХИЙ ВЕЧЕР', 128, 296, 30, '#F7C9D3', { max: 228 }); return cv; })();
+      text(c, 'ТИХИЙ ВЕЧЕР', 128, 296, 30, '#FFE3B8', { max: 228 }); return cv; })();
     S.poster2 = (() => { const [cv, c] = cnv(256, 368); c.fillStyle = '#463A4E'; c.fillRect(0, 0, 256, 368);
-      text(c, '?', 128, 165, 170, '#F7C9D3', { f: 'Comfortaa', w: 700 }); text(c, 'СКОРО', 128, 300, 34, '#F7C9D3'); return cv; })();
-    S.kassa = (() => { const [cv, c] = cnv(512, 136); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 512, 136, 30); c.fill(); text(c, 'КАССА', 256, 70, 80, '#9E2F47'); return cv; })();
+      text(c, '?', 128, 165, 170, '#FFE3B8', { f: 'Comfortaa', w: 700 }); text(c, 'СКОРО', 128, 300, 34, '#FFE3B8'); return cv; })();
+    S.kassa = (() => { const [cv, c] = cnv(512, 136); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 512, 136, 30); c.fill(); text(c, 'КАССА', 256, 70, 80, '#8E2E2A'); return cv; })();
     S.bureau = (() => { const [cv, c] = cnv(1024, 272); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 1024, 272, 40); c.fill();
       c.fillStyle = '#E3F4EC'; c.beginPath(); c.arc(140, 136, 100, 0, 7); c.fill();
       text(c, 'LOST IN', 610, 94, 92, '#2F3A5A'); text(c, 'TRANSLATION', 610, 190, 92, '#2F3A5A', { max: 700 }); return cv; })();
     S.bureauSmall = (() => { const [cv, c] = cnv(512, 104); c.fillStyle = '#2F3A5A'; rrect(c, 0, 0, 512, 104, 26); c.fill(); text(c, 'бюро переводов', 256, 54, 50, '#FFFDF9', { w: 800, max: 470 }); return cv; })();
     S.open = (() => { const [cv, c] = cnv(256, 80); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 256, 80, 14); c.fill(); text(c, 'ОТКРЫТО', 128, 42, 40, '#2F3A5A', { max: 230 }); return cv; })();
     S.sweets = (() => { const [cv, c] = cnv(1024, 340);
-      text(c, 'Сахарная', 512, 108, 124, '#C2405B', { f: 'Comfortaa', w: 700, max: 960 }); text(c, 'пудра', 512, 240, 124, '#C2405B', { f: 'Comfortaa', w: 700 }); return cv; })();
-    S.sweetsWin = (() => { const [cv, c] = cnv(512, 80); text(c, 'эклеры · пироги · какао', 256, 42, 46, '#C2405B', { f: 'Caveat', w: 700, max: 480 }); return cv; })();
-    S.mat = (() => { const [cv, c] = cnv(256, 144); c.fillStyle = '#F2C4CC'; rrect(c, 0, 0, 256, 144, 22); c.fill();
+      text(c, 'Сахарная', 512, 108, 124, '#6B3517', { f: 'Comfortaa', w: 700, max: 960 }); text(c, 'пудра', 512, 240, 124, '#6B3517', { f: 'Comfortaa', w: 700 }); return cv; })();
+    S.sweetsWin = (() => { const [cv, c] = cnv(512, 80); text(c, 'эклеры · пироги · какао', 256, 42, 46, '#6B3517', { f: 'Caveat', w: 700, max: 480 }); return cv; })();
+    S.mat = (() => { const [cv, c] = cnv(256, 144); c.fillStyle = '#F4D3AE'; rrect(c, 0, 0, 256, 144, 22); c.fill();
       c.strokeStyle = '#FFF6EE'; c.lineWidth = 6; c.setLineDash([12, 8]); rrect(c, 12, 12, 232, 120, 16); c.stroke(); c.setLineDash([]);
-      c.fillStyle = '#E8879E'; c.beginPath(); c.moveTo(62, 94); c.bezierCurveTo(28, 70, 40, 40, 62, 58); c.bezierCurveTo(84, 40, 96, 70, 62, 94); c.fill();
-      text(c, 'привет', 164, 74, 52, '#8E2340', { f: 'Caveat', w: 700 }); return cv; })();
+      c.fillStyle = '#E59A4F'; c.beginPath(); c.moveTo(62, 94); c.bezierCurveTo(28, 70, 40, 40, 62, 58); c.bezierCurveTo(84, 40, 96, 70, 62, 94); c.fill();
+      text(c, 'привет', 164, 74, 52, '#6B3517', { f: 'Caveat', w: 700 }); return cv; })();
     S.exit = (() => { const [cv, c] = cnv(512, 200); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 512, 200, 20); c.fill();
       text(c, 'ВЫХОД', 256, 64, 68, INK); text(c, 'НА КРЫШУ', 256, 140, 68, INK, { max: 470 }); return cv; })();
     S.stairs = (() => { const [cv, c] = cnv(512, 210); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 512, 210, 22); c.fill();
-      c.strokeStyle = '#C2405B'; c.lineWidth = 12; rrect(c, 8, 8, 496, 194, 18); c.stroke();
-      text(c, 'СТУПЕНЬКИ', 256, 76, 60, '#C2405B', { max: 450 }); text(c, 'УШЛИ НА ОБЕД', 256, 144, 60, '#C2405B', { max: 450 }); return cv; })();
+      c.strokeStyle = '#B5520E'; c.lineWidth = 12; rrect(c, 8, 8, 496, 194, 18); c.stroke();
+      text(c, 'СТУПЕНЬКИ', 256, 76, 60, '#B5520E', { max: 450 }); text(c, 'УШЛИ НА ОБЕД', 256, 144, 60, '#B5520E', { max: 450 }); return cv; })();
     S.silver = (() => { const [cv, c] = cnv(512, 104); c.fillStyle = '#F4EFE6'; rrect(c, 0, 0, 512, 104, 20); c.fill();
       // часовая мастерская: два циферблата по краям и надпись
       const dial = (x, y, r, h1, h2) => { c.fillStyle = '#FFFDF9'; c.strokeStyle = '#8E7C6E'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.stroke();
@@ -99,12 +99,12 @@
       text(c, 'ушли', 64, 40, 34, INK, { f: 'Caveat', w: 700 }); text(c, 'на чай', 64, 74, 34, INK, { f: 'Caveat', w: 700 }); return cv; })();
     S.flowers = (() => { const [cv, c] = cnv(512, 180); c.fillStyle = '#3E4C3F'; rrect(c, 0, 0, 512, 180, 18); c.fill();
       c.strokeStyle = '#C9A27A'; c.lineWidth = 8; rrect(c, 6, 6, 500, 168, 14); c.stroke();
-      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
-    S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F6C6D0'; c.fillRect(0, 0, 256, 128);
+      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F8D6B0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
+    S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F8D6B0'; c.fillRect(0, 0, 256, 128);
       text(c, 'РЯД 3', 128, 44, 40, '#3A2E3F'); text(c, 'МЕСТО 13', 128, 90, 40, '#3A2E3F'); return cv; })();
     S.dial = (() => { const [cv, c] = cnv(128, 128); c.fillStyle = '#FFFDF9'; c.beginPath(); c.arc(64, 64, 64, 0, 7); c.fill();
       text(c, '13', 64, 22, 24, '#3A2E3F'); text(c, '3', 108, 64, 20, '#3A2E3F'); text(c, '6', 64, 106, 20, '#3A2E3F'); text(c, '9', 20, 64, 20, '#3A2E3F'); return cv; })();
-    S.carpet = (() => { const [cv, c] = cnv(256, 200); c.fillStyle = '#A8344A'; c.fillRect(0, 0, 256, 200);
+    S.carpet = (() => { const [cv, c] = cnv(256, 200); c.fillStyle = '#A8382E'; c.fillRect(0, 0, 256, 200);
       c.strokeStyle = '#2F3A5A'; c.lineWidth = 16; c.strokeRect(8, 8, 240, 184); c.strokeStyle = '#E9C46A'; c.lineWidth = 5; c.strokeRect(22, 22, 212, 156);
       const dia = (x, y, w, h, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + w, y); c.lineTo(x, y + h); c.lineTo(x - w, y); c.closePath(); c.fill(); };
       [64, 128, 192].forEach((x, i) => { dia(x, 100, 30, 52, '#F4E6CF'); dia(x, 100, 18, 32, i === 1 ? '#2F3A5A' : '#E07A3F'); dia(x, 100, 7, 12, '#F4E6CF'); });
@@ -207,7 +207,7 @@
     else if (f.mouth === 'smile') L(`M${256 - 24},${ey + 88} Q256,${ey + 108} ${256 + 24},${ey + 88}`, '#6B3A48', 7);
     return cv;
   }
-  function labelCanvas(s, bg = '#C2405B') {
+  function labelCanvas(s, bg = '#B5520E') {
     const [cv0, c0] = cnv(8, 8); c0.font = '900 44px Nunito, system-ui, sans-serif';
     const w = Math.ceil(c0.measureText(s).width) + 56;
     const [cv, c] = cnv(w, 96);
@@ -218,7 +218,7 @@
   }
   function blobCanvas() {
     const [cv, c] = cnv(64, 64); const g = c.createRadialGradient(32, 32, 2, 32, 32, 30);
-    g.addColorStop(0, 'rgba(112,64,98,.34)'); g.addColorStop(1, 'rgba(112,64,98,0)');
+    g.addColorStop(0, 'rgba(96,64,40,.34)'); g.addColorStop(1, 'rgba(96,64,40,0)');
     c.fillStyle = g; c.fillRect(0, 0, 64, 64); return cv;
   }
 
@@ -241,9 +241,9 @@
 .city3d.focus-on .ctl.wave{display:none!important}
 .city3d .ctl.wave.go{animation:c3dWave .8s ease-in-out}
 @keyframes c3dWave{20%{transform:rotate(-18deg)}45%{transform:rotate(16deg)}70%{transform:rotate(-10deg)}}
-.c3d-say{position:absolute;transform:translate(-50%,-100%);background:#fff;color:#3A2E3F;font-weight:900;font-size:14px;line-height:1.2;padding:7px 12px;border-radius:14px;box-shadow:0 3px 0 rgba(58,46,63,.12);white-space:nowrap;pointer-events:none;z-index:7;animation:c3dSay .28s cubic-bezier(.3,1.6,.5,1) both;transition:opacity .35s}
+.c3d-say{position:absolute;transform:translate(-50%,-100%);background:#fff;color:#3B2A20;font-weight:900;font-size:14px;line-height:1.2;padding:7px 12px;border-radius:14px;box-shadow:0 3px 0 rgba(59,42,32,.12);white-space:nowrap;pointer-events:none;z-index:7;animation:c3dSay .28s cubic-bezier(.3,1.6,.5,1) both;transition:opacity .35s}
 .c3d-say::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-top-color:#fff;border-bottom:0}
-.c3d-say.hero{background:#FFF0F3;color:#9E2F47}.c3d-say.hero::after{border-top-color:#FFF0F3}
+.c3d-say.hero{background:#FFF2E0;color:#6B3517}.c3d-say.hero::after{border-top-color:#FFF2E0}
 .c3d-say.out{opacity:0}
 @keyframes c3dSay{from{opacity:0;transform:translate(-50%,-70%) scale(.7)}}`;
   const ensureWaveCss = () => { if (document.getElementById('c3dWaveCss')) return; const st = document.createElement('style'); st.id = 'c3dWaveCss'; st.textContent = WAVE_CSS; document.head.appendChild(st); };
@@ -280,7 +280,7 @@
         <button class="ctl wave hidden" id="waveBtn" aria-label="Помахать">👋</button>
         <div class="ctl-hint hidden" id="hint"></div>
       </div>`, 'street street3d');
-    G.setHud({ label: o.hudLabel }); G.tgHeader('#FFF4EC');
+    G.setHud({ label: o.hudLabel }); G.tgHeader('#FFF3E2');
     const root = scr.querySelector('.city3d'), canvas = scr.querySelector('.c3d');
     const ROOM = o.room ? (ROOMS[o.room] || (o.room === 'stairs' ? ROOMS.roof : null) || (o.room === 'roof' ? ROOMS.stairs : null)) : null;
     if (o.room && !ROOM) { if (o.fallback) o.fallback(); return; }
@@ -300,20 +300,20 @@
     const doorLabel = k => (DOORS[k] && DOORS[k].label) || (o.names && o.names[k]) || '';
     const LI = ROOM ? 3 : Math.min(o.idx || 0, 3);
     // свет и фон комнаты: тёплый интерьер, за «срезом» кукольного домика — мягкая темнота
-    const RLOOK = ROOM ? Object.assign({ sky: '#F6E6EC', gnd: '#C9A39A', hi: 0.68, sun: '#FFE4C8', si: 0.46, off: [-3.5, 8.5, 7], bg: 'radial-gradient(130% 90% at 50% 35%, #6A4A63 0%, #3B2A3C 72%)', rim: ['#FFD9C0', 0.2], fog: '#3B2A3C' }, ROOM.look || {}) : null;
+    const RLOOK = ROOM ? Object.assign({ sky: '#F6EADA', gnd: '#C9A39A', hi: 0.68, sun: '#FFE4C8', si: 0.46, off: [-3.5, 8.5, 7], bg: 'radial-gradient(130% 90% at 50% 35%, #4A3A30 0%, #2A211C 72%)', rim: ['#FFD9C0', 0.2], fog: '#2A211C' }, ROOM.look || {}) : null;
     // небо для 3D: переходы ужаты в верх кадра, к концу серии — тёплый горизонт
     const SKY3D = [
       'linear-gradient(180deg,#959CB4 0%,#B3B5C9 16%,#CFCFDB 36%,#CFCFDB 100%)',
       'linear-gradient(180deg,#A2A8C6 0%,#C6C0DA 16%,#E2DAE3 36%,#E2DAE3 100%)',
-      'linear-gradient(180deg,#A6A2D0 0%,#CDBBDD 13%,#E8CFDC 25%,#F1DCDD 36%,#F1DCDD 100%)',
-      'linear-gradient(180deg,#9F99CE 0%,#CFB4D8 12%,#F0C8CC 24%,#F8D9CC 36%,#F8D9CC 100%)',
+      'linear-gradient(180deg,#9AAAC8 0%,#C3C8D4 13%,#EAD6BC 25%,#F2E0C8 36%,#F2E0C8 100%)',
+      'linear-gradient(180deg,#8EA6CA 0%,#BFC6D2 12%,#F3D0A2 24%,#F8E0BE 36%,#F8E0BE 100%)',
     ];
-    const FOG3D = [['#CFCFDB', 18, 105], ['#E2DAE3', 22, 115], ['#F1DCDD', 24, 125], ['#F8D9CC', 22, 120]];
+    const FOG3D = [['#CFCFDB', 18, 105], ['#E2DAE3', 22, 115], ['#F2E0C8', 24, 125], ['#F8E0BE', 22, 120]];
     const LOOKS = [
       { sky: '#D6DAEA', gnd: '#C4B4B6', hi: 0.78, sun: '#EEEAF2', si: 0.28, off: [-6, 14, 6] },
-      { sky: '#E0DAEE', gnd: '#D2BEB8', hi: 0.72, sun: '#FFEADB', si: 0.36, off: [-7, 13, 7] },
-      { sky: '#E6D8EE', gnd: '#DDC0B0', hi: 0.64, sun: '#FFE0C2', si: 0.44, off: [-7.5, 11.5, 7.5] },
-      { sky: '#E4D4EE', gnd: '#E8C2AE', hi: 0.60, sun: '#FFD4AA', si: 0.49, off: [-8, 9.5, 7.5] },
+      { sky: '#E6E0D4', gnd: '#D2BEB8', hi: 0.72, sun: '#FFEADB', si: 0.36, off: [-7, 13, 7] },
+      { sky: '#ECE2D0', gnd: '#DDC0B0', hi: 0.64, sun: '#FFE0C2', si: 0.44, off: [-7.5, 11.5, 7.5] },
+      { sky: '#F0E4CC', gnd: '#E8C2AE', hi: 0.60, sun: '#FFD4AA', si: 0.49, off: [-8, 9.5, 7.5] },
     ];
     LOOKS.forEach((L, i) => { L.i = i; });
     const RIMS = [['#DCE2FF', 0.10], ['#FFEFE6', 0.14], ['#FFE4D0', 0.18], ['#FFD0AE', 0.26]];
@@ -603,14 +603,14 @@
     const warmC = h => { const c = new T.Color(h), g = greyOf(c); if (o.rain) g.multiplyScalar(0.94); return g.lerp(c, WARM); };
     const aut = (h, x) => toon(warmC(h), x);
     const blob = (par, m, x, y, z, sx, sy, sz, r) => put(par, blobGeo, m, [x, y, z], [sx, sy === undefined ? sx : sy, sz === undefined ? sx : sz], r);
-    const HEX = { pumpO: '#EE9A55', pumpP: '#F5BE8A', pumpC: '#F6EBDC', pumpB: '#EBA7A0', pumpS: '#B7C49A', stem: '#7A8B4E', leafG: '#8FAE62', mumPk: '#EFA3B5', mumPkL: '#F7C9D4', mumY: '#F3CF73', mumYL: '#F9E3A6', mumR: '#D9774F', mumRL: '#E99A6E', mumL: '#C7A8DD', mumLL: '#DCC6EC', potT: '#D48D6A', potP: '#EBB4BE', potC: '#F4E8DA', potS: '#B9C9AE', woodL: '#D2A274', woodD: '#B07F55', bow: '#E8879E', bowD: '#C9677F', plum: '#5A4A55', cream: '#FFF6EE' };
+    const HEX = { pumpO: '#EE9A55', pumpP: '#F5BE8A', pumpC: '#F6EBDC', pumpB: '#EBA7A0', pumpS: '#B7C49A', stem: '#7A8B4E', leafG: '#8FAE62', mumPk: '#EFA3B5', mumPkL: '#F7C9D4', mumY: '#F3CF73', mumYL: '#F9E3A6', mumR: '#D9774F', mumRL: '#E99A6E', mumL: '#C7A8DD', mumLL: '#DCC6EC', potT: '#D48D6A', potP: '#EBB4BE', potC: '#F4E8DA', potS: '#B9C9AE', woodL: '#D2A274', woodD: '#B07F55', bow: '#D9A441', bowD: '#B9822A', plum: '#5A4A55', cream: '#FFF6EE' };
     const AM = {}; Object.keys(HEX).forEach(k => { AM[k] = aut(HEX[k]); });
     function bowAt(par, m, md, x, y, z, s = 1) {
       [-1, 1].forEach(k => { put(par, GEO.sphLo, m, [x + k * 0.06 * s, y, z], [0.065 * s, 0.038 * s, 0.025 * s], [0, 0, k * 0.45]); box(par, m, x + k * 0.035 * s, y - 0.09 * s, z - 0.005, 0.026 * s, 0.13 * s, 0.008 * s, [0, 0, k * 0.28]); });
       put(par, GEO.sphLo, md, [x, y, z + 0.01 * s], [0.026 * s, 0.026 * s, 0.02 * s]);
     }
     function wreath(K, Rr, bowHex) {
-      const w = new T.Group(), lm = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#9DA765')], berry = K.m('#C2405B'), bw = K.m(bowHex), bwD = K.m('#C9677F');
+      const w = new T.Group(), lm = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#9DA765')], berry = K.m('#C2405B'), bw = K.m(bowHex), bwD = K.m('#B9822A');
       for (let i = 0; i < 18; i++) { const a = i / 18 * PI * 2; put(w, GEO.sphLo, lm[i % 3], [Math.cos(a) * Rr, Math.sin(a) * Rr, 0], [0.06, 0.042, 0.03], [0, 0, a + 0.6]); }
       for (let i = 0; i < 6; i++) { const a = 0.4 + i * 1.05; put(w, GEO.sphLo, berry, [Math.cos(a) * Rr * 1.08, Math.sin(a) * Rr * 1.08, 0.025], [0.022, 0.022, 0.022]); }
       bowAt(w, bw, bwD, 0, -Rr, 0.035, 1);
@@ -698,7 +698,7 @@
         walk: toon(o.rain ? '#CDD1D8' : '#FFFFFF', { map: tileTex }), curb: toon(warm('#D2C6CA')), road: toon(o.rain ? '#9EA3AD' : '#A9A3B3', { map: roadTex }), dash: toon('#F6EFEA'), far: toon(o.rain ? '#B7BEC2' : '#CBC3B4'),
         metal: toon('#6E6470'), metalD: toon('#574E5A'), lamp: toon('#6A5670'), lampD: toon('#584862'), wood: toon('#B98C6A'), woodD: toon('#93694C'), trunk: toon('#8A6A55'),
         pine: toon('#8FA889'), pineD: toon('#7D9878'), larch: toon(warm('#D8B45E')), larchD: toon(warm('#C99E4A')),
-        pot: toon('#C9A28A'), red: toon(warm('#D9566E', 0.7)), blue: toon(warm('#9DB8E0', 0.7)), white: toon('#FFF6EE'), bow: toon(warm('#E58FA6', 0.7)),
+        pot: toon('#C9A28A'), red: toon(warm('#D9566E', 0.7)), blue: toon(warm('#9DB8E0', 0.7)), white: toon('#FFF6EE'), bow: toon(warm('#D9A441', 0.7)),
         bulb: keep(new T.MeshBasicMaterial({ color: 0xFFE3A3 })), puddle: toon('#A9B6CC'),
       };
       rbox(street, SM.walk, 11, -0.06, -1.25, 84, 0.12, 9.5, 0.03);
@@ -730,7 +730,7 @@
       }
 
       /* --- осенние деревья: пухлые кроны, тополь-свечка, лиственница --- */
-      const AUT = [['#F2A65A', '#DB8646', '#FFD3A3'], ['#E98A7E', '#CF6A62', '#FFC4B8'], ['#EDC55B', '#D4A73E', '#FFE6A3'], ['#E7A1B0', '#CC8096', '#FFD4DE'], ['#D98A5F', '#B96B48', '#F4BC98']];
+      const AUT = [['#F2A65A', '#DB8646', '#FFD3A3'], ['#E08A5A', '#C26A3A', '#FFCBA0'], ['#EDC55B', '#D4A73E', '#FFE6A3'], ['#C8743E', '#B5652F', '#FFD9A8'], ['#D98A5F', '#B96B48', '#F4BC98']];
       const TM = AUT.map(p => p.map(c => addRim(toon(warm(c, 0.6)), 0.8)));
       const TCARPET = AUT.map(p => toon(warm(p[1], 0.6)));   // ковёр листьев под деревом — свой материал: на нём тени нужны, на кронах нет
       const trunkGeo = keep(new T.CylinderGeometry(0.6, 1, 1, 9));
@@ -784,7 +784,7 @@
         [[-17.3, 'endL'], [40.5, 'endR']].forEach(([x, id]) => {
           const sg = new T.Group(); sg.position.set(x, 0, -0.9); sg.userData.key = 'spot:' + id; scene.add(sg);
           cyl(sg, SM.woodD, 0, 0.55, 0, 0.04, 1.1); rbox(sg, SM.wood, 0, 1.05, 0.03, 0.8, 0.36, 0.06, 0.03);
-          const [ecv, ec] = cnv(256, 112); ec.fillStyle = '#FFF6EE'; rrect(ec, 0, 0, 256, 112, 18); ec.fill(); text(ec, 'дальше —', 128, 38, 34, '#8A6A55', { f: 'Caveat', w: 700 }); text(ec, 'туман', 128, 80, 42, '#C2405B', { f: 'Caveat', w: 700 });
+          const [ecv, ec] = cnv(256, 112); ec.fillStyle = '#FFF6EE'; rrect(ec, 0, 0, 256, 112, 18); ec.fill(); text(ec, 'дальше —', 128, 38, 34, '#8A6A55', { f: 'Caveat', w: 700 }); text(ec, 'туман', 128, 80, 42, '#B5520E', { f: 'Caveat', w: 700 });
           plane(sg, toon('#FFFFFF', { map: tex(ecv) }), 0, 1.05, 0.065, 0.74, 0.32);
           for (let i = 0; i < 4; i++) blob(street, AM.potS, x - 0.9 + i * 0.6, 0.24, -1.62, 0.34, 0.26, 0.24);
         });
@@ -792,7 +792,7 @@
         rbox(street, SM.wood, 11.9 + 0.57, 0.16, -1.75, 0.5, 0.32, 0.4, 0.03);
       }
       tree(2.9, -7, 1.9, 0); poplar(9.4, -7.6, 1.45, 2); tree(19.4, -7, 2, 1); poplar(-2.2, -8.4, 1.5, 4); tree(25.6, -8.2, 1.8, 3); larch(13.6, -6.5, 1.6, 2);
-      bench(4.4, -1.15, '#9FC2A8'); bench(20.4, -1.15, '#E7A6B6');
+      bench(4.4, -1.15, '#9FC2A8'); bench(20.4, -1.15, '#E0A36A');
       rbox(street, toon(warm('#F6D58E')), 20.05, 0.54, -1.12, 0.42, 0.08, 0.3, 0.035); // вязаная подушка
       put(street, keep(new T.TorusGeometry(0.12, 0.035, 8, 18)), toon(warm('#C2405B', 0.6)), [20.75, 0.53, -1.1], [1, 1, 0.6], [PI / 2, 0, 0.3]); // забытый шарф
       rbox(street, toon(warm('#C2405B', 0.6)), 20.9, 0.4, -1.0, 0.07, 0.24, 0.03, 0.012, [0, 0, 0.2]);
@@ -802,7 +802,7 @@
       // тыквы у дверей (оранжевая, кремовая, пудрово-розовая)
       const pumpGeo = keep(new T.SphereGeometry(1, 24, 14));
       { const p = pumpGeo.attributes.position; for (let i = 0; i < p.count; i++) { let x = p.getX(i), y = p.getY(i), z = p.getZ(i); const a = Math.atan2(z, x), rib = 0.9 + 0.1 * Math.pow(Math.abs(Math.cos(a * 4)), 0.5); x *= rib; z *= rib; y *= 0.72; if (y > 0.55) y -= (y - 0.55) * 0.6; p.setXYZ(i, x, y, z); } pumpGeo.computeVertexNormals(); }
-      const PK = ['#EE9A55', '#F3D2B0', '#EBB3BA'].map(c => toon(warm(c, 0.7))), stemM = toon('#7A8A55');
+      const PK = ['#EE9A55', '#F3D2B0', '#E9C29A'].map(c => toon(warm(c, 0.7))), stemM = toon('#7A8A55');
       function pumpkin(x, z, r, k, y = 0, par = street) {
         put(par, pumpGeo, PK[k], [x, y + r * 0.7, z], [r, r, r], [0, R() * 6, 0]);
         put(par, GEO.cylLo, stemM, [x, y + r * 1.38, z], [0.022 + r * 0.06, r * 0.5, 0.022 + r * 0.06], [0, 0, 0.3]);
@@ -825,7 +825,7 @@
       });
       // заборчики и изгороди в просветах между домами, мягкая «тень-контакт» у стен
       const picket = keep(new T.CapsuleGeometry(0.035, 0.5, 3, 8)), fenceM = toon('#FFF6EE');
-      const HM = ['#C98A5C', '#C9B26A', '#9DB08E', '#D98C8C'].map(c => toon(warm(c)));
+      const HM = ['#C98A5C', '#C9B26A', '#9DB08E', '#B8743F'].map(c => toon(warm(c)));
       [[2.15, 4.3], [8.1, 10.85], [12.95, 14.15], [18.25, 20.75], [24.45, 27.2]].forEach(([a, b], gi) => {
         const zF = -2.6;
         for (let x = a + 0.1; x < b - 0.05; x += 0.17) put(street, picket, fenceM, [x, 0.33, zF]);
@@ -848,7 +848,7 @@
         g.position.set(x, -0.12, z); g.rotation.y = flip ? PI : 0; street.add(g);
         return g;
       }
-      car(12.3, 5.35, '#F2B3C2').scale.setScalar(0.88); const mintCar = car(27.2, 5.35, '#A8D8C4', true); mintCar.scale.setScalar(0.88); car(-7.2, 5.35, '#F6D58E').scale.setScalar(0.88);
+      car(12.3, 5.35, '#F6C7A0').scale.setScalar(0.88); const mintCar = car(27.2, 5.35, '#A8D8C4', true); mintCar.scale.setScalar(0.88); car(-7.2, 5.35, '#F6D58E').scale.setScalar(0.88);
       { const c1 = car(7.6, 5.35, '#C9B6F0'), c2 = car(18.4, 5.35, '#F7E1B5', true); [c1, c2].forEach(c => c.scale.setScalar(0.88));
         [c1, c2].forEach(cg => [[0.68, 0.15], [0.75, -0.18], [-0.78, 0.05]].forEach(([a, b], k) => put(cg, leafFlat, LC[k], [a, 0.645, b], [0.12, 1, 0.12], [0, R() * 6, 0]).castShadow = false)); }
       // лента листвы в водостоке и на бордюре — низ кадра тоже осенний
@@ -859,11 +859,11 @@
       if (!o.rain) {
         const chalk = (w, h, draw) => { const [cv, c] = cnv(512, Math.round(512 * h / w)); c.lineCap = c.lineJoin = 'round'; draw(c, cv.width, cv.height); return toon('#FFFFFF', { map: tex(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); };
         const decal = (m, x, z, w, h, rz) => { const pl = put(street, GEO.plane, m, [x, 0.005, z], [w, h, 1], [-PI / 2, 0, rz]); pl.castShadow = false; };
-        decal(chalk(1.7, 0.55, (c, W2, H2) => { const cl = ['#EE8FA8', '#B48FD8', '#6FBFA0', '#F0A050'], sz = H2 * 0.42; c.lineWidth = 11;
+        decal(chalk(1.7, 0.55, (c, W2, H2) => { const cl = ['#EFC24E', '#B48FD8', '#6FBFA0', '#F0A050'], sz = H2 * 0.42; c.lineWidth = 11;
           [[0, 0], [1, 0], [2, -0.5], [2, 0.5], [3, 0], [4, -0.5], [4, 0.5]].forEach(([i, o2], k) => { c.strokeStyle = cl[k % 4]; c.strokeRect(20 + i * sz * 1.05, H2 / 2 - sz / 2 + o2 * sz, sz, sz); text(c, String(k + 1), 20 + i * sz * 1.05 + sz / 2, H2 / 2 + o2 * sz, sz * 0.6, cl[k % 4], { f: 'Caveat', w: 700 }); });
-          c.strokeStyle = '#EE8FA8'; c.beginPath(); c.arc(20 + 5 * sz * 1.05 + sz * 0.4, H2 / 2, sz * 0.8, -PI / 2, PI / 2); c.stroke(); }), 10.4, 1.25, 1.7, 0.55, 0.05);
-        decal(chalk(1.1, 0.6, c => { c.strokeStyle = '#EE8FA8'; c.lineWidth = 12; c.beginPath(); c.moveTo(90, 180); c.bezierCurveTo(20, 120, 50, 50, 90, 90); c.bezierCurveTo(130, 50, 160, 120, 90, 180); c.stroke();
-          text(c, 'Пирожок был тут', 330, 120, 60, '#B0607A', { f: 'Caveat', w: 700, max: 300 }); }), 3.9, 2.3, 1.1, 0.6, -0.08);
+          c.strokeStyle = '#EFC24E'; c.beginPath(); c.arc(20 + 5 * sz * 1.05 + sz * 0.4, H2 / 2, sz * 0.8, -PI / 2, PI / 2); c.stroke(); }), 10.4, 1.25, 1.7, 0.55, 0.05);
+        decal(chalk(1.1, 0.6, c => { c.strokeStyle = '#F09A5A'; c.lineWidth = 12; c.beginPath(); c.moveTo(90, 180); c.bezierCurveTo(20, 120, 50, 50, 90, 90); c.bezierCurveTo(130, 50, 160, 120, 90, 180); c.stroke();
+          text(c, 'Пирожок был тут', 330, 120, 60, '#A0603A', { f: 'Caveat', w: 700, max: 300 }); }), 3.9, 2.3, 1.1, 0.6, -0.08);
       }
       bake(street);
       // кроны не принимают теней от соседних комков: рампа сама рисует терминатор, без тёмных клиньев
@@ -871,8 +871,8 @@
 
       /* --- дальний квартал: пастель, разные крыши, трубы, тёплые окна --- */
       const far = new T.Group(); scene.add(far);
-      const FC = ['#E9CFCF', '#D9CCE6', '#EED9C4', '#CFE0D2', '#F0D3DA', '#D8D3EC'].map(c => toon(mixHex(c, '#B8BEC6', fade)));
-      const FR = [toon(warm('#C98F86')), toon(warm('#9AA5C5')), toon(warm('#B8907A'))], FW = toon('#8E89A6'), FWlit = keep(new T.MeshBasicMaterial({ color: 0xFFE3A8 }));
+      const FC = ['#E6CDA6', '#D9CCE6', '#EED9C4', '#CFE0D2', '#F5D3B5', '#D8D3EC'].map(c => toon(mixHex(c, '#B8BEC6', fade)));
+      const FR = [toon(warm('#B97A5A')), toon(warm('#9AA5C5')), toon(warm('#B8907A'))], FW = toon('#8E89A6'), FWlit = keep(new T.MeshBasicMaterial({ color: 0xFFE3A8 }));
       const prism = keep(new T.ExtrudeGeometry(triShape(1, 0.5), { depth: 1, bevelEnabled: false })); prism.translate(0, 0, -0.5);
       const arcWin = keep(new T.ShapeGeometry(archShape(0.36, 0.5), 8)); arcWin.translate(0, -0.25, 0);
       const rndWin = keep(new T.CircleGeometry(0.2, 16)), RWIN = rng(4242);
@@ -904,7 +904,7 @@
 
       /* --- облака-«пуфы» с плоским низом --- */
       clouds = [];
-      const CLC = [['#C8CBD8', '#8F93AA', 0.22], ['#ECE8F2', '#D8D2E6', 0.20], ['#FBF0F4', '#F3D9E4', 0.22], ['#FFEFEA', '#F6C9C9', 0.26]][LI];
+      const CLC = [['#C8CBD8', '#8F93AA', 0.22], ['#ECE8F2', '#D8D2E6', 0.20], ['#FBF4EA', '#F3E2CC', 0.22], ['#FFF3E6', '#F6DCC0', 0.26]][LI];
       const cloudM = addRim(toon(CLC[0], { emissive: new T.Color(CLC[1]), emissiveIntensity: CLC[2] }), 1.3);
       const puff = keep(new T.SphereGeometry(1, 18, 12)); { const p = puff.attributes.position; for (let i = 0; i < p.count; i++) if (p.getY(i) < 0) p.setY(i, p.getY(i) * 0.3); puff.computeVertexNormals(); }
       [[-14, 12.5, -46, 1.3], [5, 14, -58, 1.6], [20, 11.5, -44, 1.1], [33, 13.5, -55, 1.5], [47, 12, -48, 1.2], [-28, 13.5, -60, 1.4]].forEach(([x, y, z, s]) => {
@@ -917,8 +917,8 @@
       /* --- дома --- */
       function buildCinema(K) {
         const g = new T.Group(), W = 3.7, H = 4.4, D = 3.2;
-        const red = K.m('#B9475F'), redD = K.m('#9E2F47'), cream = K.m('#FFF0CE'), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.55 }),
-          dark = K.m('#2F2834'), wine = K.m('#73304A'), glass = K.m('#FFE4B0', { glow: '#FFC870', gi: 0.45 }), rope = K.m('#8E2340');
+        const red = K.m('#B8433A'), redD = K.m('#8E2E2A'), cream = K.m('#FFF0CE'), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.55 }),
+          dark = K.m('#2F2834'), wine = K.m('#6A2A24'), glass = K.m('#FFE4B0', { glow: '#FFC870', gi: 0.45 }), rope = K.m('#8A2A22');
         const bulbA = K.m('#FFE7A0', { glow: '#FFC94A', gi: 0.9, id: 'A' }), bulbB = K.m('#FFE7A0', { glow: '#FFC94A', gi: 0.9, id: 'B' });
         rbox(g, red, 0, H / 2, -D / 2, W, H, D, 0.14);
         rbox(g, redD, 0, 0.17, -D / 2 + 0.03, W + 0.1, 0.34, D + 0.06, 0.1);
@@ -953,7 +953,7 @@
         plane(g, K.t(SIGN.kassa), 0, 2.28, 0.925, 0.9, 0.24);
         box(g, gold, 0, 2.11, 0.93, 1.3, 0.03, 0.03); box(g, gold, 0, 2.45, 0.93, 1.3, 0.03, 0.03);
         [-0.45, 0, 0.45].forEach(x => sphS(g, bulbA, x, 2.08, 0.62, 0.045));
-        const swg = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#E7A3A0')];
+        const swg = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#E3A06A')];
         for (let i = 0; i <= 10; i++) put(g, GEO.sphLo, swg[i % 3], [-0.6 + i * 0.12, 2.06 - 0.09 * Math.sin(PI * i / 10), 0.95], [0.06, 0.042, 0.028], [0, 0, i * 0.9]);
         // двери (створки открываются)
         box(g, dark, 0, 0.88, 0.02, 1.22, 1.76, 0.04);
@@ -963,7 +963,7 @@
           const p = new T.Group(); p.position.set(s * 0.56, 0, 0.06); p.userData.dyn = true; g.add(p);
           box(p, wine, -s * 0.275, 0.84, 0.03, 0.53, 1.68, 0.06);
           cyl(p, glass, -s * 0.275, 1.24, 0.07, 0.13, 0.03, [PI / 2, 0, 0]);
-          const wr = wreath(K, 0.17, '#E8879E'); wr.position.set(-s * 0.275, 1.24, 0.075); p.add(wr);
+          const wr = wreath(K, 0.17, '#D9A441'); wr.position.set(-s * 0.275, 1.24, 0.075); p.add(wr);
           box(p, gold, -s * 0.07, 0.82, 0.08, 0.03, 0.26, 0.03);
           doors.push({ p, open: s * 1.35 });
         });
@@ -1005,7 +1005,7 @@
         ivy(g, K, W, H, 1, 11, 60, IVY, [[-2.2, 0.8], [-2.95, 0.95]], true);
         rbox(g, cream, 0, 3.72, 0.1, 3.4, 0.95, 0.2, 0.09);
         plane(g, K.t(SIGN.bureau), 0, 3.72, 0.202, 3.3, 0.88);
-        bow(g, K.m('#F08FA8'), 1.55, 4.15, 0.24, 0.3);
+        bow(g, K.m('#D9A441'), 1.55, 4.15, 0.24, 0.3);
         rbox(g, navy, 0, 3.0, 0.06, 1.66, 0.36, 0.12, 0.055);
         plane(g, K.t(SIGN.bureauSmall), 0, 3.0, 0.122, 1.56, 0.32);
         // глобус на кронштейне — крутится
@@ -1033,14 +1033,14 @@
         put(p, extrude(archShape(dw, dh, dw / 2), 0.07), navy);
         put(p, extrude(archShape(0.56, 0.6, dw / 2), 0.02), glass, [0, 1.06, 0.07]);
         sph(p, gold, dw - 0.13, 0.9, 0.1, 0.035);
-        const wr = wreath(K, 0.2, '#E8879E'); wr.position.set(dw / 2, 1.36, 0.115); p.add(wr);
+        const wr = wreath(K, 0.2, '#D9A441'); wr.position.set(dw / 2, 1.36, 0.115); p.add(wr);
         box(p, cream, dw / 2, 0.72, 0.075, 0.52, 0.17, 0.01);
         plane(p, K.t(SIGN.open), dw / 2, 0.72, 0.081, 0.5, 0.156);
         return { g, doors: [{ p, open: -1.35 }], globe: spin };
       }
       function buildSweets(K) {
         const g = new T.Group(), W = 3.7, H = 4.5, D = 3.2;
-        const pink = K.m('#F6C6D0'), pinkD = K.m('#E7A6B6'), cream = K.m('#FFFDF9'), cherry = K.m('#C2405B'), stripe = K.m('#F08FA8'),
+        const pink = K.m('#F6D2B0'), pinkD = K.m('#E3AE7E'), cream = K.m('#FFFDF9'), cherry = K.m('#A9502F'), stripe = K.m('#E8833A'),
           glass = K.m('#FFF3F5', { glow: '#FFE0CC', gi: 0.35 }), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.4 }), caramel = K.m('#E7B47C'),
           lav = K.m('#C9B6F0'), mint = K.m('#BFE6D3'), stem = K.m('#5E7A4A');
         rbox(g, pink, 0, H / 2, -D / 2, W, H, D, 0.14);
@@ -1068,7 +1068,7 @@
           put(g, GEO.halfDisc, m, [x, 2.45, 0.94], [0.185, 0.03, 0.185], [PI / 2, 0, 0]);
         }
         // витрина со сладостями
-        const vit = K.m('#E2B6C0', { glow: '#FFBFA0', gi: 0.18 });
+        const vit = K.m('#E6C29C', { glow: '#FFBFA0', gi: 0.18 });
         windowF(g, cream, vit, -0.69, 1.3, 1.9, 1.3, { sill: false });
         curtains(g, stripe, -0.69, 1.3, 1.9, 1.3);
         plane(g, K.t(SIGN.sweetsWin, { alpha: true }), -0.69, 1.76, 0.066, 0.78, 0.125);
@@ -1113,7 +1113,7 @@
           put(g, GEO.cone, hat, [tx, ty + 1.41, tz], [0.47, 0.4, 0.47]); sph(g, gold, tx, ty + 1.66, tz, 0.06); }
         rbox(g, wallD, -1.35, H + 0.75, -2.4, 0.34, 0.8, 0.34, 0.06); rbox(g, metal, -1.35, H + 1.18, -2.4, 0.42, 0.08, 0.42, 0.03);
         // окна 2×4, на некоторых — цветы
-        const shutP = K.m('#E7A6B6'), shutM = K.m('#BFE6D3'), curtP = K.m('#F7C9D3'), mumR = K.m('#D9774F'), mumY = K.m('#F3CF73');
+        const shutP = K.m('#A9B98F'), shutM = K.m('#BFE6D3'), curtP = K.m('#EBCB8B'), mumR = K.m('#D9774F'), mumY = K.m('#F3CF73');
         ivy(g, K, W, H, 1, 12, 44, IVY, [[-1.5, 0.6], [-2.7, 0.75]], false);
         [-1.23, -0.31].forEach((x, c) => [4.32, 3.32, 2.32, 1.32].forEach((y, r) => {
           windowF(g, frame, glass, x, y, 0.6, 0.7, r === 0 ? { arch: true } : { cross: true, shut: (c === 0 && r === 1) ? shutP : (c === 1 && r === 3) ? shutM : null });
@@ -1141,7 +1141,7 @@
         box(sg, cream, 0, 0, 0, 0.8, 0.33, 0.03); plane(sg, K.t(SIGN.stairs), 0, 0, 0.016, 0.78, 0.32);
         [-0.28, 0.28].forEach(x => cyl(sg, metalL, x, 0.27, 0, 0.008, 0.22));
         // кто-то проветривает ковёр
-        box(g, K.m('#8E2B40'), fx + 0.15, PL[1] + 0.2, 0.66, 0.62, 0.5, 0.02);
+        box(g, K.m('#7A3812'), fx + 0.15, PL[1] + 0.2, 0.66, 0.62, 0.5, 0.02);
         plane(g, K.t(SIGN.carpet), fx + 0.15, PL[1] + 0.2, 0.672, 0.6, 0.48);
         // дверь «ВЫХОД НА КРЫШУ» с запиской
         const dx = 1.1, dw = 0.94, dh = 1.6;
@@ -1263,7 +1263,7 @@
       // гирлянды: фонарики и флажки; зажигаются вместе с раскрытым домом
       const pennantGeo = keep(new T.ExtrudeGeometry(triShape(0.17, 0.21), { depth: 0.008, bevelEnabled: false })); pennantGeo.rotateZ(PI);
       const wireM = aut('#7A6670'), V = (x, y, z) => new T.Vector3(x, y, z);
-      const gm = K => K._g || (K._g = { L: [K.m('#FFD9A8', { glow: '#FFB46B', gi: 0.6 }), K.m('#F9C3CF', { glow: '#F58FA6', gi: 0.5 }), K.m('#FFF1CF', { glow: '#FFD98A', gi: 0.55 })], cap: K.m('#C9A27A'), F: ['#F6C6D0', '#FFFDF9', '#F2B48A', '#E8A0B4'].map(h => K.m(h)) });
+      const gm = K => K._g || (K._g = { L: [K.m('#FFD9A8', { glow: '#FFB46B', gi: 0.6 }), K.m('#FAD49A', { glow: '#F5A445', gi: 0.5 }), K.m('#FFF1CF', { glow: '#FFD98A', gi: 0.55 })], cap: K.m('#C9A27A'), F: ['#F2D7A0', '#FFFDF9', '#F2B48A', '#E59A4F'].map(h => K.m(h)) });
       function garland(par, K, a, b, sag, n, flags) {
         const G2 = gm(K), mid = a.clone().lerp(b, 0.5); mid.y -= sag;
         const c = new T.QuadraticBezierCurve3(a, mid, b);
@@ -1302,7 +1302,7 @@
         cyl(u, AM.plum, 0, 0.42, 0, 0.008, 0.84); put(u, GEO.cone, col, [0, 0.52, 0], [0.05, 0.46, 0.05], [PI, 0, 0]);
         put(u, GEO.sphLo, AM.cream, [0, 0.56, 0], [0.052, 0.015, 0.052]); put(u, umbHook, AM.woodD, [0.035, 0.85, 0]);
       }
-      const UC = ['#F2A7B8', '#A8D5C6', '#F7E1B5'].map(h => aut(h));
+      const UC = ['#EFA46A', '#A8D5C6', '#F7E1B5'].map(h => aut(h));
       if (LI <= 1) {
         cyl(decor[0], AM.plum, 1.2, 0.17, -1.86, 0.11, 0.34); put(decor[0], keep(new T.TorusGeometry(0.11, 0.015, 5, 16)), AM.cream, [1.2, 0.34, -1.86], null, [PI / 2, 0, 0]);
         closedUmb(decor[0], UC[0], 1.16, -1.9, 0.12); closedUmb(decor[0], UC[1], 1.25, -1.84, -0.1, 1); closedUmb(decor[0], UC[2], 1.2, -1.82, 0.02, 2);
@@ -1310,14 +1310,14 @@
       if (LI === 0) closedUmb(decor[0], UC[0], 5.16, -1.0, 0.2);
       if (LI === 1) {
         const u = new T.Group(); u.position.set(4.5, 0.82, -1.2); u.rotation.set(1.0, 0.35, 0.25); decor[0].add(u);
-        put(u, keep(new T.ConeGeometry(0.42, 0.17, 8, 1, true)), aut('#F2A7B8', { side: T.DoubleSide }), [0, 0, 0]);
+        put(u, keep(new T.ConeGeometry(0.42, 0.17, 8, 1, true)), aut('#EFA46A', { side: T.DoubleSide }), [0, 0, 0]);
         for (let i = 0; i < 8; i++) { const a = i / 8 * PI * 2; put(u, GEO.sphLo, AM.cream, [Math.cos(a) * 0.42, -0.085, Math.sin(a) * 0.42], [0.022, 0.022, 0.022]); }
         [[0.2, 0.1], [-0.15, 0.18], [0.05, -0.22], [-0.22, -0.08]].forEach(([x, z]) => put(u, GEO.sphLo, AM.cream, [x, 0.091 - 0.405 * Math.hypot(x, z), z], [0.035, 0.01, 0.035]));
         cyl(u, AM.plum, 0, -0.3, 0, 0.009, 0.55);
       }
       // лавочки обрастают уютом, когда теплеет
       if (LI >= 2) {
-        const sc2 = aut('#D98C9C'), stp = AM.cream;
+        const sc2 = aut('#D4885A'), stp = AM.cream;
         box(decor[0], sc2, 4.55, 0.495, -1.12, 0.7, 0.035, 0.17, [0, 0.18, 0]);
         box(decor[0], sc2, 4.85, 0.31, -0.975, 0.17, 0.34, 0.035, [0.08, 0.18, 0]);
         [0.22, 0.3, 0.38].forEach(y => box(decor[0], stp, 4.85, y, -0.972, 0.172, 0.035, 0.037, [0.08, 0.18, 0]));
@@ -1330,7 +1330,7 @@
         put(decor[0], GEO.hemi, aut('#E8B4A0'), [3.9, 0.475, -1.2], [0.12, 0.09, 0.12]); blob(decor[0], AM.cream, 3.9, 0.575, -1.2, 0.045);
         box(decor[0], aut('#8FB3D9'), 4.13, 0.497, -1.08, 0.18, 0.04, 0.13, [0, 0.15, 0]); box(decor[0], AM.mumPk, 4.14, 0.535, -1.08, 0.16, 0.035, 0.12, [0, -0.1, 0]);
         [20.36, 20.5].forEach((x, i) => { cyl(decor[2], i ? AM.potP : AM.pumpC, x, 0.515, -1.18 + i * 0.07, 0.045, 0.08); cyl(decor[2], aut('#8A5A44'), x, 0.553, -1.18 + i * 0.07, 0.04, 0.006); });
-        rbox(decor[2], aut('#F7E1E6'), 20.85, 0.635, -1.15, 0.16, 0.16, 0.16, 0.02); box(decor[2], AM.bow, 20.85, 0.636, -1.15, 0.165, 0.165, 0.03); box(decor[2], AM.bow, 20.85, 0.636, -1.15, 0.03, 0.165, 0.165);
+        rbox(decor[2], aut('#F3E6D2'), 20.85, 0.635, -1.15, 0.16, 0.16, 0.16, 0.02); box(decor[2], AM.bow, 20.85, 0.636, -1.15, 0.165, 0.165, 0.03); box(decor[2], AM.bow, 20.85, 0.636, -1.15, 0.03, 0.165, 0.165);
         bowAt(decor[2], AM.bow, AM.bowD, 20.85, 0.73, -1.15, 0.9);
       }
       // кусты и пучки сухой травы вдоль фасадов
@@ -1351,7 +1351,7 @@
         APL.forEach((m, i) => put(P, GEO.sphLo, m, [hx - 0.2 + i * 0.1, 0.51, hz - 0.04], [0.05, 0.048, 0.05]));
         [0.1, 0.2].forEach((dx, i) => { cyl(P, i ? APL[1] : APL[0], hx + dx, 0.51, hz - 0.06, 0.045, 0.09); cyl(P, AM.mumPkL, hx + dx, 0.565, hz - 0.06, 0.05, 0.02); });
         pumpkin(hx - 0.15, hz - 0.12, 0.08, 1, 0.82, P); gLantern(P, hx + 0.14, hz - 0.12, 0.7, 0.82);
-        for (let i = 0; i < 4; i++) put(P, pennantGeo, [AM.bow, AM.cream, AM.pumpP, AM.mumPkL][i], [hx - 0.21 + i * 0.14, 0.95, hz - 0.1], [0.6, 0.6, 1]);
+        for (let i = 0; i < 4; i++) put(P, pennantGeo, [AM.bow, AM.cream, AM.pumpP, AM.mumYL][i], [hx - 0.21 + i * 0.14, 0.95, hz - 0.1], [0.6, 0.6, 1]);
       }
       // велосипед с корзинкой (после дождя кто-то выехал покататься)
       if (LI >= 1) {
@@ -1376,8 +1376,8 @@
       // меловая доска у бюро
       { const CLN = [['Переводим', 'даже', 'дождь'], ['Переводим', 'даже', 'листопад'], ['Переводим', 'даже', 'листопад'], ['Переводим', 'даже', 'кошачье «мяу»']][LI];
         const [cv, c] = cnv(256, 352); c.fillStyle = '#3E3A44'; rrect(c, 0, 0, 256, 352, 18); c.fill();
-        c.strokeStyle = 'rgba(255,240,245,.55)'; c.setLineDash([10, 8]); c.lineWidth = 4; rrect(c, 14, 14, 228, 324, 12); c.stroke(); c.setLineDash([]);
-        text(c, CLN[0], 128, 74, 42, '#FFF4F6', { f: 'Caveat', w: 700, max: 220 }); text(c, CLN[1], 128, 132, 42, '#F7B8C8', { f: 'Caveat', w: 700, max: 220 }); text(c, CLN[2], 128, 190, 46, '#FFD9A8', { f: 'Caveat', w: 700, max: 220 });
+        c.strokeStyle = 'rgba(255,244,230,.55)'; c.setLineDash([10, 8]); c.lineWidth = 4; rrect(c, 14, 14, 228, 324, 12); c.stroke(); c.setLineDash([]);
+        text(c, CLN[0], 128, 74, 42, '#FFF6EA', { f: 'Caveat', w: 700, max: 220 }); text(c, CLN[1], 128, 132, 42, '#F6C48A', { f: 'Caveat', w: 700, max: 220 }); text(c, CLN[2], 128, 190, 46, '#FFD9A8', { f: 'Caveat', w: 700, max: 220 });
         c.fillStyle = '#E8955A'; c.beginPath(); c.moveTo(128, 300); [[100, 262], [112, 262], [96, 236], [118, 244], [128, 214], [138, 244], [160, 236], [144, 262], [156, 262]].forEach(([x, y]) => c.lineTo(x, y)); c.closePath(); c.fill();
         const chalkM = toon('#FFFFFF', { map: tex(cv) }), ax = 8.5, az = -1.55;
         box(decor[1], AM.woodL, ax, 0.35, az + 0.1, 0.5, 0.7, 0.03, [-0.22, 0, 0]); box(decor[1], AM.woodL, ax, 0.35, az - 0.1, 0.5, 0.7, 0.03, [0.22, 0, 0]);
@@ -1403,7 +1403,7 @@
       CHIM = [[21.25, 6.36, -4.4], [14.95, 5.36, -4.4]], SPN = 6;
       smoke = new T.InstancedMesh(blobGeo, toon('#FFFFFF'), CHIM.length * SPN);
       smoke.castShadow = false; smoke.receiveShadow = false; smoke.frustumCulled = false; scene.add(smoke);
-      { const sCol = new T.Color(o.rain ? '#BFC4CC' : ['#E9E4EA', '#E9E4EA', '#F2ECF0', '#FBF1F3'][LI]), sPink = new T.Color('#FBE0E8');
+      { const sCol = new T.Color(o.rain ? '#BFC4CC' : ['#E9E4EA', '#E9E4EA', '#F3EEE6', '#FBF4EC'][LI]), sPink = new T.Color('#F6EADB');
         for (let i = 0; i < smoke.count; i++) smoke.setColorAt(i, LI >= 3 && Math.floor(i / SPN) === 1 ? sPink : sCol); }
       // клин птиц высоко в небе (не в дождь)
       const birdG = new T.Group(), birdM = toon('#77708F');
@@ -1430,7 +1430,7 @@
       mark = new T.Sprite(keep(new T.SpriteMaterial({ map: tex(markCv), depthTest: false, fog: false })));
       const markH = 0.55; mark.scale.set(markH * markCv.width / markCv.height, markH, 1);
       mark.renderOrder = 10; scene.add(mark);
-      arrow = put(scene, GEO.cone, toon('#C2405B', { emissive: new T.Color('#C2405B'), emissiveIntensity: 0.25 }), [tgtDoor.x, 2.75, FRONT_Z + 1.1], [0.16, 0.32, 0.16], [PI, 0, 0]);
+      arrow = put(scene, GEO.cone, toon('#B5520E', { emissive: new T.Color('#B5520E'), emissiveIntensity: 0.25 }), [tgtDoor.x, 2.75, FRONT_Z + 1.1], [0.16, 0.32, 0.16], [PI, 0, 0]);
       arrow.castShadow = false;
 
     }
@@ -1595,7 +1595,7 @@
       const CART = { x: -3.3, z: -1.05 };
       function buildCart() {
         const g = new T.Group();
-        const wood = pm('#C9946A'), woodD = pm('#A87452'), zinc = pm('#B9C3CF'), stripeA = pm('#F6C6D0'), stripeB = pm('#FFFDF9'), metal = pm('#6C7682');
+        const wood = pm('#C9946A'), woodD = pm('#A87452'), zinc = pm('#B9C3CF'), stripeA = pm('#F8DDB8'), stripeB = pm('#FFFDF9'), metal = pm('#6C7682');
         rbox(g, wood, 0, 0.62, 0, 1.3, 0.42, 0.62, 0.06);
         for (let i = 0; i < 3; i++) box(g, woodD, 0, 0.5 + i * 0.12, 0.312, 1.24, 0.012, 0.01);
         [-1, 1].forEach(s2 => {
@@ -1673,7 +1673,7 @@
       reflHideT = 0, psFirst = true, splashes = 0;
       // сумерки после кружения у фонаря
       const dusk = document.createElement('div');
-      dusk.style.cssText = 'position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .8s ease;background:linear-gradient(180deg,#5E4A8E 0%,#7B5EA7 18%,#C98AB8 30%,#F2A0B5 36%,rgba(242,160,181,0) 50%)';
+      dusk.style.cssText = 'position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .8s ease;background:linear-gradient(180deg,#5E4A8E 0%,#7B5EA7 18%,#C9906A 30%,#F2A65A 36%,rgba(242,166,90,0) 50%)';
       dusk.innerHTML = Array.from({ length: 16 }, (_, i) => `<i style="position:absolute;left:${(i * 37) % 100}%;top:${3 + (i * 13) % 26}%;width:3px;height:3px;border-radius:50%;background:#FFF6DE;box-shadow:0 0 6px #FFF6DE"></i>`).join('');
       root.insertBefore(dusk, canvas);
       duskFlash = () => { dusk.style.opacity = '1'; setTimeout(() => { dusk.style.opacity = '0'; }, 2200); const b0 = SM.bulb.color.clone(); SM.bulb.color.set('#FFD9A0'); setTimeout(() => SM.bulb.color.copy(b0), 2400); };
@@ -2469,7 +2469,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     });
 
     /* --- находки на улице: парят, мерцают, их можно подобрать --- */
-    const ringMat = keep(new T.MeshBasicMaterial({ color: 0xFFD6E2, transparent: true, opacity: 0.75, depthWrite: false }));
+    const ringMat = keep(new T.MeshBasicMaterial({ color: 0xFFE2B8, transparent: true, opacity: 0.75, depthWrite: false }));
     const ringGeo = keep(new T.TorusGeometry(0.3, 0.025, 6, 32));
     const pickups = (o.pickups || []).map((p, i) => {
       const holder = new T.Group(); holder.position.set(p.x, 0, p.z); holder.userData.key = 'pick:' + p.id; scene.add(holder);
@@ -2995,7 +2995,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     if (FREE) Object.keys(DOORS).forEach(id => {
       const mk = DOORS[id].mark; if (!mk) return;
       let sp;
-      if (mk === 'new') { const [dcv, dc] = cnv(64, 64); dc.fillStyle = '#F08FA8'; dc.beginPath(); dc.arc(32, 32, 24, 0, PI * 2); dc.fill(); dc.fillStyle = '#FFF6EE'; dc.beginPath(); dc.arc(25, 25, 7, 0, PI * 2); dc.fill(); sp = new T.Sprite(keep(new T.SpriteMaterial({ map: tex(dcv), depthTest: false, fog: false }))); sp.scale.setScalar(0.32); }
+      if (mk === 'new') { const [dcv, dc] = cnv(64, 64); dc.fillStyle = '#F39A2B'; dc.beginPath(); dc.arc(32, 32, 24, 0, PI * 2); dc.fill(); dc.fillStyle = '#FFF6EE'; dc.beginPath(); dc.arc(25, 25, 7, 0, PI * 2); dc.fill(); sp = new T.Sprite(keep(new T.SpriteMaterial({ map: tex(dcv), depthTest: false, fog: false }))); sp.scale.setScalar(0.32); }
       else { const [fcv, fc] = cnv(192, 72); fc.fillStyle = '#9E6B2E'; rrect(fc, 0, 0, 192, 72, 20); fc.fill(); text(fc, 'НОВОЕ', 96, 38, 40, '#FFD98A'); sp = new T.Sprite(keep(new T.SpriteMaterial({ map: tex(fcv), depthTest: false, fog: false }))); sp.scale.set(0.72, 0.27, 1); }
       const d = doorOf(id); sp.position.set(d.x, 2.75, FRONT_Z + 0.25); sp.renderOrder = 9; scene.add(sp); doorMarks.push({ sp, ph: Math.random() * 6, y: 2.75 });
     });

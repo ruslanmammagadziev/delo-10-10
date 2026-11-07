@@ -882,8 +882,8 @@
     return svg('0 0 140 150', `
       <ellipse cx="70" cy="146" rx="56" ry="4" fill="rgba(58,46,63,.14)"/>
       <rect x="22" y="14" width="3" height="84" fill="#6C7682"/><rect x="115" y="14" width="3" height="84" fill="#6C7682"/>
-      ${[0, 1, 2, 3, 4, 5].map(i => `<path d="M${16 + i * 18.3},12 L${34.3 + i * 18.3},12 L${34.3 + i * 18.3},24 Q${25.2 + i * 18.3},32 ${16 + i * 18.3},24 Z" fill="${i % 2 ? '#FFFDF9' : '#F6C6D0'}"/>`).join('')}
-      <rect x="14" y="8" width="112" height="6" rx="3" fill="#E7A6B6"/>
+      ${[0, 1, 2, 3, 4, 5].map(i => `<path d="M${16 + i * 18.3},12 L${34.3 + i * 18.3},12 L${34.3 + i * 18.3},24 Q${25.2 + i * 18.3},32 ${16 + i * 18.3},24 Z" fill="${i % 2 ? '#FFFDF9' : '#F8DDB8'}"/>`).join('')}
+      <rect x="14" y="8" width="112" height="6" rx="3" fill="#E8833A"/>
       ${flowerHead('lavender', 46, 52, 0.8, -8)}${flowerHead('pampas', 96, 50, 0.85, 10)}
       ${heads}
       <rect x="14" y="94" width="112" height="34" rx="8" fill="#C9946A"/>
@@ -944,25 +944,25 @@
     let bulbs = '';
     for (let i = 0; i < 11; i++) bulbs += `<circle cx="${44 + i * 21.2}" cy="88" r="4" fill="#FFD45E"/><circle cx="${44 + i * 21.2}" cy="150" r="4" fill="#FFD45E"/>`;
     const body = `
-      <rect x="18" y="52" width="264" height="312" rx="6" fill="#B9475F"/>
-      <rect x="10" y="40" width="280" height="20" rx="6" fill="#9E2F47"/>
-      <path d="M110,40 L150,8 L190,40 Z" fill="#9E2F47"/>
+      <rect x="18" y="52" width="264" height="312" rx="6" fill="#B8433A"/>
+      <rect x="10" y="40" width="280" height="20" rx="6" fill="#8E2E2A"/>
+      <path d="M110,40 L150,8 L190,40 Z" fill="#8E2E2A"/>
       <circle cx="150" cy="30" r="9" fill="#FFD45E"/>
       <rect x="34" y="80" width="232" height="78" rx="14" fill="#FFF0CE"/>${bulbs}
-      <text x="150" y="104" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="12" letter-spacing="3" fill="#C2405B">КИНОТЕАТР</text>
-      <text x="150" y="138" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="30" fill="#9E2F47">Саспенс</text>
+      <text x="150" y="104" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="12" letter-spacing="3" fill="#B8433A">КИНОТЕАТР</text>
+      <text x="150" y="138" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="30" fill="#8E2E2A">Саспенс</text>
       <rect x="38" y="178" width="66" height="92" rx="6" fill="#2F2834"/><rect x="44" y="184" width="54" height="80" rx="3" fill="#463A4E"/>
       <circle cx="71" cy="214" r="13" fill="#FFF4EC"/><circle cx="71" cy="214" r="6" fill="#2F2834"/><circle cx="73" cy="212" r="2" fill="#fff"/>
-      <text x="71" y="252" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9" fill="#F7C9D3">ТИХИЙ ВЕЧЕР</text>
+      <text x="71" y="252" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9" fill="#FFE3B8">ТИХИЙ ВЕЧЕР</text>
       <rect x="196" y="178" width="66" height="92" rx="6" fill="#2F2834"/><rect x="202" y="184" width="54" height="80" rx="3" fill="#463A4E"/>
-      <text x="229" y="232" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="40" fill="#F7C9D3">?</text>
-      <text x="229" y="256" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="8.5" fill="#F7C9D3">СКОРО</text>
+      <text x="229" y="232" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="40" fill="#FFE3B8">?</text>
+      <text x="229" y="256" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="8.5" fill="#FFE3B8">СКОРО</text>
       <rect x="114" y="250" width="72" height="114" rx="8" fill="#5A2333"/>
-      <rect x="120" y="256" width="28" height="102" rx="5" fill="#73304A"/><rect x="152" y="256" width="28" height="102" rx="5" fill="#73304A"/>
+      <rect x="120" y="256" width="28" height="102" rx="5" fill="#6A2A24"/><rect x="152" y="256" width="28" height="102" rx="5" fill="#6A2A24"/>
       <circle cx="134" cy="282" r="9" fill="#FFE4B0" opacity=".85"/><circle cx="166" cy="282" r="9" fill="#FFE4B0" opacity=".85"/>
       <rect x="143" y="300" width="3" height="18" rx="1.5" fill="#FFD45E"/><rect x="154" y="300" width="3" height="18" rx="1.5" fill="#FFD45E"/>
       <rect x="108" y="198" width="84" height="34" rx="8" fill="#FFF0CE"/>
-      <text x="150" y="220" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="12" fill="#9E2F47">КАССА</text>`;
+      <text x="150" y="220" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="12" fill="#8E2E2A">КАССА</text>`;
     return svg('0 0 300 364', body);
   }
   function bureauB() {
@@ -995,24 +995,24 @@
   }
   function sweetsB() {
     let stripes = '';
-    for (let i = 0; i < 10; i++) stripes += `<path d="M${16 + i * 26.8},168 L${42.8 + i * 26.8},168 L${42.8 + i * 26.8},196 Q${29.4 + i * 26.8},210 ${16 + i * 26.8},196 Z" fill="${i % 2 ? '#FFFDF9' : '#F08FA8'}"/>`;
+    for (let i = 0; i < 10; i++) stripes += `<path d="M${16 + i * 26.8},168 L${42.8 + i * 26.8},168 L${42.8 + i * 26.8},196 Q${29.4 + i * 26.8},210 ${16 + i * 26.8},196 Z" fill="${i % 2 ? '#FFFDF9' : '#E8833A'}"/>`;
     const body = `
-      <rect x="18" y="40" width="264" height="324" rx="6" fill="#F6C6D0"/>
+      <rect x="18" y="40" width="264" height="324" rx="6" fill="#F6D2B0"/>
       <path d="M10,40 Q24,24 38,40 Q52,24 66,40 Q80,24 94,40 Q108,24 122,40 Q136,24 150,40 Q164,24 178,40 Q192,24 206,40 Q220,24 234,40 Q248,24 262,40 Q276,24 290,40 L290,50 L10,50 Z" fill="#FFFDF9"/>
       <rect x="40" y="70" width="220" height="68" rx="34" fill="#FFFDF9"/>
-      <text x="150" y="100" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="22" fill="#C2405B">Сахарная</text>
-      <text x="150" y="124" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="22" fill="#C2405B">пудра</text>
-      <rect x="14" y="160" width="272" height="10" rx="5" fill="#C2405B"/>
+      <text x="150" y="100" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="22" fill="#A9502F">Сахарная</text>
+      <text x="150" y="124" text-anchor="middle" font-family="Comfortaa, Nunito, sans-serif" font-weight="700" font-size="22" fill="#A9502F">пудра</text>
+      <rect x="14" y="160" width="272" height="10" rx="5" fill="#A9502F"/>
       ${stripes}
       <rect x="32" y="222" width="138" height="104" rx="12" fill="#FFFDF9"/><rect x="38" y="228" width="126" height="92" rx="8" fill="#FFF3F5"/>
-      <rect x="38" y="290" width="126" height="4" fill="#F1CDD6"/>
-      <path d="M50,290 L50,272 Q62,258 74,272 L74,290 Z" fill="#F7C9D3"/><path d="M50,272 Q62,264 74,272" stroke="#fff" stroke-width="3" fill="none"/><circle cx="62" cy="262" r="4" fill="#C2405B"/>
+      <rect x="38" y="290" width="126" height="4" fill="#EED2B4"/>
+      <path d="M50,290 L50,272 Q62,258 74,272 L74,290 Z" fill="#F8DDB8"/><path d="M50,272 Q62,264 74,272" stroke="#fff" stroke-width="3" fill="none"/><circle cx="62" cy="262" r="4" fill="#A9502F"/>
       <ellipse cx="102" cy="284" rx="16" ry="7" fill="#E7B47C"/><ellipse cx="102" cy="280" rx="13" ry="4" fill="#FFF8F0"/>
       <rect x="126" y="270" width="26" height="20" rx="4" fill="#C9B6F0"/><rect x="126" y="268" width="26" height="6" rx="3" fill="#FFF6E8"/>
-      <rect x="190" y="222" width="70" height="142" rx="35" fill="#C2405B"/>
-      <circle cx="225" cy="262" r="18" fill="#FFE4EA" opacity=".8"/>
+      <rect x="190" y="222" width="70" height="142" rx="35" fill="#A9502F"/>
+      <circle cx="225" cy="262" r="18" fill="#FFEBD2" opacity=".8"/>
       <circle cx="248" cy="300" r="4" fill="#FFD45E"/>
-      <path d="M225,180 L225,212" stroke="#9E2F47" stroke-width="2"/>`;
+      <path d="M225,180 L225,212" stroke="#6B3517" stroke-width="2"/>`;
     return svg('0 0 300 364', body);
   }
   function roofB(o = {}) {
@@ -1030,7 +1030,7 @@
         stairs += `<path d="M${x2},${y - 74} L${x2 + 14},${y - 60}" stroke="#4F5966" stroke-width="4" stroke-linecap="round"/>`;
         stairs += `<path d="M${x2 - 8},${y - 72} L${x2 + 4},${y - 61}" stroke="#4F5966" stroke-width="4" stroke-linecap="round"/>`;
         stairs += `<path d="M${x1},${y} L${x1 - 12},${y - 12}" stroke="#4F5966" stroke-width="4" stroke-linecap="round"/>`;
-        stairs += `<g transform="translate(212 ${y - 50}) rotate(-6)"><path d="M14,-14 L14,0 M50,-14 L50,0" stroke="#6C7682" stroke-width="1.5"/><rect x="0" y="0" width="64" height="26" rx="4" fill="#FFFDF9" stroke="#C2405B" stroke-width="2"/><text x="32" y="11" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="7.5" fill="#C2405B">СТУПЕНЬКИ</text><text x="32" y="20.5" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="7.5" fill="#C2405B">УШЛИ НА ОБЕД</text></g>`;
+        stairs += `<g transform="translate(212 ${y - 50}) rotate(-6)"><path d="M14,-14 L14,0 M50,-14 L50,0" stroke="#6C7682" stroke-width="1.5"/><rect x="0" y="0" width="64" height="26" rx="4" fill="#FFFDF9" stroke="#B5520E" stroke-width="2"/><text x="32" y="11" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="7.5" fill="#B5520E">СТУПЕНЬКИ</text><text x="32" y="20.5" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="7.5" fill="#B5520E">УШЛИ НА ОБЕД</text></g>`;
         continue;
       }
       stairs += `<path d="M${x1},${y} L${x2},${y - 74}" stroke="#4F5966" stroke-width="4"/>`;
@@ -1167,7 +1167,7 @@
   }
   function seats() {
     let s = '';
-    for (let i = 0; i < 7; i++) s += `<path d="M${i * 66 - 10},70 Q${i * 66 - 10},30 ${i * 66 + 23},30 Q${i * 66 + 56},30 ${i * 66 + 56},70 L${i * 66 + 56},120 L${i * 66 - 10},120 Z" fill="#6E2A3E"/><rect x="${i * 66 - 6}" y="64" width="58" height="12" rx="6" fill="#88344D"/>`;
+    for (let i = 0; i < 7; i++) s += `<path d="M${i * 66 - 10},70 Q${i * 66 - 10},30 ${i * 66 + 23},30 Q${i * 66 + 56},30 ${i * 66 + 56},70 L${i * 66 + 56},120 L${i * 66 - 10},120 Z" fill="#6A2622"/><rect x="${i * 66 - 6}" y="64" width="58" height="12" rx="6" fill="#8E2E2A"/>`;
     return svg('0 0 440 120', s);
   }
 
@@ -1239,11 +1239,11 @@
       <g transform="translate(170 40) rotate(-8)"><rect width="60" height="40" rx="4" fill="#FFFDF9"/><text x="30" y="17" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9" fill="#C2405B">ПРОВЕРЕНО</text><text x="30" y="30" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9" fill="#C2405B">СЛОВАРЁМ</text></g>
       <rect x="40" y="-14" width="34" height="16" rx="2" fill="#8FB3D9"/><rect x="44" y="-24" width="30" height="12" rx="2" fill="#F08FA8"/><rect x="330" y="-12" width="22" height="14" rx="3" fill="#FFF3D6"/>`);
     return svg('0 0 400 120', `
-      <rect x="0" y="0" width="400" height="18" rx="6" fill="#F3B6C4"/>
-      <rect x="0" y="14" width="400" height="106" fill="#F8CBD5"/>
+      <rect x="0" y="0" width="400" height="18" rx="6" fill="#F2C49A"/>
+      <rect x="0" y="14" width="400" height="106" fill="#F8D6B0"/>
       <path d="M0,40 Q25,58 50,40 Q75,58 100,40 Q125,58 150,40 Q175,58 200,40 Q225,58 250,40 Q275,58 300,40 Q325,58 350,40 Q375,58 400,40" stroke="#FFFDF9" stroke-width="6" fill="none"/>
       <circle cx="60" cy="80" r="9" fill="#FFFDF9" opacity=".7"/><circle cx="200" cy="86" r="9" fill="#FFFDF9" opacity=".7"/><circle cx="340" cy="80" r="9" fill="#FFFDF9" opacity=".7"/>
-      <g transform="translate(300 -30)"><path d="M0,30 L40,30 L36,8 L4,8 Z" fill="#FFFDF9"/><ellipse cx="20" cy="8" rx="16" ry="6" fill="#F7C9D3"/><circle cx="20" cy="2" r="4" fill="#C2405B"/></g>`);
+      <g transform="translate(300 -30)"><path d="M0,30 L40,30 L36,8 L4,8 Z" fill="#FFFDF9"/><ellipse cx="20" cy="8" rx="16" ry="6" fill="#F8DDB8"/><circle cx="20" cy="2" r="4" fill="#C2405B"/></g>`);
   }
   function noteMini() {
     return svg('0 0 60 60', `<rect x="6" y="6" width="48" height="50" rx="2" fill="#FFFBF2" transform="rotate(5 30 30)"/><circle cx="30" cy="8" r="4" fill="#C2405B"/><g transform="translate(10 16) scale(.65)">${teacup('#3B2F4F', 3)}</g>`);
@@ -1273,8 +1273,8 @@
       trees += `<path d="M${x},${y - 16 - (i % 2) * 4} L${x + 7},${y} L${x - 7},${y} Z" fill="${i % 2 ? '#9FA6B8' : '#A7AEC0'}"/>`;
     });
     return svg('0 0 800 220', `
-      <path d="M0,160 C70,120 140,118 220,138 C300,98 400,84 480,112 C560,92 650,96 720,124 C760,112 790,112 800,116 L800,220 L0,220 Z" fill="#B9B4CC"/>
-      <path d="M0,198 C90,160 180,156 270,170 C350,124 450,118 540,148 C630,136 720,140 800,162 L800,220 L0,220 Z" fill="#ADA8C3"/>
+      <path d="M0,160 C70,120 140,118 220,138 C300,98 400,84 480,112 C560,92 650,96 720,124 C760,112 790,112 800,116 L800,220 L0,220 Z" fill="#B4BAC4"/>
+      <path d="M0,198 C90,160 180,156 270,170 C350,124 450,118 540,148 C630,136 720,140 800,162 L800,220 L0,220 Z" fill="#A9AFBA"/>
       ${trees}`);
   }
   // часовая мастерская на 2D-улице: вывеска с двумя циферблатами, в витрине часы-домик и карманные часы

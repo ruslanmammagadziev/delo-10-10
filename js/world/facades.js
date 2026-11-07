@@ -11,8 +11,8 @@
       lace, curtains, flowerBox, IVY, ivy, wreath, bow, bowAt, sconce, ringG, blobGeo, bake, toon, tex } = H;
     function buildCinema(K) {
       const g = new T.Group(), W = 3.7, H = 4.4, D = 3.2;
-      const red = K.m('#B9475F'), redD = K.m('#9E2F47'), cream = K.m('#FFF0CE'), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.55 }),
-        dark = K.m('#2F2834'), wine = K.m('#73304A'), glass = K.m('#FFE4B0', { glow: '#FFC870', gi: 0.45 }), rope = K.m('#8E2340');
+      const red = K.m('#B8433A'), redD = K.m('#8E2E2A'), cream = K.m('#FFF0CE'), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.55 }),
+        dark = K.m('#2F2834'), wine = K.m('#6A2A24'), glass = K.m('#FFE4B0', { glow: '#FFC870', gi: 0.45 }), rope = K.m('#8A2A22');
       const bulbA = K.m('#FFE7A0', { glow: '#FFC94A', gi: 0.9, id: 'A' }), bulbB = K.m('#FFE7A0', { glow: '#FFC94A', gi: 0.9, id: 'B' });
       rbox(g, red, 0, H / 2, -D / 2, W, H, D, 0.14);
       rbox(g, redD, 0, 0.17, -D / 2 + 0.03, W + 0.1, 0.34, D + 0.06, 0.1);
@@ -47,7 +47,7 @@
       plane(g, K.t(SIGN.kassa), 0, 2.28, 0.925, 0.9, 0.24);
       box(g, gold, 0, 2.11, 0.93, 1.3, 0.03, 0.03); box(g, gold, 0, 2.45, 0.93, 1.3, 0.03, 0.03);
       [-0.45, 0, 0.45].forEach(x => sphS(g, bulbA, x, 2.08, 0.62, 0.045));
-      const swg = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#E7A3A0')];
+      const swg = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#E3A06A')];
       for (let i = 0; i <= 10; i++) put(g, GEO.sphLo, swg[i % 3], [-0.6 + i * 0.12, 2.06 - 0.09 * Math.sin(PI * i / 10), 0.95], [0.06, 0.042, 0.028], [0, 0, i * 0.9]);
       // двери (створки открываются)
       box(g, dark, 0, 0.88, 0.02, 1.22, 1.76, 0.04);
@@ -57,7 +57,7 @@
         const p = new T.Group(); p.position.set(s * 0.56, 0, 0.06); p.userData.dyn = true; g.add(p);
         box(p, wine, -s * 0.275, 0.84, 0.03, 0.53, 1.68, 0.06);
         cyl(p, glass, -s * 0.275, 1.24, 0.07, 0.13, 0.03, [PI / 2, 0, 0]);
-        const wr = wreath(K, 0.17, '#E8879E'); wr.position.set(-s * 0.275, 1.24, 0.075); p.add(wr);
+        const wr = wreath(K, 0.17, '#D9A441'); wr.position.set(-s * 0.275, 1.24, 0.075); p.add(wr);
         box(p, gold, -s * 0.07, 0.82, 0.08, 0.03, 0.26, 0.03);
         doors.push({ p, open: s * 1.35 });
       });
@@ -99,7 +99,7 @@
       ivy(g, K, W, H, 1, 11, 60, IVY, [[-2.2, 0.8], [-2.95, 0.95]], true);
       rbox(g, cream, 0, 3.72, 0.1, 3.4, 0.95, 0.2, 0.09);
       plane(g, K.t(SIGN.bureau), 0, 3.72, 0.202, 3.3, 0.88);
-      bow(g, K.m('#F08FA8'), 1.55, 4.15, 0.24, 0.3);
+      bow(g, K.m('#D9A441'), 1.55, 4.15, 0.24, 0.3);
       rbox(g, navy, 0, 3.0, 0.06, 1.66, 0.36, 0.12, 0.055);
       plane(g, K.t(SIGN.bureauSmall), 0, 3.0, 0.122, 1.56, 0.32);
       // глобус на кронштейне — крутится
@@ -127,14 +127,14 @@
       put(p, extrude(archShape(dw, dh, dw / 2), 0.07), navy);
       put(p, extrude(archShape(0.56, 0.6, dw / 2), 0.02), glass, [0, 1.06, 0.07]);
       sph(p, gold, dw - 0.13, 0.9, 0.1, 0.035);
-      const wr = wreath(K, 0.2, '#E8879E'); wr.position.set(dw / 2, 1.36, 0.115); p.add(wr);
+      const wr = wreath(K, 0.2, '#D9A441'); wr.position.set(dw / 2, 1.36, 0.115); p.add(wr);
       box(p, cream, dw / 2, 0.72, 0.075, 0.52, 0.17, 0.01);
       plane(p, K.t(SIGN.open), dw / 2, 0.72, 0.081, 0.5, 0.156);
       return { g, doors: [{ p, open: -1.35 }], globe: spin };
     }
     function buildSweets(K) {
       const g = new T.Group(), W = 3.7, H = 4.5, D = 3.2;
-      const pink = K.m('#F6C6D0'), pinkD = K.m('#E7A6B6'), cream = K.m('#FFFDF9'), cherry = K.m('#C2405B'), stripe = K.m('#F08FA8'),
+      const pink = K.m('#F6D2B0'), pinkD = K.m('#E3AE7E'), cream = K.m('#FFFDF9'), cherry = K.m('#A9502F'), stripe = K.m('#E8833A'),
         glass = K.m('#FFF3F5', { glow: '#FFE0CC', gi: 0.35 }), gold = K.m('#FFD45E', { glow: '#FFB938', gi: 0.4 }), caramel = K.m('#E7B47C'),
         lav = K.m('#C9B6F0'), mint = K.m('#BFE6D3'), stem = K.m('#5E7A4A');
       rbox(g, pink, 0, H / 2, -D / 2, W, H, D, 0.14);
@@ -162,7 +162,7 @@
         put(g, GEO.halfDisc, m, [x, 2.45, 0.94], [0.185, 0.03, 0.185], [PI / 2, 0, 0]);
       }
       // витрина со сладостями
-      const vit = K.m('#E2B6C0', { glow: '#FFBFA0', gi: 0.18 });
+      const vit = K.m('#E6C29C', { glow: '#FFBFA0', gi: 0.18 });
       windowF(g, cream, vit, -0.69, 1.3, 1.9, 1.3, { sill: false });
       curtains(g, stripe, -0.69, 1.3, 1.9, 1.3);
       plane(g, K.t(SIGN.sweetsWin, { alpha: true }), -0.69, 1.76, 0.066, 0.78, 0.125);
@@ -207,7 +207,7 @@
         put(g, GEO.cone, hat, [tx, ty + 1.41, tz], [0.47, 0.4, 0.47]); sph(g, gold, tx, ty + 1.66, tz, 0.06); }
       rbox(g, wallD, -1.35, H + 0.75, -2.4, 0.34, 0.8, 0.34, 0.06); rbox(g, metal, -1.35, H + 1.18, -2.4, 0.42, 0.08, 0.42, 0.03);
       // окна 2×4, на некоторых — цветы
-      const shutP = K.m('#E7A6B6'), shutM = K.m('#BFE6D3'), curtP = K.m('#F7C9D3'), mumR = K.m('#D9774F'), mumY = K.m('#F3CF73');
+      const shutP = K.m('#A9B98F'), shutM = K.m('#BFE6D3'), curtP = K.m('#EBCB8B'), mumR = K.m('#D9774F'), mumY = K.m('#F3CF73');
       ivy(g, K, W, H, 1, 12, 44, IVY, [[-1.5, 0.6], [-2.7, 0.75]], false);
       [-1.23, -0.31].forEach((x, c) => [4.32, 3.32, 2.32, 1.32].forEach((y, r) => {
         windowF(g, frame, glass, x, y, 0.6, 0.7, r === 0 ? { arch: true } : { cross: true, shut: (c === 0 && r === 1) ? shutP : (c === 1 && r === 3) ? shutM : null });
@@ -235,7 +235,7 @@
       box(sg, cream, 0, 0, 0, 0.8, 0.33, 0.03); plane(sg, K.t(SIGN.stairs), 0, 0, 0.016, 0.78, 0.32);
       [-0.28, 0.28].forEach(x => cyl(sg, metalL, x, 0.27, 0, 0.008, 0.22));
       // кто-то проветривает ковёр
-      box(g, K.m('#8E2B40'), fx + 0.15, PL[1] + 0.2, 0.66, 0.62, 0.5, 0.02);
+      box(g, K.m('#7A3812'), fx + 0.15, PL[1] + 0.2, 0.66, 0.62, 0.5, 0.02);
       plane(g, K.t(SIGN.carpet), fx + 0.15, PL[1] + 0.2, 0.672, 0.6, 0.48);
       // дверь «ВЫХОД НА КРЫШУ»
       const dx = 1.1, dw = 0.94, dh = 1.6;
@@ -300,7 +300,7 @@
     const q01 = v => Math.round(v * 20) / 20;   // размеры скруглённых коробок — шагом 5 см: общий кэш геометрии
     const rb = (g, m, x, y, z, w, h, d, r, rot) => rbox(g, m, x, y, z, q01(w), q01(h), q01(d), r, rot);
     const P = {};
-    P.sign = (big, small, col = '#C2405B', bg = '#FFF6EE') => {
+    P.sign = (big, small, col = '#B5520E', bg = '#FFF6EE') => {
       const [cv, c] = cnv(384, 112);
       c.fillStyle = bg; rrect(c, 2, 2, 380, 108, 26); c.fill();
       c.strokeStyle = col; c.lineWidth = 7; rrect(c, 11, 11, 362, 90, 20); c.stroke();
@@ -308,7 +308,7 @@
       if (small) text(c, small, 192, 84, 24, '#6E6272', { w: 800, max: 330 });
       return cv;
     };
-    P.board = (l1, l2, col = '#C2405B') => {
+    P.board = (l1, l2, col = '#B5520E') => {
       const [cv, c] = cnv(512, 160); c.fillStyle = '#FFF6EE'; rrect(c, 4, 4, 504, 152, 30); c.fill(); c.strokeStyle = col; c.lineWidth = 8; rrect(c, 16, 16, 480, 128, 22); c.stroke();
       text(c, l1, 256, l2 ? 64 : 82, l2 ? 54 : 64, col, { f: 'Comfortaa', w: 700, max: 440 }); if (l2) text(c, l2, 256, 116, 34, '#6E6272', { w: 800, max: 440 });
       return cv;
@@ -320,7 +320,7 @@
       for (let i = 0; i < n; i++) put(g, GEO.halfDisc, i % 2 ? b : a, [x - w / 2 + sw * (i + 0.5), y - Math.sin(0.42) * d / 2 - 0.02, z + Math.cos(0.42) * d / 2], [sw / 2, 0.025, 0.09], [PI / 2, 0, 0]);
     };
     const GOODS = {
-      apples: ['#E05A5A', '#F0A94B', '#C5D07A', '#E57A5A'], pumpkins: ['#EE9A55', '#F3D2B0', '#EBB3BA'], flowers: ['#EFA3B5', '#F3CF73', '#C7A8DD', '#F7C9D4', '#E99A6E'],
+      apples: ['#E05A5A', '#F0A94B', '#C5D07A', '#E57A5A'], pumpkins: ['#EE9A55', '#F3D2B0', '#E9C29A'], flowers: ['#EFA3B5', '#F3CF73', '#C7A8DD', '#F7C9D4', '#E99A6E'],
       bread: ['#E2B276', '#D69A5C', '#F0CF9A'], paper: ['#FFFDF9', '#9DB8E0', '#F08FA8', '#F7D27A'], badges: ['#F08FA8', '#8FB3D9', '#F3CF73', '#9FC2A8', '#C7A8DD'],
       cards: ['#FFF0CE', '#F7C9D4', '#CFE0D2', '#D9CCE6'], mittens: ['#C2405B', '#9DB8E0', '#F3CF73', '#9FC2A8', '#EFA3B5'],
     };
@@ -335,8 +335,8 @@
       [-1, 1].forEach(s => { box(g, woodD, s * (W / 2 - 0.06), 1.3, -0.08, 0.1, 2.6, 0.1); box(g, woodD, s * (W / 2 - 0.06), 1.3, -D + 0.12, 0.1, 2.6, 0.1); box(g, wood, s * (W / 2 - 0.05), 1.55, -D / 2, 0.05, 1.7, D - 0.2); });
       box(g, woodD, 0, 2.62, -D / 2, W + 0.2, 0.12, D + 0.1);
       // маркиза: полосы и фестоны
-      { const n = 7, sw = (W + 0.16) / n, a = K.m(o.aw || '#F08FA8'); for (let i = 0; i < n; i++) { const x = -(W + 0.16) / 2 + sw * (i + 0.5); box(g, i % 2 ? cream : a, x, 2.38, 0.18, sw, 0.06, 0.7, [0.42, 0, 0]); put(g, GEO.halfDisc, i % 2 ? cream : a, [x, 2.38 - Math.sin(0.42) * 0.35 - 0.02, 0.18 + Math.cos(0.42) * 0.35], [sw / 2, 0.025, 0.09], [PI / 2, 0, 0]); } }
-      if (o.cv) { box(g, K.m(o.col || '#C2405B'), 0, 2.98, -0.05, 1.7, 0.52, 0.06); put(g, GEO.plane, K.t(o.cv, { alpha: true }), [0, 2.98, -0.015], [1.6, 0.47, 1]).castShadow = false; }
+      { const n = 7, sw = (W + 0.16) / n, a = K.m(o.aw || '#E8833A'); for (let i = 0; i < n; i++) { const x = -(W + 0.16) / 2 + sw * (i + 0.5); box(g, i % 2 ? cream : a, x, 2.38, 0.18, sw, 0.06, 0.7, [0.42, 0, 0]); put(g, GEO.halfDisc, i % 2 ? cream : a, [x, 2.38 - Math.sin(0.42) * 0.35 - 0.02, 0.18 + Math.cos(0.42) * 0.35], [sw / 2, 0.025, 0.09], [PI / 2, 0, 0]); } }
+      if (o.cv) { box(g, K.m(o.col || '#B5520E'), 0, 2.98, -0.05, 1.7, 0.52, 0.06); put(g, GEO.plane, K.t(o.cv, { alpha: true }), [0, 2.98, -0.015], [1.6, 0.47, 1]).castShadow = false; }
       // товар: горки на прилавке (мелочь — прячется издали), на полках — коробочки
       const k = o.goods || 'apples', N = 6;
       for (let i = 0; i < N; i++) {
@@ -412,8 +412,8 @@
         if (i % 2 === 0 && i > 1 && i < N - 2) cyl(g, iron, (x0 + x1) / 2, ((y0 + y1) / 2 + 3.75) / 2, 0, 0.018, (y0 + y1) / 2 - 3.75);
       }
       box(g, iron, 0, 3.75, 0, span, 0.06, 0.06);
-      put(g, H.heartG, K.m('#E58FA6'), [0, 4.95, -0.1], [0.36, 0.36, 1]);
-      if (o.cv) { rb(g, K.m('#C2405B'), 0, 4.3, 0.05, 2.4, 0.66, 0.06, 0.03); const m = K.t(o.cv, { alpha: true }); put(g, GEO.plane, m, [0, 4.3, 0.09], [2.3, 0.62, 1]).castShadow = false; put(g, GEO.plane, m, [0, 4.3, 0.01], [2.3, 0.62, 1], [0, PI, 0]).castShadow = false; }
+      put(g, H.heartG, K.m('#E9A93A'), [0, 4.95, -0.1], [0.36, 0.36, 1]);
+      if (o.cv) { rb(g, K.m('#B5520E'), 0, 4.3, 0.05, 2.4, 0.66, 0.06, 0.03); const m = K.t(o.cv, { alpha: true }); put(g, GEO.plane, m, [0, 4.3, 0.09], [2.3, 0.62, 1]).castShadow = false; put(g, GEO.plane, m, [0, 4.3, 0.01], [2.3, 0.62, 1], [0, PI, 0]).castShadow = false; }
       return g;
     };
     P.parkArch = (K, o = {}) => {
@@ -453,7 +453,7 @@
       // канат между столбиками
       for (let i = 0; i < 4; i++) [-1, 1].forEach(sd => { const z0 = i * len / 4, z1 = (i + 1) * len / 4; for (let k = 0; k < 4; k++) { const t0 = k / 4, t1 = (k + 1) / 4, sag = t => 0.42 - Math.sin(t * PI) * 0.12; box(g, rope, sd * (w / 2 - 0.1), (sag(t0) + sag(t1)) / 2, z0 + (z1 - z0) * (t0 + t1) / 2, 0.04, 0.04, (z1 - z0) / 4 + 0.02); } });
       // спасательный круг
-      put(g, H.ringG(0.26, 0.07), K.m('#F08FA8'), [w / 2 - 0.06, 0.55, len * 0.5], null, [0, PI / 2, 0]);
+      put(g, H.ringG(0.26, 0.07), K.m('#E8833A'), [w / 2 - 0.06, 0.55, len * 0.5], null, [0, PI / 2, 0]);
       for (let k = 0; k < 4; k++) put(g, GEO.box, K.m('#FFFDF9'), [w / 2 - 0.02, 0.55 + Math.sin(k * PI / 2) * 0.26, len * 0.5 + Math.cos(k * PI / 2) * 0.26], [0.05, 0.08, 0.08], [k * PI / 2, 0, 0]);
       return g;
     };
@@ -474,7 +474,7 @@
       return g;
     };
     P.duckHouse = K => {
-      const g = new T.Group(), wood = K.m('#E7C9A9'), roof = K.m('#C98F86'), raft = K.m('#B98C6A');
+      const g = new T.Group(), wood = K.m('#E7C9A9'), roof = K.m('#B97A5A'), raft = K.m('#B98C6A');
       rb(g, raft, 0, 0.06, 0, 1.4, 0.12, 1.1, 0.04); rb(g, wood, 0, 0.45, -0.1, 0.8, 0.66, 0.7, 0.05);
       put(g, keep(new T.ExtrudeGeometry(H.triShape(1, 0.5), { depth: 1, bevelEnabled: false })), roof, [0, 0.78, 0.3], [1.0, 0.7, 0.86]);
       put(g, H.extrude(archShape(0.32, 0.4), 0.04), K.m('#5A4E62'), [0, 0.12, 0.26]);
@@ -488,12 +488,12 @@
       [-1, 1].forEach(sd => cyl(tube, iron, sd * 0.15, -0.02, -0.05, 0.02, 0.3, [0, 0, PI / 2]));
       return g;
     };
-    P.hurdle = K => { const g = new T.Group(), a = K.m('#F08FA8'), b = K.m('#FFFDF9'); [-1, 1].forEach(sd => { cyl(g, b, sd * 0.6, 0.3, 0, 0.04, 0.6); rb(g, a, sd * 0.6, 0.03, 0, 0.24, 0.06, 0.24, 0.02); }); for (let i = 0; i < 4; i++) cyl(g, i % 2 ? a : b, -0.45 + i * 0.3, 0.38, 0, 0.035, 0.3, [0, 0, PI / 2]); return g; };
-    P.tunnel = K => { const g = new T.Group(); const cols = ['#8FB3D9', '#F3CF73', '#9FC2A8', '#F08FA8']; for (let i = 0; i < 6; i++) put(g, GEO.halfCyl, K.m(cols[i % 4]), [0, 0, -1.0 + i * 0.4], [0.42, 0.4, 0.42], [0, PI / 2, PI / 2]); return g; };
+    P.hurdle = K => { const g = new T.Group(), a = K.m('#E8833A'), b = K.m('#FFFDF9'); [-1, 1].forEach(sd => { cyl(g, b, sd * 0.6, 0.3, 0, 0.04, 0.6); rb(g, a, sd * 0.6, 0.03, 0, 0.24, 0.06, 0.24, 0.02); }); for (let i = 0; i < 4; i++) cyl(g, i % 2 ? a : b, -0.45 + i * 0.3, 0.38, 0, 0.035, 0.3, [0, 0, PI / 2]); return g; };
+    P.tunnel = K => { const g = new T.Group(); const cols = ['#8FB3D9', '#F3CF73', '#9FC2A8', '#E8833A']; for (let i = 0; i < 6; i++) put(g, GEO.halfCyl, K.m(cols[i % 4]), [0, 0, -1.0 + i * 0.4], [0.42, 0.4, 0.42], [0, PI / 2, PI / 2]); return g; };
     P.ramp = K => { const g = new T.Group(), w = K.m('#E7C9A9'), s = K.m('#F7B267'); [-1, 1].forEach(sd => box(g, w, 0, 0.32, sd * 0.55, 0.9, 0.06, 1.25, [sd * -0.55, 0, 0])); for (let i = 0; i < 4; i++) [-1, 1].forEach(sd => box(g, s, 0, 0.12 + i * 0.13, sd * (0.95 - i * 0.24), 0.9, 0.03, 0.05)); return g; };
     P.bowl = K => { const g = new T.Group(); put(g, GEO.pot, K.m('#8FB3D9'), [0, 0.05, 0], [0.18, 0.1, 0.18], [PI, 0, 0]); put(g, GEO.cylLo, K.m('#BFE0F2', { glow: '#9FD0EE', gi: 0.2 }), [0, 0.09, 0], [0.14, 0.01, 0.14]); return g; };
     P.barrier = (K, cv) => {
-      const g = new T.Group(), wd = K.m('#B98C6A'), st = K.m('#FFFDF9'), rd = K.m('#E58FA6');
+      const g = new T.Group(), wd = K.m('#B98C6A'), st = K.m('#FFFDF9'), rd = K.m('#E8833A');
       [-1.2, 1.2].forEach(dx => [-1, 1].forEach(s => box(g, wd, dx + s * 0.25, 0.4, 0, 0.06, 0.85, 0.06, [0, 0, s * 0.3])));
       for (let i = 0; i < 6; i++) rb(g, i % 2 ? st : rd, -1.0 + i * 0.4, 0.78, 0, 0.4, 0.16, 0.05, 0.02);
       if (cv) { cyl(g, wd, 0, 0.6, -0.1, 0.04, 1.2); rb(g, wd, 0, 1.25, -0.06, 0.8, 0.36, 0.06, 0.03); put(g, GEO.plane, K.t(cv, { alpha: true }), [0, 1.25, -0.02], [0.74, 0.32, 1]).castShadow = false; }

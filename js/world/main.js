@@ -50,17 +50,17 @@
   /* ---------- настроение: серия 1 от серой мороси к золотому часу (как улица), прогулка — золотой час ---------- */
   const LOOKS = [
     { sky: '#D6DAEA', gnd: '#C4B4B6', hi: 0.78, sun: '#EEEAF2', si: 0.28, off: [-6, 14, 6] },
-    { sky: '#E0DAEE', gnd: '#D2BEB8', hi: 0.72, sun: '#FFEADB', si: 0.36, off: [-7, 13, 7] },
-    { sky: '#E6D8EE', gnd: '#DDC0B0', hi: 0.64, sun: '#FFE0C2', si: 0.44, off: [-7.5, 11.5, 7.5] },
-    { sky: '#E4D4EE', gnd: '#E8C2AE', hi: 0.60, sun: '#FFD4AA', si: 0.49, off: [-8, 9.5, 7.5] },
+    { sky: '#E6E0D4', gnd: '#D2BEB8', hi: 0.72, sun: '#FFEADB', si: 0.36, off: [-7, 13, 7] },
+    { sky: '#ECE2D0', gnd: '#DDC0B0', hi: 0.64, sun: '#FFE0C2', si: 0.44, off: [-7.5, 11.5, 7.5] },
+    { sky: '#F0E4CC', gnd: '#E8C2AE', hi: 0.60, sun: '#FFD4AA', si: 0.49, off: [-8, 9.5, 7.5] },
   ];
   const SKY3D = [
     'linear-gradient(180deg,#959CB4 0%,#B3B5C9 16%,#CFCFDB 36%,#CFCFDB 100%)',
     'linear-gradient(180deg,#A2A8C6 0%,#C6C0DA 16%,#E2DAE3 36%,#E2DAE3 100%)',
-    'linear-gradient(180deg,#A6A2D0 0%,#CDBBDD 13%,#E8CFDC 25%,#F1DCDD 36%,#F1DCDD 100%)',
-    'linear-gradient(180deg,#9F99CE 0%,#CFB4D8 12%,#F0C8CC 24%,#F8D9CC 36%,#F8D9CC 100%)',
+    'linear-gradient(180deg,#9AAAC8 0%,#C3C8D4 13%,#EAD6BC 25%,#F2E0C8 36%,#F2E0C8 100%)',
+    'linear-gradient(180deg,#8EA6CA 0%,#BFC6D2 12%,#F3D0A2 24%,#F8E0BE 36%,#F8E0BE 100%)',
   ];
-  const FOGC = ['#CFCFDB', '#E2DAE3', '#F1DCDD', '#F8D9CC'];
+  const FOGC = ['#CFCFDB', '#E2DAE3', '#F2E0C8', '#F8E0BE'];
   const RIMS = [['#DCE2FF', 0.10], ['#FFEFE6', 0.14], ['#FFE4D0', 0.18], ['#FFD0AE', 0.26]];
   const SAT = [0.42, 0.64, 0.84, 1];
   const BID = { cinema: 1, bureau: 2, sweets: 3, roof: 4, stairs: 4 };
@@ -439,7 +439,7 @@
   // чехол на машину (серия 1): ткань повторяет кузов (та же сетка, чуть шире), над салоном — мягкий горб, сверху бант
   function makeCover(H, car) {
     const g = new T.Group(); car.body.add(g);
-    const cloth = H.addRim(H.toon('#EADCD2'), 0.6), bowM = H.toon('#E58FA6'), bowD = H.toon('#C9667E');
+    const cloth = H.addRim(H.toon('#EADCD2'), 0.6), bowM = H.toon('#D9A441'), bowD = H.toon('#B9822A');
     if (car.paintMesh && car.paintMesh.geometry) { const m = new T.Mesh(car.paintMesh.geometry, cloth); m.scale.set(1.06, 1.08, 1.03); m.position.y = -0.01; g.add(m); }
     H.put(g, H.GEO_HI.sph, cloth, [0, 0.9, -0.25], [0.72, 0.36, 1.05]);
     [-1, 1].forEach(sd => H.put(g, H.GEO_HI.sph, bowM, [sd * 0.17, 1.27, -0.25], [0.18, 0.11, 0.07], [0, 0, sd * 0.45]));
@@ -743,7 +743,7 @@
       const g = new T.Group(); g.position.set(p.x, 0, p.z); scene.add(g);
       const spr = new T.Sprite(new T.SpriteMaterial({ map: findTex(p), transparent: true, depthWrite: false, fog: false }));
       spr.scale.setScalar(0.55); spr.position.y = 0.6; spr.renderOrder = 6; g.add(spr);
-      const ring = new T.Mesh(ringGeo(), new T.MeshBasicMaterial({ color: 0xFFD6E2, transparent: true, opacity: 0.75, depthWrite: false })); ring.rotation.x = -PI / 2; ring.position.y = 0.03; g.add(ring);
+      const ring = new T.Mesh(ringGeo(), new T.MeshBasicMaterial({ color: 0xFFE2B8, transparent: true, opacity: 0.75, depthWrite: false })); ring.rotation.x = -PI / 2; ring.position.y = 0.03; g.add(ring);
       return { p, g, spr, ring, taken: false, ph: i * 1.3 };
     });
 
@@ -1189,7 +1189,7 @@
         else g.setHud({ label: o.hudLabel, menuSub: o.menuSub });
         menuItems();
         ui.setCase(s.card); s.distDirty = true; s.wpKey = '';
-        try { g.tgHeader && g.tgHeader('#FFF4EC'); } catch (e) { /* ignore */ }
+        try { g.tgHeader && g.tgHeader('#FFF3E2'); } catch (e) { /* ignore */ }
       }
       resizeTo(w, w.root.clientWidth || 390, w.root.clientHeight || 844);
       s.screen = scr;
@@ -1272,7 +1272,7 @@
       // слабый телефон — ролики без автозапуска (постер и ▶): один декодер видео поверх сцены города не держим
       if (window.Looks && Looks.menuItem && window.HeroLooks) {
         HUD.menu.add(Looks.menuItem({ id: 'look', when: () => mine(), gone: () => !mine(), busy: lookBusy, apply: id => relook(id), at: heroAt,
-          lite: () => w.qKey === 'lite' || !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()), header: () => (s.dnLamps ? '#1E2A5E' : '#FFF4EC') }));
+          lite: () => w.qKey === 'lite' || !!(window.WorldHub && WorldHub._lowMem && WorldHub._lowMem()), header: () => (s.dnLamps ? '#1E2A5E' : '#FFF3E2') }));
       }
       // бег-раннер поверх города (WORLD.runner): метка — из модуля раннера; не пешком — тост, а не молчание
       if (WORLD.runner) HUD.menu.add({ id: 'runner', icon: '🏃', order: 30, tint: 'sun', label: () => WORLD.runner.label(), sub: () => WORLD.runner.sub(), when: () => mine() && WORLD.runner.can(), onTap: () => { if (mine()) runnerGo(); } });
@@ -1351,7 +1351,7 @@
       // машина на своём месте у старта (через дорогу от кинотеатра) — так и сказать; уехала — где она, покажет мини-карта
       const home = carHome(w, w.carKind), atStart = !!(home && home.at === 'start' && Math.hypot(car.S.x - home.x, car.S.z - home.z) < 4);
       const where = atStart ? (cars > 1 ? 'Машины ждут через дорогу от кинотеатра, у самой зебры. ' : 'Машина ждёт через дорогу от кинотеатра, у самой зебры. ') : 'Где машина — видно на мини-карте. ';
-      const item = (ic, t, sub) => `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:0 0 10px;border-radius:18px;background:#FFF4EE"><b style="font-size:26px;line-height:1.1;flex:none">${ic}</b><div><b style="display:block;font-size:17px;color:#9E2F47">${t}</b><span style="display:block;font-size:15.5px;font-weight:600;color:#6E6272;line-height:1.35;margin-top:2px">${sub}</span></div></div>`;
+      const item = (ic, t, sub) => `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:0 0 10px;border-radius:18px;background:#FFF6EA"><b style="font-size:26px;line-height:1.1;flex:none">${ic}</b><div><b style="display:block;font-size:17px;color:#6B3517">${t}</b><span style="display:block;font-size:15.5px;font-weight:600;color:#735E4E;line-height:1.35;margin-top:2px">${sub}</span></div></div>`;
       const body = '<p style="margin:0 0 12px">Город открыт. Можно так:</p>'
         + item('🔍', 'Распутать дело', cd ? 'Иди к дому, над которым светится луч. Что искать — в пилюле вверху экрана.' : 'Новое дело появится само — его покажет пилюля вверху. А пока — гуляй и заглядывай в лавки.')
         + item('🚗', 'Или отдохнуть в горах', 'Не хочется расследовать — не беда. ' + where + 'Садись за руль — и ' + villageWord() + ': серпантин, облака и башня.')
@@ -2415,7 +2415,7 @@
       const lamps = w.dn.lampsOn();
       if (lamps !== s.dnLamps) {
         s.dnLamps = lamps;
-        try { const g = G_(); if (g && g.tgHeader) g.tgHeader(lamps ? '#1E2A5E' : '#FFF4EC'); } catch (e) { /* ignore */ }
+        try { const g = G_(); if (g && g.tgHeader) g.tgHeader(lamps ? '#1E2A5E' : '#FFF3E2'); } catch (e) { /* ignore */ }
         if (s.mode === 'drive') carLights(w, w.cars[w.carKind], true);
       }
       // первая ночь за сессию игры — подсказка (без имени, не озвучивается) и точка на ☰ (там «Вернуться в утро»)
@@ -2643,7 +2643,7 @@
   function sparkTex() {
     if (_spark) return _spark;
     const [cv, c] = WORLD.util.cnv(64, 64), g = c.createRadialGradient(32, 32, 0, 32, 32, 30);
-    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,214,226,.9)'); g.addColorStop(1, 'rgba(255,214,226,0)');
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,226,184,.9)'); g.addColorStop(1, 'rgba(255,226,184,0)');
     c.fillStyle = g; c.fillRect(0, 0, 64, 64); c.fillStyle = '#fff';
     c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * PI / 4, r = i % 2 ? 6 : 26; c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } c.closePath(); c.fill();
     return (_spark = new T.CanvasTexture(cv));

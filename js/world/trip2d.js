@@ -28,28 +28,28 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const CSS = `
-.t2d{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(58px + var(--safe-top,0px)) 12px calc(14px + var(--safe-bottom,0px));padding:calc(var(--hud-bar-b,50px) + 8px) var(--hud-r,12px) var(--hud-b,14px) var(--hud-l,12px);background:linear-gradient(180deg,#F3D9E6 0%,#FFF4EC 70%);animation:t2dIn .35s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif);color:var(--ink,#3A2E3F)}
+.t2d{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(58px + var(--safe-top,0px)) 12px calc(14px + var(--safe-bottom,0px));padding:calc(var(--hud-bar-b,50px) + 8px) var(--hud-r,12px) var(--hud-b,14px) var(--hud-l,12px);background:linear-gradient(180deg,#FBE3C4 0%,#FFF3E2 70%);animation:t2dIn .35s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif);color:var(--ink,#3B2A20)}
 .t2d.winter{background:linear-gradient(180deg,#DCE7F2 0%,#F7FAFC 70%)}
 @keyframes t2dIn{from{opacity:0}}
 .t2d.t2d-hud .t2d-skip{display:none}
-.t2d-skip{position:absolute;right:12px;top:calc(64px + var(--safe-top,0px));border:0;border-radius:14px;padding:8px 12px;background:rgba(255,253,249,.92);color:var(--cherry,#C2405B);font:inherit;font-weight:900;font-size:13px;box-shadow:0 3px 0 rgba(58,46,63,.12);cursor:pointer;z-index:2}
-.t2d-card{width:100%;max-width:420px;max-height:100%;overflow:auto;background:var(--paper,#FFFDF9);border-radius:26px;box-shadow:0 10px 0 rgba(58,46,63,.10),0 24px 50px rgba(58,46,63,.22);animation:t2dCard .45s cubic-bezier(.2,1.3,.4,1) both}
+.t2d-skip{position:absolute;right:12px;top:calc(64px + var(--safe-top,0px));border:0;border-radius:14px;padding:8px 12px;background:rgba(255,253,249,.92);color:var(--cherry,#B5520E);font:inherit;font-weight:900;font-size:13px;box-shadow:0 3px 0 rgba(59,42,32,.12);cursor:pointer;z-index:2}
+.t2d-card{width:100%;max-width:420px;max-height:100%;overflow:auto;background:var(--paper,#FFFDF9);border-radius:26px;box-shadow:0 10px 0 rgba(59,42,32,.10),0 24px 50px rgba(59,42,32,.22);animation:t2dCard .45s cubic-bezier(.2,1.3,.4,1) both}
 @keyframes t2dCard{from{opacity:0;transform:translateY(24px) scale(.97)}}
-.t2d-art{display:block;width:100%;height:auto;border-radius:26px 26px 0 0;background:#F6E7EB}
+.t2d-art{display:block;width:100%;height:auto;border-radius:26px 26px 0 0;background:#F6EAD9}
 .t2d-body{padding:12px 18px 16px}
-.t2d-step{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--cherry,#C2405B)}
-.t2d-title{font-family:var(--font-title,inherit);font-weight:700;font-size:21px;color:var(--cherry-d,#9E2F47);margin:2px 0 6px}
+.t2d-step{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--cherry,#B5520E)}
+.t2d-title{font-family:var(--font-title,inherit);font-weight:700;font-size:21px;color:var(--cherry-d,#6B3517);margin:2px 0 6px}
 .t2d-text p{margin:0 0 8px;font-size:15.5px;line-height:1.4;font-weight:650}
 .t2d-who{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
-.t2d-who button{display:flex;align-items:center;gap:6px;border:0;border-radius:16px;padding:7px 12px 7px 8px;background:#F6EEF2;color:var(--ink,#3A2E3F);font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;box-shadow:0 3px 0 rgba(58,46,63,.08)}
+.t2d-who button{display:flex;align-items:center;gap:6px;border:0;border-radius:16px;padding:7px 12px 7px 8px;background:#F6EFE5;color:var(--ink,#3B2A20);font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;box-shadow:0 3px 0 rgba(59,42,32,.08)}
 .t2d-who button i{font-style:normal;font-size:20px;line-height:1}
 .t2d-who button.done{background:#EAF4EE}
 .t2d-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.t2d-acts button{flex:1 1 40%;min-height:48px;border:0;border-radius:16px;font:inherit;font-weight:900;font-size:15px;cursor:pointer;background:#F6E7EB;color:var(--ink,#3A2E3F)}
+.t2d-acts button{flex:1 1 40%;min-height:48px;border:0;border-radius:16px;font:inherit;font-weight:900;font-size:15px;cursor:pointer;background:#F6EAD9;color:var(--ink,#3B2A20)}
 .t2d-acts button.t2d-back{flex:0 0 auto;padding:0 16px}
-.t2d-acts button.t2d-go{flex:1 1 auto;background:var(--cherry,#C2405B);color:#fff;box-shadow:0 5px 0 var(--cherry-d,#9E2F47)}
+.t2d-acts button.t2d-go{flex:1 1 auto;background:var(--cherry,#B5520E);color:#fff;box-shadow:0 5px 0 var(--cherry-d,#6B3517)}
 .t2d-body>.t2d-acts{position:sticky;bottom:0;z-index:1;margin:10px -18px -16px;padding:8px 18px 16px;background:var(--paper,#FFFDF9);border-radius:0 0 26px 26px}
-.t2d-note{margin-top:6px;font-size:13.5px;font-weight:800;color:var(--ink-2,#6E6272);min-height:1em}
+.t2d-note{margin-top:6px;font-size:13.5px;font-weight:800;color:var(--ink-2,#735E4E);min-height:1em}
 .t2d-tap{display:block;margin:6px auto 0;width:min(60vw,220px);cursor:pointer;touch-action:manipulation}
 `;
   function ensureCss() { if (document.getElementById('t2dCss')) return; const st = document.createElement('style'); st.id = 't2dCss'; st.textContent = CSS; document.head.insertBefore(st, document.head.firstChild); }
@@ -58,7 +58,7 @@
   function pal(season) {
     const W = season === 'winter';
     return {
-      W, sky0: W ? '#CFDDEB' : '#F2CFD8', sky1: W ? '#F5F8FB' : '#FDEFE4', far: W ? '#E3EBF3' : '#E7C9C6', hill: W ? '#F1F5F9' : '#E3B98F', hill2: W ? '#E2EAF1' : '#D49B72',
+      W, sky0: W ? '#CFDDEB' : '#F4D8B8', sky1: W ? '#F5F8FB' : '#FDEFE4', far: W ? '#E3EBF3' : '#E2CDB4', hill: W ? '#F1F5F9' : '#E3B98F', hill2: W ? '#E2EAF1' : '#D49B72',
       tree: W ? ['#FFFFFF', '#EEF3F8', '#F7FAFC'] : ['#E8913B', '#D9663F', '#F2B84B'], trunk: '#8A6A5A', road: W ? '#A7ADB8' : '#B9A99E', roadE: W ? '#FFFFFF' : '#F4E6D8',
       wall: ['#EDE3CF', '#C9B9A2', '#F3EFE6', '#EBC6C0', '#D3C8E2'], roof: W ? '#FFFFFF' : '#C9C2B8', blue: '#4A90D8', cloud: '#FFFFFF', car: '#FCD93A',
       sedan: (() => { try { return !!(WORLD.carChoice && WORLD.carChoice() === 'sedan'); } catch (e) { return false; } })(),
@@ -225,7 +225,7 @@
       const add = {};
       ['tur', 'badger', 'owl_keeper', 'eagle', 'roof_cat', 'pony', 'mtn_sheep', 'baker_bunny', 'spring_hedgehog', 'mouse', 'granny_hedgehog', 'pigeon_metro',
         'cow', 'goat_grocer', 'bear_craft', 'lamb_cloth', 'squirrel_nuts', 'wed_bride', 'wed_groom', 'wed_zurna', 'wed_drum', 'wed_aunt', 'wed_kid', 'paltar',
-        'hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear', 'hotel_marmot'].forEach((id, i) => { const sp = speakerOf(id, named); prev[id] = g.speakers[id] || null; add[id] = { name: () => sp.name, art: () => (g.emojiAvatar ? g.emojiAvatar(sp.icon || '🐾', ['#E6EEF6', '#F6E7EB', '#EEF3E2', '#FFF0DC'][i % 4]) : '') }; });
+        'hotel_goat', 'hotel_raccoon', 'hotel_otter', 'hotel_bear', 'hotel_marmot'].forEach((id, i) => { const sp = speakerOf(id, named); prev[id] = g.speakers[id] || null; add[id] = { name: () => sp.name, art: () => (g.emojiAvatar ? g.emojiAvatar(sp.icon || '🐾', ['#E6EEF6', '#F6EAD9', '#EEF3E2', '#FFF0DC'][i % 4]) : '') }; });
       g.addSpeakers(add);
     }
     const restore = () => { if (!g || !g.speakers) return; Object.keys(prev).forEach(id => { if (prev[id]) g.speakers[id] = prev[id]; else delete g.speakers[id]; }); };

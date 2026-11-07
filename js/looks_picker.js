@@ -70,7 +70,7 @@
       <div class="lk lk-${mode}" role="region" aria-roledescription="карусель" aria-label="Образы героини">
         <div class="lk-stage">
           <div class="lk-track" id="pv" tabindex="0" aria-label="Выбираем образ главной героини">${L.map((it, i) => `
-            <div class="lk-slide" data-look="${it.id}" role="group" aria-roledescription="слайд" aria-label="${i + 1} из ${N}: ${esc(it.name)}" style="--bg:${it.bg || '#2F2834'}">${media(it)}</div>`).join('')}
+            <div class="lk-slide" data-look="${it.id}" role="group" aria-roledescription="слайд" aria-label="${i + 1} из ${N}: ${esc(it.name)}" style="--bg:${it.bg || '#2C221C'}">${media(it)}</div>`).join('')}
           </div>
           <div class="lk-top">${badge}<button class="lk-ic lk-pp" type="button" aria-label="Пауза">${ICON.pause}</button></div>
           <button class="lk-ic lk-arrow prev" type="button" aria-label="Предыдущий образ">${ICON.prev}</button>
@@ -282,7 +282,7 @@
   const LookPicker = window.LookPicker = { mount, last: null, items };
 
   /* ---------- Сценарии ---------- */
-  const DARK = '#2F2834', LIGHT = '#FFF4EC';
+  const DARK = '#2C221C', LIGHT = '#FFF3E2';
   function screen() {
     const g = G_();
     g.setHud({ hidden: true }); g.tgHeader(DARK);

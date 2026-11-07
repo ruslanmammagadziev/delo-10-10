@@ -51,11 +51,11 @@
         c.fillStyle = 'rgba(80,50,30,.18)'; R.rrect(c, -100, -62, 204, 132, 8); c.fill();
         c.fillStyle = '#FFFBF0'; R.rrect(c, -104, -68, 204, 132, 8); c.fill();
         c.strokeStyle = '#E8D6B8'; c.lineWidth = 2; for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(-92, -10 + k * 18); c.lineTo(88, -10 + k * 18); c.stroke(); }
-        R.text(c, 'Слово недели', -2, -46, 22, '#C2405B', { f: 'Caveat', w: 700, max: 180 });
+        R.text(c, 'Слово недели', -2, -46, 22, '#B5520E', { f: 'Caveat', w: 700, max: 180 });
         R.text(c, it.w, -2, 4, 34, '#2F3A5A', { f: 'Comfortaa', w: 700, max: 186 });
         R.text(c, it.o, -2, 42, 17, '#6C7BA8', { w: 800, max: 186 });
         c.restore();
-        c.fillStyle = '#C2405B'; c.beginPath(); c.arc(128, 30, 8, 0, 7); c.fill(); c.fillStyle = '#FFD0DA'; c.beginPath(); c.arc(126, 28, 3, 0, 7); c.fill();
+        c.fillStyle = '#B5520E'; c.beginPath(); c.arc(128, 30, 8, 0, 7); c.fill(); c.fillStyle = '#FFD2A0'; c.beginPath(); c.arc(126, 28, 3, 0, 7); c.fill();
         wTex.needsUpdate = true;
       };
       paintWord(0);

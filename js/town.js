@@ -197,7 +197,7 @@
     return { bow: st.bow || '#F08FA8', coat: st.coat || '#E9D4B6', hair: st.hair || '#4A3128' };
   };
   const catFollows = () => S().catHelper === true || ensure().cat === 1;
-  const inkOf = c => { try { return Art.shade(c || '#F7C9D3', -38); } catch (e) { return '#C2405B'; } };
+  const inkOf = c => { try { return Art.shade(c || '#FCE7CC', -60); } catch (e) { return '#B5520E'; } };
   const seededRot = id => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 997; return (h % 13) - 6; };
   const closeLayer = () => document.querySelectorAll('#layer .dlg-wrap, #layer .modal, #layer .remark, #layer .intertitle, #layer .town-ov').forEach(el => el.remove());
   const syncSheetClass = () => document.body.classList.toggle('sheet-on', !!document.querySelector('#layer .modal.sheet:not(.out)'));
@@ -784,7 +784,7 @@
   function speakerName(who) { try { const sp = G.speakers && G.speakers[who]; return sp ? sp.name() : ''; } catch (e) { return ''; } }
   function cardHTML(V) {
     const p = V.p, who = p.host && p.host.who, sts = status(p.id);
-    return `<div class="town-room-wrap" style="--band:${esc(p.color || '#FBE1E7')};--ink:${inkOf(p.color)}">
+    return `<div class="town-room-wrap" style="--band:${esc(p.color || '#FCE7CC')};--ink:${inkOf(p.color)}">
       <div class="tr-band"><div class="tr-icon">${esc(p.icon || '✦')}</div><div class="tr-sign">${esc(p.sign || p.name || p.id)}</div>${p.motto ? `<div class="tr-motto">${esc(p.motto)}</div>` : ''}</div>
       ${who ? `<button class="tr-host" data-host><div class="tr-ava">${speakerArt(who)}</div><div class="tr-hn"><b>${esc(speakerName(who))}</b><span>поговорить</span></div></button>` : `<div class="tr-host quiet"><div class="tr-hn"><b>${esc(p.name || '')}</b><span>${p.id === 'silver' ? 'Тихо. Только часы тикают.' : 'Хозяин куда-то отошёл'}</span></div></div>`}
       <div class="tr-grid">${spotChips(V)}</div>
@@ -1054,7 +1054,7 @@
       const s = status(p.id);
       if (s.shut) return `<button class="town-card shut" data-shut="${esc(p.id)}" style="--band:${esc(p.color || '#EEE')}"><div class="tc-ic">${esc(p.icon || '✦')}</div><div class="tc-tx"><b>${esc(p.name || p.short)}</b><span>${SHUT_TEXT}</span></div>${mTag(p.id) ? `<div class="tc-mk">${mTag(p.id)}</div>` : ''}</button>`;
       const marks = mTag(p.id) + (s.unvisited ? '<i class="tc-new" title="ещё не была"></i>' : '') + (s.fresh ? '<i class="tc-fresh">НОВОЕ</i>' : '') + (s.stamped ? '<i class="tc-ok">✓</i>' : '') + (s.secrets ? `<i class="tc-sec">✦ ${s.secrets}/${s.secretsTotal}</i>` : '');
-      return `<button class="town-card" data-place="${esc(p.id)}" style="--band:${esc(p.color || '#FBE1E7')}"><div class="tc-ic">${esc(p.icon || '✦')}</div><div class="tc-tx"><b>${esc(p.name || p.short)}</b><span>${esc(p.motto || '')}</span></div><div class="tc-mk">${marks}</div></button>`;
+      return `<button class="town-card" data-place="${esc(p.id)}" style="--band:${esc(p.color || '#FCE7CC')}"><div class="tc-ic">${esc(p.icon || '✦')}</div><div class="tc-tx"><b>${esc(p.name || p.short)}</b><span>${esc(p.motto || '')}</span></div><div class="tc-mk">${marks}</div></button>`;
     }).join('');
     const chips = [['flowers', '🌸 Тележка Жу'], ['kiosk', '📰 Киоск'], ['mailbox', '📮 Почтовый ящик'], ['weather', '🌦 Погода'], ['bench', '🪑 Лавочка']]
       .concat(left.length ? [['finds', '🔍 Осмотреть тротуар']] : [])
@@ -1213,7 +1213,7 @@
   }
 
   /* ---------- Паспорт города в блокноте (§8) ---------- */
-  const PH_BG = ['#FBE1E7', '#D9CCF4', '#BFE6D3', '#FFF1A8', '#FFE3C8', '#DCE8F6'];
+  const PH_BG = ['#FCE7CC', '#D9CCF4', '#BFE6D3', '#FFF1A8', '#FFE3C8', '#DCE8F6'];
   function photoCardHTML(cls = '') {
     const t = ensure(), lk = heroLook(), m = /b(\d)/.exec(t.ph || ''), bg = PH_BG[(m ? +m[1] : 0) % PH_BG.length];
     let art = '';

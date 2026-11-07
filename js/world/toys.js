@@ -24,8 +24,8 @@
        на углу — круглый флажок «цветы» поперёк тротуара (вывески не темнеют ночью — «подсвечены») --- */
     const shop = new T.Group(); shop.position.set(FS.x, 0, FS.z); shop.rotation.y = FS.ry; g.add(shop);
     { const c = shop, W = FS.w || 3.0;
-      const wall = K.m('#F7C6D1'), wallD = K.m('#E9A9B9'), cream = K.m('#FFF6EE'), wood = K.m('#C9946A'), woodD = K.m('#A9744E'), pink = K.m('#F08FA8'),
-        berry = K.m('#C2405B'), tin = K.m('#9FB7C4'), leaf = K.m('#8FAE62'), inner = K.m('#8A5A6E'), iron = K.m('#6A5670');
+      const wall = K.m('#D5E0C4'), wallD = K.m('#B9C9A4'), cream = K.m('#FFF6EE'), wood = K.m('#C9946A'), woodD = K.m('#A9744E'), pink = K.m('#E8833A'),
+        berry = K.m('#B5552E'), tin = K.m('#9FB7C4'), leaf = K.m('#8FAE62'), inner = K.m('#8A5A6E'), iron = K.m('#6A5670');
       const FL = ['#F08FA8', '#F3CF73', '#C7A8DD', '#EFA3B5', '#F7B267', '#FFFDF9', '#E8789A'];
       // цветок — икосаэдр в 20 треугольников (сфера — 110): букетиков ~25, иначе это +10 тыс. треугольников с тенью
       const petalG = keep(new T.IcosahedronGeometry(1, 0)), dot = (m, x, y, z, s) => put(c, petalG, m, [x, y, z], [s, s, s]);
@@ -60,18 +60,18 @@
       for (let i = 0; i < NS; i++) put(c, GEO.sphLo || GEO.sph, i % 2 ? cream : pink, [-W / 2 + sw * (i + 0.5), 2.24, 0.9], [sw * 0.5, 0.07, 0.03]);
       // вывеска над навесом
       const [cv, cx] = cnv(512, 160);
-      cx.fillStyle = '#FFF6EE'; rrect(cx, 4, 4, 504, 152, 30); cx.fill(); cx.lineWidth = 8; cx.strokeStyle = '#C2405B'; rrect(cx, 12, 12, 488, 136, 24); cx.stroke();
-      text(cx, 'ЦВЕТЫ', 256, 68, 76, '#C2405B', { f: 'Comfortaa', w: 700, max: 330 });
-      text(cx, 'бутик пчёлки Жу', 256, 124, 30, '#8A5A6E', { f: 'Comfortaa', w: 700, max: 340 });
-      [[62, 80, '#F08FA8'], [450, 80, '#F3CF73']].forEach(([fx, fy, col]) => { cx.fillStyle = col; for (let k = 0; k < 6; k++) { const a = k / 6 * PI * 2; cx.beginPath(); cx.arc(fx + Math.cos(a) * 18, fy + Math.sin(a) * 18, 13, 0, 7); cx.fill(); } cx.fillStyle = '#C2405B'; cx.beginPath(); cx.arc(fx, fy, 11, 0, 7); cx.fill(); });
+      cx.fillStyle = '#FFF6EE'; rrect(cx, 4, 4, 504, 152, 30); cx.fill(); cx.lineWidth = 8; cx.strokeStyle = '#6B3517'; rrect(cx, 12, 12, 488, 136, 24); cx.stroke();
+      text(cx, 'ЦВЕТЫ', 256, 68, 76, '#6B3517', { f: 'Comfortaa', w: 700, max: 330 });
+      text(cx, 'бутик пчёлки Жу', 256, 124, 30, '#8A5A44', { f: 'Comfortaa', w: 700, max: 340 });
+      [[62, 80, '#E8833A'], [450, 80, '#F3CF73']].forEach(([fx, fy, col]) => { cx.fillStyle = col; for (let k = 0; k < 6; k++) { const a = k / 6 * PI * 2; cx.beginPath(); cx.arc(fx + Math.cos(a) * 18, fy + Math.sin(a) * 18, 13, 0, 7); cx.fill(); } cx.fillStyle = '#6B3517'; cx.beginPath(); cx.arc(fx, fy, 11, 0, 7); cx.fill(); });
       rbox(c, berry, 0, 3.22, 0.05, 2.26, 0.7, 0.06, 0.05); put(c, GEO.plane, glow(K.t(cv)), [0, 3.22, 0.085], [2.16, 0.66, 1]);
       // круглый флажок «цветы» на углу, поперёк тротуара: виден вдоль улицы с обеих сторон
       const [bv, bx] = cnv(256, 256);
-      bx.fillStyle = '#FFF6EE'; bx.beginPath(); bx.arc(128, 128, 122, 0, 7); bx.fill(); bx.lineWidth = 10; bx.strokeStyle = '#C2405B'; bx.stroke();
-      [[100, 92, '#F08FA8'], [156, 92, '#F3CF73'], [128, 70, '#C7A8DD']].forEach(([fx, fy, col]) => { bx.fillStyle = col; for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; bx.beginPath(); bx.arc(fx + Math.cos(a) * 14, fy + Math.sin(a) * 14, 11, 0, 7); bx.fill(); } bx.fillStyle = '#FFFDF9'; bx.beginPath(); bx.arc(fx, fy, 8, 0, 7); bx.fill(); });
+      bx.fillStyle = '#FFF6EE'; bx.beginPath(); bx.arc(128, 128, 122, 0, 7); bx.fill(); bx.lineWidth = 10; bx.strokeStyle = '#6B3517'; bx.stroke();
+      [[100, 92, '#E8833A'], [156, 92, '#F3CF73'], [128, 70, '#C7A8DD']].forEach(([fx, fy, col]) => { bx.fillStyle = col; for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; bx.beginPath(); bx.arc(fx + Math.cos(a) * 14, fy + Math.sin(a) * 14, 11, 0, 7); bx.fill(); } bx.fillStyle = '#FFFDF9'; bx.beginPath(); bx.arc(fx, fy, 8, 0, 7); bx.fill(); });
       bx.strokeStyle = '#8FAE62'; bx.lineWidth = 7; [[100, 104], [156, 104], [128, 84]].forEach(([fx, fy]) => { bx.beginPath(); bx.moveTo(fx, fy); bx.lineTo(128, 150); bx.stroke(); });
-      bx.fillStyle = '#F08FA8'; bx.beginPath(); bx.moveTo(104, 140); bx.lineTo(152, 140); bx.lineTo(136, 168); bx.lineTo(120, 168); bx.closePath(); bx.fill();
-      text(bx, 'цветы', 128, 202, 40, '#C2405B', { f: 'Comfortaa', w: 700, max: 200 });
+      bx.fillStyle = '#E8A04A'; bx.beginPath(); bx.moveTo(104, 140); bx.lineTo(152, 140); bx.lineTo(136, 168); bx.lineTo(120, 168); bx.closePath(); bx.fill();
+      text(bx, 'цветы', 128, 202, 40, '#6B3517', { f: 'Comfortaa', w: 700, max: 200 });
       const bladeM = glow(K.t(bv, { alpha: true })), BX = W / 2 - 0.12;
       cyl(c, iron, BX, 3.58, 0.36, 0.022, 0.72, [PI / 2, 0, 0]);
       put(c, GEO.plane, bladeM, [BX + 0.01, 3.2, 0.44], [0.62, 0.62, 1], [0, PI / 2, 0]); put(c, GEO.plane, bladeM, [BX - 0.01, 3.2, 0.44], [0.62, 0.62, 1], [0, -PI / 2, 0]); }
@@ -87,7 +87,7 @@
     /* --- почтовый ящик --- */
     { const m = new T.Group(); m.position.set(13.6, 0, -1.35); g.add(m);
       cyl(m, K.m('#6A5670'), 0, 0.42, 0, 0.035, 0.84); rbox(m, K.m('#7FA6C9'), 0, 0.98, 0, 0.34, 0.42, 0.26, 0.08);
-      rbox(m, K.m('#FFF6EE'), 0, 1.06, 0.135, 0.2, 0.04, 0.02, 0.01); put(m, H.heartG ? H.heartG : GEO.sph, K.m('#F08FA8'), [0, 0.9, 0.135], [0.05, 0.05, 0.02]); }
+      rbox(m, K.m('#FFF6EE'), 0, 1.06, 0.135, 0.2, 0.04, 0.02, 0.01); put(m, H.heartG ? H.heartG : GEO.sph, K.m('#E2672A'), [0, 0.9, 0.135], [0.05, 0.05, 0.02]); }
     /* --- лужа-солнце у кондитерской: прыгнуть — брызги и строчка --- */
     const puddle = { x: 18.2, z: 0.8, r: 0.6 };
     { const pg = keep(new T.CircleGeometry(1, 28)); pg.rotateX(-PI / 2);

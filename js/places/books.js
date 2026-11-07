@@ -17,13 +17,13 @@
 
   /* ---------- Комната ---------- */
   if (window.City3D && City3D.registerRoom) City3D.registerRoom(P, {
-    look: { sky: '#F6EEE2', gnd: '#B89878', hi: 0.6, sun: '#FFE2BE', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #5A3A4A 0%, #2E2028 72%)', rim: ['#FFDCC0', 0.24], fog: '#2E2028' },
+    look: { sky: '#F6EEE2', gnd: '#B89878', hi: 0.6, sun: '#FFE2BE', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #4A3428 0%, #241A14 72%)', rim: ['#FFDCC0', 0.24], fog: '#241A14' },
     cam: { portrait: { dx: 0, y: 4.85, dz: 5.1, ly: 0.8, lz: -1.55, fov: 54 }, landscape: { dx: 0.2, y: 4.2, dz: 6.6, ly: 1.2, lz: -2.0, fov: 46 } },
     build(R) {
       const { T, PI, put, box, cyl, rbox, GEO } = R;
       const g = R.group;
       const tn = (c, x) => R.toon(c, x);
-      const C = { wood: '#B98C6A', woodL: '#D9B48F', woodD: '#8E6248', cream: '#FFF4EC', cherry: '#C2405B', cherryD: '#9E2F47', navy: '#3E4C72', gold: '#E8C770', powder: '#F7C9D3', powderD: '#E8A6B6', mint: '#BFE6D3', ink: '#5B4A3E' };
+      const C = { wood: '#B98C6A', woodL: '#D9B48F', woodD: '#8E6248', cream: '#FFF3E2', cherry: '#B5520E', cherryD: '#6B3517', navy: '#3E4C72', gold: '#E8C770', powder: '#F9CF9C', powderD: '#E9B47A', mint: '#BFE6D3', ink: '#5B4A3E' };
       const M = {};
       Object.keys(C).forEach(k => { M[k] = tn(C[k]); });
       M.lamp = tn('#FFE3A6', { emissive: new T.Color('#FFC46B'), emissiveIntensity: 0.85, side: T.DoubleSide });
@@ -60,7 +60,7 @@
         R.bake(group, null, { cast: !!cast });
         group.traverse(m => { if (m.isMesh) m.raycast = () => {}; });
       };
-      const BK = ['#F7C9D3', '#BFE6D3', '#D9CCF4', '#FFE08A', '#B9D7F0', '#F6B7A0', '#C2405B', '#3E4C72', '#FFF4EC', '#E8A6B6'];
+      const BK = ['#F9CF9C', '#BFE6D3', '#D9CCF4', '#FFE08A', '#B9D7F0', '#F6B7A0', '#B5520E', '#3E4C72', '#FFF3E2', '#E9B47A'];
       // ряд книг: корешки разной высоты, иногда наклонённая книга или стопка лёжа
       const books = (par, x0, x1, y0, z, hmax, seed, depth = 0.24) => {
         const q = R.rng(seed); let x = x0;
@@ -87,26 +87,26 @@
       };
       const A = { exit: [0, 0, 320, 96], sign: [0, 100, 640, 130], butler: [0, 240, 420, 110], newb: [430, 240, 220, 90], rug: [0, 360, 520, 520], view: [530, 360, 300, 420], page: [660, 0, 300, 200], frame: [840, 360, 180, 230] };
       { const c = ac, rr = (x, y, w, h, r, f) => { c.fillStyle = f; R.rrect(c, x, y, w, h, r); c.fill(); };
-        rr(0, 0, 320, 96, 18, '#2E2028'); R.text(c, 'ВЫХОД', 160, 50, 58, '#BFF0CE');
-        rr(0, 100, 640, 130, 30, '#9E2F47'); c.strokeStyle = '#FFF4EC'; c.lineWidth = 5; R.rrect(c, 10, 110, 620, 110, 24); c.stroke();
-        R.text(c, 'ЗАКЛАДКА', 300, 152, 70, '#FFF4EC', { f: 'Comfortaa', w: 700, max: 470 });
-        R.text(c, 'книги · тишина · кресло', 300, 200, 28, '#F7C9D3', { w: 800, max: 470 });
+        rr(0, 0, 320, 96, 18, '#241A14'); R.text(c, 'ВЫХОД', 160, 50, 58, '#BFF0CE');
+        rr(0, 100, 640, 130, 30, '#6B3517'); c.strokeStyle = '#FFF3E2'; c.lineWidth = 5; R.rrect(c, 10, 110, 620, 110, 24); c.stroke();
+        R.text(c, 'ЗАКЛАДКА', 300, 152, 70, '#FFF3E2', { f: 'Comfortaa', w: 700, max: 470 });
+        R.text(c, 'книги · тишина · кресло', 300, 200, 28, '#F9CF9C', { w: 800, max: 470 });
         c.fillStyle = '#E8C770'; c.beginPath(); c.moveTo(560, 100); c.lineTo(600, 100); c.lineTo(600, 225); c.lineTo(580, 205); c.lineTo(560, 225); c.fill();
         rr(0, 240, 420, 110, 18, '#3E4C72'); c.strokeStyle = '#E8C770'; c.lineWidth = 4; R.rrect(c, 8, 248, 404, 94, 14); c.stroke();
-        R.text(c, 'Виноват дворецкий', 210, 284, 40, '#FFF4EC', { f: 'Caveat', w: 700, max: 380 }); R.text(c, '🔍 детективы', 210, 322, 22, '#E8C770', { w: 800, max: 380 });
-        rr(430, 240, 220, 90, 14, '#FFF4EC'); c.strokeStyle = '#C2405B'; c.lineWidth = 4; R.rrect(c, 436, 246, 208, 78, 10); c.stroke();
-        R.text(c, 'Новинки', 540, 285, 40, '#C2405B', { f: 'Caveat', w: 700, max: 190 });
+        R.text(c, 'Виноват дворецкий', 210, 284, 40, '#FFF3E2', { f: 'Caveat', w: 700, max: 380 }); R.text(c, '🔍 детективы', 210, 322, 22, '#E8C770', { w: 800, max: 380 });
+        rr(430, 240, 220, 90, 14, '#FFF3E2'); c.strokeStyle = '#B5520E'; c.lineWidth = 4; R.rrect(c, 436, 246, 208, 78, 10); c.stroke();
+        R.text(c, 'Новинки', 540, 285, 40, '#B5520E', { f: 'Caveat', w: 700, max: 190 });
         // коврик: вишнёвый круг с кремовым узором
-        { const cx = 260, cy = 620; c.fillStyle = '#FFF4EC'; c.beginPath(); c.arc(cx, cy, 256, 0, 7); c.fill(); c.fillStyle = '#C2405B'; c.beginPath(); c.arc(cx, cy, 244, 0, 7); c.fill();
-          c.strokeStyle = '#FFF4EC'; c.lineWidth = 6; c.beginPath(); c.arc(cx, cy, 214, 0, 7); c.stroke(); c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, 120, 0, 7); c.stroke();
-          for (let i = 0; i < 16; i++) { const a = i / 16 * PI * 2; c.fillStyle = i % 2 ? '#F7C9D3' : '#FFF4EC'; c.beginPath(); c.ellipse(cx + Math.cos(a) * 168, cy + Math.sin(a) * 168, 26, 12, a, 0, 7); c.fill(); }
-          c.fillStyle = '#F7C9D3'; c.beginPath(); c.moveTo(cx, cy + 40); c.bezierCurveTo(cx - 70, cy - 10, cx - 40, cy - 70, cx, cy - 34); c.bezierCurveTo(cx + 40, cy - 70, cx + 70, cy - 10, cx, cy + 40); c.fill(); }
+        { const cx = 260, cy = 620; c.fillStyle = '#FFF3E2'; c.beginPath(); c.arc(cx, cy, 256, 0, 7); c.fill(); c.fillStyle = '#B5520E'; c.beginPath(); c.arc(cx, cy, 244, 0, 7); c.fill();
+          c.strokeStyle = '#FFF3E2'; c.lineWidth = 6; c.beginPath(); c.arc(cx, cy, 214, 0, 7); c.stroke(); c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, 120, 0, 7); c.stroke();
+          for (let i = 0; i < 16; i++) { const a = i / 16 * PI * 2; c.fillStyle = i % 2 ? '#F9CF9C' : '#FFF3E2'; c.beginPath(); c.ellipse(cx + Math.cos(a) * 168, cy + Math.sin(a) * 168, 26, 12, a, 0, 7); c.fill(); }
+          c.fillStyle = '#F9CF9C'; c.beginPath(); c.moveTo(cx, cy + 40); c.bezierCurveTo(cx - 70, cy - 10, cx - 40, cy - 70, cx, cy - 34); c.bezierCurveTo(cx + 40, cy - 70, cx + 70, cy - 10, cx, cy + 40); c.fill(); }
         // вид из окна: вечерний квартал, фонари (солнца нет)
-        { const x = 530, y = 360, gr = c.createLinearGradient(0, y, 0, y + 420); gr.addColorStop(0, '#8E86B8'); gr.addColorStop(0.6, '#C8B4D6'); gr.addColorStop(1, '#E9C9D2'); c.fillStyle = gr; c.fillRect(x, y, 300, 420);
+        { const x = 530, y = 360, gr = c.createLinearGradient(0, y, 0, y + 420); gr.addColorStop(0, '#8E86B8'); gr.addColorStop(0.6, '#C8B4D6'); gr.addColorStop(1, '#EDCDB0'); c.fillStyle = gr; c.fillRect(x, y, 300, 420);
           c.fillStyle = '#6A5E88'; [[0, 300, 80], [70, 260, 70], [130, 320, 90], [210, 280, 90]].forEach(([dx, yy, w]) => c.fillRect(x + dx, y + yy, w, 420 - yy));
           c.fillStyle = '#FFD98A'; [[20, 330], [95, 290], [100, 340], [160, 350], [235, 310], [255, 360]].forEach(([dx, yy]) => c.fillRect(x + dx, y + yy, 14, 18));
           c.fillStyle = 'rgba(255,255,255,.6)'; [[60, 60], [200, 40], [240, 120], [120, 110]].forEach(([dx, yy]) => { c.beginPath(); c.arc(x + dx, y + yy, 2.5, 0, 7); c.fill(); });
-          c.fillStyle = 'rgba(255,240,250,.55)'; c.beginPath(); c.ellipse(x + 90, y + 170, 70, 18, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(x + 210, y + 210, 60, 15, 0, 0, 7); c.fill(); }
+          c.fillStyle = 'rgba(255,244,230,.55)'; c.beginPath(); c.ellipse(x + 90, y + 170, 70, 18, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(x + 210, y + 210, 60, 15, 0, 0, 7); c.fill(); }
         // страница раскрытой книги
         { rr(660, 0, 300, 200, 10, '#FFFBF2'); c.fillStyle = '#E8DCC6'; c.fillRect(808, 6, 4, 188); c.strokeStyle = 'rgba(91,74,62,.45)'; c.lineWidth = 3; for (let k = 0; k < 7; k++) { [680, 826].forEach(x0 => { c.beginPath(); c.moveTo(x0, 30 + k * 22); c.lineTo(x0 + 112 - (k === 6 ? 50 : 0), 30 + k * 22); c.stroke(); }); } }
         // рамка с силуэтом лупы
@@ -126,9 +126,9 @@
 
       /* ---------- стены: кремовые обои в мелкий цветочек, вишнёвые панели ---------- */
       { const [wcv, wc] = R.cnv(256, 256);
-        wc.fillStyle = '#FFF4EC'; wc.fillRect(0, 0, 256, 256);
+        wc.fillStyle = '#FFF3E2'; wc.fillRect(0, 0, 256, 256);
         wc.fillStyle = '#FBE9E4'; wc.fillRect(0, 0, 256, 6); wc.fillRect(0, 128, 256, 6);
-        const fl = (x, y) => { wc.fillStyle = '#F4C7D0'; for (let i = 0; i < 5; i++) { const a = i / 5 * PI * 2; wc.beginPath(); wc.arc(x + Math.cos(a) * 7, y + Math.sin(a) * 7, 5.5, 0, 7); wc.fill(); } wc.fillStyle = '#E8C770'; wc.beginPath(); wc.arc(x, y, 3.5, 0, 7); wc.fill(); wc.fillStyle = '#BFE6D3'; wc.beginPath(); wc.ellipse(x + 13, y + 9, 6, 3, 0.6, 0, 7); wc.fill(); };
+        const fl = (x, y) => { wc.fillStyle = '#F2C79A'; for (let i = 0; i < 5; i++) { const a = i / 5 * PI * 2; wc.beginPath(); wc.arc(x + Math.cos(a) * 7, y + Math.sin(a) * 7, 5.5, 0, 7); wc.fill(); } wc.fillStyle = '#E8C770'; wc.beginPath(); wc.arc(x, y, 3.5, 0, 7); wc.fill(); wc.fillStyle = '#BFE6D3'; wc.beginPath(); wc.ellipse(x + 13, y + 9, 6, 3, 0.6, 0, 7); wc.fill(); };
         fl(64, 64); fl(192, 192); fl(192, 64); fl(64, 192);
         const wT = R.tex(wcv); wT.wrapS = wT.wrapT = T.RepeatWrapping;
         const wallM = tn('#FFFFFF', { map: wT });
@@ -180,7 +180,7 @@
       { const sg = grp(dc, -W / 2 + 0.5, 0, BUT.z + 0.05, 0.42); rbox(sg, M.gold, 0, 1.9, -0.012, 0.82, 0.25, 0.02, 0.02); aplane(sg, A.butler, [0, 1.9, 0.002], [0.78, 0.205, 1]); box(sg, M.gold, -0.3, 1.72, -0.02, 0.02, 0.14, 0.02); box(sg, M.gold, 0.3, 1.72, -0.02, 0.02, 0.14, 0.02); }
       // книжка, которая выезжает (k_but)
       const slideBook = new T.Group(); slideBook.position.set(-W / 2 + 0.22, 1.03 + 0.2, BUT.z + 0.33); g.add(slideBook);
-      box(slideBook, R.pm('#E8C770'), 0, 0, 0, 0.24, 0.34, 0.035); box(slideBook, R.pm('#C2405B'), 0.121, 0, 0, 0.004, 0.3, 0.03);
+      box(slideBook, R.pm('#E8C770'), 0, 0, 0, 0.24, 0.34, 0.035); box(slideBook, R.pm('#B5520E'), 0.121, 0, 0, 0.004, 0.3, 0.03);
       vcBake(slideBook, false);
       let slideK = 0, slideOn = false;
 
@@ -227,7 +227,7 @@
         let y = 0.58; const q = R.rng(77); for (let i = 0; i < 3; i++) { const h = 0.04 + q() * 0.02; box(st, R.pm(BK[i + 1]), 2.62, y + h / 2, -2.25, 0.22 - i * 0.02, h, 0.16, [0, 0.3 + i * 0.15, 0]); y += h; } }
       // раскрытая книга на столике: страница перелистывается
       const openBook = grp(g, 2.52, 0.6, -2.08, 0.4);
-      { aplane(openBook, A.page, [0, 0.015, 0], [0.3, 0.2, 1], [-PI / 2, 0, 0]); box(openBook, R.pm('#C2405B'), 0, 0.004, 0, 0.32, 0.008, 0.21); }
+      { aplane(openBook, A.page, [0, 0.015, 0], [0.3, 0.2, 1], [-PI / 2, 0, 0]); box(openBook, R.pm('#B5520E'), 0, 0.004, 0, 0.32, 0.008, 0.21); }
       const pagePivot = new T.Group(); pagePivot.position.set(0, 0.02, 0); openBook.add(pagePivot);
       const pageMesh = put(pagePivot, GEO.plane, R.pm('#FFFBF2'), [0.075, 0, 0], [0.15, 0.2, 1], [-PI / 2, 0, 0]); pageMesh.castShadow = false;
       R.pm('#FFFBF2').side = T.DoubleSide;
@@ -256,7 +256,7 @@
       { let y = 0.98; const q = R.rng(88); for (let i = 0; i < 4; i++) { const h = 0.035 + q() * 0.02; box(st, R.pm(BK[Math.floor(q() * BK.length)]), KX - 0.45, y + h / 2, KZ, 0.24, h, 0.17, [0, (q() - 0.5) * 0.3, 0]); y += h; } }
       // корзиночка с закладками
       rbox(st, M.woodL, KX + 0.42, 1.03, KZ + 0.05, 0.22, 0.1, 0.14, 0.03);
-      ['#C2405B', '#BFE6D3', '#FFE08A', '#D9CCF4', '#F7C9D3'].forEach((c, i) => box(st, R.pm(c), KX + 0.34 + i * 0.04, 1.13, KZ + 0.05, 0.025, 0.16, 0.004, [0, 0, (i - 2) * 0.08]));
+      ['#B5520E', '#BFE6D3', '#FFE08A', '#D9CCF4', '#F9CF9C'].forEach((c, i) => box(st, R.pm(c), KX + 0.34 + i * 0.04, 1.13, KZ + 0.05, 0.025, 0.16, 0.004, [0, 0, (i - 2) * 0.08]));
       rbox(st, M.woodD, KX - 0.1, 0.21, -3.25, 0.66, 0.42, 0.46, 0.04);
       const aunt = R.npc.goose({ popcorn: false });
       aunt.root.position.set(KX - 0.1, 0.42, -3.25); aunt.root.scale.setScalar(1.15); aunt.root.userData.key = 'npc:gaunt'; g.add(aunt.root);
@@ -380,7 +380,7 @@
   });
 
   /* ---------- Говорящие ---------- */
-  if (G.addSpeakers) G.addSpeakers({ gaunt: { name: () => 'Матушка Гусыня', art: () => G.emojiAvatar('🪿', '#F7C9D3') } });
+  if (G.addSpeakers) G.addSpeakers({ gaunt: { name: () => 'Матушка Гусыня', art: () => G.emojiAvatar('🪿', '#F9CF9C') } });
 
   /* ---------- Глава недели: «Дело о пропавшей варежке» ---------- */
   const CHAPTERS = [
@@ -398,16 +398,16 @@
     .modal.sheet.bk-sheet .sheet-card { background: #FFF8EC; }
     .bk-book { display: flex; flex-direction: column; gap: 10px; min-height: 100%; }
     .bk-head { text-align: center; }
-    .bk-title { font-family: Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 700; color: #7A3A44; line-height: 1.2; }
-    .bk-ch { font-family: Georgia, 'Times New Roman', serif; font-style: italic; color: #A0707A; font-size: 15px; margin-top: 2px; }
+    .bk-title { font-family: Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 700; color: #6E3B22; line-height: 1.2; }
+    .bk-ch { font-family: Georgia, 'Times New Roman', serif; font-style: italic; color: #A07A5C; font-size: 15px; margin-top: 2px; }
     .bk-page { flex: 1; position: relative; background: #FFFDF6; border: 1px solid #EADFCB; border-radius: 6px 14px 14px 6px; box-shadow: inset 10px 0 14px -10px rgba(122,80,60,.35), 0 2px 0 #E8DCC6, 0 4px 0 #F3EADA; padding: 26px 20px 34px 26px; min-height: 220px; display: flex; align-items: center; cursor: pointer; transform-origin: left center; }
-    .bk-page p { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; line-height: 1.5; color: #4A3A40; font-weight: 400; }
+    .bk-page p { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; line-height: 1.5; color: #4A3A30; font-weight: 400; }
     .bk-page.turn { animation: bkTurn .38s ease; }
     @keyframes bkTurn { 0% { transform: perspective(700px) rotateY(0); opacity: 1; } 45% { transform: perspective(700px) rotateY(-70deg); opacity: .25; } 100% { transform: perspective(700px) rotateY(0); opacity: 1; } }
-    .bk-page::before { content: '❦'; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); color: #E2B4BE; font-size: 22px; }
+    .bk-page::before { content: '❦'; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); color: #E6C49A; font-size: 22px; }
     .bk-page::after { content: '· · ·'; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); color: #D8C4B4; font-size: 14px; letter-spacing: 2px; }
     .bk-num { position: absolute; right: 16px; bottom: 10px; font-family: Georgia, serif; font-size: 13px; color: #B09A8A; }
-    .bk-mark { position: absolute; top: -4px; right: 26px; width: 14px; height: 46px; background: #C2405B; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
+    .bk-mark { position: absolute; top: -4px; right: 26px; width: 14px; height: 46px; background: #B5520E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
     .bk-next { width: 100%; min-height: 48px; }
   `);
   function readChapter(ctx, N) {
@@ -458,7 +458,7 @@
     id: P, kind: 'new',
     name: 'Книжная лавка «Закладка»', short: 'Книжная лавка',
     sign: 'ЗАКЛАДКА', motto: 'книги · тишина · кресло',
-    icon: '📚', color: '#F6D5DC',
+    icon: '📚', color: '#E9D6B8',
     street: { x: 33.9, w: 3.4, doorDx: 0, bkey: null },
     room: P, opens: 2,
     host: { who: 'gaunt', npc: 'gaunt' },

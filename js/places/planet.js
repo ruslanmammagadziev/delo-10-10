@@ -45,7 +45,7 @@
       const M = {
         navy: toon('#3E4C72'), navyD: toon('#2A3150'), cream: toon('#FFF4EC'),
         brass: toon('#E8C770', { emissive: new T.Color('#B8903A'), emissiveIntensity: 0.22 }),
-        velvet: toon('#9E2F47'), ink: toon('#3A2E3F'),
+        velvet: toon('#8E2E2A'), ink: toon('#3A2E3F'),
         lamp: toon('#FFE9B8', { emissive: new T.Color('#FFD27A'), emissiveIntensity: 0.9 }),
       };
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -338,7 +338,7 @@
 .i4-sky svg{width:min(78vw,300px);height:auto;border-radius:22px;background:radial-gradient(120% 90% at 50% 30%,#323A62,#171B30);touch-action:manipulation}
 .i4-sky .st{cursor:pointer}.i4-sky .st circle.c{transition:r .2s}
 .i4-sky .st.on circle.c{fill:#FFD98A}.i4-sky .st.wob{animation:i4wob .4s}
-.i4-sky .st.bow circle.c{fill:#F7C9D3;animation:i4tw 1.2s ease-in-out infinite}
+.i4-sky .st.bow circle.c{fill:#F9CF9C;animation:i4tw 1.2s ease-in-out infinite}
 .i4-sky .num{opacity:0;transition:opacity .6s;font:700 11px Nunito,sans-serif;fill:#FFE9B8}
 .i4-sky.hint .num{opacity:.8}
 .i4-sky p{margin:0;font-weight:800;font-size:14px;text-align:center;color:#F3E3D3}

@@ -46,7 +46,7 @@
       // близкие цвета — общими материалами: после склейки каждый материал = один вызов отрисовки
       const M = {
         cream: toon('#FFF6E8'), wood: toon('#C9946C'), woodD: toon('#9C6D50'), steel: toon('#8FA4C4'), ink: toon('#5B4A63'),
-        pink: toon('#F2A9B8'), leaf: toon('#7FB07A'), leafD: toon('#5E9A6A'),
+        pink: toon('#E9B07A'), leaf: toon('#7FB07A'), leafD: toon('#5E9A6A'),
         brass: glow('#FFD45E', '#C9A040', 0.22), lamp: glow('#FFE9B8', '#FFC46B', 0.95),
       };
       const st = new T.Group(); g.add(st);   // каркас лестницы: с тенью
@@ -66,7 +66,7 @@
         door1: [850, 206, 174, 348], mail: [0, 360, 512, 256], mailDoor: [588, 470, 128, 128], note: [724, 470, 120, 100], decal: [0, 620, 532, 404], floorNo: [560, 640, 200, 200],
       };
       const at = ([x, y], fn) => { ac.save(); ac.translate(x, y); fn(ac); ac.restore(); };
-      const CH = '#C2405B';
+      const CH = '#B5520E';
       // «СТУПЕНЬКИ НА ОБЕДЕ» — вилка и ложка по бокам
       at(RG.sign, c => {
         c.fillStyle = '#FFFDF6'; R.rrect(c, 4, 4, 504, 192, 26); c.fill();
@@ -82,14 +82,14 @@
       at(RG.mat, c => { c.drawImage(R.signs.mat, 0, 0, 256, 144); });
       // вязаный коврик кота: кольца
       at(RG.rug, c => {
-        ['#F2A9B8', '#FFF6E8', '#BFE6D3', '#FFF6E8', '#F7C9D3', '#FFE7A8'].forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.arc(128, 128, 124 - i * 20, 0, 7); c.fill(); });
+        ['#E9B07A', '#FFF6E8', '#BFE6D3', '#FFF6E8', '#F2D7A0', '#FFE7A8'].forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.arc(128, 128, 124 - i * 20, 0, 7); c.fill(); });
         c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; for (let r = 18; r < 124; r += 9) { c.setLineDash([5, 6]); c.beginPath(); c.arc(128, 128, r, 0, 7); c.stroke(); } c.setLineDash([]);
       });
       // дверь кв. 1: стёганая обивка с латунными гвоздиками, номер и глазок
       at(RG.door1, c => {
         const w = 174, h = 348;
-        c.fillStyle = '#B8697D'; c.fillRect(0, 0, w, h);
-        c.fillStyle = '#C97A8D'; R.rrect(c, 10, 10, w - 20, h - 20, 10); c.fill();
+        c.fillStyle = '#A8653A'; c.fillRect(0, 0, w, h);
+        c.fillStyle = '#B9784A'; R.rrect(c, 10, 10, w - 20, h - 20, 10); c.fill();
         c.strokeStyle = 'rgba(120,50,70,.35)'; c.lineWidth = 2;
         for (let i = -6; i < 12; i++) { c.beginPath(); c.moveTo(10, 10 + i * 40); c.lineTo(w - 10, 10 + i * 40 + (w - 20)); c.stroke(); c.beginPath(); c.moveTo(w - 10, 10 + i * 40); c.lineTo(10, 10 + i * 40 + (w - 20)); c.stroke(); }
         c.fillStyle = '#F4D27A';
@@ -100,7 +100,7 @@
       });
       // почтовые ящики 2×4: цветные дверцы, щель, номер и карточка с именем
       const MAILN = ['Голуби', 'Эхо', 'Енот', 'Финалыч', 'Ёжик', 'Сова', 'Белка', 'Ступеньки'];
-      const MAILC = ['#F7C9D3', '#BFE6D3', '#D9CCF4', '#FFE7A8', '#FFD9C2', '#C9DDF2', '#F2A9B8', '#E7EFD0'];
+      const MAILC = ['#E6CDA6', '#BFE6D3', '#D9CCF4', '#FFE7A8', '#FFD9C2', '#C9DDF2', '#E9B07A', '#E7EFD0'];
       const mailDoor = (c, i, x, y) => {
         c.fillStyle = 'rgba(70,60,90,.25)'; R.rrect(c, x + 6, y + 8, 116, 116, 12); c.fill();
         c.fillStyle = MAILC[i]; R.rrect(c, x + 6, y + 4, 116, 116, 12); c.fill();
@@ -131,7 +131,7 @@
           } else mailDoor(c, i, x, y);
         }
         // из ящика №7 торчит открытка с котиком
-        c.save(); c.translate(256 + 64, 128 + 26); c.rotate(-0.08); c.fillStyle = '#FFFDF6'; c.fillRect(-30, -22, 60, 26); c.fillStyle = '#F2A9B8'; c.fillRect(-26, -18, 52, 18);
+        c.save(); c.translate(256 + 64, 128 + 26); c.rotate(-0.08); c.fillStyle = '#FFFDF6'; c.fillRect(-30, -22, 60, 26); c.fillStyle = '#E9B07A'; c.fillRect(-26, -18, 52, 18);
         c.fillStyle = '#FFFDF6'; c.beginPath(); c.arc(0, -9, 6, 0, 7); c.fill(); c.beginPath(); c.moveTo(-6, -13); c.lineTo(-3, -19); c.lineTo(-1, -13); c.fill(); c.beginPath(); c.moveTo(6, -13); c.lineTo(3, -19); c.lineTo(1, -13); c.fill(); c.restore();
       });
       at(RG.mailDoor, c => mailDoor(c, 7, 0, 0));
@@ -150,8 +150,8 @@
         const X = x => (x - DX0) * PPM, Y = y => (DYM - y) * PPM, r = (SX0 - SX1) / NST, h = LY / NST;
         for (let i = 0; i < NST; i++) {
           const xa = SX0 - i * r, xb = SX0 - (i + 1) * r, ya = i * h, yb = (i + 1) * h;
-          c.fillStyle = '#FCE3DD'; c.beginPath(); c.moveTo(X(xa) + 4, Y(ya) - 2); c.lineTo(X(xa) + 4, Y(yb) - 4); c.lineTo(X(xb) - 2, Y(yb) - 4); c.closePath(); c.fill();
-          c.strokeStyle = '#D98A9A'; c.lineWidth = 4; c.setLineDash([10, 7]);
+          c.fillStyle = '#F8E6CC'; c.beginPath(); c.moveTo(X(xa) + 4, Y(ya) - 2); c.lineTo(X(xa) + 4, Y(yb) - 4); c.lineTo(X(xb) - 2, Y(yb) - 4); c.closePath(); c.fill();
+          c.strokeStyle = '#C98F5E'; c.lineWidth = 4; c.setLineDash([10, 7]);
           c.beginPath(); c.moveTo(X(xa) + 4, Y(ya) - 2); c.lineTo(X(xa) + 4, Y(yb) - 4); c.lineTo(X(xb) - 2, Y(yb) - 4); c.stroke(); c.setLineDash([]);
         }
         c.save(); c.translate(X(-1.0), Y(1.2)); c.rotate(-0.12);
@@ -165,7 +165,7 @@
       at(RG.floorNo, c => {
         c.fillStyle = '#FFFDF6'; c.beginPath(); c.arc(100, 100, 96, 0, 7); c.fill();
         c.strokeStyle = '#8FC0B0'; c.lineWidth = 10; c.beginPath(); c.arc(100, 100, 84, 0, 7); c.stroke();
-        R.text(c, '1', 100, 88, 104, '#C2405B', { f: 'Comfortaa', w: 700 }); R.text(c, 'ЭТАЖ', 100, 152, 30, '#5B4A63', { w: 900 });
+        R.text(c, '1', 100, 88, 104, '#B5520E', { f: 'Comfortaa', w: 700 }); R.text(c, 'ЭТАЖ', 100, 152, 30, '#5B4A63', { w: 900 });
       });
       /* ---------- пол: плитка «восьмиугольники с ромбиками» ---------- */
       { const [fcv, fc] = R.cnv(256, 256), q = R.rng(7);
@@ -173,7 +173,7 @@
         const oct = (cx, cy, s, col) => { const k = s * 0.29; fc.fillStyle = col; fc.beginPath(); [[-s + k, -s], [s - k, -s], [s, -s + k], [s, s - k], [s - k, s], [-s + k, s], [-s, s - k], [-s, -s + k]].forEach(([x, y], i) => (i ? fc.lineTo(cx + x, cy + y) : fc.moveTo(cx + x, cy + y))); fc.closePath(); fc.fill(); };
         [[64, 64], [192, 64], [64, 192], [192, 192]].forEach(([x, y], i) => oct(x, y, 61, i % 3 ? '#F4E9DB' : '#F1E3D2'));
         const dia = (x, y, s, col) => { fc.fillStyle = col; fc.beginPath(); fc.moveTo(x, y - s); fc.lineTo(x + s, y); fc.lineTo(x, y + s); fc.lineTo(x - s, y); fc.closePath(); fc.fill(); };
-        [[0, 0], [128, 0], [256, 0], [0, 128], [128, 128], [256, 128], [0, 256], [128, 256], [256, 256]].forEach(([x, y], i) => dia(x, y, 16, i % 2 ? '#A9D0C2' : '#EDB2BA'));
+        [[0, 0], [128, 0], [256, 0], [0, 128], [128, 128], [256, 128], [0, 256], [128, 256], [256, 256]].forEach(([x, y], i) => dia(x, y, 16, i % 2 ? '#A9D0C2' : '#E6C29A'));
         for (let i = 0; i < 70; i++) { fc.fillStyle = `rgba(255,255,255,${0.12 + q() * 0.18})`; fc.beginPath(); fc.arc(q() * 256, q() * 256, 1 + q() * 2, 0, 7); fc.fill(); }
         const ft = R.tex(fcv); ft.wrapS = ft.wrapT = T.RepeatWrapping; ft.repeat.set(8.4, 6.2);
         box(dc, toon('#FFFFFF', { map: ft }), 0, -0.06, -D / 2, W + 0.4, 0.12, D + 0.2);
@@ -183,7 +183,7 @@
       { const [wcv, wc] = R.cnv(32, 512), split = Math.round(512 * (1 - 1.4 / H)), q = R.rng(3);
         wc.fillStyle = '#FFF3E2'; wc.fillRect(0, 0, 32, 512);
         wc.fillStyle = '#A8D3C3'; wc.fillRect(0, split, 32, 512 - split);
-        wc.fillStyle = '#E8A3B0'; wc.fillRect(0, split - 7, 32, 7);
+        wc.fillStyle = '#E3B48A'; wc.fillRect(0, split - 7, 32, 7);
         wc.fillStyle = '#FFF9F0'; wc.fillRect(0, split - 9, 32, 2);
         for (let i = 0; i < 40; i++) { wc.fillStyle = `rgba(255,255,255,${0.08 + q() * 0.1})`; wc.fillRect(q() * 32, q() * split, 2, 4 + q() * 8); }
         const wallM = toon('#FFFFFF', { map: R.tex(wcv) });
@@ -348,8 +348,8 @@
         // главная карточка недели
         c.save(); c.translate(282, 196); c.rotate(-0.025);
         c.fillStyle = 'rgba(90,60,40,.25)'; c.fillRect(-150, -138, 312, 290); c.fillStyle = '#FFFBF0'; c.fillRect(-156, -146, 312, 290);
-        R.text(c, 'ОБЪЯВЛЕНИЕ', 0, -112, 26, '#C2405B', { w: 900 });
-        c.fillStyle = '#E8A3B0'; c.fillRect(-90, -94, 180, 3);
+        R.text(c, 'ОБЪЯВЛЕНИЕ', 0, -112, 26, '#B5520E', { w: 900 });
+        c.fillStyle = '#E3B48A'; c.fillRect(-90, -94, 180, 3);
         let fs = 46, lines = [];
         for (; fs >= 28; fs -= 2) { c.font = `700 ${fs}px Caveat, cursive`; lines = wrapText(c, text || '', 270); if (lines.length * fs * 1.02 <= 200) break; }
         const y0 = 10 - (lines.length - 1) * fs * 0.51;

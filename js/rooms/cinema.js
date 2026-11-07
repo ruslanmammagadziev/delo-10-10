@@ -19,14 +19,14 @@
 (function () {
   if (!window.City3D || !City3D.registerRoom) return;
   City3D.registerRoom('cinema', {
-    look: { sky: '#EBD7E8', gnd: '#7A3A50', hi: 0.56, sun: '#FFDCC0', si: 0.52, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #5A2C44 0%, #2E1C2C 72%)', rim: ['#FFC9B0', 0.28], fog: '#2E1C2C' },
+    look: { sky: '#F0E2CF', gnd: '#6E3226', hi: 0.56, sun: '#FFDCC0', si: 0.52, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #3E2418 0%, #22160F 72%)', rim: ['#FFC9B0', 0.28], fog: '#22160F' },
     cam: { portrait: { dx: 0, y: 4.5, dz: 7.9, ly: 1.35, lz: -2.7, fov: 58 }, landscape: { dx: 0.2, y: 4.2, dz: 7.4, ly: 1.4, lz: -2.5, fov: 48 } },
     build(R) {
       const { T, PI, group: g, put, box, sph, cyl, rbox, plane, toon, GEO } = R;
       const W = 10, D = 7, H = 4.2;
       const K = R.makeKit(true);
-      const wine = toon('#7A3550'), wineD = toon('#5E2840'), gold = toon('#E8C770', { emissive: new T.Color('#B8903A'), emissiveIntensity: 0.12 }), carpet = toon('#6E2C44'),
-        runner = toon('#B9475F'), seatM = toon('#C24A63'), seatD = toon('#9E2F47'), dark = toon('#3E2A38'), curtain = toon('#B9364F'), curtainD = toon('#93283E'),
+      const wine = toon('#7A2E28'), wineD = toon('#5A2620'), gold = toon('#E8C770', { emissive: new T.Color('#B8903A'), emissiveIntensity: 0.12 }), carpet = toon('#6A2622'),
+        runner = toon('#B8433A'), seatM = toon('#B8433A'), seatD = toon('#8E2E2A'), dark = toon('#3A2A24'), curtain = toon('#B23A36'), curtainD = toon('#8A2A28'),
         cream = toon('#FFF0CE'), white = toon('#FFFDF9'), corn = toon('#FFE9A8'), glass = toon('#FFF3DC', { emissive: new T.Color('#FFD9A0'), emissiveIntensity: 0.35 });
       const st = new T.Group(); g.add(st);   // всё статичное — потом склеим
 
@@ -47,16 +47,16 @@
       rbox(st, wineD, 0, 0.12, -6.55, 6.8, 0.24, 0.9, 0.06); box(st, gold, 0, 0.245, -6.1, 6.8, 0.03, 0.04);
       rbox(st, gold, 0, 2.35, -6.99, 4.64, 3.15, 0.06, 0.04);   // экран 3:2 — кадр 720×480 не растягивается
       const [scv, sc] = R.cnv(720, 480);
-      const paintIdle = () => { const gr = sc.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, '#FFF6E6'); gr.addColorStop(1, '#F6DCC8'); sc.fillStyle = gr; sc.fillRect(0, 0, 720, 480); R.text(sc, 'кадр заело', 360, 240, 64, '#C9A2AE', { f: 'Caveat', w: 700 }); };
+      const paintIdle = () => { const gr = sc.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, '#FFF6E6'); gr.addColorStop(1, '#F6DCC8'); sc.fillStyle = gr; sc.fillRect(0, 0, 720, 480); R.text(sc, 'кадр заело', 360, 240, 64, '#C9A98A', { f: 'Caveat', w: 700 }); };
       paintIdle();
       const screenTex = R.tex(scv);
       const screen = put(g, GEO.plane, R.keep(new T.MeshBasicMaterial({ map: screenTex, fog: false })), [0, 2.35, -6.95], [4.4, 2.93, 1]);
       screen.castShadow = false; screen.receiveShadow = false; screen.userData.key = 'spot:screen'; screen.userData.tap = 'screen';
       // кадр из 2D-сцены — на экран (SVG → картинка → холст)
-      const tag = (txt, col) => { sc.fillStyle = 'rgba(46,28,44,.72)'; R.rrect(sc, 18, 18, 230, 52, 14); sc.fill(); R.text(sc, txt, 133, 45, 30, col || '#FFF0CE', { w: 800 }); };
+      const tag = (txt, col) => { sc.fillStyle = 'rgba(46,30,18,.72)'; R.rrect(sc, 18, 18, 230, 52, 14); sc.fill(); R.text(sc, txt, 133, 45, 30, col || '#FFF0CE', { w: 800 }); };
       let frameImg = null, playingNow = false;
       const marks = [];   // найденные места: кольца в координатах кадра 360×240
-      const drawMarks = () => marks.forEach(([x, y, r]) => { sc.save(); sc.strokeStyle = '#C2405B'; sc.lineWidth = 7; sc.shadowColor = '#FFE3A8'; sc.shadowBlur = 14; sc.beginPath(); sc.ellipse(x * 2, y * 2, r * 2, r * 2 * 0.92, -0.08, 0, PI * 2); sc.stroke(); sc.restore(); });
+      const drawMarks = () => marks.forEach(([x, y, r]) => { sc.save(); sc.strokeStyle = '#B5520E'; sc.lineWidth = 7; sc.shadowColor = '#FFE3A8'; sc.shadowBlur = 14; sc.beginPath(); sc.ellipse(x * 2, y * 2, r * 2, r * 2 * 0.92, -0.08, 0, PI * 2); sc.stroke(); sc.restore(); });
       const showFrame = (playing) => { playingNow = !!playing; if (!frameImg) return; sc.drawImage(frameImg, 0, 0, 720, 480); drawMarks(); tag(playing ? '▶ кадр снова движется' : '❚❚ кадр заело', playing ? '#BFE6D3' : '#FFF0CE'); screenTex.needsUpdate = true; };
       try {
         const svg = window.Art && Art.cinemaFrame ? Art.cinemaFrame({ bow: (R.o.hero && R.o.hero.bow) || '#F08FA8' }) : null;
@@ -109,7 +109,7 @@
         rbox(pg, glass, 0, 1.06, 0, 0.56, 0.58, 0.42, 0.03);
         for (let i = 0; i < 18; i++) R.sphS(pg, corn, -0.2 + (i % 6) * 0.08, 0.84 + Math.floor(i / 6) * 0.07, -0.1 + ((i * 7) % 5) * 0.05, 0.045);
         rbox(pg, seatM, 0, 1.4, 0, 0.66, 0.1, 0.52, 0.04); put(pg, GEO.cone, seatM, [0, 1.56, 0], [0.3, 0.24, 0.24]); sph(pg, gold, 0, 1.72, 0, 0.05);
-        const [pcv, pc] = R.cnv(384, 96); pc.fillStyle = '#FFF0CE'; R.rrect(pc, 0, 0, 384, 96, 22); pc.fill(); R.text(pc, 'ПОПКОРН', 192, 50, 56, '#9E2F47');
+        const [pcv, pc] = R.cnv(384, 96); pc.fillStyle = '#FFF0CE'; R.rrect(pc, 0, 0, 384, 96, 22); pc.fill(); R.text(pc, 'ПОПКОРН', 192, 50, 56, '#8E2E2A');
         plane(pg, toon('#FFFFFF', { map: R.tex(pcv) }), 0, 0.5, 0.245, 0.5, 0.125);
         [-0.22, 0.22].forEach(x => cyl(pg, dark, x, 0.04, 0.18, 0.05, 0.05, [0, 0, PI / 2])); }
 

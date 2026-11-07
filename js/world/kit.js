@@ -51,41 +51,41 @@
   function makeSigns() {
     const S = {};
     S.cinema = (() => { const [cv, c] = cnv(1024, 336); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 1024, 336, 44); c.fill();
-      text(c, 'КИНОТЕАТР', 512, 84, 58, '#C2405B'); text(c, 'Саспенс', 512, 218, 136, '#9E2F47', { f: 'Comfortaa', w: 700, max: 900 }); return cv; })();
+      text(c, 'КИНОТЕАТР', 512, 84, 58, '#B8433A'); text(c, 'Саспенс', 512, 218, 136, '#8E2E2A', { f: 'Comfortaa', w: 700, max: 900 }); return cv; })();
     S.poster1 = (() => { const [cv, c] = cnv(256, 368); c.fillStyle = '#463A4E'; c.fillRect(0, 0, 256, 368);
       c.fillStyle = '#FFF4EC'; c.beginPath(); c.arc(128, 140, 52, 0, 7); c.fill(); c.fillStyle = '#2F2834'; c.beginPath(); c.arc(128, 140, 24, 0, 7); c.fill();
       c.fillStyle = '#fff'; c.beginPath(); c.arc(138, 130, 8, 0, 7); c.fill();
-      text(c, 'ТИХИЙ ВЕЧЕР', 128, 296, 30, '#F7C9D3', { max: 228 }); return cv; })();
+      text(c, 'ТИХИЙ ВЕЧЕР', 128, 296, 30, '#FFE3B8', { max: 228 }); return cv; })();
     S.poster2 = (() => { const [cv, c] = cnv(256, 368); c.fillStyle = '#463A4E'; c.fillRect(0, 0, 256, 368);
-      text(c, '?', 128, 165, 170, '#F7C9D3', { f: 'Comfortaa', w: 700 }); text(c, 'СКОРО', 128, 300, 34, '#F7C9D3'); return cv; })();
-    S.kassa = (() => { const [cv, c] = cnv(512, 136); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 512, 136, 30); c.fill(); text(c, 'КАССА', 256, 70, 80, '#9E2F47'); return cv; })();
+      text(c, '?', 128, 165, 170, '#FFE3B8', { f: 'Comfortaa', w: 700 }); text(c, 'СКОРО', 128, 300, 34, '#FFE3B8'); return cv; })();
+    S.kassa = (() => { const [cv, c] = cnv(512, 136); c.fillStyle = '#FFF0CE'; rrect(c, 0, 0, 512, 136, 30); c.fill(); text(c, 'КАССА', 256, 70, 80, '#8E2E2A'); return cv; })();
     S.bureau = (() => { const [cv, c] = cnv(1024, 272); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 1024, 272, 40); c.fill();
       c.fillStyle = '#E3F4EC'; c.beginPath(); c.arc(140, 136, 100, 0, 7); c.fill();
       text(c, 'LOST IN', 610, 94, 92, '#2F3A5A'); text(c, 'TRANSLATION', 610, 190, 92, '#2F3A5A', { max: 700 }); return cv; })();
     S.bureauSmall = (() => { const [cv, c] = cnv(512, 104); c.fillStyle = '#2F3A5A'; rrect(c, 0, 0, 512, 104, 26); c.fill(); text(c, 'бюро переводов', 256, 54, 50, '#FFFDF9', { w: 800, max: 470 }); return cv; })();
     S.open = (() => { const [cv, c] = cnv(256, 80); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 256, 80, 14); c.fill(); text(c, 'ОТКРЫТО', 128, 42, 40, '#2F3A5A', { max: 230 }); return cv; })();
     S.sweets = (() => { const [cv, c] = cnv(1024, 340);
-      text(c, 'Сахарная', 512, 108, 124, '#C2405B', { f: 'Comfortaa', w: 700, max: 960 }); text(c, 'пудра', 512, 240, 124, '#C2405B', { f: 'Comfortaa', w: 700 }); return cv; })();
-    S.sweetsWin = (() => { const [cv, c] = cnv(512, 80); text(c, 'эклеры · пироги · какао', 256, 42, 46, '#C2405B', { f: 'Caveat', w: 700, max: 480 }); return cv; })();
-    S.mat = (() => { const [cv, c] = cnv(256, 144); c.fillStyle = '#F2C4CC'; rrect(c, 0, 0, 256, 144, 22); c.fill();
+      text(c, 'Сахарная', 512, 108, 124, '#6B3517', { f: 'Comfortaa', w: 700, max: 960 }); text(c, 'пудра', 512, 240, 124, '#6B3517', { f: 'Comfortaa', w: 700 }); return cv; })();
+    S.sweetsWin = (() => { const [cv, c] = cnv(512, 80); text(c, 'эклеры · пироги · какао', 256, 42, 46, '#6B3517', { f: 'Caveat', w: 700, max: 480 }); return cv; })();
+    S.mat = (() => { const [cv, c] = cnv(256, 144); c.fillStyle = '#F4D3AE'; rrect(c, 0, 0, 256, 144, 22); c.fill();
       c.strokeStyle = '#FFF6EE'; c.lineWidth = 6; c.setLineDash([12, 8]); rrect(c, 12, 12, 232, 120, 16); c.stroke(); c.setLineDash([]);
-      c.fillStyle = '#E8879E'; c.beginPath(); c.moveTo(62, 94); c.bezierCurveTo(28, 70, 40, 40, 62, 58); c.bezierCurveTo(84, 40, 96, 70, 62, 94); c.fill();
-      text(c, 'привет', 164, 74, 52, '#8E2340', { f: 'Caveat', w: 700 }); return cv; })();
+      c.fillStyle = '#E59A4F'; c.beginPath(); c.moveTo(62, 94); c.bezierCurveTo(28, 70, 40, 40, 62, 58); c.bezierCurveTo(84, 40, 96, 70, 62, 94); c.fill();
+      text(c, 'привет', 164, 74, 52, '#6B3517', { f: 'Caveat', w: 700 }); return cv; })();
     S.exit = (() => { const [cv, c] = cnv(512, 200); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 512, 200, 20); c.fill();
       text(c, 'ВЫХОД', 256, 64, 68, INK); text(c, 'НА КРЫШУ', 256, 140, 68, INK, { max: 470 }); return cv; })();
     S.stairs = (() => { const [cv, c] = cnv(512, 210); c.fillStyle = '#FFFDF9'; rrect(c, 0, 0, 512, 210, 22); c.fill();
-      c.strokeStyle = '#C2405B'; c.lineWidth = 12; rrect(c, 8, 8, 496, 194, 18); c.stroke();
-      text(c, 'СТУПЕНЬКИ', 256, 76, 60, '#C2405B', { max: 450 }); text(c, 'УШЛИ НА ОБЕД', 256, 144, 60, '#C2405B', { max: 450 }); return cv; })();
+      c.strokeStyle = '#B5520E'; c.lineWidth = 12; rrect(c, 8, 8, 496, 194, 18); c.stroke();
+      text(c, 'СТУПЕНЬКИ', 256, 76, 60, '#B5520E', { max: 450 }); text(c, 'УШЛИ НА ОБЕД', 256, 144, 60, '#B5520E', { max: 450 }); return cv; })();
     S.gazety = (() => { const [cv, c] = cnv(512, 112); text(c, 'ГАЗЕТЫ', 256, 58, 80, '#FFFDF9'); return cv; })();
     S.weather = (() => { const [cv, c] = cnv(512, 296); c.fillStyle = '#3E4C72'; rrect(c, 0, 0, 512, 296, 24); c.fill(); text(c, 'ПРОГНОЗ', 256, 58, 58, '#BFE6D3'); return cv; })();
     S.flowers = (() => { const [cv, c] = cnv(512, 180); c.fillStyle = '#3E4C3F'; rrect(c, 0, 0, 512, 180, 18); c.fill();
       c.strokeStyle = '#C9A27A'; c.lineWidth = 8; rrect(c, 6, 6, 500, 168, 14); c.stroke();
-      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
-    S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F6C6D0'; c.fillRect(0, 0, 256, 128);
+      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F8D6B0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
+    S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F8D6B0'; c.fillRect(0, 0, 256, 128);
       text(c, 'РЯД 3', 128, 44, 40, '#3A2E3F'); text(c, 'МЕСТО 13', 128, 90, 40, '#3A2E3F'); return cv; })();
     S.dial = (() => { const [cv, c] = cnv(128, 128); c.fillStyle = '#FFFDF9'; c.beginPath(); c.arc(64, 64, 64, 0, 7); c.fill();
       text(c, '13', 64, 22, 24, '#3A2E3F'); text(c, '3', 108, 64, 20, '#3A2E3F'); text(c, '6', 64, 106, 20, '#3A2E3F'); text(c, '9', 20, 64, 20, '#3A2E3F'); return cv; })();
-    S.carpet = (() => { const [cv, c] = cnv(256, 200); c.fillStyle = '#A8344A'; c.fillRect(0, 0, 256, 200);
+    S.carpet = (() => { const [cv, c] = cnv(256, 200); c.fillStyle = '#A8382E'; c.fillRect(0, 0, 256, 200);
       c.strokeStyle = '#2F3A5A'; c.lineWidth = 16; c.strokeRect(8, 8, 240, 184); c.strokeStyle = '#E9C46A'; c.lineWidth = 5; c.strokeRect(22, 22, 212, 156);
       const dia = (x, y, w, h, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + w, y); c.lineTo(x, y + h); c.lineTo(x - w, y); c.closePath(); c.fill(); };
       [64, 128, 192].forEach((x, i) => { dia(x, 100, 30, 52, '#F4E6CF'); dia(x, 100, 18, 32, i === 1 ? '#2F3A5A' : '#E07A3F'); dia(x, 100, 7, 12, '#F4E6CF'); });
@@ -130,7 +130,7 @@
     else if (f.mouth === 'smile') L(`M${256 - 24},${ey + 88} Q256,${ey + 108} ${256 + 24},${ey + 88}`, '#6B3A48', 7);
     return cv;
   }
-  function labelCanvas(s, bg = '#C2405B') {
+  function labelCanvas(s, bg = '#B5520E') {
     const [cv0, c0] = cnv(8, 8); c0.font = '900 44px Nunito, system-ui, sans-serif';
     const w = Math.ceil(c0.measureText(s).width) + 56;
     const [cv, c] = cnv(w, 96);
@@ -141,7 +141,7 @@
   }
   function blobCanvas() {
     const [cv, c] = cnv(64, 64); const g = c.createRadialGradient(32, 32, 2, 32, 32, 30);
-    g.addColorStop(0, 'rgba(112,64,98,.34)'); g.addColorStop(1, 'rgba(112,64,98,0)');
+    g.addColorStop(0, 'rgba(96,64,40,.34)'); g.addColorStop(1, 'rgba(96,64,40,0)');
     c.fillStyle = g; c.fillRect(0, 0, 64, 64); return cv;
   }
 
@@ -373,7 +373,7 @@
       put(par, GEO.sphLo, md, [x, y, z + 0.01 * s], [0.026 * s, 0.026 * s, 0.02 * s]);
     }
     function wreath(K, Rr, bowHex) {
-      const w = new T.Group(), lm = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#9DA765')], berry = K.m('#C2405B'), bw = K.m(bowHex), bwD = K.m('#C9677F');
+      const w = new T.Group(), lm = [K.m('#D9774F'), K.m('#E8A84F'), K.m('#9DA765')], berry = K.m('#C2405B'), bw = K.m(bowHex), bwD = K.m('#B9822A');
       for (let i = 0; i < 18; i++) { const a = i / 18 * PI * 2; put(w, GEO.sphLo, lm[i % 3], [Math.cos(a) * Rr, Math.sin(a) * Rr, 0], [0.06, 0.042, 0.03], [0, 0, a + 0.6]); }
       for (let i = 0; i < 6; i++) { const a = 0.4 + i * 1.05; put(w, GEO.sphLo, berry, [Math.cos(a) * Rr * 1.08, Math.sin(a) * Rr * 1.08, 0.025], [0.022, 0.022, 0.022]); }
       bowAt(w, bw, bwD, 0, -Rr, 0.035, 1);

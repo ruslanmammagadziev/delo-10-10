@@ -6,7 +6,7 @@
   if (!window.City3D || !City3D.registerShop) return;
   const D = 2.4;                     // глубина коробки за фасадом: за витриной не видно голой земли
   const CREAM = '#FFFDF9', INK = '#3A2E3F', GOLD = '#E8C770', SKIN = '#F7DCC8';
-  const HEDGE = ['#9DB08E', '#C9B26A', '#C98A5C', '#D98C8C'];
+  const HEDGE = ['#9DB08E', '#C9B26A', '#C98A5C', '#B8743F'];
 
   /* ---------- общий набор: материалы, склейка, окна, двери, маркизы ---------- */
   function kit(R) {
@@ -294,12 +294,12 @@
     garland: [[-1.68, 3.62, 0.16], [1.68, 3.62, 0.16]],
     build(R) {
       const S = kit(R), { g, T, PI } = S, W = 3.4, H = 3.9;
-      const wall = S.m('#FBE1E7'), cream = S.m(CREAM), cherry = S.m('#C2405B'), cherryD = S.m('#9E2F47'), gold = S.m(GOLD),
-        trench = S.m('#E9D4B6'), trenchD = S.m('#D2B48E'), powder = S.m('#F7C9D3'), mann = S.m('#F3E6D6'), btn = S.m('#8A5A44');
-      S.shell({ W, H, wall, plinth: S.m('#F0C3CF'), cap: cream });
-      R.lace(g, cream, -1.62, 1.62, H - 0.02, 0.1, 0.09, S.m('#F7C9D3'));
+      const wall = S.m('#F6E7C1'), cream = S.m(CREAM), cherry = S.m('#A9502F'), cherryD = S.m('#7A3A18'), gold = S.m(GOLD),
+        trench = S.m('#E9D4B6'), trenchD = S.m('#D2B48E'), powder = S.m('#F2D7A0'), mann = S.m('#F3E6D6'), btn = S.m('#8A5A44');
+      S.shell({ W, H, wall, plinth: S.m('#E2C58A'), cap: cream });
+      R.lace(g, cream, -1.62, 1.62, H - 0.02, 0.1, 0.09, S.m('#F2D7A0'));
       const A = S.atlas(1024, 256);
-      board(S, A, [0, 0, 1024, 256], { bg: CREAM, border: '#C2405B', bw: 7, big: 'БАНТ и БЕРЕТ', bigSize: 112, small: 'ателье · примерочная · зеркало', smallSize: 52, col: '#C2405B', col2: '#9E2F47', dots: '#F7C9D3' });
+      board(S, A, [0, 0, 1024, 256], { bg: CREAM, border: '#A9502F', bw: 7, big: 'БАНТ и БЕРЕТ', bigSize: 112, small: 'ателье · примерочная · зеркало', smallSize: 52, col: '#A9502F', col2: '#7A3A18', dots: '#F2D7A0' });
       S.rbox(g, cherry, 0, 3.4, 0.1, 3.02, 0.8, 0.16, 0.08);
       A.plane(g, [0, 0, 1024, 256], 0, 3.4, 0.185, 2.92, 0.73);
       // фестончатая маркиза вишня/крем во всю ширину
@@ -328,8 +328,8 @@
         R.bowAt(g, cherry, cherryD, hx - 0.17, b0 + 0.31, z + 0.06, 0.9);
         [S.m('#BFE6D3'), S.m('#FFD98A'), S.m('#B9A5E8')].forEach((m, i) => S.cyl(g, m, hx - 0.3 + i * 0.09, b0 + 0.05, z + 0.12, 0.035, 0.07)); }
       // дверь вишнёвая с арочным окошком и маленьким бантом
-      const door = S.door(0, { frame: cream, leaf: cherry, trim: S.m('#F7C9D3'), tint: '#FFF1EA', step: S.m('#F0C3CF'),
-        deco: (p, dw) => R.bowAt(p, cream, S.m('#F7C9D3'), dw / 2, 1.62, 0.16, 1.2) });
+      const door = S.door(0, { frame: cream, leaf: cherry, trim: S.m('#F2D7A0'), tint: '#FFF1EA', step: S.m('#E2C58A'),
+        deco: (p, dw) => R.bowAt(p, cream, S.m('#F2D7A0'), dw / 2, 1.62, 0.16, 1.2) });
       S.pot(-0.8, 0.24, S.m('#FFFDF9'), S.m('#8FAE62'), [S.m('#F08FA8'), S.m('#F7C9D3')]);
       S.pot(0.8, 0.24, S.m('#FFFDF9'), S.m('#8FAE62'), [S.m('#C2405B'), S.m('#F7C9D3')], 0.9);
       S.hedge(W / 2 + 0.22, 0.44, 2);
@@ -430,7 +430,7 @@
     garland: [[-1.68, 3.5, 0.16], [1.68, 3.5, 0.16]],
     build(R) {
       const S = kit(R), { g, T, PI } = S, W = 3.4, H = 3.8;
-      const wall = S.m('#FFF1A8'), ink = S.m(INK), cream = S.m('#FFF4EC'), lav = S.m('#D9CCF4'), lavD = S.m('#B9A5E8'), pink = S.m('#F7C9D3'), vinyl = S.m('#2E2A3B'), gold = S.m(GOLD);
+      const wall = S.m('#FFF1A8'), ink = S.m(INK), cream = S.m('#FFF4EC'), lav = S.m('#D9CCF4'), lavD = S.m('#B9A5E8'), pink = S.m('#F5E3C4'), vinyl = S.m('#2E2A3B'), gold = S.m(GOLD);
       const sleeves = ['#BFE6D3', '#F7C9D3', '#D9CCF4', '#FFD3A8', '#9FC2E8', '#F08FA8', '#FFF4EC'].map(h => S.m(h));
       S.shell({ W, H, wall, plinth: lavD, cap: ink });
       // клавиши под карнизом
@@ -438,7 +438,7 @@
       for (let i = 0; i < 16; i++) if (i % 7 !== 2 && i % 7 !== 6) S.box(g, ink, -1.5 + i * 0.2, H - 0.08, 0.1, 0.1, 0.12, 0.04);
       // вывеска
       const A = S.atlas(1024, 512), c = A.c;
-      board(S, A, [0, 0, 1024, 256], { bg: INK, border: '#F7C9D3', bw: 6, big: 'СТОРОНА Б', bigSize: 120, small: 'пластинки · будка · джаз', smallSize: 54, col: '#FFF4EC', col2: '#D9CCF4', dots: '#F7C9D3' });
+      board(S, A, [0, 0, 1024, 256], { bg: INK, border: '#F5E3C4', bw: 6, big: 'СТОРОНА Б', bigSize: 120, small: 'пластинки · будка · джаз', smallSize: 54, col: '#FFF4EC', col2: '#D9CCF4', dots: '#F5E3C4' });
       S.rbox(g, lavD, 0, 3.14, 0.1, 3.04, 0.8, 0.16, 0.08);
       A.plane(g, [0, 0, 1024, 256], 0, 3.14, 0.185, 2.92, 0.73);
       // большая пластинка на крыше: бороздки, розовая наклейка с «Б»
@@ -446,9 +446,9 @@
         c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
         c.strokeStyle = 'rgba(255,255,255,0.09)'; c.lineWidth = 2; for (let k = 50; k < r - 6; k += 7) { c.beginPath(); c.arc(cx, cy, k, 0, 7); c.stroke(); }
         c.strokeStyle = 'rgba(255,255,255,0.28)'; c.lineWidth = 9; c.beginPath(); c.arc(cx, cy, r * 0.72, -2.5, -1.9); c.stroke(); c.beginPath(); c.arc(cx, cy, r * 0.86, 0.6, 1.1); c.stroke();
-        c.fillStyle = '#F7C9D3'; c.beginPath(); c.arc(cx, cy, 46, 0, 7); c.fill();
-        c.strokeStyle = '#C2405B'; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, 40, 0, 7); c.stroke();
-        S.text(c, 'Б', cx, cy + 2, 46, '#C2405B', { f: 'Comfortaa', w: 700 }); c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(cx, cy + 26, 5, 0, 7); c.fill(); }
+        c.fillStyle = '#F5E3C4'; c.beginPath(); c.arc(cx, cy, 46, 0, 7); c.fill();
+        c.strokeStyle = '#B5520E'; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, 40, 0, 7); c.stroke();
+        S.text(c, 'Б', cx, cy + 2, 46, '#B5520E', { f: 'Comfortaa', w: 700 }); c.fillStyle = '#2E2A3B'; c.beginPath(); c.arc(cx, cy + 26, 5, 0, 7); c.fill(); }
       const rec = new T.Group(); rec.position.set(0, H + 1.28, -0.35); rec.userData.dyn = true; g.add(rec);
       A.disc(rec, [4, 260, 248, 248], 0, 0, 0.012, 0.86, true);
       S.merge(rec);
@@ -456,7 +456,7 @@
       S.cyl(g, gold, 0, H + 1.28, -0.33, 0.035, 0.08, [PI / 2, 0, 0]);
       // ноты на проволочках
       const note = (x, y, z, m, s) => { S.sph(g, m, x, y, z, 0.07 * s, 0.055 * s, 0.04 * s); S.box(g, m, x + 0.06 * s, y + 0.17 * s, z, 0.022 * s, 0.34 * s, 0.03 * s); S.box(g, m, x + 0.11 * s, y + 0.3 * s, z, 0.1 * s, 0.03 * s, 0.03 * s, [0, 0, -0.5]); S.cyl(g, S.m('#7A6670'), x + 0.06 * s, y - 0.4 * s, z - 0.02, 0.005, 0.7 * s); };
-      note(-1.15, H + 1.25, -0.5, ink, 1.1); note(1.05, H + 1.55, -0.5, S.m('#C2405B'), 0.9);
+      note(-1.15, H + 1.25, -0.5, ink, 1.1); note(1.05, H + 1.55, -0.5, S.m('#B5520E'), 0.9);
       // витрины с пастельными конвертами
       [-1.14, 1.14].forEach((vx, wi) => {
         const v = S.vitrine(vx, 1.38, 0.8, 1.2, { frame: ink, depth: 0.26, tint: '#FFF6DE' });
@@ -485,8 +485,8 @@
     garland: [[-1.58, 2.38, 0.14], [1.58, 2.38, 0.14]],
     build(R) {
       const S = kit(R), { g, T, PI } = S, W = 3.2, H = 4.4;
-      const wall = S.m('#FFF4EC'), wine = S.m('#9E2F47'), cherry = S.m('#C2405B'), cream = S.m(CREAM), gold = S.m(GOLD), stone = S.m('#E8D6C8'), iron = S.m('#5B4A63'), navy = S.m('#3E4C72');
-      const BK = ['#F08FA8', '#8FB3D9', '#F7B267', '#BFE6D3', '#B9A5E8', '#C2405B', '#3E4C72', '#FFD98A'].map(h => S.m(h));
+      const wall = S.m('#FFF4EC'), wine = S.m('#6E2E22'), cherry = S.m('#B5520E'), cream = S.m(CREAM), gold = S.m(GOLD), stone = S.m('#E8D6C8'), iron = S.m('#5B4A63'), navy = S.m('#3E4C72');
+      const BK = ['#F08FA8', '#8FB3D9', '#F7B267', '#BFE6D3', '#B9A5E8', '#B5520E', '#3E4C72', '#FFD98A'].map(h => S.m(h));
       S.shell({ W, H, wall, plinth: stone, cap: wine });
       // полукруглый фронтон с круглым окошком
       const ped = R.extrude(R.archShape(1.7, 0.85), 0.3); S.put(g, ped, wine, [0, H + 0.36, -0.4]);
@@ -496,13 +496,13 @@
       S.rbox(g, wine, 0, 2.38, 0.05, W + 0.06, 0.08, 0.14, 0.03);
       // вывеска между этажами
       const A = S.atlas(1024, 512), c = A.c;
-      board(S, A, [0, 0, 1024, 256], { bg: '#9E2F47', border: '#F7C9D3', bw: 6, big: 'ЗАКЛАДКА', bigSize: 118, small: 'книги · тишина · кресло', smallSize: 54, col: '#FFF4EC', col2: '#F7C9D3', dots: '#F7C9D3' });
+      board(S, A, [0, 0, 1024, 256], { bg: '#6E2E22', border: '#F5E3C4', bw: 6, big: 'ЗАКЛАДКА', bigSize: 118, small: 'книги · тишина · кресло', smallSize: 54, col: '#FFF4EC', col2: '#F5E3C4', dots: '#F5E3C4' });
       S.rbox(g, cream, 0, 2.78, 0.1, 2.84, 0.76, 0.14, 0.08);
       A.plane(g, [0, 0, 1024, 256], 0, 2.78, 0.175, 2.74, 0.685);
       // первый этаж: эркер слева (стопки книг и крошечная лампа), витрина справа
       const v = S.vitrine(-1.06, 1.32, 0.7, 1.1, { frame: wine, depth: 0.36, tint: '#FFEFD8' });
       { const b0 = v.bottom, x0 = -1.06, z = 0.19;
-        S.awning(x0 - 0.47, x0 + 0.47, v.top + 0.09, 0.44, 0.24, wine, wine, { edge: [cream, S.m('#F7C9D3')], stripe: 0.16, bar: wine });
+        S.awning(x0 - 0.47, x0 + 0.47, v.top + 0.09, 0.44, 0.24, wine, wine, { edge: [cream, S.m('#F5E3C4')], stripe: 0.16, bar: wine });
         [[-0.2, 5], [0.02, 4], [0.22, 3]].forEach(([dx, n], si) => { let y = b0; for (let i = 0; i < n; i++) { const h = 0.05 + ((i + si) % 3) * 0.012; S.box(g, BK[(i * 3 + si) % 8], x0 + dx + ((i % 2) - 0.5) * 0.02, y + h / 2, z, 0.2 - (i % 3) * 0.02, h, 0.15, [0, (i % 3 - 1) * 0.12, 0]); y += h; } });
         S.cyl(g, gold, x0 + 0.22, b0 + 0.3, z - 0.02, 0.008, 0.16); S.put(g, R.GEO.cone, S.bulb('#FFE3A6'), [x0 + 0.22, b0 + 0.42, z - 0.02], [0.075, 0.08, 0.075]); S.sphS(g, S.bulb('#FFE3A6'), x0 + 0.22, b0 + 0.37, z - 0.02, 0.03); }
       const v2 = S.vitrine(1.06, 1.32, 0.7, 1.1, { frame: wine, depth: 0.26, tint: '#FFEFD8' });
@@ -516,7 +516,7 @@
       // второй этаж: окна с цветами и висячая вывеска-книга с вишнёвой закладкой
       S.win(-0.62, 3.7, 0.62, 0.78, { frame: cream, arch: true, tint: '#FFF0D6', sill: false });
       S.win(0.32, 3.7, 0.62, 0.78, { frame: cream, arch: true, tint: '#FFF0D6', sill: false });
-      [-0.62, 0.32].forEach(x => R.flowerBox(g, wine, S.m('#7FB07A'), [S.m('#F7C9D3'), S.m('#FFD98A'), cherry], x, 3.27, 0.66));
+      [-0.62, 0.32].forEach(x => R.flowerBox(g, wine, S.m('#7FB07A'), [S.m('#F7C9D3'), S.m('#FFD98A'), S.m('#C2405B')], x, 3.27, 0.66));
       { const bx = 1.22, by = 3.55, bz = 0.42;
         S.box(g, iron, bx - 0.02, 3.98, 0.27, 0.035, 0.035, 0.56); S.put(g, R.ringG(0.07, 0.012), iron, [bx - 0.02, 3.9, 0.1]); S.box(g, iron, bx - 0.02, 3.9, 0.06, 0.03, 0.16, 0.03);
         [-0.13, 0.13].forEach(dx => S.cyl(g, iron, bx + dx * 0.9, 3.9, bz, 0.006, 0.16));
@@ -525,14 +525,14 @@
         S.box(g, cherry, bx + 0.08, by - 0.36, bz + 0.05, 0.05, 0.24, 0.006);
         S.put(g, S.geo('tail', () => { const sh = new T.Shape(); sh.moveTo(-0.025, 0); sh.lineTo(0.025, 0); sh.lineTo(0.025, -0.06); sh.lineTo(0, -0.03); sh.lineTo(-0.025, -0.06); sh.closePath(); return new T.ShapeGeometry(sh); }), cherry, [bx + 0.08, by - 0.48, bz + 0.054]);
         // обложка: золотая рамка и раскрытая книжка
-        c.save(); c.translate(0, 52); c.fillStyle = '#9E2F47'; c.fillRect(0, 210, 200, 250); c.strokeStyle = '#E8C770'; c.lineWidth = 6; c.strokeRect(14, 224, 172, 222); c.lineWidth = 3; c.strokeRect(24, 234, 152, 202);
+        c.save(); c.translate(0, 52); c.fillStyle = '#6E2E22'; c.fillRect(0, 210, 200, 250); c.strokeStyle = '#E8C770'; c.lineWidth = 6; c.strokeRect(14, 224, 172, 222); c.lineWidth = 3; c.strokeRect(24, 234, 152, 202);
         c.fillStyle = '#E8C770'; c.beginPath(); c.moveTo(100, 300); c.quadraticCurveTo(70, 284, 46, 292); c.lineTo(46, 362); c.quadraticCurveTo(70, 354, 100, 370); c.quadraticCurveTo(130, 354, 154, 362); c.lineTo(154, 292); c.quadraticCurveTo(130, 284, 100, 300); c.fill();
-        c.strokeStyle = '#9E2F47'; c.lineWidth = 3; c.beginPath(); c.moveTo(100, 302); c.lineTo(100, 368); c.stroke(); c.restore();
+        c.strokeStyle = '#6E2E22'; c.lineWidth = 3; c.beginPath(); c.moveTo(100, 302); c.lineTo(100, 368); c.stroke(); c.restore();
         A.plane(g, [0, 262, 200, 250], bx, by, bz + 0.057, 0.38, 0.47); }
       // табличка на двери
-      c.fillStyle = '#FFF4EC'; S.rr(c, 214, 266, 380, 132, 18); c.fill(); c.strokeStyle = '#9E2F47'; c.lineWidth = 5; S.rr(c, 224, 276, 360, 112, 12); c.stroke();
-      S.text(c, 'Гусям с концовками —', 404, 310, 32, '#9E2F47', { w: 800, max: 330 }); S.text(c, 'с закрытым клювом', 404, 352, 32, '#9E2F47', { w: 800, max: 330 });
-      const door = S.door(0, { frame: wine, leaf: wine, trim: S.m('#C9566E'), tint: '#FFF0D6', step: stone,
+      c.fillStyle = '#FFF4EC'; S.rr(c, 214, 266, 380, 132, 18); c.fill(); c.strokeStyle = '#6E2E22'; c.lineWidth = 5; S.rr(c, 224, 276, 360, 112, 12); c.stroke();
+      S.text(c, 'Гусям с концовками —', 404, 310, 32, '#6E2E22', { w: 800, max: 330 }); S.text(c, 'с закрытым клювом', 404, 352, 32, '#6E2E22', { w: 800, max: 330 });
+      const door = S.door(0, { frame: wine, leaf: wine, trim: S.m('#B8643A'), tint: '#FFF0D6', step: stone,
         deco: (p, dw) => { S.box(p, gold, dw / 2, 0.88, 0.085, 0.6, 0.23, 0.01); A.plane(p, [214, 266, 380, 132], dw / 2, 0.88, 0.092, 0.57, 0.2); } });
       S.hedge(W / 2 + 0.25, 0.48, 0);
       S.merge(g);
@@ -586,7 +586,7 @@
         S.put(wg, R.ringG(0.17, 0.012), S.m('#E9DCCB'), [0, 0, 0.04]); S.plane(wg, S.glint, -0.07, 0.06, 0.05, 0.04, 0.22, -0.6); S.rbox(wg, cream, 0, -0.36, 0.05, 0.5, 0.06, 0.12, 0.02); });
       [[-1.3, 2.05], [-0.55, 1.95], [1.3, 2.05], [-1.05, 0.75], [1.2, 0.7], [0.62, 2.1]].forEach(([phi, y], i) => { const [x, yy, z] = at(phi, y, 0.005); const sg = S.put(g, R.extrude(star5(S, 0.07 + (i % 2) * 0.03, 0.03 + (i % 2) * 0.012), 0.02), gold, [x, yy, z]); sg.rotation.y = phi; });
       // пастельные флажки двумя гирляндами по барабану
-      const flags = ['#F7C9D3', '#BFE6D3', '#FFD98A', '#D9CCF4', '#FFF4EC'].map(h => S.m(h)), pen = R.extrude(R.triShape(0.13, 0.16), 0.008);
+      const flags = ['#F9CF9C', '#BFE6D3', '#FFD98A', '#D9CCF4', '#FFF4EC'].map(h => S.m(h)), pen = R.extrude(R.triShape(0.13, 0.16), 0.008);
       [[-1.32, -0.48], [0.82, 1.42]].forEach(([p0, p1], fi) => { const n = 7;
         const pts = []; for (let i = 0; i <= 16; i++) { const t = i / 16, phi = p0 + (p1 - p0) * t; pts.push(new T.Vector3(...at(phi, 2.3 - Math.sin(t * PI) * 0.22, 0.04))); }
         S.put(g, R.keep(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 20, 0.006, 4)), S.m('#7A6670'));

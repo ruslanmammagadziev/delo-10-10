@@ -7,7 +7,7 @@
   const S = () => G.state();
   const C = G.C;
   const NB = ' ';
-  const DARK = '#2F2834', LIGHT = '#FFF4EC';
+  const DARK = '#2C221C', LIGHT = '#FFF3E2';
 
   /* ---------- Утилиты ---------- */
   // героиня в выбранном образе (look — новый рисунок; bow/coat/hair — запасная перекраска тренча)
@@ -194,8 +194,8 @@
   const SKIES = [
     'linear-gradient(180deg,#A6AFBC 0%,#C9D0D9 100%)',
     'linear-gradient(180deg,#AEB6C8 0%,#D6D6E0 100%)',
-    'linear-gradient(180deg,#B6B6D0 0%,#E4D8E0 100%)',
-    'linear-gradient(180deg,#BDB2D2 0%,#F2DAE0 100%)',
+    'linear-gradient(180deg,#B4BCCB 0%,#E9DCCB 100%)',
+    'linear-gradient(180deg,#AFBCD0 0%,#F4DCC0 100%)',
   ];
   function buildingWidth() {
     const W = G.app.clientWidth, H = G.app.clientHeight;
@@ -418,7 +418,7 @@
   }
 
   // Улица: 3D-город, если устройство тянет WebGL, иначе 2D-прогулка.
-  const FOGS = ['#C9D0D9', '#D6D6E0', '#E4D8E0', '#F2DAE0'];
+  const FOGS = ['#C9D0D9', '#D6D6E0', '#E9DCCB', '#F4DCC0'];
   // карточка «Сегодняшнее дело» поверх улицы-запаса и 2D-улицы (в городе карточку рисует сам город)
   function caseCardOn(target, card, host) {
     const m = M();
@@ -1265,7 +1265,7 @@
     return new Promise(async res => {
       const st = S();
       const scr = show(`
-        <div class="loc-title" style="color:#F7C9D3">Кинотеатр «Саспенс»</div>
+        <div class="loc-title" style="color:#F9CF9C">Кинотеатр «Саспенс»</div>
         <div class="screen-frame film-grain" id="frame"><div class="frame-tag">❚❚ кадр заело</div>${Art.cinemaFrame({ bow: st.bow, look: G.look() })}</div>
         <div class="puzzle-bar" id="pbar"></div>
         <div class="beam" id="beam"></div>
@@ -1526,7 +1526,7 @@
     return new Promise(async res => {
       const wit = SWEETS_WIT;
       const scr = show(`
-        <div class="loc-title" style="color:#C2405B">«Сахарная пудра»</div>
+        <div class="loc-title" style="color:#B5520E">«Сахарная пудра»</div>
         <div class="top-space" style="height:calc(104px + var(--safe-top))"></div>
         <div class="showcase"><div class="witnesses">
           ${wit.map(w => `<button class="witness" data-w="${w.id}"><div class="char w-art bob" style="animation-delay:${Math.random() * -2}s">${w.art({})}</div><div class="w-name">${w.name}</div><div class="w-say">${w.say}</div></button>`).join('')}
@@ -1536,7 +1536,7 @@
           <div class="char bob" id="bunnyChar">${Art.bunny()}</div>
           <button class="menu-board" id="menuBoard" aria-label="Меню дня"><span class="hand">Меню дня</span><svg viewBox="0 0 40 24"><path d="M6,10 L34,10 L30,22 L10,22 Z" fill="none" stroke="#F3EFE8" stroke-width="2"/><path d="M6,10 Q20,2 34,10" stroke="#F3EFE8" stroke-width="2" fill="none"/></svg></button>
         </div>
-        <div class="counter-block" style="background:#F8CBD5">${Art.counter('sweets')}</div>`, 'loc sweets loc-flex');
+        <div class="counter-block" style="background:#F8D6B0">${Art.counter('sweets')}</div>`, 'loc sweets loc-flex');
       G.setHud({ label: label('sweets') }); G.tgHeader(LIGHT);
       const kit = hintKit(scr, {
         dark: true, task: 'Врёт только один из трёх. Кто?',
@@ -1638,15 +1638,15 @@
         <div class="modal-card" style="background:#FFFDF9;max-width:320px;border-radius:10px;padding:20px 18px;font-family:'Courier New',monospace;text-align:left">
           <div style="text-align:center;font-weight:900;letter-spacing:.1em">САХАРНАЯ ПУДРА</div>
           <div style="text-align:center;font-size:12px;margin-bottom:10px">кассовый чек · следствие</div>
-          <div style="border-top:2px dashed #E3D3D8;margin:8px 0"></div>
+          <div style="border-top:2px dashed #E2D4C2;margin:8px 0"></div>
           <div class="row" style="justify-content:space-between;font-weight:700"><span>Напиток следователя</span><span>1 шт</span></div>
           <div class="row" style="justify-content:space-between;font-weight:700"><span>Показания десертов</span><span>3 шт</span></div>
           ${S().syrnik ? `<div class="row" style="justify-content:space-between;font-weight:700"><span>Сырник. Просто сырник</span><span>1 шт</span></div>` : ''}
-          <div style="border-top:2px dashed #E3D3D8;margin:8px 0"></div>
+          <div style="border-top:2px dashed #E2D4C2;margin:8px 0"></div>
           <div style="font-weight:900;text-align:center;margin:8px 0">Оплачено заведением. Чаевые — коту, если он настаивает.</div>
-          ${S().syrnik ? `<div style="font-weight:900;text-align:center;margin:-2px 0 8px">Сырник с собой. И ничего лишнего. <span style="color:#F08FA8">✦</span></div>` : ''}
-          ${C.ENABLE_RECEIPT_FACT ? `<div style="font-size:12px;color:#6E6272;text-align:center;line-height:1.35">Макарон и макароны — родня: оба восходят к итальянскому maccarone. Макарон просил не распространяться.</div>` : ''}
-          <div style="font-size:12px;color:#6E6272;text-align:center;line-height:1.35;margin-top:6px">Булочка попросила приложить к чеку охранную грамоту. Мы обещали подумать.</div>
+          ${S().syrnik ? `<div style="font-weight:900;text-align:center;margin:-2px 0 8px">Сырник с собой. И ничего лишнего. <span style="color:#F39A2B">✦</span></div>` : ''}
+          ${C.ENABLE_RECEIPT_FACT ? `<div style="font-size:12px;color:#735E4E;text-align:center;line-height:1.35">Макарон и макароны — родня: оба восходят к итальянскому maccarone. Макарон просил не распространяться.</div>` : ''}
+          <div style="font-size:12px;color:#735E4E;text-align:center;line-height:1.35;margin-top:6px">Булочка попросила приложить к чеку охранную грамоту. Мы обещали подумать.</div>
           <button class="btn block sticky-cta" style="margin-top:14px;font-family:var(--font)">Спасибо!</button>
         </div>`;
       G.layer.appendChild(m);
@@ -1677,7 +1677,7 @@
       const left = (W - bw) / 2;
       const noteW = bw * .16;
       const scr = show(`
-        <div class="sky" style="position:absolute;inset:0;background:linear-gradient(180deg,#BDB2D2 0%,#F2DAE0 100%)"></div>
+        <div class="sky" style="position:absolute;inset:0;background:linear-gradient(180deg,#AFBCD0 0%,#F4DCC0 100%)"></div>
         <div class="sun-slot" style="right:22px;top:calc(86px + var(--safe-top))">здесь<br/>было<br/>солнце</div>
         <div style="position:absolute;left:0;right:0;bottom:0;height:15%;background:repeating-linear-gradient(90deg,transparent 0 46px,rgba(255,255,255,.22) 46px 48px),linear-gradient(180deg,#A9B0BA 0 10px,#BCC3CC 10px 100%)"></div>
         <div style="position:absolute;left:0;right:0;bottom:15%;height:8px;background:#9AA2AD"></div>
@@ -1701,7 +1701,7 @@
       G.setHud({ label: label('roof'), onExit: () => { if (blocked() || gone) return; gone = true; res('exit'); } });
       // эхо в пустом пролёте (необязательно)
       const chip = document.createElement('button'); chip.className = 'echo-chip';
-      chip.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3,10 L3,14 L7,14 L13,19 L13,5 L7,10 Z" fill="#C2405B"/><path d="M16,8 Q19,12 16,16 M18.5,5.5 Q23.5,12 18.5,18.5" stroke="#C2405B" stroke-width="2" fill="none" stroke-linecap="round"/></svg>Крикнуть в пролёт`;
+      chip.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3,10 L3,14 L7,14 L13,19 L13,5 L7,10 Z" fill="#B5520E"/><path d="M16,8 Q19,12 16,16 M18.5,5.5 Q23.5,12 18.5,18.5" stroke="#B5520E" stroke-width="2" fill="none" stroke-linecap="round"/></svg>Крикнуть в пролёт`;
       chip.style.left = (left + bw * 0.63) + 'px'; chip.style.bottom = `calc(15% + ${bh * 0.14 + 10}px)`;
       scr.appendChild(chip);
       const ECHO = ROOF_ECHO;
@@ -1752,7 +1752,7 @@
   async function version() {
     const st = S();
     G.setHud({ hidden: true }); G.tgHeader(DARK);
-    show(`<div class="grow col pad" style="background:linear-gradient(180deg,#2F2834,#4A3550);color:#FFF4EC;align-items:center;text-align:center;padding-top:calc(40px + var(--safe-top))">
+    show(`<div class="grow col pad" style="background:linear-gradient(180deg,#2C221C,#4A3222);color:#FFF3E2;align-items:center;text-align:center;padding-top:calc(40px + var(--safe-top))">
       <div class="char float" style="width:96px">${Art.stNote()}</div>
       <div class="title h2" style="margin-top:8px">Версия следствия</div>
       <p style="opacity:.8;font-weight:700;margin-top:6px">Кто всё это устроил? Выбери подозреваемого. В финале проверим твою версию.</p></div>`);
@@ -1794,7 +1794,7 @@
           </div>
           <div id="react" style="min-height:48px;font-weight:800"></div>
           <button class="btn block hidden" id="next">Дальше</button>
-          <button class="link" id="skipRate" style="color:#F7C9D3">без оценки</button>
+          <button class="link" id="skipRate" style="color:#F9CF9C">без оценки</button>
         </div>`);
       const reactEl = scr.querySelector('#react'), next = scr.querySelector('#next');
       scr.querySelectorAll('.rating button').forEach(b => b.addEventListener('click', () => {
@@ -1843,8 +1843,8 @@
           <button class="btn soft grow" id="cr">🎬 Титры</button>
         </div>
         <div class="col" style="align-items:center;gap:6px">
-          <button class="link" id="again" style="color:#F7C9D3">пройти заново</button>
-          <button class="link" id="inv" style="color:#F7C9D3;opacity:.8">отправить подружке её роль</button>
+          <button class="link" id="again" style="color:#F9CF9C">пройти заново</button>
+          <button class="link" id="inv" style="color:#F9CF9C;opacity:.8">отправить подружке её роль</button>
         </div>
         <p class="tiny" style="text-align:center;opacity:.6;font-weight:700">Никаких обязательных заданий. Даже кот никого не контролирует.</p>
       </div>`);
@@ -1890,7 +1890,7 @@
   }
   function credits() {
     return new Promise(res => {
-      G.tgHeader('#241E28');
+      G.tgHeader('#211A15');
       const teamStr = ['bunny', 'fox', 'hedgehog'].map(k => G.teamName(k)).join(', ');
       const fill = s => s.replace(/\{HEROINE\}/, () => G.herName()).replace('{AUTHOR}', () => C.AUTHOR_NAME).replace('{TEAM}', () => teamStr);
       const rows = C.CREDITS.map(([a, b]) => `<p><b>${esc(a)}</b>${esc(fill(b))}</p>`).join('');

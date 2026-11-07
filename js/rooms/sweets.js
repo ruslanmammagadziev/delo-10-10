@@ -9,13 +9,13 @@
 (function () {
   if (!window.City3D || !City3D.registerRoom) return;
   City3D.registerRoom('sweets', {
-    look: { sky: '#FBEFF2', gnd: '#D9A7A0', hi: 0.64, sun: '#FFE2D0', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #5C2C46 0%, #33202C 72%)', rim: ['#FFD6CC', 0.22], fog: '#33202C' },
+    look: { sky: '#FBF3E8', gnd: '#D9A7A0', hi: 0.64, sun: '#FFE2D0', si: 0.5, off: [-3, 7.5, 6], bg: 'radial-gradient(130% 90% at 50% 30%, #4A2E1E 0%, #261A12 72%)', rim: ['#FFD6CC', 0.22], fog: '#261A12' },
     cam: { portrait: { dx: 0, y: 7.4, dz: 6.2, ly: 0.7, lz: -3.1, fov: 60 }, landscape: { dx: 0.2, y: 4.1, dz: 7.2, ly: 1.35, lz: -2.4, fov: 48 } },
     build(R) {
       const { T, PI, group: g, put, box, cyl, GEO } = R;
       const W = 9, D = 6.5, H = 3.6;
       const HEX = {
-        pink: '#F6C6D0', pinkD: '#E7A6B6', cream: '#FFFDF9', cherry: '#C2405B', stripe: '#F08FA8', rose: '#F3A2B6',
+        pink: '#F6D2B0', pinkD: '#E3AE7E', cream: '#FFFDF9', cherry: '#C2405B', stripe: '#F0A06A', rose: '#F3A2B6',
         mint: '#BFE6D3', mintL: '#D3F0E2', lav: '#C9B6F0', lavL: '#E2D8FA', caramel: '#E7B47C', caramelD: '#C88D52',
         white: '#FFFFFF', berry: '#E2405E', leaf: '#8FC48A', leafD: '#6FA375', ink: '#4A3A48', butter: '#F7DE8E',
       };
@@ -117,37 +117,37 @@
         c.setLineDash([16, 12]); c.strokeStyle = 'rgba(255,214,224,.75)'; c.lineWidth = 6; R.rrect(c, 22, 22, 468, 628, 30); c.stroke(); c.setLineDash([]);
         R.text(c, 'Меню дня', 256, 112, 112, '#FFF6EE', { f: 'Caveat', w: 700, max: 440 });
         c.strokeStyle = '#BFE6D3'; c.lineWidth = 7; c.lineCap = 'round'; c.beginPath(); for (let x = 110; x <= 402; x += 4) { const y = 178 + Math.sin(x / 13) * 6; x === 110 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
-        R.text(c, 'Хлеб', 256, 300, 136, '#F9BFCB', { f: 'Caveat', w: 700 });
-        R.text(c, 'без хлеба', 256, 420, 120, '#F9BFCB', { f: 'Caveat', w: 700, max: 450 });
+        R.text(c, 'Хлеб', 256, 300, 136, '#F9D29A', { f: 'Caveat', w: 700 });
+        R.text(c, 'без хлеба', 256, 420, 120, '#F9D29A', { f: 'Caveat', w: 700, max: 450 });
         c.strokeStyle = '#FFF6EE'; c.lineWidth = 6;
         c.beginPath(); c.moveTo(196, 540); c.lineTo(204, 600); c.lineTo(252, 600); c.lineTo(260, 540); c.closePath(); c.stroke();
         c.beginPath(); c.arc(266, 562, 13, -1.3, 1.3); c.stroke();
         [212, 230, 248].forEach(x => { c.beginPath(); c.moveTo(x, 528); c.quadraticCurveTo(x - 8, 512, x, 498); c.quadraticCurveTo(x + 8, 486, x, 474); c.stroke(); });
         const heart = (x, y, s, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y + s * 0.9); c.bezierCurveTo(x - s * 1.4, y, x - s * 0.6, y - s * 1.0, x, y - s * 0.3); c.bezierCurveTo(x + s * 0.6, y - s * 1.0, x + s * 1.4, y, x, y + s * 0.9); c.fill(); };
-        heart(110, 560, 22, '#F9BFCB'); heart(400, 575, 18, '#F9BFCB'); heart(350, 520, 12, '#BFE6D3');
+        heart(110, 560, 22, '#F9D29A'); heart(400, 575, 18, '#F9D29A'); heart(350, 520, 12, '#BFE6D3');
         const star = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); for (let i = 0; i < 10; i++) { const a = -PI / 2 + i * PI / 5, rr = i % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.closePath(); c.fill(); };
         star(80, 230, 16, '#F7DE8E'); star(440, 250, 13, '#F7DE8E'); star(150, 620, 11, '#F7DE8E');
         // циферблат часов-вишенки
-        c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(656, 128, 126, 0, 7); c.fill(); c.fillStyle = '#F08FA8';
+        c.fillStyle = '#FFF6EE'; c.beginPath(); c.arc(656, 128, 126, 0, 7); c.fill(); c.fillStyle = '#F0A06A';
         for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2; c.beginPath(); c.arc(656 + Math.sin(a) * 100, 128 - Math.cos(a) * 100, i % 3 ? 7 : 12, 0, 7); c.fill(); }
         // картина: кекс
         c.save(); c.translate(784, 0);
         c.fillStyle = '#BFE6D3'; c.fillRect(0, 0, 256, 256);
         c.fillStyle = '#FFFDF9'; c.globalAlpha = 0.5; [[40, 50], [210, 70], [60, 200], [200, 210]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 9, 0, 7); c.fill(); }); c.globalAlpha = 1;
         c.fillStyle = '#C2405B'; c.beginPath(); c.moveTo(78, 150); c.lineTo(178, 150); c.lineTo(166, 214); c.lineTo(90, 214); c.closePath(); c.fill();
-        c.strokeStyle = '#F08FA8'; c.lineWidth = 6; [100, 128, 156].forEach(x => { c.beginPath(); c.moveTo(x, 154); c.lineTo(x - 2, 210); c.stroke(); });
+        c.strokeStyle = '#F0A06A'; c.lineWidth = 6; [100, 128, 156].forEach(x => { c.beginPath(); c.moveTo(x, 154); c.lineTo(x - 2, 210); c.stroke(); });
         c.fillStyle = '#F6A9BC'; [[128, 132, 56], [108, 112, 36], [148, 112, 36], [128, 92, 34]].forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); });
         c.fillStyle = '#C2405B'; c.beginPath(); c.arc(128, 58, 16, 0, 7); c.fill();
         c.fillStyle = '#C9B6F0'; [[100, 120], [150, 96], [134, 130], [112, 92]].forEach(([x, y]) => c.fillRect(x, y, 10, 4));
         c.restore();
         // ярлык бабл-ти-станции
-        c.fillStyle = '#FFFDF9'; R.rrect(c, 530, 274, 252, 76, 24); c.fill(); R.text(c, 'бабл-ти', 656, 314, 54, '#C2405B', { f: 'Caveat', w: 700 }); }
+        c.fillStyle = '#FFFDF9'; R.rrect(c, 530, 274, 252, 76, 24); c.fill(); R.text(c, 'бабл-ти', 656, 314, 54, '#A9502F', { f: 'Caveat', w: 700 }); }
       const atlasM = R.toon('#FFFFFF', { map: R.tex(acv) });
 
       /* ---------- пол: пастельная шахматка ---------- */
       const [fcv, fc] = R.cnv(256, 256);
       fc.fillStyle = '#FFF6EF'; fc.fillRect(0, 0, 256, 256);
-      fc.fillStyle = '#F8D2DA'; fc.fillRect(0, 0, 128, 128); fc.fillRect(128, 128, 128, 128);
+      fc.fillStyle = '#F3DDC0'; fc.fillRect(0, 0, 128, 128); fc.fillRect(128, 128, 128, 128);
       fc.strokeStyle = 'rgba(214,150,165,.32)'; fc.lineWidth = 3;
       [0, 128, 256].forEach(v => { fc.beginPath(); fc.moveTo(v, 0); fc.lineTo(v, 256); fc.stroke(); fc.beginPath(); fc.moveTo(0, v); fc.lineTo(256, v); fc.stroke(); });
       box(sw, mm.pink, 0, -0.06, -D / 2, W + 0.4, 0.12, D + 0.2);
@@ -155,8 +155,8 @@
 
       /* ---------- стены: полосатые обои, мятные панели, глазурь ---------- */
       const [wcv, wc] = R.cnv(256, 256);
-      wc.fillStyle = '#FCE2E7'; wc.fillRect(0, 0, 256, 256);
-      wc.fillStyle = '#F7C6D1'; [0, 128].forEach(x => wc.fillRect(x, 0, 64, 256));
+      wc.fillStyle = '#FCEBD6'; wc.fillRect(0, 0, 256, 256);
+      wc.fillStyle = '#CFE6D6'; [0, 128].forEach(x => wc.fillRect(x, 0, 64, 256));
       wc.fillStyle = 'rgba(240,143,168,.4)'; [0, 64, 128, 192].forEach(x => wc.fillRect(x - 1, 0, 3, 256));
       wc.fillStyle = '#FFFFFF'; [[96, 40], [96, 168], [224, 104], [224, 232]].forEach(([x, y]) => { wc.beginPath(); wc.arc(x, y, 6, 0, 7); wc.fill(); });
       const paperM = R.toon('#FFFFFF', { map: repTex(wcv) });

@@ -246,7 +246,7 @@
     id: P, kind: 'story',
     name: 'Кондитерская «Сахарная пудра»', short: 'Кондитерская',
     sign: 'САХАРНАЯ ПУДРА', motto: 'какао · десерты · Пудра',
-    icon: '🧁', color: '#FBE1E7',
+    icon: '🧁', color: '#FAD9B8',
     street: { x: 16.2, w: 3.8, doorDx: 1.05, bkey: null },
     room: P, opens: 0,
     host: { who: 'bunny', npc: 'bunny' },

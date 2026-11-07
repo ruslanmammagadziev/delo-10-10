@@ -35,13 +35,13 @@
       const grp = (par, x, y, z, ry, key) => { const q = new T.Group(); q.position.set(x, y, z); if (ry) q.rotation.y = ry; if (key) q.userData.key = key; par.add(q); return q; };
       const hit = (par, x, y, z, w, h, d) => { const m = put(par, GEO.box, hitM, [x, y, z], [w, h, d]); m.castShadow = false; m.receiveShadow = false; return m; };
       const [pcv, pc] = R.cnv(128, 128);
-      pc.fillStyle = '#FFF4EC'; pc.fillRect(0, 0, 128, 128); pc.fillStyle = '#F8E9DF'; pc.fillRect(40, 0, 48, 128);
+      pc.fillStyle = '#FFF3E2'; pc.fillRect(0, 0, 128, 128); pc.fillStyle = '#F8E9DF'; pc.fillRect(40, 0, 48, 128);
       pc.fillStyle = '#E2E1E8'; [[64, 32], [64, 96], [12, 64], [116, 64]].forEach(([x, y]) => { pc.beginPath(); pc.moveTo(x, y - 6); pc.lineTo(x + 4, y); pc.lineTo(x, y + 6); pc.lineTo(x - 4, y); pc.fill(); });
       const paperT = R.tex(pcv); paperT.wrapS = paperT.wrapT = T.RepeatWrapping; paperT.repeat.set(1.8, 1.8);
       const M = {
         wall: toon('#FFFFFF', { map: paperT }), wain: toon('#C9CED6'), trim: toon('#A9B0BC'),
         wood: toon('#B98C6A'), woodD: toon('#8E6248'),
-        velvet: toon('#9E2F47'), steel: toon('#B9C1CD', { emissive: new T.Color('#E8F0FF'), emissiveIntensity: 0.1 }),
+        velvet: toon('#6B3517'), steel: toon('#B9C1CD', { emissive: new T.Color('#E8F0FF'), emissiveIntensity: 0.1 }),
         brass: toon('#E8C770', { emissive: new T.Color('#B8903A'), emissiveIntensity: 0.14 }), ink: toon('#5A4C5C'),
         lamp: toon('#FFF6DE', { emissive: new T.Color('#FFE2A0'), emissiveIntensity: 0.95 }),
         glass: toon('#FFFFFF', { transparent: true, opacity: 0.26, depthWrite: false }),
@@ -80,7 +80,7 @@
       // вид из окна: мягкие осенние холмы, облака и круглые деревца
       { const c = ac, ox = 512, oy = 0, w = 512, h = 416;
         c.save(); c.translate(ox, oy); c.beginPath(); c.rect(0, 0, w, h); c.clip();
-        const sky = c.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#C9C6DE'); sky.addColorStop(0.6, '#E6DCE8'); sky.addColorStop(1, '#F1E2E6'); c.fillStyle = sky; c.fillRect(0, 0, w, h);
+        const sky = c.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#C9C6DE'); sky.addColorStop(0.6, '#E6DCE8'); sky.addColorStop(1, '#F0E3D1'); c.fillStyle = sky; c.fillRect(0, 0, w, h);
         c.fillStyle = 'rgba(255,255,255,.55)'; [[90, 70, 44], [140, 62, 30], [380, 96, 36], [420, 90, 26]].forEach(([x, y, r]) => { c.beginPath(); c.ellipse(x, y, r * 1.6, r * 0.55, 0, 0, 7); c.fill(); });
         c.fillStyle = '#C3B9D2'; c.beginPath(); c.moveTo(0, 250); c.quadraticCurveTo(110, 178, 230, 232); c.quadraticCurveTo(330, 278, 420, 210); c.quadraticCurveTo(470, 178, 512, 196); c.lineTo(512, h); c.lineTo(0, h); c.fill();
         c.fillStyle = '#D6C7A0'; c.beginPath(); c.moveTo(0, 330); c.quadraticCurveTo(140, 256, 290, 312); c.quadraticCurveTo(400, 350, 512, 292); c.lineTo(512, h); c.lineTo(0, h); c.fill();
@@ -109,7 +109,7 @@
         const curl = (x, y, s, dir) => { c.beginPath(); for (let k = 0; k <= 40; k++) { const a = k / 40 * PI * 2.6, r = s * (1 - k / 46); const px = x + dir * Math.cos(a) * r, py = y + Math.sin(a) * r; k ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke(); };
         curl(ox + 120, oy + 128, 46, 1); curl(ox + 392, oy + 128, 46, -1);
         c.beginPath(); c.moveTo(ox + 170, oy + 128); c.bezierCurveTo(ox + 220, oy + 80, ox + 292, oy + 176, ox + 342, oy + 128); c.stroke();
-        c.fillStyle = '#C9A2AE'; for (let i = 0; i < 26; i++) { c.beginPath(); c.arc(ox + 40 + i * 17.3, oy + 14, 3.2, 0, 7); c.fill(); c.beginPath(); c.arc(ox + 40 + i * 17.3, oy + h - 14, 3.2, 0, 7); c.fill(); } }
+        c.fillStyle = '#C9A57E'; for (let i = 0; i < 26; i++) { c.beginPath(); c.arc(ox + 40 + i * 17.3, oy + 14, 3.2, 0, 7); c.fill(); c.beginPath(); c.arc(ox + 40 + i * 17.3, oy + h - 14, 3.2, 0, 7); c.fill(); } }
       // два чертежа в рамках (левая стена): шестерёнка и циферблат
       [[512, 800], [768, 800]].forEach(([ox, oy], k) => {
         const c = ac, w = 248, h = 216; c.fillStyle = '#FBF5EA'; c.fillRect(ox + 4, oy + 4, w, h);
@@ -464,7 +464,7 @@
       for (let i = 0; i <= N; i++) { const t = i / N, a = t * turns * Math.PI * 2, r = rMax * (1 - t * 0.82); pts.push([100 + Math.cos(a) * r, 100 + Math.sin(a) * r]); }
     }
     const d = 'M' + pts.map(([x, y]) => x.toFixed(1) + ',' + y.toFixed(1)).join(' L');
-    return `<svg viewBox="0 0 200 200" role="img" aria-label="проволока"><rect x="8" y="8" width="184" height="184" rx="26" fill="#9E2F47" opacity=".16"/><path d="${d}" fill="none" stroke="#AEB4C0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#EEF1F5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
+    return `<svg viewBox="0 0 200 200" role="img" aria-label="проволока"><rect x="8" y="8" width="184" height="184" rx="26" fill="#6B3517" opacity=".16"/><path d="${d}" fill="none" stroke="#AEB4C0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#EEF1F5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
   }
   async function curlDone(ctx) {
     await ctx.say({ text: 'Получилось! Такая спиралька в часах зовётся «волосок». Это она задаёт ритм тиканью.', s: 'v_curl' });

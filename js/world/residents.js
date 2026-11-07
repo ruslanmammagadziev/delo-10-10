@@ -213,7 +213,7 @@
       ['cat_ginger', 'Кот Бублик', '🐱', '#FDE2C6'], ['cat_tabby', 'Кот Тапок', '🐈', '#EDE3D6'], ['cat_tux', 'Кот Сажа', '🐈‍⬛', '#E9E3EE'],
       ['capybara', 'Капибара Пауза', '🍊', '#F3E2D0'], ['ducks', 'Утка Кряквина', '🦆', '#E3EEF6'], ['ducklings', 'Утята', '🐥', '#FFF3C4'],
       ['mice', 'Трио «До-Ре-Мышь»', '🐭', '#EEE7F3'], ['hedgehog_leaf', 'Ёжик Шуршик', '🦔', '#F6E6D6']]
-      .forEach(([id, nm, em, bg]) => { if (!G.speakers[id]) add[id] = { name: () => (WORLD._lifeName ? WORLD._lifeName(id) : null) || nm, art: () => G.emojiAvatar(em, bg || '#FBE1E7') }; });
+      .forEach(([id, nm, em, bg]) => { if (!G.speakers[id]) add[id] = { name: () => (WORLD._lifeName ? WORLD._lifeName(id) : null) || nm, art: () => G.emojiAvatar(em, bg || '#FCE7CC') }; });
     G.addSpeakers(add);
   })();
   // где стоят (если карта не сказала): x, z, поворот

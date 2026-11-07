@@ -114,18 +114,18 @@
   function drawIdle(c, w) {
     const gr = c.createLinearGradient(0, 0, 0, 480); gr.addColorStop(0, '#FFF6E6'); gr.addColorStop(1, '#F6DCC8');
     c.fillStyle = gr; c.fillRect(0, 0, 720, 480);
-    c.strokeStyle = '#C2405B'; c.lineWidth = 5; c.strokeRect(22, 22, 676, 436); c.lineWidth = 2; c.strokeRect(34, 34, 652, 412);
-    textBlock(c, 'ФИЛЬМ НЕДЕЛИ', 360, 78, 56, '#9E2F47', '700 56px Comfortaa, Nunito, sans-serif', 600, 60);
-    doodle(c, w, 360, 168, 0.5, '#C98A9A');
-    textBlock(c, `„${film(w).t}“`, 360, 296, 72, '#5A2C44', '700 72px Caveat, cursive', 520, 68);
-    textBlock(c, 'сеанс — по тапу', 360, 410, 56, '#B07A8A', '700 56px Caveat, cursive', 480, 60);
+    c.strokeStyle = '#B5520E'; c.lineWidth = 5; c.strokeRect(22, 22, 676, 436); c.lineWidth = 2; c.strokeRect(34, 34, 652, 412);
+    textBlock(c, 'ФИЛЬМ НЕДЕЛИ', 360, 78, 56, '#6B3517', '700 56px Comfortaa, Nunito, sans-serif', 600, 60);
+    doodle(c, w, 360, 168, 0.5, '#C9A57E');
+    textBlock(c, `„${film(w).t}“`, 360, 296, 72, '#4B3424', '700 72px Caveat, cursive', 520, 68);
+    textBlock(c, 'сеанс — по тапу', 360, 410, 56, '#96683F', '700 56px Caveat, cursive', 480, 60);
   }
   // тень-зайчик на кремовом луче
   function drawBunny(c) {
     c.fillStyle = '#FFF6E6'; c.fillRect(0, 0, 720, 480);
     const g = c.createRadialGradient(360, 230, 30, 360, 240, 380); g.addColorStop(0, '#FFFBF2'); g.addColorStop(1, '#EED3BC');
     c.fillStyle = g; c.fillRect(0, 0, 720, 480);
-    c.fillStyle = 'rgba(58,42,52,0.88)';
+    c.fillStyle = 'rgba(59,42,32,0.88)';
     const E = (x, y, rx, ry, r) => { c.beginPath(); c.ellipse(x, y, rx, ry, r, 0, PI * 2); c.fill(); };
     E(300, 128, 26, 88, -0.28); E(362, 118, 24, 92, 0.18);
     E(336, 252, 92, 72, 0.1); E(258, 274, 44, 32, -0.2);
@@ -306,7 +306,7 @@
     id: P, kind: 'story',
     name: 'Кинотеатр «Саспенс»', short: 'Кинотеатр',
     sign: 'САСПЕНС', motto: 'кино · попкорн · платочки',
-    icon: '🎬', color: '#F7C9D3',
+    icon: '🎬', color: '#F2C3A8',
     street: { x: 0, w: 4.6, doorDx: 0, bkey: null },
     room: 'cinema', opens: 0,
     host: { who: 'raccoon', npc: 'raccoon' },

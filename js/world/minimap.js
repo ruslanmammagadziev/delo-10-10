@@ -87,20 +87,20 @@
 
   /* ---------- палитра карты ---------- */
   const COL = {
-    paper: '#F2E6E3', ground: '#FBF4EF', road: [214, 205, 222], curb: [196, 184, 206], path: [239, 222, 199], lawn: [204, 225, 178],
+    paper: '#F3E9DC', ground: '#FBF4EF', road: [214, 205, 222], curb: [196, 184, 206], path: [239, 222, 199], lawn: [204, 225, 178],
     water: [190, 221, 241], waterLine: 'rgba(255,255,255,.75)', plaza: '#F6E3D6', plazaRing: 'rgba(214,170,150,.35)',
-    block: ['#EBCBD0', '#DDD0EA', '#F0DCC6', '#D3E4D5', '#F2D5DC', '#DBD6EE', '#F3E1CB', '#D9E6F0'],
-    tree: ['#E9A86A', '#E59B8F', '#EBC56A', '#A9C98E', '#E7A3B2', '#D99A64'],
-    label: '#6F5470', hero: '#C2405B',
+    block: ['#EBD3B5', '#DDD0EA', '#F0DCC6', '#D3E4D5', '#F2DCC0', '#DBD6EE', '#F3E1CB', '#D9E6F0'],
+    tree: ['#E9A86A', '#E0A070', '#EBC56A', '#A9C98E', '#D98F55', '#D99A64'],
+    label: '#6B5443', hero: '#B5520E',
   };
   const KINDS = {
-    mission: { col: '#C2405B', g: 'case', name: 'Дело', group: 'Дело' },
+    mission: { col: '#B5520E', g: 'case', name: 'Дело', group: 'Дело' },
     place: { col: '#9A84C6', g: 'house', name: 'Места', group: 'Места прогулки' },
     shop: { col: '#55A887', g: 'bag', name: 'Лавки', group: 'Лавки' },
     view: { col: '#6C9FD0', g: 'eye', name: 'Виды', group: 'Прогулки и виды' },
     square: { col: '#E3A93E', g: 'sun', name: 'Площадь', group: 'Прогулки и виды' },
     park: { col: '#76AA62', g: 'tree', name: 'Парк', group: 'Прогулки и виды' },
-    dogpark: { col: '#E58AA2', g: 'paw', name: 'Собачья площадка', group: 'Прогулки и виды' },
+    dogpark: { col: '#E8933A', g: 'paw', name: 'Собачья площадка', group: 'Прогулки и виды' },
     bikes: { col: '#DE9A34', g: 'bike', name: 'Велики', group: 'Транспорт' },
     garage: { col: '#DD7E63', g: 'car', name: 'Гараж', group: 'Транспорт' },
     edge: { col: '#D06F4C', g: 'road', name: 'Выезд из города', group: 'Транспорт' },
@@ -111,7 +111,7 @@
     bakery: { col: '#D9A04A', g: 'bread', name: 'Пекарня', group: 'В селе' },
     cafe: { col: '#A86A48', g: 'cup', name: 'Кофейня', group: 'В селе' },   // волна 11: кофейня «Мархарай» на гребневой улице
     spring: { col: '#5DA6D6', g: 'drop', name: 'Родник', group: 'В селе' },
-    wedding: { col: '#D9718E', g: 'note', name: 'Свадьба', group: 'В селе' },
+    wedding: { col: '#C9783A', g: 'note', name: 'Свадьба', group: 'В селе' },
     kaz: { col: '#B58ACB', g: 'scarf', name: 'Примерка', group: 'В селе' },
     workshop: { col: '#9E9AB4', g: 'hammer', name: 'Мастерская', group: 'В селе' },
     museum: { col: '#A08FC2', g: 'columns', name: 'Художественный комбинат', group: 'В селе' },   // волна «комбинат»: музей и цех мастеров
@@ -122,14 +122,14 @@
     pool: { col: '#4FA7D8', g: 'waves', name: 'Бассейн', group: 'Отель на вершине' },
     golf: { col: '#62A866', g: 'flag', name: 'Мини-гольф', group: 'Отель на вершине' },
     fire: { col: '#E4824E', g: 'flame', name: 'Костёр', group: 'Отель на вершине' },
-    spa: { col: '#C88FB0', g: 'steam', name: 'Банный комплекс', group: 'Отель на вершине' },
+    spa: { col: '#C98A4A', g: 'steam', name: 'Банный комплекс', group: 'Отель на вершине' },
     sport: { col: '#58A47C', g: 'ball', name: 'Спорт', group: 'Отель на вершине' },
     bench: { col: '#B48A62', g: 'bench', name: 'Лавочка', group: 'Дорога' },
     gate: { col: '#C98A4E', g: 'gate', name: 'Ворота села', group: 'Дорога' },
-    city: { col: '#C2405B', g: 'city', name: 'Город', group: 'Дорога' },
+    city: { col: '#B5520E', g: 'city', name: 'Город', group: 'Дорога' },
     hairpin: { col: '#B9A7C6', g: 'uturn', name: 'Шпилька', group: 'Дорога' },
-    dog: { col: '#E58AA2', g: 'paw', name: 'Собачка', group: 'Транспорт' },
-    waypoint: { col: '#E0457B', g: 'pin', name: 'Метка', group: 'Транспорт' },
+    dog: { col: '#E8933A', g: 'paw', name: 'Собачка', group: 'Транспорт' },
+    waypoint: { col: '#D9502A', g: 'pin', name: 'Метка', group: 'Транспорт' },
   };
   // группы списка на вкладке «Кубачи» и порядок
   const MTN_GROUPS = ['В селе', 'Отель на вершине', 'Дорога', 'Прогулки и виды', 'Лавки', 'Транспорт'];
@@ -145,16 +145,16 @@
     gate: 'Ещё чуть-чуть — и площадь с лавками.', city: 'Вниз по серпантину — домой.',
     cafe: 'Капучино у лисички-баристы и вид на крыши из окна.',
   };
-  const rgba = (hex, a) => { const h = String(hex || '#F2DCE2').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+  const rgba = (hex, a) => { const h = String(hex || '#F1E0C8').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
   const shade = (hex, k) => { const h = String(hex || '#ccc').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); const f = v => clamp(Math.round(v * k), 0, 255); return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`; };
 
   /* ---------- CSS (свой; вид .w-mini может перекрыть css/style.css) ---------- */
   const CSS = `
 :where(.wmm-wrap){position:absolute;left:var(--hud-l,12px);bottom:var(--hud-b,calc(12px + var(--safe-bottom,0px)));width:var(--hud-radar,96px);height:var(--hud-radar,96px);z-index:18;pointer-events:none;transition:opacity .18s}
 :where(.wmm-wrap) > *{pointer-events:auto}
-:where(.wmm){position:absolute;inset:0;padding:0;border:0;border-radius:50%;overflow:hidden;background:rgba(255,253,249,.9);box-shadow:0 0 0 1.5px rgba(176,122,142,.5),0 5px 16px rgba(58,46,63,.2);cursor:pointer;touch-action:manipulation;transition:opacity .25s,transform .3s cubic-bezier(.2,1.3,.4,1),width .3s,height .3s;-webkit-tap-highlight-color:transparent}
+:where(.wmm){position:absolute;inset:0;padding:0;border:0;border-radius:50%;overflow:hidden;background:rgba(255,253,249,.9);box-shadow:0 0 0 1.5px rgba(176,130,90,.5),0 5px 16px rgba(59,42,32,.2);cursor:pointer;touch-action:manipulation;transition:opacity .25s,transform .3s cubic-bezier(.2,1.3,.4,1),width .3s,height .3s;-webkit-tap-highlight-color:transparent}
 .wmm canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}
-.wmm::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 3.5px #fff,inset 0 0 14px rgba(58,46,63,.16);pointer-events:none}
+.wmm::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 3.5px #fff,inset 0 0 14px rgba(59,42,32,.16);pointer-events:none}
 .wmm:active{transform:scale(.95)}
 .wmm .wmm-ic{position:absolute;inset:0;display:none;place-items:center;pointer-events:none}
 .wmm-wrap.off .wmm{opacity:.38;pointer-events:none}
@@ -166,90 +166,90 @@
 :where(.w-reg.zip) .wmm-wrap,:where(.w-reg.look) .wmm-wrap{display:none}
 :where([data-hud-mode="zip"]) .wmm-wrap,:where([data-hud-mode="look"]) .wmm-wrap,:where([data-hud-mode="sport"]) .wmm-wrap,:where([data-hud-mode="dance"]) .wmm-wrap{display:none}
 .wmm-wrap.wmm-off{display:none!important}
-.wm-tabs{display:flex;gap:4px;margin:0 10px 8px;padding:4px;border-radius:18px;background:#F8EEF1;flex:none}
-.wm-tab{flex:1;min-width:0;height:44px;border:0;border-radius:14px;background:transparent;color:#8A6E7E;font:inherit;font-weight:900;font-size:15.5px;cursor:pointer;touch-action:manipulation;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wm-tab.on{background:#fff;color:#9E2F47;box-shadow:0 2px 0 rgba(58,46,63,.08)}
+.wm-tabs{display:flex;gap:4px;margin:0 10px 8px;padding:4px;border-radius:18px;background:#F8EFE2;flex:none}
+.wm-tab{flex:1;min-width:0;height:44px;border:0;border-radius:14px;background:transparent;color:#7A6250;font:inherit;font-weight:900;font-size:15.5px;cursor:pointer;touch-action:manipulation;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wm-tab.on{background:#fff;color:#6B3517;box-shadow:0 2px 0 rgba(59,42,32,.08)}
 .wm-pane{display:flex;flex-direction:column;flex:1;min-height:0}
 .wm-pane.hidden{display:none}
 .wm-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .wm-seg{position:absolute;left:8px;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px;z-index:2;pointer-events:none}
-.wm-seg button{min-height:44px;padding:0 14px;border:0;border-radius:22px;background:rgba(255,253,249,.95);color:#8A6E7E;font:inherit;font-weight:900;font-size:15px;box-shadow:0 2px 0 rgba(58,46,63,.12);cursor:pointer;touch-action:manipulation;pointer-events:auto}
-.wm-seg button.on{background:#C2405B;color:#fff}
+.wm-seg button{min-height:44px;padding:0 14px;border:0;border-radius:22px;background:rgba(255,253,249,.95);color:#7A6250;font:inherit;font-weight:900;font-size:15px;box-shadow:0 2px 0 rgba(59,42,32,.12);cursor:pointer;touch-action:manipulation;pointer-events:auto}
+.wm-seg button.on{background:#B5520E;color:#fff}
 /* .pad — ещё и общий класс css/style.css (отступы экрана): у списка и пути отступы заданы целиком */
 .wm-route{padding:6px 12px 16px}
 .wm-route.pad{padding:6px 12px 230px}
-.wm-route h4{margin:12px 2px 6px;font-family:var(--font-title,'Comfortaa',sans-serif);font-size:17.5px;font-weight:700;color:#9E2F47}
-.wm-step{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;margin-top:8px;border-radius:16px;background:#fff;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;font-size:16px;font-weight:700;color:#3A2E3F;line-height:1.3}
-.wm-step b{flex:none;width:28px;height:28px;border-radius:50%;background:#C2405B;color:#fff;font-size:15px;line-height:28px;text-align:center}
+.wm-route h4{margin:12px 2px 6px;font-family:var(--font-title,'Comfortaa',sans-serif);font-size:17.5px;font-weight:700;color:#6B3517}
+.wm-step{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;margin-top:8px;border-radius:16px;background:#fff;box-shadow:0 2px 0 rgba(59,42,32,.07),0 0 0 1px #F4EADD inset;font-size:16px;font-weight:700;color:#3B2A20;line-height:1.3}
+.wm-step b{flex:none;width:28px;height:28px;border-radius:50%;background:#B5520E;color:#fff;font-size:15px;line-height:28px;text-align:center}
 .wm-step.lock{color:#8E89A6}
 .wm-step.lock b{background:#B7B0C4}
 .wm-step small{display:block;font-size:15px;color:#8A7E8E;margin-top:2px}
 .wm-ovgo{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.wm-ovgo button{flex:1 1 40%;min-height:52px;padding:6px 10px;border:0;border-radius:16px;background:#F8EEF1;color:#9E2F47;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
+.wm-ovgo button{flex:1 1 40%;min-height:52px;padding:6px 10px;border:0;border-radius:16px;background:#F8EFE2;color:#6B3517;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
 .wm-pin2{margin-top:10px;width:100%;min-height:50px;border:0;border-radius:25px;background:#FFF4D9;color:#8A6412;font:inherit;font-weight:900;font-size:16px;cursor:pointer;touch-action:manipulation}
-.wm-pin2.on{background:#F8EEF1;color:#6E6272}
+.wm-pin2.on{background:#F8EFE2;color:#735E4E}
 .wm-ovbox .wm-tools{left:auto;right:8px;top:auto;bottom:8px}
 .wm-ovbox .wm-north{right:auto;left:9px;top:12px;bottom:auto}
-.modal.wm-sheet{position:absolute;inset:0;z-index:76;display:flex;align-items:stretch;justify-content:center;padding:calc(62px + var(--safe-top,0px)) 8px calc(8px + var(--safe-bottom,0px));background:rgba(58,46,63,.38);animation:wmFade .22s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif)}
+.modal.wm-sheet{position:absolute;inset:0;z-index:76;display:flex;align-items:stretch;justify-content:center;padding:calc(62px + var(--safe-top,0px)) 8px calc(8px + var(--safe-bottom,0px));background:rgba(59,42,32,.38);animation:wmFade .22s ease both;font-family:var(--font,'Nunito',system-ui,sans-serif)}
 .modal.wm-sheet.out{animation:wmOut .2s ease both}
 @keyframes wmFade{from{opacity:0}}
 @keyframes wmOut{to{opacity:0}}
-.wm-card{position:relative;width:100%;max-width:440px;max-height:100%;min-height:0;display:flex;flex-direction:column;background:#FFFDF9;border-radius:24px;overflow:hidden;box-shadow:0 10px 0 rgba(58,46,63,.12),0 24px 50px rgba(58,46,63,.28);animation:wmPop .34s cubic-bezier(.2,1.25,.4,1) both}
+.wm-card{position:relative;width:100%;max-width:440px;max-height:100%;min-height:0;display:flex;flex-direction:column;background:#FFFDF9;border-radius:24px;overflow:hidden;box-shadow:0 10px 0 rgba(59,42,32,.12),0 24px 50px rgba(59,42,32,.28);animation:wmPop .34s cubic-bezier(.2,1.25,.4,1) both}
 @keyframes wmPop{from{opacity:0;transform:translateY(22px) scale(.97)}}
 .wm-head{display:flex;align-items:center;gap:8px;padding:12px 12px 8px 16px;flex:none}
-.wm-title{flex:1;min-width:0;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:20px;color:#9E2F47}
-.wm-x{width:46px;height:46px;border:0;border-radius:15px;background:#F8EEF1;color:#6E6272;font-size:19px;font-weight:900;cursor:pointer;flex:none;touch-action:manipulation}
+.wm-title{flex:1;min-width:0;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:20px;color:#6B3517}
+.wm-x{width:46px;height:46px;border:0;border-radius:15px;background:#F8EFE2;color:#735E4E;font-size:19px;font-weight:900;cursor:pointer;flex:none;touch-action:manipulation}
 .wm-x:active,.wm-tools button:active,.wm-row:active,.wm-chip:active{transform:translateY(2px)}
-.wm-mapbox{position:relative;margin:0 10px;border-radius:18px;overflow:hidden;background:#F2E6E3;box-shadow:inset 0 0 0 2px #F1E2E6;flex:none}
+.wm-mapbox{position:relative;margin:0 10px;border-radius:18px;overflow:hidden;background:#F3E9DC;box-shadow:inset 0 0 0 2px #F0E3D1;flex:none}
 .wm-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .wm-tools{position:absolute;left:8px;bottom:8px;display:flex;gap:8px}
-.wm-tools button{width:46px;height:46px;border:0;border-radius:15px;background:rgba(255,253,249,.95);color:#9E2F47;font:900 24px/1 system-ui,sans-serif;box-shadow:0 3px 0 rgba(58,46,63,.14);cursor:pointer;touch-action:manipulation;display:grid;place-items:center}
+.wm-tools button{width:46px;height:46px;border:0;border-radius:15px;background:rgba(255,253,249,.95);color:#6B3517;font:900 24px/1 system-ui,sans-serif;box-shadow:0 3px 0 rgba(59,42,32,.14);cursor:pointer;touch-action:manipulation;display:grid;place-items:center}
 .wm-tools button.me{font-size:16px;font-family:inherit}
-.wm-north{position:absolute;right:9px;bottom:9px;width:30px;height:30px;border-radius:50%;background:rgba(255,253,249,.92);display:grid;place-items:center;font:900 14px/1 var(--font-title,'Comfortaa',sans-serif);color:#C2405B;box-shadow:0 2px 0 rgba(58,46,63,.12);pointer-events:none}
-.wm-north::before{content:'';position:absolute;top:-5px;left:50%;margin-left:-4px;border:4px solid transparent;border-top:0;border-bottom:6px solid #C2405B}
-.wm-legend{position:sticky;top:0;z-index:2;display:flex;flex-wrap:nowrap;gap:8px;padding:10px 12px 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:#FFFDF9;box-shadow:0 6px 8px -8px rgba(58,46,63,.25);touch-action:pan-x pan-y}
+.wm-north{position:absolute;right:9px;bottom:9px;width:30px;height:30px;border-radius:50%;background:rgba(255,253,249,.92);display:grid;place-items:center;font:900 14px/1 var(--font-title,'Comfortaa',sans-serif);color:#B5520E;box-shadow:0 2px 0 rgba(59,42,32,.12);pointer-events:none}
+.wm-north::before{content:'';position:absolute;top:-5px;left:50%;margin-left:-4px;border:4px solid transparent;border-top:0;border-bottom:6px solid #B5520E}
+.wm-legend{position:sticky;top:0;z-index:2;display:flex;flex-wrap:nowrap;gap:8px;padding:10px 12px 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:#FFFDF9;box-shadow:0 6px 8px -8px rgba(59,42,32,.25);touch-action:pan-x pan-y}
 .wm-legend::-webkit-scrollbar{display:none}
-.wm-chip{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 16px 0 6px;border:0;border-radius:22px;background:#FBF1EE;color:#6E6272;font:inherit;font-size:15px;font-weight:800;white-space:nowrap;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wm-chip{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 16px 0 6px;border:0;border-radius:22px;background:#FBF2E6;color:#735E4E;font:inherit;font-size:15px;font-weight:800;white-space:nowrap;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .wm-chip.all{padding:0 18px}
 .wm-chip img{width:32px;height:32px;display:block;pointer-events:none}
-.wm-chip.on{background:#C2405B;color:#fff;box-shadow:0 3px 0 #9E2F47}
+.wm-chip.on{background:#B5520E;color:#fff;box-shadow:0 3px 0 #6B3517}
 .wm-list{padding:2px 10px 16px}
 .wm-list.pad{padding:2px 10px 230px}
 .wm-empty{padding:18px 10px;text-align:center;font-size:15px;font-weight:800;color:#8A7E8E}
-.wm-group{font-size:15px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#C2405B;margin:16px 6px 2px}
+.wm-group{font-size:15px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:#B5520E;margin:16px 6px 2px}
 .wm-group.hidden,.wm-row.hidden{display:none}
-.wm-row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;border:0;background:#fff;border-radius:16px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 0 rgba(58,46,63,.07),0 0 0 1px #F5EAEE inset;text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wm-row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;border:0;background:#fff;border-radius:16px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 0 rgba(59,42,32,.07),0 0 0 1px #F4EADD inset;text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .wm-row img{width:40px;height:40px;flex:none;pointer-events:none}
-.wm-row .n{flex:1;min-width:0;font-weight:800;font-size:17px;color:#3A2E3F;line-height:1.25}
+.wm-row .n{flex:1;min-width:0;font-weight:800;font-size:17px;color:#3B2A20;line-height:1.25}
 .wm-row .n small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;font-weight:700;color:#8A7E8E;margin-top:2px;line-height:1.3;overflow:hidden}
 .wm-row .d{font-size:15px;font-weight:900;color:#B07A12;white-space:nowrap}
 .wm-row.lock .n{color:#8E89A6}
-.wm-row.on{box-shadow:0 0 0 2.5px #C2405B inset}
-.wm-poi{position:absolute;left:8px;right:8px;bottom:8px;background:#fff;border-radius:22px;padding:14px;box-shadow:0 -2px 0 rgba(58,46,63,.04),0 12px 30px rgba(58,46,63,.24);animation:wmUp .3s cubic-bezier(.2,1.3,.4,1) both;z-index:3}
+.wm-row.on{box-shadow:0 0 0 2.5px #B5520E inset}
+.wm-poi{position:absolute;left:8px;right:8px;bottom:8px;background:#fff;border-radius:22px;padding:14px;box-shadow:0 -2px 0 rgba(59,42,32,.04),0 12px 30px rgba(59,42,32,.24);animation:wmUp .3s cubic-bezier(.2,1.3,.4,1) both;z-index:3}
 @keyframes wmUp{from{opacity:0;transform:translateY(24px)}}
 .wm-poi-h{display:flex;gap:12px;align-items:center;padding-right:46px}
 .wm-poi-h img{width:46px;height:46px;flex:none}
-.wm-poi-n{font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:18.5px;color:#3A2E3F;line-height:1.2}
-.wm-poi-l{font-size:15px;font-weight:700;color:#6E6272;margin-top:3px;line-height:1.3}
+.wm-poi-n{font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:18.5px;color:#3B2A20;line-height:1.2}
+.wm-poi-l{font-size:15px;font-weight:700;color:#735E4E;margin-top:3px;line-height:1.3}
 .wm-poi-d{font-size:15px;font-weight:900;color:#B07A12;margin-top:4px}
-.wm-poi-x{position:absolute;right:8px;top:8px;width:44px;height:44px;border:0;border-radius:14px;background:#F8EEF1;color:#6E6272;font-weight:900;font-size:17px;cursor:pointer;touch-action:manipulation}
-.wm-go{margin-top:12px;width:100%;height:56px;border:0;border-radius:28px;background:var(--cherry,#C2405B);color:#fff;font:inherit;font-weight:900;font-size:18px;box-shadow:0 4px 0 var(--cherry-d,#9E2F47),0 8px 16px rgba(158,47,71,.22);cursor:pointer;touch-action:manipulation}
-.wm-go:active{transform:translateY(3px);box-shadow:0 1px 0 var(--cherry-d,#9E2F47)}
-.wm-note{margin-top:12px;padding:12px 14px;border-radius:16px;background:#F4F0F8;color:#6E6272;font-weight:800;font-size:15.5px;line-height:1.3}
+.wm-poi-x{position:absolute;right:8px;top:8px;width:44px;height:44px;border:0;border-radius:14px;background:#F8EFE2;color:#735E4E;font-weight:900;font-size:17px;cursor:pointer;touch-action:manipulation}
+.wm-go{margin-top:12px;width:100%;height:56px;border:0;border-radius:28px;background:var(--cherry,#B5520E);color:#fff;font:inherit;font-weight:900;font-size:18px;box-shadow:0 4px 0 var(--cherry-d,#6B3517),0 8px 16px rgba(107,53,23,.22);cursor:pointer;touch-action:manipulation}
+.wm-go:active{transform:translateY(3px);box-shadow:0 1px 0 var(--cherry-d,#6B3517)}
+.wm-note{margin-top:12px;padding:12px 14px;border-radius:16px;background:#F4F0F8;color:#735E4E;font-weight:800;font-size:15.5px;line-height:1.3}
 .wm-note.lock::before{content:'🔒 '}
 .wm-note.here{background:#FFF4D9;color:#8A6412}
 .wm-pref{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:6px 12px 14px;font-size:15px;font-weight:800;color:#8A7E8E}
-.wm-pref button{min-height:44px;border:0;border-radius:22px;padding:0 16px;background:#F8EEF1;color:#6E6272;font:inherit;font-weight:800;cursor:pointer;touch-action:manipulation}
-.wm-pref button.on{background:#C2405B;color:#fff}
+.wm-pref button{min-height:44px;border:0;border-radius:22px;padding:0 16px;background:#F8EFE2;color:#735E4E;font:inherit;font-weight:800;cursor:pointer;touch-action:manipulation}
+.wm-pref button.on{background:#B5520E;color:#fff}
 :where(.wm-cloud){position:absolute;inset:0;z-index:96;overflow:hidden;pointer-events:all}
-.wm-cloud .wm-fog{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,#FFF9F4 0%,#FCE6EC 66%,#F4D5E1 100%);opacity:0;transition:opacity .42s ease}
+.wm-cloud .wm-fog{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,#FFF9F2 0%,#FCEBD2 66%,#F4DDBF 100%);opacity:0;transition:opacity .42s ease}
 .wm-cloud.in .wm-fog{opacity:1}
 .wm-cloud .wm-puff{position:absolute;width:220px;height:150px;border-radius:50%;background:#FFFDF9;transition:transform .6s cubic-bezier(.3,.85,.3,1);box-shadow:70px 24px 0 -8px #FFF7F3,-74px 30px 0 -14px #FFFAF7,22px -46px 0 -4px #FFFDF9,-30px -30px 0 -18px #FFF5F2}
 .wm-cloud .wm-puff.l{transform:translateX(-170%)}
 .wm-cloud .wm-puff.r{transform:translateX(170%)}
 .wm-cloud.in .wm-puff{transform:none}
-.wm-cloud .wm-dest{position:absolute;left:0;right:0;top:46%;text-align:center;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:20px;color:#9E2F47;opacity:0;transform:translateY(8px);transition:opacity .3s .15s,transform .3s .15s;padding:0 24px}
-.wm-cloud .wm-dest small{display:block;font-family:var(--font,'Nunito',sans-serif);font-size:13px;font-weight:800;color:#B07A8E;margin-bottom:4px}
+.wm-cloud .wm-dest{position:absolute;left:0;right:0;top:46%;text-align:center;font-family:var(--font-title,'Comfortaa',sans-serif);font-weight:700;font-size:20px;color:#6B3517;opacity:0;transform:translateY(8px);transition:opacity .3s .15s,transform .3s .15s;padding:0 24px}
+.wm-cloud .wm-dest small{display:block;font-family:var(--font,'Nunito',sans-serif);font-size:13px;font-weight:800;color:#A87A52;margin-bottom:4px}
 .wm-cloud.in .wm-dest{opacity:1;transform:none}
 @media (prefers-reduced-motion: reduce){.wm-cloud .wm-puff{display:none}.wm-card,.wm-poi{animation:none}}
 `;
@@ -311,7 +311,7 @@
   function pin(c, kind, x, y, r, o = {}) {
     const K = KINDS[kind] || KINDS.place, col = o.dim ? '#B7B0C4' : (o.col || K.col);
     c.save(); c.translate(x, y);
-    if (o.shadow !== false) { c.fillStyle = 'rgba(58,46,63,.2)'; c.beginPath(); c.ellipse(0, r * 0.9, r * 0.82, r * 0.3, 0, 0, TAU); c.fill(); }
+    if (o.shadow !== false) { c.fillStyle = 'rgba(59,42,32,.2)'; c.beginPath(); c.ellipse(0, r * 0.9, r * 0.82, r * 0.3, 0, 0, TAU); c.fill(); }
     c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill();
     c.fillStyle = col; c.beginPath(); c.arc(0, 0, r * 0.8, 0, TAU); c.fill();
     if (r >= 4.5) glyph(c, o.g || K.g, r * 0.8, '#FFFFFF', col);
@@ -320,7 +320,7 @@
   // метка дела: «капля» над точкой двери
   function dropPin(c, x, y, r, col, g) {
     c.save(); c.translate(x, y);
-    c.fillStyle = 'rgba(58,46,63,.22)'; c.beginPath(); c.ellipse(0, 0, r * 0.6, r * 0.22, 0, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.22)'; c.beginPath(); c.ellipse(0, 0, r * 0.6, r * 0.22, 0, 0, TAU); c.fill();
     c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(0, -r * 1.45, r * 1.04, PI * 0.82, PI * 0.18); c.lineTo(0, 0); c.closePath(); c.fill();
     c.fillStyle = col; c.beginPath(); c.arc(0, -r * 1.45, r * 0.84, PI * 0.8, PI * 0.2); c.lineTo(0, -r * 0.3); c.closePath(); c.fill();
     c.translate(0, -r * 1.45); glyph(c, g || 'case', r * 0.84, '#FFFFFF', col);
@@ -440,7 +440,7 @@
     if (!districts.length && L.oct && L.inner && L.outer) {
       const I = L.inner, O = L.outer, oc = L.oct;
       districts = [
-        { id: 'oct', name: 'ул. Октябрьская', x0: F.x0, x1: F.x1, z0: F.z0, z1: oc.z1, color: '#F6D3DB', lx: -26, lz: oc.zc },
+        { id: 'oct', name: 'ул. Октябрьская', x0: F.x0, x1: F.x1, z0: F.z0, z1: oc.z1, color: '#F7DDC6', lx: -26, lz: oc.zc },
         { id: 'square', name: 'Площадь Солнца', x0: I.x0, x1: I.x1, z0: I.z0, z1: I.z1, color: '#FBE3B8', lx: (I.x0 + I.x1) / 2 - 3, lz: I.z0 + 4.2 },
         { id: 'park', name: 'Парк «Каштановый»', x0: F.x0, x1: O.x0, z0: oc.z1, z1: O.z1, color: '#D6E8C4' },
         { id: 'embank', name: 'Набережная', x0: F.x0, x1: F.x1, z0: O.z1, z1: B0.z1 + 0.6, color: '#D4E5F2', lx: (F.x0 + F.x1) / 2, lz: (O.z1 + B0.z1) / 2 + 0.6 },
@@ -549,7 +549,7 @@
       if (!o.mini && w > 3 && h > 3) { c.fillStyle = 'rgba(255,255,255,.35)'; c.fillRect(x + 1, y + 1, w - 2, Math.max(1, h * 0.18)); }
     });
     // ориентиры
-    A.landmarks.forEach(m => { if (m.kind === 'clock') { const r = Math.max(3, 1.9 * s); c.save(); c.translate(X(m.x), Y(m.z)); c.fillStyle = '#B9475F'; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); glyph(c, 'clock', r, '#FFFDF9', '#B9475F'); c.restore(); } });
+    A.landmarks.forEach(m => { if (m.kind === 'clock') { const r = Math.max(3, 1.9 * s); c.save(); c.translate(X(m.x), Y(m.z)); c.fillStyle = '#B5520E'; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); glyph(c, 'clock', r, '#FFFDF9', '#B5520E'); c.restore(); } });
     // районы «скоро»: серая штриховка
     A.districts.forEach(d => {
       if (!d.soon) return;
@@ -864,7 +864,7 @@
         let px = lx, py = ly;
         if (!vert) { px = clamp(lx, lw / 2 + 4, bw - lw / 2 - 4); }
         c.save(); c.translate(px, py); if (vert) c.rotate(-PI / 2);
-        c.lineWidth = 3.5; c.strokeStyle = 'rgba(255,253,249,.92)'; c.fillStyle = soon ? '#8E89A6' : shade(d.color || '#C9A0B0', 0.55);
+        c.lineWidth = 3.5; c.strokeStyle = 'rgba(255,253,249,.92)'; c.fillStyle = soon ? '#8E89A6' : shade(d.color || '#C9A57E', 0.55);
         lines.forEach((q, i) => { const y = (i - (lines.length - 1) / 2) * lh; c.strokeText(q, 0, y); c.fillText(q, 0, y); });
         c.restore();
       });
@@ -878,7 +878,7 @@
         if (st === 'target') return;
         const off = !!filt && kOf(p) !== filt;
         if (off) c.globalAlpha = 0.28;
-        if (p.vehicle) { pin(c, p.kind, sx, sy, r * 0.95, { col: p.vehicle.covered ? '#C9B8C2' : undefined }); }
+        if (p.vehicle) { pin(c, p.kind, sx, sy, r * 0.95, { col: p.vehicle.covered ? '#C4B6A8' : undefined }); }
         else pin(c, kindOf(p), sx, sy, r, { dim: st === 'lock', g: st === 'lock' ? 'lock' : st === 'soon' ? 'lock' : undefined });
         if (off) { c.globalAlpha = 1; return; }
         hits.push({ id: p.id, x: sx, y: sy, r: r + 12 });
@@ -888,7 +888,7 @@
       const tx = tp ? tp.s : target ? toS(target.x, target.z) : null;
       if (tx && (!filt || filt === 'mission')) {
         const k = (now() % 1400) / 1400;
-        c.strokeStyle = rgba('#F2557A', 0.6 * (1 - k)); c.lineWidth = 2.5; c.beginPath(); c.arc(tx[0], tx[1], 6 + k * 14, 0, TAU); c.stroke();
+        c.strokeStyle = rgba('#F28A2E', 0.6 * (1 - k)); c.lineWidth = 2.5; c.beginPath(); c.arc(tx[0], tx[1], 6 + k * 14, 0, TAU); c.stroke();
         dropPin(c, tx[0], tx[1], r * 1.05, KINDS.mission.col, 'case');
         hits.push({ id: tp ? tp.p.id : '@target', x: tx[0], y: tx[1] - r * 1.4, r: r + 14 });
       }
@@ -905,10 +905,10 @@
         const [sx, sy] = toS(sp.x, sp.z), lift = isTarget(sp) ? r * 2.7 : r + 4;
         c.font = `800 15px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(bw - 12, c.measureText(t).width + 20);
         const lx = clamp(sx, tw / 2 + 4, bw - tw / 2 - 4), ly = Math.max(16, sy - lift - 14);
-        c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
+        c.fillStyle = 'rgba(59,42,32,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
         c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 13, tw, 26, 13); c.fill();
-        c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.fillText(t, lx, ly + 0.5, tw - 12);
-        c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
+        c.fillStyle = '#3B2A20'; c.textAlign = 'center'; c.fillText(t, lx, ly + 0.5, tw - 12);
+        c.strokeStyle = '#B5520E'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
       }
       if (tx && !pulseT && !closed) pulseT = setTimeout(() => { pulseT = 0; req(); }, 66);   // пульс метки дела, ~15 кадров в секунду
     }
@@ -1196,7 +1196,7 @@
     c.save(); c.font = `${o.weight || 700} ${o.size || 12}px ${o.font || "'Comfortaa', 'Nunito', sans-serif"}`; c.textAlign = o.align || 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
     if (o.rot) { c.translate(x, y); c.rotate(o.rot); x = 0; y = 0; }
     c.lineWidth = o.halo || 3.6; c.strokeStyle = 'rgba(255,253,249,.94)'; c.strokeText(t, x, y);
-    c.fillStyle = o.col || '#6F5470'; c.fillText(t, x, y);
+    c.fillStyle = o.col || '#6B5443'; c.fillText(t, x, y);
     c.restore();
   }
   // плашка «ты здесь» над героиней на обзоре: { x, y — центр, w, h } (шрифт плашки остаётся в c)
@@ -1206,10 +1206,10 @@
   }
   function lockBadge(c, x, y, t) {
     c.save(); c.font = "800 11px 'Nunito', sans-serif"; const tw = c.measureText(t).width + 26;
-    c.fillStyle = 'rgba(58,46,63,.16)'; rrect(c, x - tw / 2, y - 10 + 2, tw, 20, 10); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.16)'; rrect(c, x - tw / 2, y - 10 + 2, tw, 20, 10); c.fill();
     c.fillStyle = '#F4F0F8'; rrect(c, x - tw / 2, y - 10, tw, 20, 10); c.fill();
     pin(c, 'place', x - tw / 2 + 11, y, 7, { dim: true, g: 'lock', shadow: false });
-    c.fillStyle = '#6E6272'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, x - tw / 2 + 21, y + 0.5);
+    c.fillStyle = '#735E4E'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, x - tw / 2 + 21, y + 0.5);
     c.restore();
   }
   // замки поездки: тексты Missions.unlock (с датой) — '' значит открыто
@@ -1300,7 +1300,7 @@
         const SL = sub === 'kubachi' && model(sub).far ? summitLine() : null;
         if (SL) {
           const pts = SL.pts.slice(model(sub).h && model(sub).h.drive ? SL.from : 0), line = (w, col) => { c.beginPath(); pts.forEach((q, i) => { const [sx, sy] = toS(q[0], q[1]); if (i) c.lineTo(sx, sy); else c.moveTo(sx, sy); }); c.lineWidth = Math.max(1.2, w * vs); c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(); };
-          line(SL.w + 1.2, 'rgb(196,184,206)'); line(SL.w, 'rgb(214,205,222)');
+          line(SL.w + 1.2, 'rgb(196,186,172)'); line(SL.w, 'rgb(216,208,196)');
         }
         // шпильки (без строки в списке)
         if (sub === 'serpentine') model(sub).hairpins.forEach(p => { const [sx, sy] = toS(p.x, p.z); pin(c, 'hairpin', sx, sy, r * 0.75, { shadow: false }); });
@@ -1322,10 +1322,10 @@
           const [sx, sy] = toS(sp.x, sp.z);
           c.font = `800 15px 'Nunito', sans-serif`; const t = sp.label, tw = Math.min(vw.bw - 12, c.measureText(t).width + 20);
           const lx = clamp(sx, tw / 2 + 4, vw.bw - tw / 2 - 4), ly = Math.max(16, sy - r - 18);
-          c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
+          c.fillStyle = 'rgba(59,42,32,.18)'; rrect(c, lx - tw / 2, ly - 13 + 2, tw, 26, 13); c.fill();
           c.fillStyle = '#FFFFFF'; rrect(c, lx - tw / 2, ly - 13, tw, 26, 13); c.fill();
-          c.fillStyle = '#3A2E3F'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, lx, ly + 0.5, tw - 12);
-          c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
+          c.fillStyle = '#3B2A20'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, lx, ly + 0.5, tw - 12);
+          c.strokeStyle = '#B5520E'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke();
         }
       },
       onTap(hit) { if (hit && hit.id !== '@hero') select(sub, hit.id); else if (sel) select(null); },
@@ -1427,17 +1427,17 @@
     });
     // город: свои районы в рамке (схема), река снизу
     const cb = OV_CITY, cr = 10 * s;
-    c.fillStyle = 'rgba(58,46,63,.12)'; rrect(c, X(cb.x0) + 2, Y(cb.z0) + 3, (cb.x1 - cb.x0) * s, (cb.z1 - cb.z0) * s, cr); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.12)'; rrect(c, X(cb.x0) + 2, Y(cb.z0) + 3, (cb.x1 - cb.x0) * s, (cb.z1 - cb.z0) * s, cr); c.fill();
     c.fillStyle = '#FBF4EF'; rrect(c, X(cb.x0), Y(cb.z0), (cb.x1 - cb.x0) * s, (cb.z1 - cb.z0) * s, cr); c.fill();
     c.save(); rrect(c, X(cb.x0), Y(cb.z0), (cb.x1 - cb.x0) * s, (cb.z1 - cb.z0) * s, cr); c.clip();
     const ds = (L && Array.isArray(L.districts)) ? L.districts : [];
-    ds.forEach(d => { if (![d.x0, d.x1, d.z0, d.z1].every(isFinite)) return; const [a0, b0] = ovCity(L, d.x0, d.z0), [a1, b1] = ovCity(L, d.x1, d.z1); c.fillStyle = rgba(d.color || (d.soon ? '#D8D4E2' : '#F6D3DB'), 0.7); c.fillRect(X(a0), Y(b0), (a1 - a0) * s, (b1 - b0) * s); });
+    ds.forEach(d => { if (![d.x0, d.x1, d.z0, d.z1].every(isFinite)) return; const [a0, b0] = ovCity(L, d.x0, d.z0), [a1, b1] = ovCity(L, d.x1, d.z1); c.fillStyle = rgba(d.color || (d.soon ? '#D8D4E2' : '#F7DDC6'), 0.7); c.fillRect(X(a0), Y(b0), (a1 - a0) * s, (b1 - b0) * s); });
     for (let i = 0; i < 70; i++) { const x = cb.x0 + 6 + rn() * (cb.x1 - cb.x0 - 12), z = cb.z0 + 5 + rn() * (cb.z1 - cb.z0 - 22); c.fillStyle = COL.block[i % COL.block.length]; c.fillRect(X(x), Y(z), 3.4 * s, 2.6 * s); }
     c.fillStyle = 'rgb(190,221,241)'; c.fillRect(X(cb.x0), Y(cb.z1 - 9), (cb.x1 - cb.x0) * s, 9 * s);
     c.restore();
     // дороги: из города к серпантину, серпантин, «облачный» переезд к селу (W8: ветки к отелю нет — отель только через село)
     const RD = ovRoads(L);
-    polyline(c, RD.cityRoad, s, ox, oz, 9, 'rgb(196,184,206)'); polyline(c, RD.cityRoad, s, ox, oz, 7, 'rgb(220,212,228)');
+    polyline(c, RD.cityRoad, s, ox, oz, 9, 'rgb(196,186,172)'); polyline(c, RD.cityRoad, s, ox, oz, 7, 'rgb(220,212,228)');
     paintRoad(c, { bounds: OV_B }, s, ox, oz, W, H, {});
     c.save(); c.setLineDash([5, 4]); polyline(c, RD.cloudRoad, s, ox, oz, 5, 'rgba(176,160,196,.75)', 'butt'); c.restore();
     // село: ряды, дома, башня
@@ -1453,7 +1453,7 @@
     // W8: нижняя дорога отеля на обзоре не рисуется — она вела к ветке серпантина, а ветки нет (в отель — через село)
     // вершина: дорога к отелю — от школы серпантином на гору, до ворот парковки (та же ось, что в селе)
     const SL = summitLine();
-    if (SL) { polyline(c, SL.pts, s, ox, oz, 7, 'rgb(196,184,206)'); polyline(c, SL.pts, s, ox, oz, 5.4, 'rgb(220,212,228)'); }
+    if (SL) { polyline(c, SL.pts, s, ox, oz, 7, 'rgb(196,186,172)'); polyline(c, SL.pts, s, ox, oz, 5.4, 'rgb(220,212,228)'); }
     // зиплайн
     try { const r = V.zipline.route('macro'); c.strokeStyle = 'rgba(78,74,82,.75)'; c.lineWidth = Math.max(1.2, 0.9 * s); c.beginPath(); c.moveTo(X(r.from.x), Y(r.from.z)); c.lineTo(X(r.to.x), Y(r.to.z)); c.stroke(); } catch (e) { /* без зиплайна */ }
     c.restore();
@@ -1511,14 +1511,14 @@
         if (showRoute && RP && RP.length > 1) {
           const line = (w, col, dashA) => { c.save(); c.beginPath(); RP.forEach((q, i) => { const [sx, sy] = toS(q[0], q[1]); if (i) c.lineTo(sx, sy); else c.moveTo(sx, sy); }); c.lineWidth = w; c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round'; if (dashA) { c.setLineDash(dashA); c.lineDashOffset = -dash; } c.stroke(); c.restore(); };
           const lockedRoute = !!locks.trip;
-          line(9, lockedRoute ? 'rgba(160,150,180,.35)' : 'rgba(194,64,91,.32)');
-          line(3.4, lockedRoute ? 'rgba(142,137,166,.9)' : '#C2405B', lockedRoute ? [5, 6] : null);
+          line(9, lockedRoute ? 'rgba(160,150,180,.35)' : 'rgba(181,82,14,.32)');
+          line(3.4, lockedRoute ? 'rgba(142,137,166,.9)' : '#B5520E', lockedRoute ? [5, 6] : null);
           if (!lockedRoute) line(1.6, 'rgba(255,253,249,.95)', [4, 9]);
         }
         // подписи мест
         const lab = (t, x, z, o2) => { const [sx, sy] = toS(x, z); if (sx < -40 || sx > vw.bw + 40 || sy < -20 || sy > vw.bh + 20) return; mapLabel(c, t, sx, sy, o2); };
         lab('море облаков', 150, 200, { size: 11, weight: 700, col: '#8FA6BC', font: "'Nunito', sans-serif" });
-        if (SLc) lab('серпантин к отелю', SLc[0], SLc[1], { size: 11, weight: 800, col: '#7E6A8E', font: "'Nunito', sans-serif" });
+        if (SLc) lab('серпантин к отелю', SLc[0], SLc[1], { size: 11, weight: 800, col: '#7A6650', font: "'Nunito', sans-serif" });
         // «ты здесь» (рисуется в конце): где плашка — подпись зиплайна её не прячет
         const h = here(), hb = h ? heroBadge(c, toS(h.x, h.z), vw) : null;
         if (zr) {
@@ -1537,7 +1537,7 @@
           const [sx, sy] = toS(n.x, n.z), r = n.small ? 8 : 11, lk = lockOf(n);
           pin(c, n.kind, sx, sy, r, { dim: !!lk });
           hits.push({ id: n.id, x: sx, y: sy, r: r + 10 }); placed.push({ x: sx, y: sy, w: 2 * r, h: 2 * r });
-          if (n.id === sel) { c.strokeStyle = '#C2405B'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke(); }
+          if (n.id === sel) { c.strokeStyle = '#B5520E'; c.lineWidth = 2.5; c.beginPath(); c.arc(sx, sy, r + 3.5, 0, TAU); c.stroke(); }
         });
         nodes.forEach(n => {
           if (n.small) return;
@@ -1546,7 +1546,7 @@
           const cands = [at(sx, sy + r + 11), at(sx, sy - r - 11), at(sx + r + 6 + tw / 2, sy), at(sx - r - 6 - tw / 2, sy)];
           const q = cands.find(([x, y]) => free(x, y, tw, th)) || cands[sy + r + 11 > vw.bh - 12 ? 1 : 0];
           placed.push({ x: q[0], y: q[1], w: tw, h: th });
-          mapLabel(c, n.label, q[0], q[1], { size: 13, col: n.id === 'city' ? '#9E2F47' : '#5E4660' });
+          mapLabel(c, n.label, q[0], q[1], { size: 13, col: n.id === 'city' ? '#6B3517' : '#5C4634' });
         });
         // замки с датой
         if (locks.trip) { const [sx, sy] = toS(P[0].x + 30, P[0].z - 26); lockBadge(c, sx, sy, locks.trip.when ? 'с ' + locks.trip.when : 'скоро'); }
@@ -1557,9 +1557,9 @@
         // ты здесь
         if (h) {
           const [hx, hy] = toS(h.x, h.z), k2 = (now() % 1600) / 1600;
-          c.strokeStyle = rgba('#F2557A', 0.55 * (1 - k2)); c.lineWidth = 2.5; c.beginPath(); c.arc(hx, hy, 7 + k2 * 16, 0, TAU); c.stroke();
+          c.strokeStyle = rgba('#F28A2E', 0.55 * (1 - k2)); c.lineWidth = 2.5; c.beginPath(); c.arc(hx, hy, 7 + k2 * 16, 0, TAU); c.stroke();
           heroArrow(c, hx, hy, 8, -PI / 2);
-          c.fillStyle = '#C2405B'; rrect(c, hb.x - hb.w / 2, hb.y - 10, hb.w, 20, 10); c.fill(); c.font = "900 11.5px 'Nunito', sans-serif"; c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ты здесь', hb.x, hb.y + 0.5);
+          c.fillStyle = '#B5520E'; rrect(c, hb.x - hb.w / 2, hb.y - 10, hb.w, 20, 10); c.fill(); c.font = "900 11.5px 'Nunito', sans-serif"; c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ты здесь', hb.x, hb.y + 0.5);
           hits.push({ id: '@hero', x: hx, y: hy, r: 14 });
         }
       },
@@ -1653,13 +1653,13 @@
   // стрелка героини: a — угол на экране (atan2(dy, dx))
   function heroArrow(c, x, y, r, a) {
     c.save(); c.translate(x, y); c.rotate(a + PI / 2);
-    c.fillStyle = 'rgba(58,46,63,.16)'; c.beginPath(); c.moveTo(0, -r * 1.2); c.lineTo(r * 1.1, r * 1.12); c.lineTo(-r * 1.1, r * 1.12); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.16)'; c.beginPath(); c.moveTo(0, -r * 1.2); c.lineTo(r * 1.1, r * 1.12); c.lineTo(-r * 1.1, r * 1.12); c.closePath(); c.fill();
     c.fillStyle = '#FFFFFF'; c.beginPath(); c.moveTo(0, -r * 1.35); c.lineTo(r * 1.05, r * 0.95); c.lineTo(0, r * 0.45); c.lineTo(-r * 1.05, r * 0.95); c.closePath(); c.fill();
     c.fillStyle = COL.hero; c.beginPath(); c.moveTo(0, -r * 0.95); c.lineTo(r * 0.72, r * 0.68); c.lineTo(0, r * 0.25); c.lineTo(-r * 0.72, r * 0.68); c.closePath(); c.fill();
     c.restore();
   }
   let HERO_URL = '';
-  function heroURL() { if (HERO_URL) return HERO_URL; const c = cnv(64, 64), x = c.getContext('2d'); x.fillStyle = '#FBE1E7'; x.beginPath(); x.arc(32, 32, 28, 0, TAU); x.fill(); heroArrow(x, 32, 34, 15, -PI / 2); try { HERO_URL = c.toDataURL(); } catch (e) { HERO_URL = ''; } return HERO_URL; }
+  function heroURL() { if (HERO_URL) return HERO_URL; const c = cnv(64, 64), x = c.getContext('2d'); x.fillStyle = '#FCE7CC'; x.beginPath(); x.arc(32, 32, 28, 0, TAU); x.fill(); heroArrow(x, 32, 34, 15, -PI / 2); try { HERO_URL = c.toDataURL(); } catch (e) { HERO_URL = ''; } return HERO_URL; }
 
   /* =====================================================================
      ГОРЫ (волна 4B): модель карты региона — серпантин / село / отель
@@ -2040,23 +2040,23 @@
     const SQ = (h && h.places && h.places.square) || kd.SQUARE;
     if (SQ) rbox(c, s, ox, oz, SQ.x, SQ.z, SQ.w || 16, SQ.d || 11, SQ.ry || 0, COL.plaza, 'rgba(214,170,150,.45)');
     // дорога к парковке и вниз
-    if (Array.isArray(kd.ROAD)) { polyline(c, kd.ROAD, s, ox, oz, 6.4, 'rgb(196,184,206)'); polyline(c, kd.ROAD, s, ox, oz, 5.2, 'rgb(214,205,222)'); }
+    if (Array.isArray(kd.ROAD)) { polyline(c, kd.ROAD, s, ox, oz, 6.4, 'rgb(196,186,172)'); polyline(c, kd.ROAD, s, ox, oz, 5.2, 'rgb(216,208,196)'); }
     // волна 6: проезды села (улица, переулок к башне, дорога мимо школы к отелю) — оси из ручки h.drive.roads; площадь — уже выше
     const DR = h && h.drive && Array.isArray(h.drive.roads) ? h.drive.roads : null;
-    if (DR) { DR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.width || 5) + 1.2, 'rgb(196,184,206)')); DR.forEach(r => polyline(c, r.pts, s, ox, oz, r.width || 5, 'rgb(214,205,222)')); }
+    if (DR) { DR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.width || 5) + 1.2, 'rgb(196,186,172)')); DR.forEach(r => polyline(c, r.pts, s, ox, oz, r.width || 5, 'rgb(216,208,196)')); }
     else if (typeof kd.mapRoads === 'function') {
       // волна 11: села ещё не загружали (карта из города) — та же сеть проездов по ключам осей из модуля села: улица, переулок к
       // башне, дорога к школе, Гребневая и Нижняя улицы, внешние дороги; площадки — развилки, смотровая, луг, разворот, карман
       let RR = null, PD = null; try { RR = kd.mapRoads(); PD = typeof kd.mapPads === 'function' ? kd.mapPads() : null; } catch (e) { RR = null; }
       if (RR) {
         const disk = (col, k) => (PD || []).forEach(d => { c.fillStyle = col; c.beginPath(); c.arc(X(d.x), Y(d.z), Math.max(1, (d.r + k) * s), 0, TAU); c.fill(); });
-        RR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.w || 5) + 1.2, 'rgb(196,184,206)')); disk('rgb(196,184,206)', 0.6);
-        RR.forEach(r => polyline(c, r.pts, s, ox, oz, r.w || 5, 'rgb(214,205,222)')); disk('rgb(214,205,222)', 0);
+        RR.forEach(r => polyline(c, r.pts, s, ox, oz, (r.w || 5) + 1.2, 'rgb(196,186,172)')); disk('rgb(196,186,172)', 0.6);
+        RR.forEach(r => polyline(c, r.pts, s, ox, oz, r.w || 5, 'rgb(216,208,196)')); disk('rgb(216,208,196)', 0);
       }
     }
     // двор свадьбы
     const WD = h && h.places && h.places.wedding;
-    if (WD) rbox(c, s, ox, oz, WD.x, WD.z, WD.w || 20, WD.d || 12, WD.ry || 0, '#F8E6E4', 'rgba(217,113,142,.5)');
+    if (WD) rbox(c, s, ox, oz, WD.x, WD.z, WD.w || 20, WD.d || 12, WD.ry || 0, '#F6E6D4', 'rgba(217,140,80,.5)');
     // дома: статичный список (цвет крыши) — иначе коллайдеры ручки
     let houses = null;
     try { houses = typeof kd.houses === 'function' ? kd.houses() : V.regions.kubachi._test && V.regions.kubachi._test.unpackHouses ? V.regions.kubachi._test.unpackHouses() : null; } catch (e) { houses = null; }
@@ -2071,7 +2071,7 @@
         // волна 11: и дома Нижней улицы (lq…: ряды, дома-мосты, пристройки; без лестниц, труб и пролёта моста над дорогой)
         if (/^lq(\d+a?|B\d|G)$/.test(id)) { lq.push({ x: cl.x, z: cl.z, w: cl.w, d: cl.d, ry: cl.ry || 0 }); drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, '#E6D6C4'); return; }
         if (!/^(h\d|ht|museum|bakery|annex|shed|wed_house|shop|school(Annex)?\b)/.test(id) || /stair/.test(id)) return;
-        drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2D5DC' : '#E6D6C4');   // волна «комбинат»: бывший дом музея — обычный дом
+        drawHouse(cl.x, cl.z, cl.w, cl.d, cl.ry, /bakery/.test(id) ? '#F2D9B8' : /wed_house/.test(id) ? '#F2DCC0' : '#E6D6C4');   // волна «комбинат»: бывший дом музея — обычный дом
       });
       if (lq.length) LQCACHE.list = lq;   // на сессию: большая карта из города потом рисует и их
     } else {
@@ -2098,7 +2098,7 @@
     const TW = kd.TOWER;
     if (TW) {
       const r = (TW.rB || 3.7) * s;
-      c.fillStyle = 'rgba(58,46,63,.18)'; c.beginPath(); c.arc(X(TW.x) + r * 0.2, Y(TW.z) + r * 0.3, r, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(59,42,32,.18)'; c.beginPath(); c.arc(X(TW.x) + r * 0.2, Y(TW.z) + r * 0.3, r, 0, TAU); c.fill();
       c.fillStyle = '#D9B98C'; c.beginPath(); c.arc(X(TW.x), Y(TW.z), r, 0, TAU); c.fill();
       c.strokeStyle = '#B98C5A'; c.lineWidth = Math.max(1, 0.5 * s); c.setLineDash([Math.max(1, 0.6 * s), Math.max(1, 0.6 * s)]); c.beginPath(); c.arc(X(TW.x), Y(TW.z), r * 0.84, 0, TAU); c.stroke(); c.setLineDash([]);
     }
@@ -2118,15 +2118,15 @@
     }
     // нижняя дорога отеля — от ворот парковки вниз (W8: на ней — вниз, в село; развилки серпантина нет)
     let road = null; try { road = h && h.road && h.road.points ? h.road.points() : HD.road ? HD.road() : null; } catch (e) { road = null; }
-    if (road && road.length) { polyline(c, road, s, ox, oz, 6.6, 'rgb(196,184,206)'); polyline(c, road, s, ox, oz, 5.4, 'rgb(214,205,222)'); }
+    if (road && road.length) { polyline(c, road, s, ox, oz, 6.6, 'rgb(196,186,172)'); polyline(c, road, s, ox, oz, 5.4, 'rgb(216,208,196)'); }
     // бассейн, грин, купели, костёр
     const pool = P.pool; if (pool) { c.fillStyle = '#DCEAF2'; c.fillRect(X(pool.x0), Y(pool.z0), (pool.x1 - pool.x0) * s, (pool.z1 - pool.z0) * s); if (pool.px0 !== undefined) { c.fillStyle = 'rgb(150,206,236)'; c.fillRect(X(pool.px0), Y(pool.pz0), (pool.px1 - pool.px0) * s, (pool.pz1 - pool.pz0) * s); } }
     const g = P.green; if (g) { c.fillStyle = '#A9D69A'; c.beginPath(); c.ellipse(X(g.x), Y(g.z), (g.rx || 9) * s, (g.rz || 7) * s, 0, 0, TAU); c.fill(); }
-    const sp = P.spa; if (sp) { c.fillStyle = '#F1DDE6'; c.fillRect(X(sp.x0), Y(sp.z0), (sp.x1 - sp.x0) * s, (sp.z1 - sp.z0) * s); }
+    const sp = P.spa; if (sp) { c.fillStyle = '#F1E3D2'; c.fillRect(X(sp.x0), Y(sp.z0), (sp.x1 - sp.x0) * s, (sp.z1 - sp.z0) * s); }
     // корпуса и спорт — коллайдеры ручки; без ручки — корпус из таблицы
     if (h && h.colliders) h.colliders.forEach(cl => {
       const id = String(cl.id || ''); if (cl.type !== 'box') return;
-      const col = id === 'main' ? '#FFFFFF' : id === 'poolHall' ? '#D8ECF6' : id === 'spa' ? '#F4E2EA' : /^padel/.test(id) ? 'rgba(170,214,236,.8)' : /canopy/.test(id) ? '#F4E6D6' : id === 'gate' ? '#E9DCCB' : null;
+      const col = id === 'main' ? '#FFFFFF' : id === 'poolHall' ? '#D8ECF6' : id === 'spa' ? '#F4E8DA' : /^padel/.test(id) ? 'rgba(170,214,236,.8)' : /canopy/.test(id) ? '#F4E6D6' : id === 'gate' ? '#E9DCCB' : null;
       if (!col || (cl.w < 0.6 && cl.d < 0.6)) return;
       rbox(c, s, ox, oz, cl.x, cl.z + (id === 'main' ? 0.5 : 0), cl.w, cl.d, cl.ry, shade(col === '#FFFFFF' ? '#E8E2EC' : col, 0.85));
       rbox(c, s, ox, oz, cl.x, cl.z, cl.w, cl.d, cl.ry, col, id === 'main' ? 'rgba(111,155,201,.6)' : null);
@@ -2143,7 +2143,7 @@
     let P = null; try { P = path0(); } catch (e) { P = null; }
     // дорога: бордюр и полотно (W8: ветки к отелю нет)
     if (P) {
-      polyline(c, P, s, ox, oz, 8, 'rgb(196,184,206)'); polyline(c, P, s, ox, oz, 6.6, 'rgb(214,205,222)');
+      polyline(c, P, s, ox, oz, 8, 'rgb(196,186,172)'); polyline(c, P, s, ox, oz, 6.6, 'rgb(216,208,196)');
       // середина — пунктир (старая дорога)
       c.save(); c.setLineDash([Math.max(1.5, 1.4 * s), Math.max(2, 2.6 * s)]); polyline(c, P, s, ox, oz, 0.35, 'rgba(255,253,249,.8)', 'butt'); c.restore();
     }
@@ -2214,15 +2214,15 @@
     const quad = (q, col, stroke) => { const pts = [tm(q.x0, q.z0), tm(q.x1, q.z0), tm(q.x1, q.z1), tm(q.x0, q.z1)]; c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1])))); c.closePath(); c.fillStyle = col; c.fill(); if (stroke) { c.strokeStyle = stroke; c.lineWidth = Math.max(1, 0.35 * s); c.stroke(); } };
     const PADS = HD.PADS || (SM.pads || []).map(p => ({ x0: p[0], x1: p[1], z0: p[2], z1: p[3], kind: 'relax' }));
     PADS.forEach(p => quad(p, { yard: '#F8EEE4', park: '#E4DDE8', sport: '#C9E3BE', relax: '#D6EBCF', deck: '#E2CBB1' }[p.kind] || '#EDE6DA'));
-    quad(STATIC_HOTEL.pool, '#BFE0F2'); quad(STATIC_HOTEL.spa, '#F1DDE6'); quad(STATIC_HOTEL.main, '#FFFFFF', 'rgba(111,155,201,.7)');
+    quad(STATIC_HOTEL.pool, '#BFE0F2'); quad(STATIC_HOTEL.spa, '#F1E3D2'); quad(STATIC_HOTEL.main, '#FFFFFF', 'rgba(111,155,201,.7)');
     { const t = tm(STATIC_HOTEL.tower.x, STATIC_HOTEL.tower.z), r = Math.max(1.5, 1.8 * s); c.fillStyle = '#D9B98C'; c.beginPath(); c.arc(X(t[0]), Y(t[1]), r, 0, TAU); c.fill(); }
     // трос зиплайна — целиком, пунктиром (у села его начало рисует основа)
     try { const r = V.zipline.route('macro'); c.strokeStyle = 'rgba(78,74,82,.6)'; c.lineWidth = Math.max(1, 0.25 * s); c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(r.to.x), Y(r.to.z)); c.lineTo(X(r.from.x), Y(r.from.z)); c.stroke(); c.setLineDash([]); } catch (e) { /* без троса */ }
     // дорога к отелю: бордюр и полотно (как проезды села), площадки на концах
     const SL = summitLine();
     if (SL) {
-      polyline(c, SL.pts, s, ox, oz, SL.w + 1.2, 'rgb(196,184,206)'); polyline(c, SL.pts, s, ox, oz, SL.w, 'rgb(214,205,222)');
-      SL.pads.forEach(p => { c.fillStyle = 'rgb(214,205,222)'; c.beginPath(); c.arc(X(p.x), Y(p.z), Math.max(1.5, p.r * s), 0, TAU); c.fill(); });
+      polyline(c, SL.pts, s, ox, oz, SL.w + 1.2, 'rgb(196,186,172)'); polyline(c, SL.pts, s, ox, oz, SL.w, 'rgb(216,208,196)');
+      SL.pads.forEach(p => { c.fillStyle = 'rgb(216,208,196)'; c.beginPath(); c.arc(X(p.x), Y(p.z), Math.max(1.5, p.r * s), 0, TAU); c.fill(); });
     }
     c.restore();
   }
@@ -2230,7 +2230,7 @@
   /* =====================================================================
      РАДАР (волна 4B): общий круг для города и гор — «как в GTA», слева снизу над джойстиком
      ===================================================================== */
-  const MAP_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z" fill="#FBE1E7" stroke="#C2405B" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4v13.5M15.5 6.5V20" stroke="#C2405B" stroke-width="2"/></svg>';
+  const MAP_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z" fill="#FCE7CC" stroke="#B5520E" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4v13.5M15.5 6.5V20" stroke="#B5520E" stroke-width="2"/></svg>';
   // метка-путеводитель «📍» (одна на игру): { rid: 'city' | 'serpentine' | 'kubachi' | 'hotel', id, x, z, label, kind }
   let WAYPOINT = null;
   // вершина: метка «к отелю» — у начала дороги к нему (площадка jHotel за школой), а не наверху, у ворот отеля
@@ -2244,16 +2244,16 @@
   // куда показывать метку другого региона: выход к нему (W8: в отель — только через село, из отеля — только вниз, в село)
   const EXIT_TO = { serpentine: { kubachi: 'toVillage', hotel: 'toVillage', city: 'toCity' }, kubachi: { serpentine: 'toRoad', hotel: 'toHotel', city: 'toRoad' }, hotel: { kubachi: 'toVillage', serpentine: 'toVillage', city: 'toVillage' } };
   const CAR_COL = { sedan: '#D23A4A', coupe: '#E8B91E' };
-  const carColOf = v => (v && v.covered ? '#C9B8C2' : CAR_COL[(v && v.model) || (window.WORLD && WORLD.carChoice ? safe(WORLD.carChoice) : 'coupe')] || CAR_COL.coupe);
+  const carColOf = v => (v && v.covered ? '#C4B6A8' : CAR_COL[(v && v.model) || (window.WORLD && WORLD.carChoice ? safe(WORLD.carChoice) : 'coupe')] || CAR_COL.coupe);
   // машина сверху: a — угол «вперёд» на экране
   function carIcon(c, x, y, a, col, D) {
     const w = 6.2 * D, l = 10.4 * D;
     c.save(); c.translate(x, y); c.rotate(a + PI / 2);
-    c.fillStyle = 'rgba(58,46,63,.22)'; rrect(c, -w / 2 + D, -l / 2 + 1.4 * D, w, l, 2.6 * D); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.22)'; rrect(c, -w / 2 + D, -l / 2 + 1.4 * D, w, l, 2.6 * D); c.fill();
     c.fillStyle = '#FFFFFF'; rrect(c, -w / 2 - 1.1 * D, -l / 2 - 1.1 * D, w + 2.2 * D, l + 2.2 * D, 3.4 * D); c.fill();
     c.fillStyle = col; rrect(c, -w / 2, -l / 2, w, l, 2.6 * D); c.fill();
     c.fillStyle = 'rgba(255,255,255,.8)'; rrect(c, -w / 2 + 1.1 * D, -l / 2 + 2 * D, w - 2.2 * D, 2.2 * D, 0.8 * D); c.fill();
-    c.fillStyle = 'rgba(58,46,63,.18)'; rrect(c, -w / 2 + 1.1 * D, l / 2 - 3 * D, w - 2.2 * D, 1.6 * D, 0.6 * D); c.fill();
+    c.fillStyle = 'rgba(59,42,32,.18)'; rrect(c, -w / 2 + 1.1 * D, l / 2 - 3 * D, w - 2.2 * D, 1.6 * D, 0.6 * D); c.fill();
     c.restore();
   }
   // капля (дело / метка) в круге или на ободке со стрелкой наружу
@@ -2288,7 +2288,7 @@
     const sizeCanvas = () => { if (!cfg.size) SIZE = autoSize(); D = Math.min(DPR(), cfg.maxDpr || 2); mcv.width = mcv.height = Math.round(SIZE * D); NB = null; };
     sizeCanvas();
     try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { NB = null; lastKey = ''; }); } catch (e) { /* без шрифтов */ }
-    const northBadge = () => { if (NB) return NB; const r = 6.5 * D, c = cnv(r * 2 + 2, r * 2 + 2), x = c.getContext('2d'); x.fillStyle = 'rgba(255,253,249,.95)'; x.beginPath(); x.arc(r + 1, r + 1, r, 0, TAU); x.fill(); x.fillStyle = '#C2405B'; x.font = `900 ${8.5 * D}px 'Comfortaa', 'Nunito', sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('С', r + 1, r + 1.5 * D / 2); NB = c; return c; };
+    const northBadge = () => { if (NB) return NB; const r = 6.5 * D, c = cnv(r * 2 + 2, r * 2 + 2), x = c.getContext('2d'); x.fillStyle = 'rgba(255,253,249,.95)'; x.beginPath(); x.arc(r + 1, r + 1, r, 0, TAU); x.fill(); x.fillStyle = '#B5520E'; x.font = `900 ${8.5 * D}px 'Comfortaa', 'Nunito', sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('С', r + 1, r + 1.5 * D / 2); NB = c; return c; };
     btn.addEventListener('click', e => { e.stopPropagation(); if (collapsed) { R.collapse(false); return; } if (cfg.onTap) cfg.onTap(); });
     const onResize = () => { if (!disposed) { sizeCanvas(); lastDraw = lastCheck = -1e9; if (cfg.onDpr) cfg.onDpr(D); } };
     window.addEventListener('resize', onResize);
