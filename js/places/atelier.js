@@ -378,7 +378,7 @@
       if (ctx.gone) return true;
       if (id && id !== lookId(ctx)) {
         ctx.setLook({ look: id }, true); ctx.sparkle('star');
-        await ctx.say({ who: 'sheep', text: 'Вот теперь идеально. Кармашек для улик — на месте.' });
+        await ctx.say({ who: 'sheep', text: 'Готово! Шов ровный, кармашек для улик — на месте.' });
       } else if (id) await ctx.say({ who: 'sheep', text: 'Этот образ уже на тебе. Зеркало подтверждает.' });
     } finally { if (!ctx.gone && ctx.is3d) { try { ctx.release(); } catch (e) { /* ignore */ } } }
     if (ctx.catHere) await ctx.say({ who: 'cat', text: 'В зеркале какой-то кот. Симпатичный, но подозрительно похож на меня.' });

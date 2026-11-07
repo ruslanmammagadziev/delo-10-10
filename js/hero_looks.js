@@ -41,7 +41,7 @@
       sig: { my: 'МОЯ сумочка', icon: 'bag' }, bottom: 'trousers', bag: 'forearm',
     },
     {
-      id: 'floral', n: 6, name: 'Звезда вечера', tag: 'Финал дела — только в плаще',
+      id: 'floral', n: 6, name: 'Вечерний выход', tag: 'Финал дела — только в плаще',
       legacy: { coat: '#F4EFE8', bow: '#5A2440', hair: '#1E140F' },
       pal: { main: '#EFE7DE', main2: '#F4EFE8', accent: '#5A2440', hair: '#1E140F', shoes: '#D9B79A', legs: '#EFE7DE' },
       sig: { my: 'МОЙ цветок', icon: 'flower' }, bottom: 'gown', bag: null,

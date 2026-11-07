@@ -205,7 +205,7 @@
         <div class="case-badge">Дело №\u00A010/10</div>
         <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
         <div class="title h2">Продолжим расследование</div>
-        <p class="muted" style="font-weight:800">Твоё расследование на месте. Кот охраняет блокнот и делает вид, что не читал.</p></div>`);
+        <p class="muted" style="font-weight:800">Улики на месте. Кот охраняет блокнот и делает вид, что не читал.</p></div>`);
       let v = 'again';
       // «Начать сначала» стирает прохождение серии 1 — переспросить, как на финальной карточке
       for (;;) {

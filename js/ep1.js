@@ -1233,7 +1233,7 @@
           // найденное в прошлый раз — снова кольцами на экране
           FRAME_TARGETS.forEach(t => { if (cin.f.includes(t.id) && api.room && api.room.screen) api.room.screen.mark(t.x, t.y, t.r); });
           if (!cin.i) {
-            await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас мелодрама, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
+            await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас шла грустная драма, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
             suspicion(12, 'Платочек у свидетеля мокрый насквозь.');
             N.goose.hop(); await wait(300);
             await say({ who: 'goose', text: 'ГА! А злодей-то в конце…' });
@@ -1303,7 +1303,7 @@
       await wait(400);
       if (!mem.seen.cinema) {
         mem.seen.cinema = true;
-        await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас мелодрама, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
+        await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас шла грустная драма, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
         suspicion(12, 'Платочек у свидетеля мокрый насквозь.');
         goose.style.opacity = '1'; goose.style.transform = 'translateY(0)';
         await wait(500);
@@ -1883,7 +1883,7 @@
       const k = b.dataset.k, nm = (st.team[k] || '').trim();
       haptic('medium');
       const url = G.inviteLink(k, nm);
-      const text = `${nm ? nm + ', ты' : 'Ты'} теперь ${G.team[k].title} в моём «Деле №${NB}10/10» 🕵️‍♀️ Команда в сборе, заходи:`;
+      const text = `${nm ? nm + ', ты' : 'Ты'} теперь ${G.team[k].title} в моём «Деле №${NB}10/10» 🕵️‍♀️ Твоя роль уже в титрах, заходи:`;
       G.openTgLink(G.shareLink(url, text));
       close();
     }));
@@ -1977,7 +1977,7 @@
     // один раз: город открывается для прогулки (ошибка прогулки серию не ломает)
     try {
       const T = window.Town && Town.state();
-      if (T && !T.k.op) { await intertitle('СЛЕДСТВИЕ НА ПАУЗЕ. ГОРОД — В ТВОЁМ РАСПОРЯЖЕНИИ.'); T.k.op = 1; G.save(); }
+      if (T && !T.k.op) { await intertitle('СЛЕДСТВИЕ НА ПАУЗЕ. ГОРОД ОТКРЫТ ДЛЯ ПРОГУЛОК.'); T.k.op = 1; G.save(); }
     } catch (err) { console.warn('town intertitle', err); }
     await endCard();
   }
