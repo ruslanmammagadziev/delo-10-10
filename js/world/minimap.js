@@ -2360,8 +2360,8 @@
         if ((busyT -= dt) <= 0) {
           busyT = 0.2;
           const bz = !!cfg.busy(); if (bz !== busy) { busy = bz; wrap.classList.toggle('off', bz); }
-          // HUD v2: центр джойстика — сам палец, кружок может лечь на край радара, но он прозрачный и только пока палец
-          // держит (HUD.joyPlace) — бледнеть не нужно
+          // HUD v2: кружок джойстика закреплён снизу по центру и на радар не ложится (HUD.joyPlace держит его правее) —
+          // бледнеть не нужно
           const un = false;
           if (un !== under) { under = un; btn.style.opacity = un ? '.45' : ''; }
         }

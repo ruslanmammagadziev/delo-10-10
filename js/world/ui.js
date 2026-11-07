@@ -3,7 +3,7 @@
    .w-root — корень; .w-act — главная кнопка P справа внизу (значок + слово, полная подпись — aria-label; без действия — 👋 «Помахать»);
    дуга маленьких кнопок 46 px (data-hud-slot s1…s4): в машине .w-horn 📯 (s1), .w-color 🎨 (s2), .w-reset 🛟 (s3), на велосипеде
    .w-bell 🔔 (s1), пешком — «Прыжок» (move.js; бег — джойстиком за край кружка) и «Бум!»/«Листья» (playfight.js); .w-swap «🔁 Другая машина» — пилюля A2 над дугой;
-   .w-joy.hud-joy — джойстик снизу по центру (HUD.joystick: в покое — кружок, под пальцем — плавающий); за рулём (телефон) вместо него
+   .w-joy.hud-joy — джойстик снизу по центру (HUD.joystick: кружок закреплён, в покое и под пальцем на одном месте); за рулём (телефон) вместо него
    ui.driveCtl (HUD.driveCtl): «‹‹» «››» слева, «газ» и «тормоз» справа, «Выйти» — пилюлей A2 (ui.setAct(label, soft, 'a2')); .w-edge.hud-chev — шеврон у края
    с расстоянием; .w-tag — ярлык метки; .w-near — подпись у двери; .w-say (.hero) — облачка. Карточка дела — пилюля цели в верхней
    полосе (HUD.objective; ui.setCase/setDist — прежние имена); день и ночь — строка меню ☰ (ui.setDayNight хранит состояние);
@@ -76,7 +76,7 @@
       <button class="hud-a2 w-swap hidden" type="button" data-hud-slot="a2" aria-label="Другая машина"><i aria-hidden="true">🔁</i><span>Другая машина</span></button>`;
     root.appendChild(ui);
     const $ = s => ui.querySelector(s);
-    // джойстик (HUD.joystick): один элемент — в покое кружок снизу по центру, под пальцем — плавающий
+    // джойстик (HUD.joystick): один элемент — кружок снизу по центру, закреплён (касание не в центр — сдвиг не больше 14 px)
     const joyCtl = HUD ? HUD.joystick.create(ui, { root }) : null;
     // за рулём (телефон): «‹‹» «››» слева, «газ» и «тормоз» справа — вместо джойстика (HUD.driveCtl)
     const driveCtl = HUD && HUD.driveCtl ? HUD.driveCtl.create(ui) : null;

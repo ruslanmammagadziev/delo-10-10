@@ -650,14 +650,19 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.zipPts = 0; S.zipHoldKey = false; gripPts.clear(); if (S.zip && S.zip.hold) S.zip.hold(false); if (S.mv) S.mv.holdRun(false);
     };
     const rel = e => { const r = host.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r]; };
-    // джойстик HUD v2 (HUD.joystick: покой снизу, центр — сам палец, сила и курс — раз в кадр в joyRun); без HUD — прежний круг под пальцем
-    const joyZone = (x, y, r) => { const H = HUD_(); return H && H.joyZone ? H.joyZone(x, y, r.width, r.height) : x < r.width * 0.5; };
+    // джойстик HUD v2 (HUD.joystick: кружок закреплён снизу по центру, касание — в круге вокруг него, база — покой ± 14 px к пальцу и
+    // за пальцем не едет; сила и курс — раз в кадр в joyRun); без HUD — тоже закреплён: кружок 112 px слева внизу (как .joy в
+    // css/style.css), зона — 100 px от его центра, база — ± 14 px к пальцу
+    const joyFb = r => ({ cx: 74, cy: r.height - 74 });
+    const joyZone = (x, y, r) => { const H = HUD_(); if (H && H.joyZone) return H.joyZone(x, y, r.width, r.height); const c = joyFb(r); return Math.hypot(x - c.cx, y - c.cy) <= 100; };
     function joyBegin(x, y, r) {
       if (!ui) return; joy.live = true;
       if (ui.J) { ui.J.begin(x, y); show(ui.joy, true); return; }
       r = r || host.getBoundingClientRect();
-      joy.cx = clamp(x, 70, r.width * 0.5 - 20); joy.cy = clamp(y, 120, r.height - 60);
-      ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; show(ui.joy, true); ui.knob.style.transform = '';
+      const c = joyFb(r), d = Math.hypot(x - c.cx, y - c.cy), k = d > 14 ? 14 / d : 1;
+      joy.cx = c.cx + (x - c.cx) * k; joy.cy = c.cy + (y - c.cy) * k;
+      ui.joy.style.left = (joy.cx - 56) + 'px'; ui.joy.style.top = (joy.cy - 56) + 'px'; ui.joy.style.bottom = 'auto'; show(ui.joy, true);
+      const v = joyDrag(x, y); joy.x = v.x; joy.y = v.y;
     }
     function joyDrag(x, y) {
       if (!ui || !joy.live) return { x: 0, y: 0, m: 0 };
@@ -700,8 +705,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       try { ui.touch.setPointerCapture(e.pointerId); } catch (x2) { /* старые браузеры */ }
       if (S.golf && canInput()) { const G = S.golf.G; if (!G.rolling && G.tries < G.maxTries && !G.holed) { S.golf.drag = { x, y, id: e.pointerId }; return; } }
       if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } return; }
-      // HUD v2: джойстик — касание в нижней половине левее дуги кнопок (круг встаёт под палец, не заезжает на радар и дугу);
-      // выше и правее — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
+      // HUD v2: джойстик — касание в круге вокруг кружка (HUD.joyZone; кружок закреплён и не заезжает на радар и дугу);
+      // мимо — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
       // за рулём с кнопками руля (HUD.driveCtl) джойстика нет: касание мимо кнопок — камера
       if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r) && !(ui.steer && ui.steer.vis)) {
         joy.id = e.pointerId; joy.x = joy.y = joy.lx = joy.ly = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0; joy.late = false;
@@ -720,7 +725,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        // палец лёг в паузе (шторка, рука занята) — джойстик начинается отсюда: без рывка и без тапа
+        // палец лёг в паузе (шторка, рука занята) — джойстик начинается сейчас (кружок на своём месте) и без тапа
         if (!joy.live && canInput()) { joyBegin(x, y); joy.late = true; }
         const v = joyDrag(x, y);
         if (!(ui && ui.J)) { joy.x = v.x; joy.y = v.y; }

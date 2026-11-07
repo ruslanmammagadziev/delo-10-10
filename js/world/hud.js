@@ -6,12 +6,15 @@
 
    HUD.v                                  — 1
    HUD.metrics(W, H)                      → { top, barBottom, g, B0, R0, L0, safe:{t,b,l,r}, radar:{x,y,d}, joy:{cx,cy,d,r,knob,travel},
-                                              zone:{x1,y0}, P:{cx,cy,d}, slots:{s1..s4:{cx,cy}}, a2:{bottom,top}, gas, brake }
-   HUD.joyZone(x, y, W, H)                → начинать ли джойстик с этого касания (кнопки проверяет вызывающий)
-   HUD.joyPlace(x, y, W, H)               → { cx, cy } — где нарисовать кружок под пальцем (только чтобы весь был на экране)
-   HUD.joyRest(W, H)                      → { cx, cy } — место покоя
+                                              zone:{cx,cy,r,x1,y1}, P:{cx,cy,d}, slots:{s1..s4:{cx,cy}}, a2:{bottom,top}, gas, brake }
+   HUD.joyZone(x, y, W, H)                → начинать ли джойстик с этого касания: круг r + JOY.ZONE вокруг кружка покоя, левее кнопок
+                                              (x1), не на радаре и не в безопасном крае снизу (кнопки по цели касания проверяет вызывающий)
+   HUD.joyPlace(x, y, W, H)               → { cx, cy } — база для касания в (x, y): место покоя, сдвинутое к пальцу не больше
+                                              JOY.SLACK px (кружок при этом не ложится на кнопки, радар и края экрана)
+   HUD.joyRest(W, H)                      → { cx, cy } — место покоя (оно же место кружка, пока палец держит: кружок закреплён)
    HUD.joyGuard(x, y, W, H)               → касание на кружке покоя или рядом (r + 16 px): короткий тап тут — не «идти туда»
-   HUD.JOY                                — все числа джойстика (ход, мёртвая зона, кривая, сглаживание, бег); HUD.joyShape(n) → сила 0…1
+   HUD.JOY                                — все числа джойстика (ход, мёртвая зона, кривая, сглаживание, подстройка, зона, бег);
+                                              HUD.joyShape(n) → сила 0…1
    HUD.layout(root?)                      — пишет --hud-joy-cx (px) на #app; зовётся сам на resize
    HUD.actFace(label)                     → { icon, short, full, known } — лицо главной кнопки по подписи
    HUD.paintAct(btn, label, soft)         — <i>значок</i><b>слово</b>, aria-label/title/data-full = подпись
@@ -19,13 +22,15 @@
    HUD.mode(root, mode)                   — data-hud-mode = walk|drive|drive-pedals|ride|fly|sit|look|dance|zip|sport|room|street|2d
    HUD.sbtn(host, { slot, icon, label, cls, onPress }) → кнопка 46 px в слоте (значок; подпись — aria-label)
    HUD.actions.set(host, [{ id, icon, label, onPress, slot?, main?, on?, soft? }]) — набор кнопок кластера (лишние прячутся)
-   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), guard(x,y), begin(x,y), drag(x,y) → {x,y,m,r}, frame(ok) → bool,
-                                              end(), show(on), layout(), dispose(), active, x, y, m, lx, ly, r, run } — центр — сам палец
-                                              (на касании сила 0); drag — палец и ручка (мгновенно, для «палец пошёл»); frame — раз в
-                                              кадр: x/y/m — сглаженная сила по кривой (ходьба, полёт, лестница, машина города), lx/ly —
-                                              без кривой (руль в горах); бег — палец за краем кружка (r ≥ 1,4 хода) 0,3 с в одну сторону
-                                              (класс .edge — пунктир порога, .arm — золотое кольцо, .run — бег), назад внутрь хода — шаг.
-                                              running(ok) = frame
+   HUD.joystick.create(host, o?)          → J: { el, knob, zone(x,y), guard(x,y), begin(x,y) → {cx,cy}, drag(x,y) → {x,y,m,r}, frame(ok) → bool,
+                                              end(), show(on), layout(), dispose(), active, cx, cy, x, y, m, lx, ly, r, run } — кружок
+                                              закреплён на месте покоя: begin — база cx/cy (HUD.joyPlace: покой ± JOY.SLACK к пальцу), за
+                                              пальцем она не едет; палец не в центре — сразу отклонение; drag — палец и ручка (ручка — до
+                                              хода, дальше упирается в край; сила мгновенно, для «палец пошёл»); frame — раз в кадр: x/y/m —
+                                              сглаженная сила по кривой (ходьба, полёт, лестница, машина города), lx/ly — без кривой (руль
+                                              в горах); бег — палец за краем кружка (r ≥ 1,4 хода от базы) 0,3 с в одну сторону (класс
+                                              .edge — пунктир порога, .arm — золотое кольцо, .run — бег), назад внутрь хода — шаг; end —
+                                              кружок на место покоя. running(ok) = frame
    HUD.driveCtl.create(host, { pedals?, always? }) → D: { el, btn, frame(dt) → { str, gas, brake }, show(on), release(), dispose() } —
                                               за рулём: слева «‹‹» «››» (руль плавно, HUD.DRV), справа «газ» и «тормоз» (pedals: false — свои);
                                               показан — body.hud-driving (джойстика нет, радар над кнопками руля)
@@ -69,14 +74,19 @@
   // джойстик «удобно с телефона» (все числа — тут): ход ручки T = 0,44 диаметра кружка (390 px — 45,8, 360 — 42,3);
   // мёртвая зона с запасом — включается с 16 % хода, гаснет ниже 10 %; кривая — с 0,10 у края зоны (DZ0), степень 1,4,
   // полная сила с 80 % хода; сила сглажена 60 мс, курс держится, пока палец дрожит в пределах ~2 px дуги (2°…8°);
-  // палец дальше 1,6 хода — центр едет следом; бег — палец за порогом (1,4 хода: ~11 px за кольцом, там пунктир) 0,3 с в
-  // одну сторону (±30°), назад внутрь хода ручки — шаг; мелкие (до 0,02 хода, ~1 px) и короткие (< 150 мс) нырки внутрь
-  // порога удержание не сбрасывают, глубже или дольше — сбрасывают, как и круг по краю быстрее ~100°/с (отставание курса
-  // > 11° при 0,1 с); золотое кольцо горит с 80 мс удержания — и тогда бег через ≤ 0,22 с; пунктир порога виден, пока ручка
-  // у края (≥ 1 хода, гаснет ниже 0,85); тап на кружке покоя (r + 16 px) — не «идти туда»; подсказка про бег — 2 раза за всё время
+  // кружок закреплён на месте покоя (жалоба: плавающий кружок под пальцем и «за пальцем» уползал к середине экрана и ложился
+  // на игру): касание не в центр — база сдвигается к пальцу не больше SLACK = 14 px (палец чуть мимо центра — без рывка),
+  // отпустила — на место; дальше база стоит, палец хоть у середины экрана — ручка у края, сила полная по направлению от базы;
+  // зона касания — круг r + ZONE = 44 px вокруг кружка (96 px от центра на 390, 92 на 360 — с запасом под большой палец),
+  // левее кнопок, не на радаре и не в нижнем безопасном крае; мимо зоны — камера и тап, как раньше; бег — палец за порогом
+  // (1,4 хода от базы: ~11 px за кольцом, там пунктир) 0,3 с в одну сторону (±30°), назад внутрь хода ручки — шаг; мелкие
+  // (до 0,02 хода, ~1 px) и короткие (< 150 мс) нырки внутрь порога удержание не сбрасывают, глубже или дольше — сбрасывают,
+  // как и круг по краю быстрее ~100°/с (отставание курса > 11° при 0,1 с); золотое кольцо горит с 80 мс удержания — и тогда
+  // бег через ≤ 0,22 с; пунктир порога виден, пока ручка у края (≥ 1 хода, гаснет ниже 0,85); тап на кружке покоя (r + 16 px)
+  // — не «идти туда»; подсказка про бег — 2 раза за всё время
   const JOY = HUD.JOY = {
     TRAVEL: 0.44, DZ_ON: 0.16, DZ_OFF: 0.10, DZ0: 0.12, SAT: 0.80, EXPO: 1.4, M0: 0.10, TAU_M: 0.06,
-    HEAD_ARC: 2.0, HEAD_MIN: 0.035, HEAD_MAX: 0.14, HEAD_T: 0.25, FOLLOW: 1.6,
+    HEAD_ARC: 2.0, HEAD_MIN: 0.035, HEAD_MAX: 0.14, HEAD_T: 0.25, SLACK: 14, ZONE: 44,
     RUN_ON: 1.4, RUN_OFF: 1.0, RUN_T: 300, RUN_ANG: 0.52, RUN_DIP: 0.02, ARM_ON: 80, ARM_OFF: 150, SWEEP: 0.19, SWEEP_T: 0.1, EDGE: 0.85,
     GUARD: 16, TIP_T: 2.5, TIP_N: 2,
   };
@@ -118,7 +128,8 @@
     const s3 = slots.s3, dy = Math.abs(jcy - s3.cy), need = jr + BTN / 2 + GAP;
     const jcx = Math.min(W / 2, s3.cx - Math.sqrt(Math.max(0, need * need - dy * dy)));
     const joy = { cx: jcx, cy: jcy, d: jd, r: jr, knob, travel: Math.round(jd * JOY.TRAVEL * 10) / 10 };
-    const zone = { x1: s3.cx - BTN / 2 - 4, y0: H * 0.5 };
+    // зона джойстика — круг вокруг кружка покоя (r + JOY.ZONE), правее x1 — кнопки дуги, ниже y1 — безопасный край (полоска «домой»)
+    const zone = { cx: jcx, cy: jcy, r: jr + JOY.ZONE, x1: s3.cx - BTN / 2 - 4, y1: H - s.b };
     const a2b = B0 + 180;
     return {
       W, H, top, barBottom, g, B0, L0, R0, safe: { t: s.t, b: s.b, l: s.l, r: s.r },
@@ -128,13 +139,22 @@
   }
   HUD.metrics = metrics;
   HUD.joyRest = (W, H) => { const m = metrics(W, H); return { cx: m.joy.cx, cy: m.joy.cy }; };
-  HUD.joyZone = (x, y, W, H) => { const m = metrics(W, H); return y >= m.zone.y0 && x <= m.zone.x1; };
-  // центр джойстика — сам палец; кружок рисуется под ним, зажат только краями экрана (у нижнего края — чуть выше пальца)
+  // зона — не вся нижняя половина, а круг вокруг кружка: палец, начавший не у кружка, — камере и «идти туда»; на радаре (кружок
+  // карты + 6 px) — карте, даже если круг зоны его задел
+  HUD.joyZone = (x, y, W, H) => {
+    const m = metrics(W, H), z = m.zone, rd = m.radar;
+    if (x > z.x1 || y > z.y1 || x < m.safe.l || Math.hypot(x - z.cx, y - z.cy) > z.r) return false;
+    return Math.hypot(x - rd.x - rd.d / 2, y - rd.y - rd.d / 2) > rd.d / 2 + 6;
+  };
+  // база джойстика — место покоя, сдвинутое к пальцу не больше JOY.SLACK px: палец чуть мимо центра не даёт рывка, а кружок
+  // остаётся на своём месте; сдвиг не кладёт кружок на кнопки дуги (x1), радар и края экрана — нет места, нет и сдвига в ту сторону
   HUD.joyPlace = (x, y, W, H) => {
-    const m = metrics(W, H), R = m.joy.r;
-    const cx = clamp(x, m.safe.l + R + 2, Math.max(m.safe.l + R + 2, m.W - m.safe.r - R - 2));
-    const cy = clamp(y, m.barBottom + R, Math.max(m.barBottom + R, m.H - m.safe.b - R - 2));
-    return { cx, cy };
+    const m = metrics(W, H), j = m.joy, R = j.r, rd = m.radar;
+    let dx = x - j.cx, dy = y - j.cy; const d = Math.hypot(dx, dy);
+    if (d > JOY.SLACK) { dx *= JOY.SLACK / d; dy *= JOY.SLACK / d; }
+    const lo = Math.max(m.safe.l + 2, rd.x + rd.d + 4) + R, hi = Math.min(m.W - m.safe.r - 2, m.zone.x1) - R;
+    const top = m.barBottom + R, bot = m.H - m.safe.b - 2 - R;
+    return { cx: clamp(j.cx + dx, Math.min(lo, j.cx), Math.max(hi, j.cx)), cy: clamp(j.cy + dy, Math.min(top, j.cy), Math.max(bot, j.cy)) };
   };
   HUD.joyGuard = (x, y, W, H) => { const m = metrics(W, H); return Math.hypot(x - m.joy.cx, y - m.joy.cy) <= m.joy.r + JOY.GUARD; };
   HUD.layout = function (root) {
@@ -284,7 +304,7 @@
     clear(host) { const reg = host && ACTS.get(host); if (reg) Object.keys(reg).forEach(id => reg[id].b.classList.add('hidden')); },
   };
 
-  /* ---------- Джойстик (§3.5): кружок в покое по центру снизу, под пальцем — плавающий ---------- */
+  /* ---------- Джойстик (§3.5): кружок закреплён снизу по центру — в покое и под пальцем на одном месте ---------- */
   const joys = new Set();
   const JOY_SVG = '<svg class="hud-joy-ch" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M44,15 L50,9 L56,15"/><path d="M44,85 L50,91 L56,85"/><path d="M15,44 L9,50 L15,56"/><path d="M85,44 L91,50 L85,56"/></g></svg>';
@@ -292,7 +312,7 @@
   // JOY.RUN_T мс — бег (J.run, класс .run: ручка и кольцо золотые, стрелки ярче); ручка упёрлась в край — пунктир порога
   // (класс .edge: куда тянуться); идёт удержание — золотое кольцо (класс .arm, с JOY.ARM_ON мс; кольцо и удержание — одно
   // и то же, так что горит — значит, скоро бег); вернула палец внутрь хода ручки (< JOY.RUN_OFF) или отпустила — шаг.
-  // Центр — всегда сам палец (и при позднем начале), так что первый же кадр за краем — честное начало удержания
+  // Всё меряется от неподвижной базы (место покоя ± JOY.SLACK): палец, севший сразу за порогом, держит бег с первого кадра
   HUD.joystick = {
     create(host, o = {}) {
       const el = document.createElement('div');
@@ -305,11 +325,11 @@
       const runCls = b => { J.run = b; el.classList.toggle('run', b); if (b) J._ran = true; };
       const armCls = b => { if (b !== J._armV) { J._armV = b; el.classList.toggle('arm', b); } };
       const edgeCls = b => { if (b !== J._edV) { J._edV = b; el.classList.toggle('edge', b); } };
-      // кружок рисуется целиком на экране (у края — чуть выше пальца), центр джойстика — сам палец; ручка — отклонение от центра,
-      // пунктир порога бега — вокруг кружка (вся картинка — одна и та же, у края она просто чуть сдвинута от пальца)
+      // кружок — с центром в базе (J.cx/J.cy: место покоя ± JOY.SLACK): ручка — отклонение пальца от базы (до хода, дальше упирается
+      // в край), пунктир порога бега — вокруг кружка
       const place = () => {
-        const d = dims(), m = metrics(d.W, d.H), p = HUD.joyPlace(J.cx, J.cy, d.W, d.H);
-        el.style.left = Math.round(p.cx - m.joy.r) + 'px'; el.style.top = Math.round(p.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
+        const d = dims(), m = metrics(d.W, d.H);
+        el.style.left = Math.round(J.cx - m.joy.r) + 'px'; el.style.top = Math.round(J.cy - m.joy.r) + 'px'; el.style.bottom = 'auto'; J._l = J._t = null;
       };
       const J = {
         el, knob, active: false, cx: 0, cy: 0, fx: 0, fy: 0, x: 0, y: 0, m: 0, lx: 0, ly: 0, r: 0, run: false, want: false, travel: 34,
@@ -323,26 +343,27 @@
           J._l = l; J._t = t;
           el.style.left = l; el.style.top = t; el.style.bottom = 'auto';
         },
-        // палец коснулся: центр — точка касания (сила 0), кружок — под пальцем
+        // палец коснулся: база — место покоя, сдвинутое к пальцу не больше JOY.SLACK px (HUD.joyPlace), и до отпускания она стоит;
+        // палец не в центре — ручка сразу к нему (сила — со следующего кадра, сглаженная). И при позднем начале (палец лёг, пока
+        // ввод был закрыт) — то же: кружок на своём месте, ведёт отклонение от него
         begin(x, y) {
-          const d = dims(), m = metrics(d.W, d.H);
-          J.active = true; J.cx = J.fx = x; J.cy = J.fy = y; J.travel = m.joy.travel;
+          const d = dims(), m = metrics(d.W, d.H), p = HUD.joyPlace(x, y, d.W, d.H);
+          J.active = true; J.cx = p.cx; J.cy = p.cy; J.fx = x; J.fy = y; J.travel = m.joy.travel;
           J.x = J.y = J.m = J.lx = J.ly = J.r = J._m = J._n = 0; J._on = false; J._rt = J._ro = J._tipEnd = 0; J._fullT = 0; J._ft = performance.now();
           if (J.run) runCls(false);
           armCls(false); edgeCls(false);
-          el.classList.remove('rest', 'back'); el.classList.add('live');
+          clearTimeout(J._bt); el.classList.remove('rest', 'back'); el.classList.add('live');
           el.style.setProperty('--hud-joy-run', (2 * JOY.RUN_ON * J.travel).toFixed(1) + 'px');
-          place(); knob.style.transform = '';
-          return { cx: x, cy: y };
+          place(); J.drag(x, y);
+          return { cx: p.cx, cy: p.cy };
         },
-        // палец едет: ручка — сразу за пальцем; ответ — мгновенная сила без сглаживания (для «палец пошёл»: отменить «идти туда»)
+        // палец едет: ручка — сразу за пальцем (до хода, дальше упирается в край); база не двигается, как далеко палец ни ушёл
+        // (хоть к середине экрана: кружок стоит, ручка у края, сила полная). Ответ — мгновенная сила без сглаживания (для «палец
+        // пошёл»: отменить «идти туда»)
         drag(x, y) {
           if (!J.active) return { x: 0, y: 0, m: 0, r: 0 };
           J.fx = x; J.fy = y;
-          let dx = x - J.cx, dy = y - J.cy, dd = Math.hypot(dx, dy);
-          const T = J.travel || 34, F = JOY.FOLLOW * T;
-          // палец ушёл дальше 1,6 хода — центр тянется следом: вернула палец — тише, но в ту же сторону
-          if (dd > F) { const k = (dd - F) / dd; J.cx += dx * k; J.cy += dy * k; dx = x - J.cx; dy = y - J.cy; dd = F; place(); }
+          const dx = x - J.cx, dy = y - J.cy, dd = Math.hypot(dx, dy), T = J.travel || 34;
           const c = dd > T ? T / dd : 1;
           knob.style.transform = `translate(${(dx * c).toFixed(1)}px, ${(dy * c).toFixed(1)}px)`;
           const n = Math.min(1, dd / T), on = J._on ? n >= JOY.DZ_OFF : n >= JOY.DZ_ON, s = on ? joyShape(n) : 0;
@@ -410,7 +431,7 @@
           J.layout();
           clearTimeout(J._bt); J._bt = setTimeout(() => el.classList.remove('back'), 220);
         },
-        // в покое — только на сенсорных экранах; под пальцем — всегда
+        // в покое — только на сенсорных экранах; пока палец держит — всегда
         show(on) {
           const vis = !!(on && (coarse() || J.active || o.always));
           if (vis !== J.vis) { J.vis = vis; el.classList.toggle('hidden', !vis); }
@@ -794,7 +815,7 @@
     let top = null; try { top = typeof HUD.helpTop === 'function' ? HUD.helpTop() : null; } catch (e) { top = null; }
     const m = document.createElement('div'); m.className = 'modal sheet hud-help';
     const rows = touch
-      ? [['🕹', 'Кружок — идти', 'палец внизу слева — кружок встанет под него; дальше от центра — быстрее'],
+      ? [['🕹', 'Кружок внизу — идти', 'палец на кружок и в сторону; дальше от центра — быстрее'],
         ['👟', 'За край кружка — бег', 'дотянись подальше за край кружка и подержи — кружок засияет'],
         ['🦘', 'Прыжок — кнопка справа', 'над большой кнопкой'],
         ['🚗', 'За рулём — кнопки', 'слева «‹‹» «››» — руль, справа — газ и тормоз; стоишь и жмёшь тормоз — назад'],

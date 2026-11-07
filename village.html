@@ -401,19 +401,26 @@
       S.dir = 'down'; S.exitArmed = {};
     }
 
-    /* ---------- ввод: джойстик слева, камера справа, клавиши; в «Осмотреться» — палец крутит взгляд, два — ближе/дальше ---------- */
+    /* ---------- ввод: джойстик слева внизу (закреплён), остальное — камера, клавиши; в «Осмотреться» — палец крутит взгляд, два — ближе/дальше ---------- */
     const keys = {}, joy = { id: null, x: 0, y: 0, ox: 0, oy: 0 }, cam = { id: null, lx: 0, ly: 0 }, pts = new Map();
     const KM = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r', KeyQ: 'q', KeyE: 'e' };
     window.addEventListener('keydown', e => { if (KM[e.code]) { keys[KM[e.code]] = true; e.preventDefault(); } if (e.code === 'Space' || e.code === 'Enter') { act(); e.preventDefault(); } });
     window.addEventListener('keyup', e => { if (KM[e.code]) keys[KM[e.code]] = false; });
     const joyEl = $('joy');
+    // ручка — отклонение пальца от базы, до 46 px (дальше упирается в край кружка)
+    const joyKnob = (x, y) => { let dx = x - joy.ox, dy = y - joy.oy; const l = Math.hypot(dx, dy), m = 46; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = dy / m; joyEl.firstChild.style.transform = `translate(${dx}px,${dy}px)`; };
     canvas.addEventListener('pointerdown', e => {
       hideHint();
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (S.golf && !S.golf.G.rolling && S.golf.G.tries < S.golf.G.maxTries && !S.golf.G.holed) { S.golf.drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); return; }
       if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); return; }
-      if (e.clientX < window.innerWidth * 0.5 && joy.id === null) { joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; joyEl.classList.remove('ghost'); joyEl.style.display = 'block'; joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px'; joyEl.firstChild.style.transform = ''; }
-      else if (cam.id === null) { cam.id = e.pointerId; cam.lx = e.clientX; cam.ly = e.clientY; }
+      // джойстик закреплён, как HUD.joystick в игре: касание не дальше 44 px за краем кружка покоя — джойстик, база — покой,
+      // сдвинутый к пальцу не больше 14 px, и за пальцем не едет; мимо — камера
+      const g = joy.id === null ? joyEl.getBoundingClientRect() : null, gx = g ? g.left + g.width / 2 : 0, gy = g ? g.top + g.height / 2 : 0, gd = g ? Math.hypot(e.clientX - gx, e.clientY - gy) : 1e9;
+      if (g && g.width > 0 && gd <= g.width / 2 + 44) {
+        const k = gd > 14 ? 14 / gd : 1;
+        joy.id = e.pointerId; joy.ox = gx + (e.clientX - gx) * k; joy.oy = gy + (e.clientY - gy) * k; joyEl.classList.remove('ghost'); joyEl.style.display = 'block'; joyEl.style.left = joy.ox + 'px'; joyEl.style.top = joy.oy + 'px'; joyKnob(e.clientX, e.clientY);
+      } else if (cam.id === null) { cam.id = e.pointerId; cam.lx = e.clientX; cam.ly = e.clientY; }
       canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', e => {
@@ -429,7 +436,7 @@
         else if (prev) { const k = S.look.fov / 55; S.look.yaw -= (e.clientX - prev.x) * 0.006 * k; S.look.pitch = clamp(S.look.pitch + (e.clientY - prev.y) * 0.005 * k, S.look.L.pitchMin, S.look.L.pitchMax); }
         return;
       }
-      if (e.pointerId === joy.id) { let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const l = Math.hypot(dx, dy), m = 46; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = dy / m; joyEl.firstChild.style.transform = `translate(${dx}px,${dy}px)`; }
+      if (e.pointerId === joy.id) joyKnob(e.clientX, e.clientY);
       else if (e.pointerId === cam.id) { S.yaw -= (e.clientX - cam.lx) * 0.008; cam.lx = e.clientX; S.manualT = 2.5; }
     });
     const up = e => { if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) { S.golf.drag = null; pts.delete(e.pointerId); golfShoot(); return; } pts.delete(e.pointerId); if (S.look && pts.size < 2) S.look.pinch = null; if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyEl.classList.add('ghost'); joyEl.style.left = ''; joyEl.style.top = ''; joyEl.firstChild.style.transform = ''; } if (e.pointerId === cam.id) cam.id = null; };
