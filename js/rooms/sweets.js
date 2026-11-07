@@ -114,7 +114,7 @@
       { // меню: «Меню дня», «Хлеб без хлеба»
         const c = ac, gr = c.createRadialGradient(256, 300, 40, 256, 336, 440); gr.addColorStop(0, '#506460'); gr.addColorStop(1, '#3A4A49'); c.fillStyle = gr; c.fillRect(0, 0, 512, 672);
         c.globalAlpha = 0.07; c.fillStyle = '#FFFFFF'; for (let i = 0; i < 14; i++) { c.beginPath(); c.ellipse(60 + (i * 97) % 400, 80 + (i * 173) % 520, 70, 20, (i % 5) * 0.4, 0, 7); c.fill(); } c.globalAlpha = 1;
-        c.setLineDash([16, 12]); c.strokeStyle = 'rgba(255,214,224,.75)'; c.lineWidth = 6; R.rrect(c, 22, 22, 468, 628, 30); c.stroke(); c.setLineDash([]);
+        c.setLineDash([16, 12]); c.strokeStyle = 'rgba(255,226,184,.75)'; c.lineWidth = 6; R.rrect(c, 22, 22, 468, 628, 30); c.stroke(); c.setLineDash([]);
         R.text(c, 'Меню дня', 256, 112, 112, '#FFF6EE', { f: 'Caveat', w: 700, max: 440 });
         c.strokeStyle = '#BFE6D3'; c.lineWidth = 7; c.lineCap = 'round'; c.beginPath(); for (let x = 110; x <= 402; x += 4) { const y = 178 + Math.sin(x / 13) * 6; x === 110 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
         R.text(c, 'Хлеб', 256, 300, 136, '#F9D29A', { f: 'Caveat', w: 700 });
@@ -148,7 +148,7 @@
       const [fcv, fc] = R.cnv(256, 256);
       fc.fillStyle = '#FFF6EF'; fc.fillRect(0, 0, 256, 256);
       fc.fillStyle = '#F3DDC0'; fc.fillRect(0, 0, 128, 128); fc.fillRect(128, 128, 128, 128);
-      fc.strokeStyle = 'rgba(214,150,165,.32)'; fc.lineWidth = 3;
+      fc.strokeStyle = 'rgba(200,150,100,.32)'; fc.lineWidth = 3;
       [0, 128, 256].forEach(v => { fc.beginPath(); fc.moveTo(v, 0); fc.lineTo(v, 256); fc.stroke(); fc.beginPath(); fc.moveTo(0, v); fc.lineTo(256, v); fc.stroke(); });
       box(sw, mm.pink, 0, -0.06, -D / 2, W + 0.4, 0.12, D + 0.2);
       put(sw, tiled(W, D, 1, 1), R.toon('#FFFFFF', { map: repTex(fcv) }), [0, 0.003, -D / 2], null, [-PI / 2, 0, 0]);
@@ -157,7 +157,7 @@
       const [wcv, wc] = R.cnv(256, 256);
       wc.fillStyle = '#FCEBD6'; wc.fillRect(0, 0, 256, 256);
       wc.fillStyle = '#CFE6D6'; [0, 128].forEach(x => wc.fillRect(x, 0, 64, 256));
-      wc.fillStyle = 'rgba(240,143,168,.4)'; [0, 64, 128, 192].forEach(x => wc.fillRect(x - 1, 0, 3, 256));
+      wc.fillStyle = 'rgba(240,160,106,.4)'; [0, 64, 128, 192].forEach(x => wc.fillRect(x - 1, 0, 3, 256));
       wc.fillStyle = '#FFFFFF'; [[96, 40], [96, 168], [224, 104], [224, 232]].forEach(([x, y]) => { wc.beginPath(); wc.arc(x, y, 6, 0, 7); wc.fill(); });
       const paperM = R.toon('#FFFFFF', { map: repTex(wcv) });
       box(sw, mm.pink, 0, H / 2, -D - 0.1, W + 0.4, H, 0.2);

@@ -141,7 +141,7 @@
     };
     const C = {
       paint: color, chrome: '#EEF0F5', chromeD: '#B9BCC8', tire: '#5C5060', wall: '#F4E6D4', leather: '#9A6544', leatherD: '#7E4E34',
-      wicker: '#E0B47A', wickerD: '#BE8C55', bow: '#F08FA8', bowD: '#D9708C', lens: '#FFF6DC', red: '#E2405E', dark: '#6E6272',
+      wicker: '#E0B47A', wickerD: '#BE8C55', bow: '#D9A441', bowD: '#B9822A', lens: '#FFF6DC', red: '#E2405E', dark: '#6E6272',
     };
     const BN = { root: 0, steer: 1, wf: 2, wr: 3, crank: 4, pl: 5, pr: 6, stand: 7, bell: 8 };
     const axisAt = y => { const t = (y - D.steerAt[1]) / AX[1]; return [0, y, D.steerAt[2] + AX[2] * t]; };

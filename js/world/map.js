@@ -1423,7 +1423,7 @@
       const geo = keep(new T.BufferGeometry()); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); const col = new Float32Array(pos.length); geo.setAttribute('color', new T.BufferAttribute(col, 3));
       const me = new T.Mesh(geo, keep(new T.MeshBasicMaterial({ vertexColors: true, fog: false, depthTest: false, depthWrite: false, side: T.DoubleSide })));
       me.name = 'ridges'; me.renderOrder = -60; me.frustumCulled = false; me.castShadow = false; me.receiveShadow = false; scene.add(me);
-      const TINT = [[new T.Color('#9F92C8'), 0.38], [new T.Color('#FFFFFF'), 0.62], [new T.Color('#958BBE'), 0.5]], fc = new T.Color(-1, 0, 0), tc = new T.Color();
+      const TINT = [[new T.Color('#8A9AD0'), 0.45], [new T.Color('#FFFFFF'), 0.62], [new T.Color('#8090C8'), 0.55]], fc = new T.Color(-1, 0, 0), tc = new T.Color();   // серо-голубые: сирень на тёплом тумане давала пыльно-розовый
       ANIM.push((t, cam) => {
         me.position.set(cam.position.x, cam.position.y - 1.7, cam.position.z);
         const fog = scene.fog; if (!fog) return;

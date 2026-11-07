@@ -33,9 +33,9 @@
   // детерминированный шум (одинаковый вид на всех устройствах)
   function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-  const HAZE = hex('#E7DDE3');   // дневная дымка у горизонта (тёплая сирень — как низ CSS-неба)
+  const HAZE = hex('#EDE0CF');   // дневная дымка у горизонта (тёплый песок — как низ CSS-неба)
   const C = {
-    far: hex('#B7AFCF'), farLo: hex('#D3C9D9'), snow: hex('#F5F2F7'),
+    far: hex('#B7AFCF'), farLo: hex('#CFCBD6'), snow: hex('#F5F2F7'),
     mid: hex('#93A8B3'), midLo: hex('#C6C6CF'),
     hill: hex('#949A6C'), hillHi: hex('#7F8A5A'), rust: hex('#A98F66'), rock: hex('#A39886'), hillLo: hex('#C9C4AE'),   // осенняя зелень, кусты, рыжие склоны, скалы
   };

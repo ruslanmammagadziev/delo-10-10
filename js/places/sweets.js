@@ -58,7 +58,7 @@
         R.bake(group, null, { cast: !!cast });
         group.traverse(m => { if (m.isMesh) m.raycast = () => {}; });
       };
-      const pm = R.pm, gold = pm('#E8C770'), cream = pm('#FFFDF9'), stripe = pm('#F08FA8'), pink = pm('#F6C6D0'), cherry = pm('#C2405B');
+      const pm = R.pm, gold = pm('#E8C770'), cream = pm('#FFFDF9'), stripe = pm('#F0A06A'), pink = pm('#F6D2B0'), cherry = pm('#A9502F'), berry = pm('#C2405B');
       const st = new T.Group(); g.add(st);
 
       // столики T2 и T3: круглая столешница, ножка, два стула-сердечка по бокам
@@ -93,7 +93,7 @@
       const plates = TABLES.map(t => {
         const q = new T.Group(); q.position.set(t.plate[0], t.plate[1], t.plate[2]); g.add(q);
         cyl(q, cream, 0, 0.005, 0, 0.11, 0.01); put(q, R.ringG(0.105, 0.006), stripe, [0, 0.012, 0], null, [PI / 2, 0, 0]);
-        cyl(q, pm('#E7B47C'), 0, 0.035, 0, 0.055, 0.05); cyl(q, pm('#FFF4E4'), 0, 0.066, 0, 0.057, 0.014); put(q, GEO.sphLo, cherry, [0.01, 0.085, 0], [0.018, 0.018, 0.018]);
+        cyl(q, pm('#E7B47C'), 0, 0.035, 0, 0.055, 0.05); cyl(q, pm('#FFF4E4'), 0, 0.066, 0, 0.057, 0.014); put(q, GEO.sphLo, berry, [0.01, 0.085, 0], [0.018, 0.018, 0.018]);
         put(q, GEO.cylLo, pm('#E8C770'), [0.07, 0.02, 0.05], [0.006, 0.005, 0.06], [0, 0.6, PI / 2]);
         vcBake(q, false); q.visible = false; return q;
       });

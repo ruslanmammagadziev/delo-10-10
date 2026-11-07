@@ -1183,7 +1183,7 @@
     function makeCover() {
       const g = new T3.Group(); body.add(g); g.name = 'sedanCover';
       const toon = (c) => new T3.MeshToonMaterial({ color: new T3.Color(c), gradientMap: md.paint.material.gradientMap });
-      const cloth = toon('#EADCD2'), bowM = toon('#E58FA6'), bowD = toon('#C9667E');
+      const cloth = toon('#EADCD2'), bowM = toon('#D9A441'), bowD = toon('#B9822A');
       const m = new T3.Mesh(md.paint.geometry, cloth); m.scale.set(1.035, 1.025, 1.015); m.position.y = 0.004; g.add(m);
       const sph = new T3.SphereGeometry(1, 16, 11), cyl = new T3.CylinderGeometry(1, 1, 1, 12);
       const add = (geo, mat, p, s, r) => { const x = new T3.Mesh(geo, mat); x.position.set(p[0], p[1], p[2]); x.scale.set(s[0], s[1], s[2]); if (r) x.rotation.set(r[0], r[1], r[2]); x.castShadow = true; g.add(x); return x; };
@@ -1426,15 +1426,15 @@
     let cur = o.current || 'coupe';
     const cards = CHOICES.map(c => {
       const b = document.createElement('button'); b.type = 'button'; b.dataset.id = c.id;
-      b.style.cssText = 'flex:1;min-height:96px;border:0;border-radius:18px;padding:10px 8px;background:#FFFDF9;color:#3A2E3F;font:inherit;cursor:pointer;box-shadow:0 3px 0 rgba(58,46,63,.14);display:flex;flex-direction:column;align-items:center;gap:6px;';
+      b.style.cssText = 'flex:1;min-height:96px;border:0;border-radius:18px;padding:10px 8px;background:#FFFDF9;color:#3B2A20;font:inherit;cursor:pointer;box-shadow:0 3px 0 rgba(59,42,32,.14);display:flex;flex-direction:column;align-items:center;gap:6px;';
       const dot = document.createElement('span'); dot.style.cssText = `width:46px;height:22px;border-radius:12px 12px 6px 6px;background:${c.color};box-shadow:inset 0 -5px 0 rgba(0,0,0,.12);`;
       const t = document.createElement('b'); t.textContent = c.title; t.style.cssText = 'font-weight:900;font-size:15px;';
-      const n = document.createElement('small'); n.textContent = c.note; n.style.cssText = 'font-weight:700;font-size:11px;color:#6E6272;';
+      const n = document.createElement('small'); n.textContent = c.note; n.style.cssText = 'font-weight:700;font-size:11px;color:#735E4E;';
       b.append(dot, t, n);
       b.addEventListener('click', () => { cur = c.id; paint(); if (o.onPick) o.onPick(c.id, c); });
       return b;
     });
-    const paint = () => cards.forEach(b => { const on = b.dataset.id === cur; b.style.outline = on ? '3px solid #C2405B' : 'none'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    const paint = () => cards.forEach(b => { const on = b.dataset.id === cur; b.style.outline = on ? '3px solid #B5520E' : 'none'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     cards.forEach(b => wrap.appendChild(b)); paint();
     wrap.select = id => { cur = id; paint(); };
     return wrap;

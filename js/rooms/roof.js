@@ -90,7 +90,7 @@
         const w = 174, h = 348;
         c.fillStyle = '#A8653A'; c.fillRect(0, 0, w, h);
         c.fillStyle = '#B9784A'; R.rrect(c, 10, 10, w - 20, h - 20, 10); c.fill();
-        c.strokeStyle = 'rgba(120,50,70,.35)'; c.lineWidth = 2;
+        c.strokeStyle = 'rgba(90,50,25,.35)'; c.lineWidth = 2;
         for (let i = -6; i < 12; i++) { c.beginPath(); c.moveTo(10, 10 + i * 40); c.lineTo(w - 10, 10 + i * 40 + (w - 20)); c.stroke(); c.beginPath(); c.moveTo(w - 10, 10 + i * 40); c.lineTo(10, 10 + i * 40 + (w - 20)); c.stroke(); }
         c.fillStyle = '#F4D27A';
         for (let y = 30; y < h - 12; y += 40) for (let x = 30; x < w - 12; x += 40) { c.beginPath(); c.arc(x - 10 + 10, y, 3.4, 0, 7); c.fill(); }
@@ -344,7 +344,7 @@
         c.save(); c.translate(448, 300); c.rotate(0.1); c.fillStyle = '#E7EFD0'; c.fillRect(-46, -46, 92, 92);
         c.strokeStyle = '#8E8AA6'; c.lineWidth = 3; c.lineCap = 'round';
         [[-20, 18], [0, -2], [20, -22]].forEach(([x, y]) => { c.beginPath(); c.moveTo(x, y + 10); c.lineTo(x, y); c.moveTo(x, y); c.lineTo(x - 7, y - 8); c.moveTo(x, y); c.lineTo(x + 7, y - 8); c.moveTo(x, y); c.lineTo(x, y - 10); c.stroke(); }); c.restore();
-        c.fillStyle = '#C2405B'; [[70, 36], [448, 258]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 7, 0, 7); c.fill(); });
+        c.fillStyle = '#B5520E'; [[70, 36], [448, 258]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 7, 0, 7); c.fill(); });
         // главная карточка недели
         c.save(); c.translate(282, 196); c.rotate(-0.025);
         c.fillStyle = 'rgba(90,60,40,.25)'; c.fillRect(-150, -138, 312, 290); c.fillStyle = '#FFFBF0'; c.fillRect(-156, -146, 312, 290);

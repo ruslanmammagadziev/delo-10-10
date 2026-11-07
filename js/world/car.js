@@ -398,7 +398,7 @@
   /* ---------- чехол на машину (серия 1): ткань повторяет кузов (та же сетка, чуть шире), над салоном — мягкий горб, сверху бант ---------- */
   WORLD.makeCarCover = function (H, car) {
     const T = H.T, g = new T.Group(); car.body.add(g);
-    const cloth = H.addRim(H.toon('#EADCD2'), 0.6), bowM = H.toon('#E58FA6'), bowD = H.toon('#C9667E');
+    const cloth = H.addRim(H.toon('#EADCD2'), 0.6), bowM = H.toon('#D9A441'), bowD = H.toon('#B9822A');
     if (car.paintMesh && car.paintMesh.geometry) { const m = new T.Mesh(car.paintMesh.geometry, cloth); m.scale.set(1.06, 1.08, 1.03); m.position.y = -0.01; g.add(m); }
     H.put(g, H.GEO_HI.sph, cloth, [0, 0.9, -0.25], [0.72, 0.36, 1.05]);
     [-1, 1].forEach(sd => H.put(g, H.GEO_HI.sph, bowM, [sd * 0.17, 1.27, -0.25], [0.18, 0.11, 0.07], [0, 0, sd * 0.45]));

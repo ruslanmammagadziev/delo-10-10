@@ -98,7 +98,7 @@
     g_umbrella: {
       label: '«Капля» · зонтики', short: 'Зонтики', theme: 'umbrella',
       front: { sign: 'Капля', sub: 'зонтики', col: '#3F8A86', awning: '#CFE6E0', door: '#2F6F6B', goods: ['#E8833A', '#9DB8E0', '#F3CF73'] },
-      look: { wall: '#F7F1E6', wall2: '#E2D6BF', floor: '#B98F7C', accent: '#E8833A', bg: 'radial-gradient(130% 90% at 50% 30%, #3E3428 0%, #241D16 72%)' },
+      look: { wall: '#F7F1E6', wall2: '#E2D6BF', floor: '#B98F7C', accent: '#5FA39C', bg: 'radial-gradient(130% 90% at 50% 30%, #3E3428 0%, #241D16 72%)' },
       host: { id: 'g_duck', name: 'Утка Капа', emoji: '🦆', body: '#FFE58A', belly: '#FFF4C2', ear: 'none', apron: '#D9657E', hat: 'none', nose: '#F3A65A', beak: true },
       hello: [{ who: 'g_duck', text: 'Кря! Заходи под крышу. Зонтики любой расцветки, даже в горошек.' }],
       again: [{ who: 'g_duck', text: 'Кря-кря, снова ты! Зонтики просохли, горошек на месте.' }],

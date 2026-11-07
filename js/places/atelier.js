@@ -27,6 +27,7 @@
         cream: toon('#FFFDF9'), creamD: toon('#F6E9DF'), gold: glow('#E8C770', '#B8903A', 0.14), wood: toon('#D2A77E'), woodD: toon('#A87E5C'),
         cherry: toon('#C2405B'), pink: toon('#F08FA8'), powder: toon('#F7C9D3'), mint: toon('#BFE6D3'), lav: toon('#D9CCF4'), beige: toon(BEIGE),
         beigeD: toon('#D2B994'), butter: toon('#FFE08A'), silver: toon('#DCE1E8'), ink: toon('#5B4A63'),
+        door: toon('#A9502F'), panel: toon('#E2C58A'), shade: toon('#E9B07A'),
         glass: glow('#DDE6F2', '#DDE6F2', 0.15), lamp: glow('#FFE9B8', '#FFC46B', 0.9), 
       };
       const hitM = basic('#FFFFFF', { visible: false });
@@ -60,23 +61,23 @@
         ac.fillStyle = 'rgba(255,240,220,.18)'; ac.fillRect(0, 0, 1024, 768);
       }
       ac = ac0;   // дальше — атлас
-      { // круглый ковёр: пудровый, кремовые фестоны, вишнёвая каёмка, цветочки
+      { // круглый ковёр: песочный, кремовые фестоны, янтарная каёмка, цветочки
         const cx = 1024 + 256, cy = 256;
         ac.fillStyle = '#FFF4EC'; for (let i = 0; i < 28; i++) { const a = i / 28 * PI * 2; ac.beginPath(); ac.arc(cx + Math.cos(a) * 232, cy + Math.sin(a) * 232, 22, 0, 7); ac.fill(); }
         ac.beginPath(); ac.arc(cx, cy, 236, 0, 7); ac.fill();
-        ac.fillStyle = '#F7C9D3'; ac.beginPath(); ac.arc(cx, cy, 214, 0, 7); ac.fill();
-        ac.strokeStyle = '#C2405B'; ac.lineWidth = 6; ac.beginPath(); ac.arc(cx, cy, 196, 0, 7); ac.stroke();
+        ac.fillStyle = '#F2D7A0'; ac.beginPath(); ac.arc(cx, cy, 214, 0, 7); ac.fill();
+        ac.strokeStyle = '#B5520E'; ac.lineWidth = 6; ac.beginPath(); ac.arc(cx, cy, 196, 0, 7); ac.stroke();
         ac.strokeStyle = '#FFF4EC'; ac.lineWidth = 4; ac.beginPath(); ac.arc(cx, cy, 120, 0, 7); ac.stroke();
         for (let i = 0; i < 10; i++) { const a = i / 10 * PI * 2, x = cx + Math.cos(a) * 160, y = cy + Math.sin(a) * 160;
           ac.fillStyle = '#FFFDF9'; for (let k = 0; k < 5; k++) { const b = k / 5 * PI * 2; ac.beginPath(); ac.arc(x + Math.cos(b) * 9, y + Math.sin(b) * 9, 7, 0, 7); ac.fill(); }
           ac.fillStyle = '#E8C770'; ac.beginPath(); ac.arc(x, y, 5, 0, 7); ac.fill(); }
-        ac.fillStyle = '#F08FA8'; [[-24, 0], [24, 0]].forEach(([dx]) => { ac.beginPath(); ac.ellipse(cx + dx, cy, 30, 18, dx > 0 ? 0.4 : -0.4, 0, 7); ac.fill(); });
-        ac.fillStyle = '#C2405B'; ac.beginPath(); ac.arc(cx, cy, 10, 0, 7); ac.fill();
+        ac.fillStyle = '#D9A441'; [[-24, 0], [24, 0]].forEach(([dx]) => { ac.beginPath(); ac.ellipse(cx + dx, cy, 30, 18, dx > 0 ? 0.4 : -0.4, 0, 7); ac.fill(); });
+        ac.fillStyle = '#B9822A'; ac.beginPath(); ac.arc(cx, cy, 10, 0, 7); ac.fill();
       }
       { // вывеска «ПРИМЕРОЧНАЯ»
         const x = 1536, y = 0; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x + 4, y + 4, 504, 120, 30); ac.fill();
         ac.strokeStyle = '#E8C770'; ac.lineWidth = 6; R.rrect(ac, x + 14, y + 14, 484, 100, 24); ac.stroke();
-        R.text(ac, 'ПРИМЕРОЧНАЯ', x + 256, y + 66, 54, '#C2405B', { f: 'Comfortaa', w: 700, max: 430 });
+        R.text(ac, 'ПРИМЕРОЧНАЯ', x + 256, y + 66, 54, '#B5520E', { f: 'Comfortaa', w: 700, max: 430 });
       }
       { // табличка «ВЫХОД»
         const x = 1536, y = 136; ac.fillStyle = '#2A1D14'; R.rrect(ac, x, y, 320, 96, 18); ac.fill(); R.text(ac, 'ВЫХОД', x + 160, y + 50, 58, '#BFF0CE');
@@ -84,12 +85,12 @@
       // эскизы мод в рамках: силуэты с бантом и беретом
       const sketch = (x, y, coat, bow) => {
         ac.fillStyle = '#FFF8F0'; ac.fillRect(x, y, 192, 256);
-        ac.strokeStyle = '#C9A2AE'; ac.lineWidth = 3; ac.strokeRect(x + 10, y + 10, 172, 236);
+        ac.strokeStyle = '#C9A57E'; ac.lineWidth = 3; ac.strokeRect(x + 10, y + 10, 172, 236);
         ac.fillStyle = coat; ac.beginPath(); ac.moveTo(x + 96, y + 92); ac.lineTo(x + 140, y + 220); ac.lineTo(x + 52, y + 220); ac.closePath(); ac.fill();
         ac.fillStyle = '#F7DCC8'; ac.beginPath(); ac.arc(x + 96, y + 72, 24, 0, 7); ac.fill();
         ac.fillStyle = bow; ac.beginPath(); ac.ellipse(x + 96, y + 50, 30, 10, -0.2, 0, 7); ac.fill();
         ac.strokeStyle = '#7A6A76'; ac.lineWidth = 2.5; ac.beginPath(); ac.moveTo(x + 76, y + 222); ac.lineTo(x + 74, y + 238); ac.moveTo(x + 116, y + 222); ac.lineTo(x + 118, y + 238); ac.stroke();
-        R.text(ac, 'эскиз', x + 96, y + 30, 22, '#B48A9A', { f: 'Caveat', w: 700 });
+        R.text(ac, 'эскиз', x + 96, y + 30, 22, '#A87A52', { f: 'Caveat', w: 700 });
       };
       sketch(1536, 256, '#E9D4B6', '#F08FA8'); sketch(1760, 256, '#D9CCF4', '#C2405B');
 
@@ -128,8 +129,8 @@
       /* --- дверь на улицу (левая стена) и «ВЫХОД» --- */
       { const dz = -0.95, dg = grp(fx, -W / 2 + 0.01, 0, dz, PI / 2);
         put(dg, R.extrude(R.archShape(1.18, 2.22), 0.06), M.gold, [0, 0, 0.02]);
-        put(dg, R.extrude(R.archShape(1.0, 2.1), 0.05), M.cherry, [0, 0, 0.06]);
-        [-0.22, 0.22].forEach(x => box(dg, M.pink, x, 0.75, 0.115, 0.32, 0.7, 0.02));
+        put(dg, R.extrude(R.archShape(1.0, 2.1), 0.05), M.door, [0, 0, 0.06]);
+        [-0.22, 0.22].forEach(x => box(dg, M.panel, x, 0.75, 0.115, 0.32, 0.7, 0.02));
         cyl(dg, M.glass, 0, 1.6, 0.12, 0.15, 0.03, [PI / 2, 0, 0]); put(dg, R.ringG(0.15, 0.025), M.gold, [0, 1.6, 0.13]);
         R.sph(dg, M.gold, 0.36, 1.0, 0.13, 0.045);
         aplane(dg, [1536, 136, 320, 96], [0, 2.52, 0.09], [0.7, 0.21, 1]);
@@ -144,7 +145,7 @@
         put(mg, R.extrude(ring, 0.06), M.gold, [0, 0, 0]);
         const [gcv, gc] = R.cnv(128, 256), gg = gc.createLinearGradient(0, 0, 128, 256);
         gg.addColorStop(0, '#F4F7FC'); gg.addColorStop(0.45, '#DCE5F2'); gg.addColorStop(1, '#C9D2EA'); gc.fillStyle = gg; gc.fillRect(0, 0, 128, 256);
-        gc.fillStyle = 'rgba(247,201,211,.35)'; gc.beginPath(); gc.ellipse(64, 236, 70, 40, 0, 0, 7); gc.fill();
+        gc.fillStyle = 'rgba(240,190,110,.35)'; gc.beginPath(); gc.ellipse(64, 236, 70, 40, 0, 0, 7); gc.fill();
         gc.fillStyle = 'rgba(255,255,255,.7)'; gc.beginPath(); gc.moveTo(18, 120); gc.lineTo(60, 40); gc.lineTo(78, 40); gc.lineTo(36, 120); gc.closePath(); gc.fill();
         const glassG = R.keep(new T.ShapeGeometry(ell(0.43, 0.73), 28)); { const p = glassG.attributes.position, uv = glassG.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / 0.86 + 0.5, p.getY(i) / 1.46 + 0.5); }
         put(mg, glassG, basic('#FFFFFF', { map: R.tex(gcv) }), [0, 0, 0.02]);
@@ -253,7 +254,7 @@
       [-1.75, 1.75].forEach(x => {
         const sg = grp(fx, x, 0, -D + 0.02);
         box(sg, M.ink, 0, 2.05, 0.03, 0.07, 0.14, 0.05); cyl(sg, M.ink, 0, 2.08, 0.15, 0.012, 0.22, [PI / 2, 0, 0]);
-        put(sg, GEO.cylLo, M.lamp, [0, 1.99, 0.26], [0.065, 0.15, 0.065]); put(sg, GEO.cone, M.pink, [0, 2.13, 0.26], [0.11, 0.09, 0.11]);
+        put(sg, GEO.cylLo, M.lamp, [0, 1.99, 0.26], [0.065, 0.15, 0.065]); put(sg, GEO.cone, M.shade, [0, 2.13, 0.26], [0.11, 0.09, 0.11]);
         R.halo(g, x, 2.0, -D + 0.3, 0.95, '#FFC890', 0.5);
       });
 
@@ -400,13 +401,13 @@
     } catch (e) { /* ушла */ }
   }
 
-  if (G.addSpeakers) G.addSpeakers({ sheep: { name: () => 'Кашемира', art: () => G.emojiAvatar('🐑', '#F5DFA8') } });
+  if (G.addSpeakers) G.addSpeakers({ sheep: { name: () => 'Кашемира', art: () => G.emojiAvatar('🐑', '#F9CF9C') } });
 
   Town.place({
     id: P, kind: 'new', storySafe: true,   // проверено: без спойлеров серии 1 — можно заходить во время дела
     name: 'Ателье «Бант и берет»', short: 'Ателье',
     sign: 'БАНТ и БЕРЕТ', motto: 'ателье · примерочная · зеркало',
-    icon: '🎀', color: '#F5DFA8',
+    icon: '🎀', color: '#F9CF9C',
     street: { x: -11.0, w: 3.4, doorDx: 0, bkey: null },
     room: P, opens: 0,
     host: { who: 'sheep', npc: 'sheep' },
