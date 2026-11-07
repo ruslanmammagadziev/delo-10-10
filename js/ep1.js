@@ -81,7 +81,7 @@
           <button class="hud-btn" id="snd" style="position:absolute;top:calc(12px + var(--safe-top));right:12px" aria-label="Звук">${G.soundIcon()}</button>
           <div class="case-badge">Сезон&nbsp;1 · Серия&nbsp;1</div>
           <div class="title h1" style="margin-top:8px">Дело №${NB}10/10</div>
-          <div class="title h3 cherry">Главная роль занята. Тобой.</div>
+          <div class="title h3 cherry">Пропало солнце. Следствие ведёшь ты.</div>
           <div style="position:relative;width:230px;margin:0 auto">
             <div class="char title-hero bob">${heroArt({ magnifier: true })}</div>
             <div class="char title-cat" style="right:-4px;bottom:2px">${Art.cat()}</div>
@@ -118,9 +118,9 @@
   const prologue = () => cards([
     'Октябрь.<br/>Солнце вышло из чата.',
     'Синоптики сказали: «Ну, бывает».<br/>Горожане потребовали другого синоптика.',
-    'Завели дело № 10/10.<br/>Пока это единственное, что здесь на десять из десяти.',
-    'Тогда позвали ту, кто вычисляет злодея раньше, чем герои успевают представиться.',
-    'Совпадения случайны.<br/>Образ — нет.',
+    'Завели дело № 10/10.<br/>Улик — ноль. Версий — сорок, и все про погоду.',
+    'Тогда вызвали следователя.<br/>Лупа есть, блокнот есть. Солнца — по-прежнему нет.',
+    'Все персонажи вымышлены.<br/>Кот с этим не согласен.',
   ]);
 
   /* ---------- КАСТИНГ ---------- */
@@ -152,7 +152,7 @@
           <div class="title h2" style="text-align:center;margin:10px 0 6px">Команда следствия</div>
           <p class="muted" style="text-align:center;font-weight:700;margin-bottom:16px">Можешь дать этим троим имена своих подруг. Или оставить как есть: зверята уже прошли собеседование. Кое-как.</p>
           <div class="col">${row('bunny')}${row('fox')}${row('hedgehog')}</div>
-          <p class="tiny muted" style="text-align:center;font-weight:700;margin-top:12px">Имена останутся в игре и титрах. Сценарист их не увидит.</p>
+          <p class="tiny muted" style="text-align:center;font-weight:700;margin-top:12px">Имена останутся в игре и титрах. Больше нигде.</p>
           <button class="btn block sticky-cta" id="next" style="margin-top:14px">Берём этих</button>
         </div>`);
       scr.querySelectorAll('input[data-k]').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') i.blur(); }));
@@ -235,7 +235,7 @@
       line: 'Зонтик. Размер — для голубя. Голубь вежливо отказался: крыльями зонтик не удержать.',
       cap: 'Коктейльный зонтик. От дождя не спасает, от плохого настроения — вполне. Изъят как вещдок хорошего вкуса.' },
     { id: 'tulipBunch', kind: 'tulipBunch', stage: 1, x: 4.4, z: -0.75, title: 'Букетик тюльпанов', art: () => Art.bouquet({ f: TULIP_BUNCH, paper: '#E8D3B6', ribbon: '#F08FA8' }, { shadow: false }),
-      cap: 'Букетик тюльпанов с ромашкой. Бирка: «Следователю. От жителей улицы». Тюльпаны и в вазе продолжают расти и тянутся к свету. Солнца нет — тянутся к фонарям.' },
+      cap: 'Букетик тюльпанов с ромашкой. Бирка: «Найден у скамейки. Хозяин не объявлялся». Тюльпаны и в вазе продолжают расти и тянутся к свету. Солнца нет — тянутся к фонарям.' },
     { id: 'catSweater', kind: 'catSweater', stage: 1, x: 3.7, z: -0.7, title: 'Свитер размера «кот»', art: () => Art.findSweater(),
       cap: 'Свитер с вязаным солнышком. Погода официально свитерная. Пока настоящего солнца нет — это запасное.' },
     { id: 'watch13', kind: 'watch13', stage: 2, x: 11.4, z: -0.85, title: 'Карманные часы на 13:00', art: () => Art.findWatch(),
@@ -289,7 +289,7 @@
       if (!st.bouquet) {
         st.bouquet = { f: TULIP_BUNCH.slice(), paper: '#E8D3B6', ribbon: st.bow }; G.save(); G.giveFind('bouquet');
         if (api) { api.setHeld('bouquet', st.bouquet); api.celebrate(); }
-        await say({ who: 'hero', text: 'Тюльпаны от жителей. Улица, это взятка? Принято — в интересах следствия.' });
+        await say({ who: 'hero', text: 'Тюльпаны без хозяина. Улица, это улика? Изымаю — в интересах следствия.' });
       } else {
         st.bouquet.f = st.bouquet.f.concat(['tulip', 'tulip']).slice(0, 11); G.save();
         if (api) { api.setHeld('bouquet', st.bouquet); api.celebrate(); }
@@ -306,7 +306,7 @@
       await wait(400);
       if (api && api.spin) api.spin(); if (api) api.celebrate(); confetti();
       await say([{ text: 'В карманах больше сокровищ, чем у некоторых музеев.' },
-        st.catHelper ? { who: 'cat', text: 'Ты собрала всю улицу. Вопросов нет. Только восхищение.' } : { text: 'Улица опустела. Самые красивые мелочи — теперь у тебя.' }]);
+        st.catHelper ? { who: 'cat', text: 'Ты собрала всю улицу. Вопросов нет. Только вещдоки.' } : { text: 'Улица опустела. Самые красивые мелочи — теперь у тебя.' }]);
       await G.giveSticker('pockets', 'Выдаётся тем, кто замечает мелочи. То есть следователям.');
     }
   }
@@ -391,14 +391,14 @@
     if (!round.length) return 'Минимализм! Даже цветы у тебя знают меру.';
     if (has('peony') && has('ranunculus')) return 'Пышная парочка. Букет явно пришёл на премьеру.';
     if (has('pampas')) return 'Пампасная трава — осень в одном стебле. Очень красиво, очень непрактично. Люблю.';
-    return 'Бери. Мне приятно, когда красивые букеты уходят к хорошим людям.';
+    return 'Бери. Пусть букет тоже поработает на следствие.';
   }
   const bouquetFlow = api => flowerCart(api, { direct: true });
   async function flowerCart(api, fo = {}) {
     const st = S(), first = !st.metBee;
     if (first) {
       st.metBee = true; G.save();
-      await say({ who: 'bee', text: 'Ой, следователь! Я Жу. Цветы выбирай любые. День такой, что без букета нельзя.' });
+      await say({ who: 'bee', text: 'Ой, следователь! Я Жу. Цветы выбирай любые. Без солнца городу нужно хоть что-то яркое.' });
     }
     const v = fo.direct ? true : await choose(st.bouquet ? 'Пересобрать букет?' : 'Собрать букет?', [
       { label: st.bouquet ? 'Пересобрать' : 'Собрать букет', value: true }, { label: 'Потом', value: false }], { who: 'bee' });
@@ -407,7 +407,7 @@
     if (!b) return;
     const had = !!st.bouquet;
     st.bouquet = b; G.save(); G.giveFind('bouquet');
-    if (!had) await intertitle('СЛЕДОВАТЕЛЬ ПОЛУЧИЛА БУКЕТ. БЕЗ ПОВЕСТКИ.');
+    if (!had) await intertitle('СЛЕДОВАТЕЛЬ СОБРАЛА БУКЕТ. СОСТАВА ПРЕСТУПЛЕНИЯ НЕТ.');
     await bouquetReveal(b);
     if (api) { api.setHeld('bouquet', b); api.celebrate(); }
     await say([
@@ -440,7 +440,7 @@
         arrowText: ARROW[target], nameText: BNAME[target],
         headline: HEADLINES[Math.min(idx, 3)],
         weatherText: idx >= 3 ? 'Прогноз: прояснение откладывается до серии\u00A02.' : 'Прогноз: пасмурно, местами подозрительно. К вечеру прояснение.',
-        heroLine: st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка образа. Всё прекрасно. Можно спасать мир.',
+        heroLine: st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Лупа на месте. Блокнот на месте. Можно спасать мир.',
         secretAvailable: !!C.ENABLE_SECRET_STICKER && !st.stickers.includes('secret'),
         held: st.bouquet ? { kind: 'bouquet', data: st.bouquet } : null,
         spots: [{ id: 'flowers', x: -3.2, z: -0.3, act: 'Букет', bubble: 'собрать букет', bubble2: 'пересобрать букет', auto: !st.metBee && !opts.intro }],
@@ -451,7 +451,7 @@
         headlines: HEADLINE_PAIRS[Math.min(idx, 3)],
         weatherLines: idx >= 3 ? ['ПРОГНОЗ: без солнца. Но есть надежда и ближайшая кондитерская.'].concat(WEATHER_LINES.slice(1)) : WEATHER_LINES,
         lines: STREET_LINES,
-        onSecret: () => G.giveSticker('secret', 'Значение знают только посвящённые.'),
+        onSecret: () => G.giveSticker('secret', 'Выдаётся тем, кто ищет там, где никто не смотрит.'),
         showHint: !st.walked3d || !!opts.intro,
         beforeActive: async api => {
           if (opts.intro) await streetIntro3D(api);
@@ -653,14 +653,14 @@
         toast('За стеклом часы. Все показывают разное время, и каждые уверены, что правы.', 3600);
       });
       const sec = scr.querySelector('[data-p="secret"]');
-      if (sec) sec.addEventListener('click', async e => { e.stopPropagation(); sec.remove(); await G.giveSticker('secret', 'Значение знают только посвящённые.'); });
+      if (sec) sec.addEventListener('click', async e => { e.stopPropagation(); sec.remove(); await G.giveSticker('secret', 'Выдаётся тем, кто ищет там, где никто не смотрит.'); });
       heroChar.addEventListener('click', e => {
         e.stopPropagation();
         if (active && nearDoor() === target) { finish(); return; }
         haptic('light');
         heroChar.classList.remove('hop'); void heroChar.offsetWidth; heroChar.classList.add('hop');
         sparkleAt(heroChar, { n: 6, dist: 36 });
-        toast(st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Проверка образа. Всё прекрасно. Можно спасать мир.', 2200);
+        toast(st.drink && idx >= 3 ? 'Сначала глоток. Потом подвиги.' : 'Лупа на месте. Блокнот на месте. Можно спасать мир.', 2200);
       });
       const cartX = L.cart + 66;
       let cartBusy = false, cartAuto = !st.metBee && !opts.intro;
@@ -1095,7 +1095,7 @@
         await wait(400);
         if (!mem.seen.sweets) {
           await say({ who: 'bunny', text: 'Заходи! Свидетели на витрине. Прошу не есть их до окончания допроса.' });
-          if (st.bouquet) await say({ who: 'bunny', text: 'Какие цветы! Только осторожнее с булочкой: она на красоту очень впечатлительная.' });
+          if (st.bouquet) await say({ who: 'bunny', text: 'Какие цветы! Только осторожнее с булочкой: у неё на пыльцу аллергия.' });
           if (!left) mem.seen.sweets = true;
           if (!left && !G.isSkipping()) toast('Свидетели — на витрине. Подойди к ним.', 3000);
         } else await say({ who: 'bunny', text: 'Ты вернулась! Отлично. Бабл-ти уже собирался менять показания.' });
@@ -1233,7 +1233,7 @@
           // найденное в прошлый раз — снова кольцами на экране
           FRAME_TARGETS.forEach(t => { if (cin.f.includes(t.id) && api.room && api.room.screen) api.room.screen.mark(t.x, t.y, t.r); });
           if (!cin.i) {
-            await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас мелодрама, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
+            await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас шла грустная драма, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
             suspicion(12, 'Платочек у свидетеля мокрый насквозь.');
             N.goose.hop(); await wait(300);
             await say({ who: 'goose', text: 'ГА! А злодей-то в конце…' });
@@ -1247,7 +1247,7 @@
               { who: 'raccoon', text: 'Он даже погоду спойлерит. «ГА! Завтра дождь!»' },
             ]);
             await back; N.raccoon.root.rotation.y = -0.55;
-            if (st.bouquet) await say({ who: 'raccoon', text: 'Цветы! Как в финале моего любимого фильма… Всё, не могу, сейчас заплачу.' });
+            if (st.bouquet) await say({ who: 'raccoon', text: 'Цветы! Совсем как в цветном кино… Всё, не могу, сейчас заплачу.' });
             if (!left) { cin.i = 1; G.save(); }
             if (!left && !G.isSkipping()) toast('Плёнка застряла. Подойди к экрану: на кадре что-то не так.', 3200);
           } else {
@@ -1303,7 +1303,7 @@
       await wait(400);
       if (!mem.seen.cinema) {
         mem.seen.cinema = true;
-        await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас мелодрама, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
+        await say({ who: 'raccoon', text: 'Вы киномеханика ищете? Это я. Солнце? Не видел. У нас шла грустная драма, я весь сеанс плакал. А потом свет погас и кадр замер. И вот я плачу уже по другой причине.' });
         suspicion(12, 'Платочек у свидетеля мокрый насквозь.');
         goose.style.opacity = '1'; goose.style.transform = 'translateY(0)';
         await wait(500);
@@ -1315,7 +1315,7 @@
           { text: 'Финалыча выгнали. В 214-й раз. Кажется, он воспринимает это как абонемент.' },
           { who: 'raccoon', text: 'Он даже погоду спойлерит. «ГА! Завтра дождь!»' },
         ]);
-        if (st.bouquet) await say({ who: 'raccoon', text: 'Цветы! Как в финале моего любимого фильма… Всё, не могу, сейчас заплачу.' });
+        if (st.bouquet) await say({ who: 'raccoon', text: 'Цветы! Совсем как в цветном кино… Всё, не могу, сейчас заплачу.' });
       } else {
         await say({ who: 'raccoon', text: 'Вы снова здесь? Отлично. А то я уже начал обсуждать кадр с попкорном.' });
       }
@@ -1551,7 +1551,7 @@
       if (!mem.seen.sweets) {
         mem.seen.sweets = true;
         await say({ who: 'bunny', text: 'Заходи! Свидетели на витрине. Прошу не есть их до окончания допроса.' });
-        if (S().bouquet) await say({ who: 'bunny', text: 'Какие цветы! Только осторожнее с булочкой: она на красоту очень впечатлительная.' });
+        if (S().bouquet) await say({ who: 'bunny', text: 'Какие цветы! Только осторожнее с булочкой: у неё на пыльцу аллергия.' });
       } else {
         await say({ who: 'bunny', text: 'Ты вернулась! Отлично. Бабл-ти уже собирался менять показания.' });
       }
@@ -1644,7 +1644,7 @@
           ${S().syrnik ? `<div class="row" style="justify-content:space-between;font-weight:700"><span>Сырник. Просто сырник</span><span>1 шт</span></div>` : ''}
           <div style="border-top:2px dashed #E3D3D8;margin:8px 0"></div>
           <div style="font-weight:900;text-align:center;margin:8px 0">Оплачено заведением. Чаевые — коту, если он настаивает.</div>
-          ${S().syrnik ? `<div style="font-weight:900;text-align:center;margin:-2px 0 8px">Сырник с собой. И ничего лишнего. <span style="color:#F08FA8">♥</span></div>` : ''}
+          ${S().syrnik ? `<div style="font-weight:900;text-align:center;margin:-2px 0 8px">Сырник с собой. И ничего лишнего. <span style="color:#F08FA8">✦</span></div>` : ''}
           ${C.ENABLE_RECEIPT_FACT ? `<div style="font-size:12px;color:#6E6272;text-align:center;line-height:1.35">Макарон и макароны — родня: оба восходят к итальянскому maccarone. Макарон просил не распространяться.</div>` : ''}
           <div style="font-size:12px;color:#6E6272;text-align:center;line-height:1.35;margin-top:6px">Булочка попросила приложить к чеку охранную грамоту. Мы обещали подумать.</div>
           <button class="btn block sticky-cta" style="margin-top:14px;font-family:var(--font)">Спасибо!</button>
@@ -1883,7 +1883,7 @@
       const k = b.dataset.k, nm = (st.team[k] || '').trim();
       haptic('medium');
       const url = G.inviteLink(k, nm);
-      const text = `${nm ? nm + ', ты' : 'Ты'} теперь ${G.team[k].title} в моём «Деле №${NB}10/10» 🕵️‍♀️ Без тебя не раскрыть, заходи:`;
+      const text = `${nm ? nm + ', ты' : 'Ты'} теперь ${G.team[k].title} в моём «Деле №${NB}10/10» 🕵️‍♀️ Твоя роль уже в титрах, заходи:`;
       G.openTgLink(G.shareLink(url, text));
       close();
     }));
@@ -1913,7 +1913,7 @@
     const st = S();
     if (!st.name) st.name = G.tgUserFirstName() || C.HER_NAME_DEFAULT || '';
     await cards([
-      'В городе пропало солнце. На дело вызвали девушку с безупречным образом. Солнце уже нервничает.',
+      'В городе пропало солнце. На дело вызвали следователя с лупой и блокнотом. Солнце уже нервничает.',
       'В кинотеатре завис кадр: тринадцатый час, невидимая в зеркале ваза и кое-что подозрительно знакомое.',
       'Попугай перевёл послание так, что пришлось спасать не только солнце, но и английский язык.',
       'Три десерта дали показания. Бабл-ти прокололся. След ведёт на крышу.',
@@ -1977,7 +1977,7 @@
     // один раз: город открывается для прогулки (ошибка прогулки серию не ломает)
     try {
       const T = window.Town && Town.state();
-      if (T && !T.k.op) { await intertitle('СЛЕДСТВИЕ НА ПАУЗЕ. ГОРОД — В ТВОЁМ РАСПОРЯЖЕНИИ.'); T.k.op = 1; G.save(); }
+      if (T && !T.k.op) { await intertitle('СЛЕДСТВИЕ НА ПАУЗЕ. ГОРОД ОТКРЫТ ДЛЯ ПРОГУЛОК.'); T.k.op = 1; G.save(); }
     } catch (err) { console.warn('town intertitle', err); }
     await endCard();
   }

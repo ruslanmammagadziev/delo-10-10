@@ -81,7 +81,7 @@
   const WAVE_REPLY = { name: ['Привет, {name}!', 'О, {name}! Привет!', 'Приятно познакомиться, {name}!'], plain: ['Привет-привет!', 'И тебе привет!', 'Привет! Заходи ещё.'], cat: { name: ['Мур. Привет, {name}.'], plain: ['Мур.', 'Мяу. Это «привет».'] } };
   const HI_AGAIN = ['Hi!', 'Hello!', 'Hey there!'];
   const NUDGE_CAT = ['Метка — там, где луч. Я бы пошёл. Если бы не лень.', 'Мур. Луч никуда не денется, но я бы не тянул.'];
-  const COVER_LINES = ['Под чехлом что-то маленькое и блестящее. Ждёт своей серии.', 'Чехол завязан бантом. Значит, это сюрприз.'];
+  const COVER_LINES = ['Под чехлом что-то на четырёх колёсах. Ждёт своей серии.', 'Чехол завязан на бант. Это чтобы не сдуло.'];
   // волна 4: что держит настоящая рука (имя предмета js/interact.js) и строка, когда кончилось
   const IA_ITEM = { popcorn: 'popcorn', cup: 'cocoa', cocoa: 'cocoa', pretzel: 'pretzel', flower: 'flower', bread: 'bread' };
   const HELD_DONE = {
@@ -1354,7 +1354,7 @@
       const home = carHome(w, w.carKind), atStart = !!(home && home.at === 'start' && Math.hypot(car.S.x - home.x, car.S.z - home.z) < 4);
       const where = atStart ? (cars > 1 ? 'Машины ждут через дорогу от кинотеатра, у самой зебры. ' : 'Машина ждёт через дорогу от кинотеатра, у самой зебры. ') : 'Где машина — видно на мини-карте. ';
       const item = (ic, t, sub) => `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:0 0 10px;border-radius:18px;background:#FFF4EE"><b style="font-size:26px;line-height:1.1;flex:none">${ic}</b><div><b style="display:block;font-size:17px;color:#9E2F47">${t}</b><span style="display:block;font-size:15.5px;font-weight:600;color:#6E6272;line-height:1.35;margin-top:2px">${sub}</span></div></div>`;
-      const body = '<p style="margin:0 0 12px">Город — твой. Можно так:</p>'
+      const body = '<p style="margin:0 0 12px">Город открыт. Можно так:</p>'
         + item('🔍', 'Распутать дело', cd ? 'Иди к дому, над которым светится луч. Что искать — в пилюле вверху экрана.' : 'Новое дело появится само — его покажет пилюля вверху. А пока — гуляй и заглядывай в лавки.')
         + item('🚗', 'Или отдохнуть в горах', 'Не хочется расследовать — не беда. ' + where + 'Садись за руль — и ' + villageWord() + ': серпантин, облака и башня.')
         + '<p style="margin:2px 0 0;font-size:15px;color:#8A7E8E">Эта подсказка — в меню ☰, «Как играть». Карта мест — там же.</p>';

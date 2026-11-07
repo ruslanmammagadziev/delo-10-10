@@ -310,7 +310,7 @@
             <input class="field" id="nm" maxlength="20" placeholder="Как тебя зовут?" value="${esc(nm0)}" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="done"/>
             <p class="tiny muted lk-hint">Так тебя будут звать в деле и в титрах.</p>
           </div>
-          <div class="sheet-actions"><button class="btn block" type="button" id="next">Всё. Я великолепна</button></div>
+          <div class="sheet-actions"><button class="btn block" type="button" id="next">Всё, к делу</button></div>
         </div>`;
       host.appendChild(m);
       const nm = m.querySelector('#nm');
@@ -334,7 +334,7 @@
       nm.addEventListener('keydown', e => { if (e.key === 'Enter') nm.blur(); });
       m.querySelector('#next').addEventListener('click', () => {
         const v = nm.value.trim();
-        if (!v) { nm.focus(); g.toast('У главной героини должно быть имя. Даже у легенды.'); return; }
+        if (!v) { nm.focus(); g.toast('У следователя должно быть имя. Хотя бы для протокола.'); return; }
         fin(v);
       });
     });
@@ -371,7 +371,7 @@
         mode: opts.mode || 'migrate', start: HL().valid(opts.start) ? opts.start : g.look(),
         onPick(id) {
           g.setLook(id); g.sfx('ok');
-          g.toast('Образ сохранён. Город уже оценил.', 2200);
+          g.toast('Образ сохранён. Можно идти по следу.', 2200);
           p.destroy(); g.tgHeader(LIGHT);
           res(id);
         },
@@ -517,7 +517,7 @@
     const p = val(o.at);
     g.sparkle(p ? p.x : undefined, p ? p.y : undefined, { n: 16, dist: 70 });
     fx('success', 'ok');
-    g.toast(done.ok ? `«${H.get(id).name}» — тебе идёт!` : 'Образ сохранён — наденешь в следующей сцене.', 2200);
+    g.toast(done.ok ? `«${H.get(id).name}» — уже на тебе!` : 'Образ сохранён — наденешь в следующей сцене.', 2200);
     return id;
   }
   // строка меню ☰ «Образ» (подпись — нынешний образ); o — как у change, плюс id строки и when (видна ли)

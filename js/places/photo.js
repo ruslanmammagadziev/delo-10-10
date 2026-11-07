@@ -21,7 +21,7 @@
     { n: 'Снегопад', line: 'Снегопад. Нарисованный — не тает.', wk: 5, css: 'radial-gradient(circle at 20% 20%, #fff 0 2.5px, transparent 3.5px), radial-gradient(circle at 70% 12%, #fff 0 2px, transparent 3px), radial-gradient(circle at 46% 40%, #fff 0 3px, transparent 4px), radial-gradient(circle at 86% 50%, #fff 0 2px, transparent 3px), radial-gradient(circle at 12% 62%, #fff 0 2px, transparent 3px), radial-gradient(circle at 60% 78%, #fff 0 2.5px, transparent 3.5px), radial-gradient(circle at 30% 88%, #fff 0 2px, transparent 3px), linear-gradient(180deg, #CFDDF0, #E8F0FA)' },
   ];
   const PROPS = [
-    { e: '🔍', n: 'Лупа' }, { e: '🎀', n: 'Бант на палочке' }, { e: '10/10', n: 'Табличка «10/10»', sign: true },
+    { e: '🔍', n: 'Лупа' }, { e: '🎀', n: 'Бант на палочке' }, { e: 'УЛИКА', n: 'Табличка «Улика»', sign: true },
     { e: '🌞', n: 'Картонное солнце' }, { e: '⭐', n: 'Звёздочка из фольги', when: st => Array.isArray(st.finds) && st.finds.includes('paperStar') }, { e: '', n: 'Без реквизита' },
   ];
   const bdAvail = w => BD.map((b, i) => i).filter(i => !BD[i].wk || w >= BD[i].wk);
@@ -121,7 +121,7 @@
         }
         R.text(ac, ['жу', 'енот', 'пудра', 'солнце?', 'голубь'][i], cx, y + 176, 30, '#8C7A88', { f: 'Caveat', w: 700 });
       });
-      { const x = 1024, y = 220; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x, y, 160, 110, 14); ac.fill(); ac.strokeStyle = '#C2405B'; ac.lineWidth = 6; R.rrect(ac, x + 8, y + 8, 144, 94, 10); ac.stroke(); R.text(ac, '10/10', x + 80, y + 58, 54, '#C2405B'); }
+      { const x = 1024, y = 220; ac.fillStyle = '#FFFDF9'; R.rrect(ac, x, y, 160, 110, 14); ac.fill(); ac.strokeStyle = '#C2405B'; ac.lineWidth = 6; R.rrect(ac, x + 8, y + 8, 144, 94, 10); ac.stroke(); R.text(ac, 'УЛИКА', x + 80, y + 58, 44, '#C2405B', { max: 128 }); }
       { const x = 1200, y = 220, cx = x + 100, cy = y + 100; ac.fillStyle = '#F7B267';
         for (let k = 0; k < 12; k++) { const a = k / 12 * PI * 2; ac.beginPath(); ac.moveTo(cx + Math.cos(a - 0.14) * 60, cy + Math.sin(a - 0.14) * 60); ac.lineTo(cx + Math.cos(a) * 96, cy + Math.sin(a) * 96); ac.lineTo(cx + Math.cos(a + 0.14) * 60, cy + Math.sin(a + 0.14) * 60); ac.closePath(); ac.fill(); }
         ac.fillStyle = '#FFD45E'; ac.beginPath(); ac.arc(cx, cy, 64, 0, 7); ac.fill(); ac.strokeStyle = '#C98A5C'; ac.lineWidth = 3; ac.setLineDash([6, 6]); ac.beginPath(); ac.arc(cx, cy, 56, 0, 7); ac.stroke(); ac.setLineDash([]);
@@ -421,7 +421,7 @@
       }
       if (shot.c && !ctx.has('p_ghost')) await ctx.say({ who: 'turtle', text: 'На снимке два кота. Пирожок клянётся, что оба — он и оба прекрасны.', s: 'p_ghost' });
       if (shot.c && shot.p === 3 && !ctx.has('p_sun')) await ctx.say({ who: 'turtle', text: 'Кот и картонное солнце. Для этого кадра я готова нарушить режим тишины.', s: 'p_sun' });
-      if (((ctx.flag('pb') || 0) & 7) === 7 && !ctx.has('p_ser')) await ctx.say({ who: 'turtle', text: 'Три фона! Модель ты или следователь? Хотя кто сказал, что нельзя одновременно.', s: 'p_ser' });
+      if (((ctx.flag('pb') || 0) & 7) === 7 && !ctx.has('p_ser')) await ctx.say({ who: 'turtle', text: 'Три фона! Ты тут на съёмках или на задании? Хотя кто сказал, что нельзя одновременно.', s: 'p_ser' });
       if (firstEver && !ctx.has('niep')) await ctx.say({ who: 'turtle', f: 'niep' });
       if (v !== 'again') return true;
     }
@@ -461,7 +461,7 @@
     greet: {
       first: 'До-о-обро пожаловать. Я Минутка. Не волнуйся, тут никто никуда не спешит.',
       again: Town.v('Ты снова здесь? Отлично. Я как раз закончила настраивать камеру. Начала вчера.', '{name|Ой}… уже… здравствуйте.', 'О, вы… А я как раз… начала здороваться.'),
-      regular: Town.v('Для своих — лучший свет. Я его специально берегла.', 'Софтбоксы уже тёплые. Включила их… с утра.', 'Для вас выдержка покороче. Почти минутка.'),
+      regular: Town.v('Для своих — лучший свет. Он тоже не спешит.', 'Софтбоксы уже тёплые. Включила их… с утра.', 'Для вас выдержка покороче. Почти минутка.'),
       away: 'О, ты вернулась! А я только что закончила моргать.',
     },
     bark: 'Снова… вы. Хорошо.',
@@ -488,7 +488,7 @@
       props: {
         icon: '🎩', label: 'Сундук с реквизитом',
         lines: [
-          'В сундуке лупа, бант и табличка «10/10». Актёрский состав не подвёл.',
+          'В сундуке лупа, бант и табличка «Улика». Актёрский состав не подвёл.',
           'Солнце из картона. Не греет, зато всегда в настроении.',
           'Реквизит остаётся в студии. Одного пропавшего солнца городу хватит.',
         ],

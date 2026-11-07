@@ -28,7 +28,7 @@
   // реплики компаньона ({ who, text } — для озвучки)
   WORLD.COMPANION_LINES = {
     adopt: [{ who: 'dog_spitz', text: 'Тяф-тяф!' }, { who: 'dog_dachshund', text: 'Гуляем! До конца улицы — сто такс!' }, { who: 'dog_corgi', text: 'Хрр… Гулять? Гулять! Я проснулся.' }],
-    welcome: [{ who: 'dog_spitz', text: 'Тяф!' }, { who: 'dog_dachshund', text: 'Ты вернулась! Я ждал ровно одну таксу времени.' }, { who: 'dog_corgi', text: 'О. Ты тут. Я посторожил дверь.' }],
+    welcome: [{ who: 'dog_spitz', text: 'Тяф!' }, { who: 'dog_dachshund', text: 'Ты вернулась! Я измерил: прошла ровно одна такса времени.' }, { who: 'dog_corgi', text: 'О. Ты тут. Я посторожил дверь.' }],
     home: [{ who: 'dog_spitz', text: 'Тяф!' }, { who: 'dog_dachshund', text: 'Спасибо за прогулку! Побегу мерить площадку.' }, { who: 'dog_corgi', text: 'Хорошо погуляли. Пойду полежу об этом.' }],
   };
   const lineFor = (k, id) => (WORLD.COMPANION_LINES[k] || []).find(l => l.who === id) || null;
