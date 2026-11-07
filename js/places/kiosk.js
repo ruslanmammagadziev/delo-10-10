@@ -71,7 +71,7 @@
         <div class="kz-box"><b>Погода</b>${i >= 5 ? 'Снежно. Местами уютно.' : 'Пасмурно. Местами уютно.'}</div>
         <div class="kz-box"><b>Знаете ли вы?</b>${esc(fact ? fact.text : '')}</div>
       </div>
-      <div class="kz-cross"><div class="kz-clue">Кто тут главная героиня? Три буквы.${solved ? '<i>Три буквы. И ни одной ошибки. Случайность? Конечно нет.</i>' : ''}</div>
+      <div class="kz-cross"><div class="kz-clue">Кто тут главная героиня? Три буквы.${solved ? '<i>Три буквы. И ни одной ошибки. Редакция хрустит одобрительно.</i>' : ''}</div>
         <button class="kz-cells${solved ? ' done' : ''}" data-cross aria-label="Вписать ответ">${solved ? '<span>О</span><span>Н</span><span>А</span>' : '<span></span><span></span><span></span>'}</button></div>
       <div class="kz-nav"><button data-prev ${i > 0 ? '' : 'disabled'}>← прошлый выпуск</button><button data-next ${i < w ? '' : 'disabled'}>следующий →</button></div>
       <button class="chip kz-knock" data-knock>✊ Постучать в окошко</button>
@@ -117,7 +117,7 @@
             else if (b.dataset.next !== undefined && cur < w) { cur++; ctx.haptic('light'); ctx.sfx('tap'); renderIssue(ctx, body, cur, ui); body.scrollTop = 0; }
             else if (b.dataset.cross !== undefined && !b.classList.contains('done')) {
               b.classList.add('done', 'on'); b.innerHTML = '<span>О</span><span>Н</span><span>А</span>';
-              const clue = body.querySelector('.kz-clue'); if (clue && !clue.querySelector('i')) clue.insertAdjacentHTML('beforeend', '<i>Три буквы. И ни одной ошибки. Случайность? Конечно нет.</i>');
+              const clue = body.querySelector('.kz-clue'); if (clue && !clue.querySelector('i')) clue.insertAdjacentHTML('beforeend', '<i>Три буквы. И ни одной ошибки. Редакция хрустит одобрительно.</i>');
               ctx.haptic('select'); ctx.sfx('tap');
               setTimeout(() => { try { if (!ctx.gone) ctx.secret('n_cross'); } catch (x) { /* ушла */ } }, 700);
             } else if (b.dataset.knock !== undefined) knock(ctx, ui).catch(() => {});

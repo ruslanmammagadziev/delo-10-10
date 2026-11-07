@@ -748,7 +748,7 @@
       if (typeof v.x !== 'number') return;
       const bike = v.kind === 'bike', k = bike ? 'bike' : 'car', id = bike ? '@bike' : (nCar++ ? '@car' + nCar : '@car');
       const title = !bike && v.model && WORLD.carTitle ? safe(WORLD.carTitle, v.model) : null;
-      pois.push({ id, kind: k, x: v.x, z: v.z, label: title || KINDS[k].name, line: v.covered ? 'Под чехлом с бантом. Ждёт своей серии.' : LINES[k], door: null, src: { ry: v.ry }, vehicle: v });
+      pois.push({ id, kind: k, x: v.x, z: v.z, label: title || KINDS[k].name, line: v.covered ? 'Под чехлом от пыли. Ждёт своей серии.' : LINES[k], door: null, src: { ry: v.ry }, vehicle: v });
     });
     const check = p => {
       let r = o.checkTravel ? safe(o.checkTravel, p) : defaultCheck(env, A, p);

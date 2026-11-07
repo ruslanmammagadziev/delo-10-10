@@ -72,7 +72,7 @@
     } catch (e) { return ''; }
   }
   function openTgLink(url) {
-    if (!url) { toast('Сценарист забыл вписать свой username. Бывает.'); return; }
+    if (!url) { toast('Ссылка потерялась по дороге. Бывает.'); return; }
     try {
       if (inTG && TG.openTelegramLink && /^https:\/\/t\.me\//.test(url)) { TG.openTelegramLink(url); return; }
     } catch (e) { /* fallthrough */ }

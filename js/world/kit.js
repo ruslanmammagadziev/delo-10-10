@@ -80,7 +80,7 @@
     S.weather = (() => { const [cv, c] = cnv(512, 296); c.fillStyle = '#3E4C72'; rrect(c, 0, 0, 512, 296, 24); c.fill(); text(c, 'ПРОГНОЗ', 256, 58, 58, '#BFE6D3'); return cv; })();
     S.flowers = (() => { const [cv, c] = cnv(512, 180); c.fillStyle = '#3E4C3F'; rrect(c, 0, 0, 512, 180, 18); c.fill();
       c.strokeStyle = '#C9A27A'; c.lineWidth = 8; rrect(c, 6, 6, 500, 168, 14); c.stroke();
-      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'следователям — бесплатно', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
+      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
     S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F6C6D0'; c.fillRect(0, 0, 256, 128);
       text(c, 'РЯД 3', 128, 44, 40, '#3A2E3F'); text(c, 'МЕСТО 13', 128, 90, 40, '#3A2E3F'); return cv; })();
     S.dial = (() => { const [cv, c] = cnv(128, 128); c.fillStyle = '#FFFDF9'; c.beginPath(); c.arc(64, 64, 64, 0, 7); c.fill();

@@ -166,7 +166,7 @@
         throw: [{ who: 'mouse', text: 'Пи — лови!' }],
       },
       granny_hedgehog: {
-        oops: [{ who: 'granny_hedgehog', text: 'Ох, озорница!' }, { who: 'granny_hedgehog', text: 'Ох-ох! Ну иди, обниму.' }],
+        oops: [{ who: 'granny_hedgehog', text: 'Ох, озорница!' }, { who: 'granny_hedgehog', text: 'Ох-ох! Осторожно, я колючая!' }],
         laugh: [{ who: 'granny_hedgehog', text: 'Ха-ха! В моё время мы тоже так играли.' }],
         surrender: [{ who: 'granny_hedgehog', text: 'Всё-всё, сдаюсь!' }],
         sneeze: [{ who: 'granny_hedgehog', text: 'Апчхи! Ох, листопад!' }],

@@ -127,7 +127,7 @@
       <div class="case-badge">Дело №\u00A010/10</div>
       <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
       <div class="title h2">Город на месте</div>
-      <p class="muted" style="font-weight:800">Фонари горят, кот делает вид, что не скучал.</p>
+      <p class="muted" style="font-weight:800">Фонари горят, кот обходит дворы с проверкой.</p>
       ${card ? `<div class="title-case">${card}</div>` : ''}</div>`);
     const v = await choose('', [{ label: 'В город', value: 'city' }, { label: 'Меню сезона', value: 'menu', cls: 'soft' }]);
     if (v === 'city' && window.Town && !Town.running) { await Town.run({ from: 'boot' }); }
@@ -204,8 +204,8 @@
       show(`<div class="grow col center pad title-screen" style="gap:12px">
         <div class="case-badge">Дело №\u00A010/10</div>
         <div class="char bob" style="width:130px">${Art.heroine({ look: G.look(), bow: st.bow, coat: st.coat, hair: st.hair, magnifier: true })}</div>
-        <div class="title h2">А вот и главная героиня</div>
-        <p class="muted" style="font-weight:800">Твоё расследование на месте. Кот делает вид, что не ждал.</p></div>`);
+        <div class="title h2">Продолжим расследование</div>
+        <p class="muted" style="font-weight:800">Твоё расследование на месте. Кот охраняет блокнот и делает вид, что не читал.</p></div>`);
       let v = 'again';
       // «Начать сначала» стирает прохождение серии 1 — переспросить, как на финальной карточке
       for (;;) {

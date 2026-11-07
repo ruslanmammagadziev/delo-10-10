@@ -99,7 +99,7 @@
       text(c, 'ушли', 64, 40, 34, INK, { f: 'Caveat', w: 700 }); text(c, 'на чай', 64, 74, 34, INK, { f: 'Caveat', w: 700 }); return cv; })();
     S.flowers = (() => { const [cv, c] = cnv(512, 180); c.fillStyle = '#3E4C3F'; rrect(c, 0, 0, 512, 180, 18); c.fill();
       c.strokeStyle = '#C9A27A'; c.lineWidth = 8; rrect(c, 6, 6, 500, 168, 14); c.stroke();
-      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'следователям — бесплатно', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
+      text(c, 'Цветы', 256, 62, 66, '#FFFDF9', { f: 'Caveat', w: 700 }); text(c, 'букеты по свежим следам', 256, 128, 40, '#F6C6D0', { f: 'Caveat', w: 700, max: 470 }); return cv; })();
     S.ticket = (() => { const [cv, c] = cnv(256, 128); c.fillStyle = '#F6C6D0'; c.fillRect(0, 0, 256, 128);
       text(c, 'РЯД 3', 128, 44, 40, '#3A2E3F'); text(c, 'МЕСТО 13', 128, 90, 40, '#3A2E3F'); return cv; })();
     S.dial = (() => { const [cv, c] = cnv(128, 128); c.fillStyle = '#FFFDF9'; c.beginPath(); c.arc(64, 64, 64, 0, 7); c.fill();
@@ -3125,7 +3125,7 @@ void heroDeform(inout vec3 p, inout vec3 n) {
       if (key === 'sunflower') { haptic('light'); const L = (o.lines && o.lines.sunflower) || []; if (L.length) toast(LI >= 3 && L[2] ? L[2] : L[sfIdx++ % 2], 3200); return; }
       if (key === 'puddleSun') { haptic('light'); const L = (o.lines && o.lines.puddleSun) || []; if (L[0]) toast(L[0], 3000); return; }
       if (key === 'silver') { haptic('light'); toast('За стеклом часы спорят, который час. Кукушка пока молчит: ждёт, кто победит.', 3600); return; }
-      if (key === 'mail') { haptic('light'); toast('В ящике открытка без подписи. Даже почта решила добавить интриги.', 3200); return; }
+      if (key === 'mail') { haptic('light'); toast('В ящике квитанция без адреса. Даже почта решила добавить интриги.', 3200); return; }
       if (key === 'cat') {
         pets++; haptic('light'); G.sparkle(e.clientX - appR.left, e.clientY - appR.top, { kind: 'heart', n: 5, dist: 30 }); purr(); catHatT = 0;
         const CL = (o.lines && o.lines.catPets) || [];
