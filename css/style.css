@@ -42,7 +42,9 @@
   --hud-l: calc(var(--hud-safe-l) + var(--hud-g));
   --hud-r: calc(var(--hud-safe-r) + var(--hud-g));
   --hud-radar: clamp(84px, 24.6vw, 104px);
-  --hud-joy: clamp(92px, 26.7vw, 112px);
+  /* кружок джойстика — от ширины, а на низком экране (альбом: 390 px высотой) — и от высоты: там он 92 px, а не 112, чтобы
+     кружок (он закреплён снизу и виден всегда) и кольцо бега не доставали до ног героини; в портрете высота не мешает */
+  --hud-joy: clamp(92px, min(26.7vw, calc(var(--app-h) * .236)), 112px);
   --hud-knob: calc(var(--hud-joy) * .42);
   --hud-joy-cx: 50%;
   --hud-joy-b: calc(var(--hud-b) + 4px);

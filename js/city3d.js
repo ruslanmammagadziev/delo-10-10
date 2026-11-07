@@ -3055,9 +3055,11 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     };
     const joyUp = e => {
       if (!J || e.pointerId !== joyId) return;
+      const drove = J.active && J.drove;
       joyId = null; joyVec = null; J.end();
-      // не тап (палец ехал или держал; касание на кружке покоя) — щелчок по холсту после него не «идти туда»
-      if (e.type !== 'pointerup' || joyMoved >= 10 || performance.now() - joyT0 >= 320 || joyGuard) eatClickT = performance.now();
+      // не тап (палец ехал или держал; касание на кружке покоя; джойстик уже вёл героиню — палец сел мимо кружка и держал
+      // дольше HUD.JOY.LAND_T) — щелчок по холсту после него не «идти туда»
+      if (e.type !== 'pointerup' || joyMoved >= 10 || performance.now() - joyT0 >= 320 || joyGuard || drove) eatClickT = performance.now();
     };
     root.addEventListener('pointerdown', joyDown);
     window.addEventListener('pointermove', joyMove); window.addEventListener('pointerup', joyUp); window.addEventListener('pointercancel', joyUp);
