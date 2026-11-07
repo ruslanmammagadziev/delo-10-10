@@ -160,6 +160,8 @@
   const CSS = `
 .wr-touch{position:absolute;inset:0;z-index:4;touch-action:none}
 .w-reg{z-index:6}
+.w-reg .w-joy{pointer-events:none}
+.w-reg:not(.wr-v2) .w-joy{left:calc(50% - 56px);bottom:calc(16px + var(--safe-bottom,0px))}
 .wr-pedals{display:none}
 .w-reg.drive .wr-pedals{display:contents}
 .wr-pedal{position:absolute;right:var(--hud-r,12px);left:auto;top:auto;width:64px;border:0;border-radius:22px;font:inherit;font-size:13px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 8px;box-sizing:border-box;box-shadow:0 4px 0 rgba(59,42,32,.16),0 8px 16px rgba(59,42,32,.10);cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none;z-index:21}
@@ -650,14 +652,26 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       S.zipPts = 0; S.zipHoldKey = false; gripPts.clear(); if (S.zip && S.zip.hold) S.zip.hold(false); if (S.mv) S.mv.holdRun(false);
     };
     const rel = e => { const r = host.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r]; };
-    // джойстик HUD v2 (HUD.joystick: покой снизу, центр — сам палец, сила и курс — раз в кадр в joyRun); без HUD — прежний круг под пальцем
-    const joyZone = (x, y, r) => { const H = HUD_(); return H && H.joyZone ? H.joyZone(x, y, r.width, r.height) : x < r.width * 0.5; };
-    function joyBegin(x, y, r) {
+    // джойстик HUD v2 (HUD.joystick: кружок закреплён снизу по центру, касание — в круге вокруг него, база — покой ± 14 px к пальцу и
+    // за пальцем не едет; сила и курс — раз в кадр в joyRun); без HUD (запасной путь: hud.js грузится везде, так что на деле не
+    // встречается) — тоже закреплён: кружок .w-joy 112 px в покое виден снизу по центру над безопасным краем (CSS выше: левый
+    // угол — радар мини-карты, он там и без HUD), зона — 100 px от его центра, база — ± 14 px к пальцу. Центр берём с самого
+    // кружка (getBoundingClientRect: так учтён и нижний отступ iPhone), пока он в покое и виден; скрыт — последний замер или
+    // середина снизу
+    const joyFb = r => {
+      const b = ui && ui.joy && !joy.live ? ui.joy.getBoundingClientRect() : null;
+      if (b && b.width > 0) joy.fb = { cx: b.left - r.left + b.width / 2, cy: b.top - r.top + b.height / 2 };
+      return joy.fb || { cx: r.width / 2, cy: r.height - 72 };
+    };
+    const joyZone = (x, y, r) => { const H = HUD_(); if (H && H.joyZone) return H.joyZone(x, y, r.width, r.height); const c = joyFb(r); return Math.hypot(x - c.cx, y - c.cy) <= 100; };
+    function joyBegin(x, y, r, late) {
       if (!ui) return; joy.live = true;
-      if (ui.J) { ui.J.begin(x, y); show(ui.joy, true); return; }
+      if (ui.J) { ui.J.begin(x, y, late); show(ui.joy, true); return; }
       r = r || host.getBoundingClientRect();
-      joy.cx = clamp(x, 70, r.width * 0.5 - 20); joy.cy = clamp(y, 120, r.height - 60);
-      ui.joy.style.left = joy.cx + 'px'; ui.joy.style.top = joy.cy + 'px'; show(ui.joy, true); ui.knob.style.transform = '';
+      const c = joyFb(r), d = Math.hypot(x - c.cx, y - c.cy), k = d > 14 ? 14 / d : 1;
+      joy.cx = c.cx + (x - c.cx) * k; joy.cy = c.cy + (y - c.cy) * k;
+      ui.joy.style.left = (joy.cx - 56) + 'px'; ui.joy.style.top = (joy.cy - 56) + 'px'; ui.joy.style.bottom = 'auto'; show(ui.joy, true);
+      const v = joyDrag(x, y); joy.x = v.x; joy.y = v.y;
     }
     function joyDrag(x, y) {
       if (!ui || !joy.live) return { x: 0, y: 0, m: 0 };
@@ -670,7 +684,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     function joyEnd() {
       const was = joy.live; joy.live = false; if (!ui) return;
       if (ui.J) { if (was || ui.J.active) ui.J.end(); joyRest(); return; }
-      show(ui.joy, false);
+      joyRest();
     }
     // раз в кадр (tick): сила и курс джойстика (HUD.joystick.frame — кривая, сглаживание, удержание курса) → joy.x/y, без кривой —
     // joy.lx/ly (руль в горах); бег — палец за краем кружка держит одно направление 0,3 с (HUD.JOY), пока держит; назад внутрь хода
@@ -684,9 +698,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
     }
     // кружок в покое (только на сенсорных экранах): когда можно идти, ехать, рулить крылом или шагать по лестнице
     function joyRest() {
-      if (!ui || !ui.J) return;
+      if (!ui) return;
       const on = S.active && !S.busy && !blocked() && !S.zip && !S.sport && !S.dance && !S.look && !S.sitting && !S.view && !S.inShop && !S.golf && !S.shopBuy
         && (S.mode === 'walk' || S.mode === 'drive' || S.mode === 'climb' || flyActive());
+      // без HUD: кружок в покое — на своём месте из CSS (снять left/top от касания), только на сенсорном экране
+      if (!ui.J) { if (!joy.live && ui.joy) { ui.joy.style.left = ui.joy.style.top = ui.joy.style.bottom = ''; ui.knob.style.transform = ''; show(ui.joy, on && touchUi()); } return; }
       if (ui.J.active) return;
       if (on !== ui.J.want) ui.J.show(on);
     }
@@ -700,8 +716,8 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       try { ui.touch.setPointerCapture(e.pointerId); } catch (x2) { /* старые браузеры */ }
       if (S.golf && canInput()) { const G = S.golf.G; if (!G.rolling && G.tries < G.maxTries && !G.holed) { S.golf.drag = { x, y, id: e.pointerId }; return; } }
       if (S.look) { if (pts.size === 2) { const [a, b] = [...pts.values()]; S.look.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: S.look.fov }; } return; }
-      // HUD v2: джойстик — касание в нижней половине левее дуги кнопок (круг встаёт под палец, не заезжает на радар и дугу);
-      // выше и правее — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
+      // HUD v2: джойстик — касание в круге вокруг кружка (HUD.joyZone; кружок закреплён и не заезжает на радар и дугу);
+      // мимо — камера; мышь — камера (клавиатура ходит как раньше); короткий тап — «идти туда»
       // за рулём с кнопками руля (HUD.driveCtl) джойстика нет: касание мимо кнопок — камера
       if (joy.id === null && e.pointerType !== 'mouse' && joyZone(x, y, r) && !(ui.steer && ui.steer.vis)) {
         joy.id = e.pointerId; joy.x = joy.y = joy.lx = joy.ly = 0; joy.x0 = x; joy.y0 = y; joy.t0 = performance.now(); joy.moved = 0; joy.late = false;
@@ -720,8 +736,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       }
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
-        // палец лёг в паузе (шторка, рука занята) — джойстик начинается отсюда: без рывка и без тапа
-        if (!joy.live && canInput()) { joyBegin(x, y); joy.late = true; }
+        // палец лёг в паузе (шторка, рука занята) — джойстик начинается сейчас (кружок на своём месте), без тапа и без рывка:
+        // палец мог уехать от кружка, так что сила — только когда он сдвинется отсюда (late)
+        if (!joy.live && canInput()) { joyBegin(x, y, null, true); joy.late = true; }
         const v = joyDrag(x, y);
         if (!(ui && ui.J)) { joy.x = v.x; joy.y = v.y; }
         if (v.m > 0 || v.x || v.y) S.moveTo = null;
@@ -745,10 +762,12 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (S.golf && S.golf.drag && e.pointerId === S.golf.drag.id) { const dr = S.golf.drag; S.golf.drag = null; if (e.type === 'pointerup' && dr.aimed) golfShoot(); return; }
       if (S.look && pts.size < 2) S.look.pinch = null;
       if (e.pointerId === joy.id) {
+        const drove = !!(ui && ui.J && ui.J.active && ui.J.drove);
         joy.id = null; joy.x = joy.y = joy.lx = joy.ly = 0; joyEnd();
-        // тап по кружку покоя — промах по джойстику, а не «идти туда»
+        // тап по кружку покоя — промах по джойстику, а не «идти туда»; джойстик уже вёл героиню (drove: палец сел мимо кружка и
+        // держал дольше HUD.JOY.LAND_T) — тоже не тап
         const H = HUD_(), r = host.getBoundingClientRect();
-        if (e.type === 'pointerup' && !joy.late && joy.moved < 10 && performance.now() - joy.t0 < 320 && !(H && H.joyGuard && H.joyGuard(joy.x0, joy.y0, r.width, r.height))) onTap(joy.x0, joy.y0);
+        if (e.type === 'pointerup' && !joy.late && !drove && joy.moved < 10 && performance.now() - joy.t0 < 320 && !(H && H.joyGuard && H.joyGuard(joy.x0, joy.y0, r.width, r.height))) onTap(joy.x0, joy.y0);
         return;
       }
       const p = look.get(e.pointerId); if (!p) return; look.delete(e.pointerId);

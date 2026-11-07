@@ -322,7 +322,7 @@
     if (ROOM) root.classList.add('room3d');
     root.dataset.idx = LI;
     const edge = scr.querySelector('#edge'), bubble = scr.querySelector('#nearBubble');
-    // джойстик — общий HUD.joystick (как в городе и регионах: кружок под пальцем, та же кривая и сглаживание; бега тут нет)
+    // джойстик — общий HUD.joystick (как в городе и регионах: кружок закреплён снизу, та же кривая и сглаживание; бега тут нет)
     const J = window.HUD && HUD.joystick ? HUD.joystick.create(root, { root }) : null;
     const act = scr.querySelector('#act'), hint = scr.querySelector('#hint'), waveBtn = scr.querySelector('#waveBtn');
     ensureWaveCss();
@@ -3030,11 +3030,12 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     const blur = () => { held.l = held.r = held.u = held.d = false; joyVec = null; joyId = null; if (J) J.end(); };
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('blur', blur);
 
-    /* --- ввод: джойстик (HUD.joystick) — касание внизу слева (зона HUD), центр — сам палец; движение и отпускание слушаем на
-       window без захвата указателя: короткий тап по полу/жителю/месту по-прежнему доходит до холста (click) --- */
+    /* --- ввод: джойстик (HUD.joystick) — касание в круге вокруг кружка (зона HUD), кружок закреплён (база — покой ± 14 px к
+       пальцу); движение и отпускание слушаем на window без захвата указателя: короткий тап по полу/жителю/месту по-прежнему
+       доходит до холста (click) --- */
     let joyId = null, joyT0 = 0, joyX0 = 0, joyY0 = 0, joyMoved = 0, joyGuard = false, eatClickT = -1e9;
     const joyRel = e => { const r = root.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-    // «фокус» (кино, Ковш, волосок: кружок скрыт) или мини-игра ловит тапы (intercept) — палец внизу слева не джойстик,
+    // «фокус» (кино, Ковш, волосок: кружок скрыт) или мини-игра ловит тапы (intercept) — палец у кружка не джойстик,
     // а тап по сцене; полоса мини-занятия (.room-puzzle) — свои кнопки
     const joyOff = () => root.classList.contains('focus-on') || !!interceptFn;
     const joyDown = e => {
@@ -3054,9 +3055,11 @@ void heroDeform(inout vec3 p, inout vec3 n) {
     };
     const joyUp = e => {
       if (!J || e.pointerId !== joyId) return;
+      const drove = J.active && J.drove;
       joyId = null; joyVec = null; J.end();
-      // не тап (палец ехал или держал; касание на кружке покоя) — щелчок по холсту после него не «идти туда»
-      if (e.type !== 'pointerup' || joyMoved >= 10 || performance.now() - joyT0 >= 320 || joyGuard) eatClickT = performance.now();
+      // не тап (палец ехал или держал; касание на кружке покоя; джойстик уже вёл героиню — палец сел мимо кружка и держал
+      // дольше HUD.JOY.LAND_T) — щелчок по холсту после него не «идти туда»
+      if (e.type !== 'pointerup' || joyMoved >= 10 || performance.now() - joyT0 >= 320 || joyGuard || drove) eatClickT = performance.now();
     };
     root.addEventListener('pointerdown', joyDown);
     window.addEventListener('pointermove', joyMove); window.addEventListener('pointerup', joyUp); window.addEventListener('pointercancel', joyUp);

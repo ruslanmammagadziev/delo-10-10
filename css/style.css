@@ -42,7 +42,9 @@
   --hud-l: calc(var(--hud-safe-l) + var(--hud-g));
   --hud-r: calc(var(--hud-safe-r) + var(--hud-g));
   --hud-radar: clamp(84px, 24.6vw, 104px);
-  --hud-joy: clamp(92px, 26.7vw, 112px);
+  /* кружок джойстика — от ширины, а на низком экране (альбом: 390 px высотой) — и от высоты: там он 92 px, а не 112, чтобы
+     кружок (он закреплён снизу и виден всегда) и кольцо бега не доставали до ног героини; в портрете высота не мешает */
+  --hud-joy: clamp(92px, min(26.7vw, calc(var(--app-h) * .236)), 112px);
   --hud-knob: calc(var(--hud-joy) * .42);
   --hud-joy-cx: 50%;
   --hud-joy-b: calc(var(--hud-b) + 4px);
@@ -1139,7 +1141,7 @@ body.hud-driving .w-horn { --s1-dx: 62px; --s1-dy: 0px; }
 body.hud-driving .w-ck { --s4-dx: 62px; --s4-dy: 82px; }
 body.hud-driving .w-color { --s2-dx: 116px; --s2-dy: 41px; }
 body.hud-driving .w-reset { --s3-dx: 116px; --s3-dy: 95px; }
-/* джойстик: кольцо в покое по центру снизу, под пальцем — плавающий */
+/* джойстик: кольцо по центру снизу, закреплено — в покое и под пальцем на одном месте (касание не в центр — сдвиг ≤ 14 px, .back — назад) */
 .hud-joy {
   position: absolute; width: var(--hud-joy); height: var(--hud-joy); margin: 0; border-radius: 50%; z-index: 19; pointer-events: none !important;
   background: rgba(255,253,249,.32); box-shadow: inset 0 0 0 2px rgba(255,255,255,.8), inset 0 0 0 3px rgba(59,42,32,.06), 0 6px 16px rgba(59,42,32,.10);

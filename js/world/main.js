@@ -913,9 +913,10 @@
     /* ---------- ввод ---------- */
     const keys = {};
     const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', KeyQ: 'q', KeyE: 'e' };
-    // HUD v2: джойстик (HUD.joystick, ui.joyCtl) — зона касания: нижняя половина левее дуги кнопок; центр — сам палец (на касании
-    // стоит), кружок встаёт под него, отпустила — уезжает на место. Выше середины и справа — камера; короткий тап — «идти туда»
-    // (кроме тапа по самому кружку покоя — HUD.joyGuard)
+    // HUD v2: джойстик (HUD.joystick, ui.joyCtl) закреплён снизу по центру — зона касания: круг вокруг кружка (HUD.joyZone, r + 44 px,
+    // левее видимых кнопок дуги); база — место покоя ± 14 px к пальцу и за пальцем не едет (палец хоть у середины экрана — кружок
+    // стоит, ручка у края). Мимо зоны — камера; короткий тап — «идти туда» (кроме тапа по самому кружку покоя — HUD.joyGuard — и
+    // тапа, за который джойстик уже повёл героиню, — J.drove: палец сел мимо кружка и держал дольше JOY.LAND_T)
     const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0, used: false, late: false };
     const looks = new Map(); let pinch0 = null;
     const isUI = el => !!(el && el.closest && el.closest('button, .w-case, .stats, .modal, .wmm-wrap, [data-hud-slot]:not(.hud-joy)'));
@@ -963,8 +964,9 @@
       if (e.pointerId === joy.id) {
         joy.moved = Math.max(joy.moved, Math.hypot(x - joy.x0, y - joy.y0));
         const J = ui.joyCtl;
-        // палец лёг, пока ввод был закрыт (диалог, шторка, руки заняты), — джойстик начинается отсюда: без рывка и без тапа
-        if (J && !J.active && canInput()) { const c = J.begin(x, y); joy.cx = c.cx; joy.cy = c.cy; joy.late = true; J.show(true); }
+        // палец лёг, пока ввод был закрыт (диалог, шторка, руки заняты), — джойстик начинается сейчас (кружок на своём месте), без
+        // тапа и без рывка: палец мог уехать от кружка, так что сила — только когда он сдвинется отсюда (begin(…, true))
+        if (J && !J.active && canInput()) { const c = J.begin(x, y, true); joy.cx = c.cx; joy.cy = c.cy; joy.late = true; J.show(true); }
         else if (J && J.active) { const v = J.drag(x, y); if (v.m > 0 && s.moveTo && !s.moveTo.script) s.moveTo = null; }
         return;
       }
@@ -977,10 +979,10 @@
     };
     const onUp = e => {
       if (e.pointerId === joy.id) {
-        const late = joy.late;
+        const late = joy.late, drove = !!(ui.joyCtl && ui.joyCtl.active && ui.joyCtl.drove);
         joyEnd();
-        if (e.type === 'pointerup' && !late && joy.moved < 10 && performance.now() - joy.t0 < 320) {
-          // тап по кружку покоя — промах по джойстику, а не «идти туда»
+        if (e.type === 'pointerup' && !late && !drove && joy.moved < 10 && performance.now() - joy.t0 < 320) {
+          // тап по кружку покоя — промах по джойстику, а не «идти туда»; джойстик уже вёл героиню (drove) — тоже не тап
           const r = w.root.getBoundingClientRect();
           if (!(window.HUD && HUD.joyGuard && HUD.joyGuard(joy.x0, joy.y0, r.width, r.height))) onTap(joy.x0, joy.y0);
         }
