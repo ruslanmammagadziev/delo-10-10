@@ -9,7 +9,7 @@
        слой DOM (диалоги, карточки, мини-игры на 2D-холсте), а в шагах с 3D — свою маленькую сцену или сцену села
        (ночной дозор) своим циклом кадров. Всё своё создаётся при входе в шаг и освобождается при выходе из него.
      • Прогресс — ключ kub общего сохранения игры (G.state().kub; на стенде без движка — localStorage):
-       kub[<id дела>] = { a: взято, s: пройдено шагов, d: закрыто, k: биты карточек, n: сколько раз закрыто }.
+       kub[<id дела>] = { a: взято, s: пройдено шагов, d: закрыто, k: биты карточек, n: сколько раз закрыто, o: глашатая уже слушали }.
        Выйти можно в любой миг (✕): пройденные шаги и карточки уже записаны, вернуться — у глашатая на площади.
      • Тексты — только в данных дела; у каждой карточки статус и страница источника (правила подачи SEASON.md).
      • В режиме без названия (VILLAGE.named === false / CONFIG.VILLAGE_NAMED = false) дел нет: они целиком про историю названного села.
@@ -63,7 +63,7 @@
   function progress(id) {
     const b = bag(); let p = b[id];
     if (!p || typeof p !== 'object') p = b[id] = {};
-    p.a = p.a ? 1 : 0; p.s = num(p.s); p.d = p.d ? 1 : 0; p.k = num(p.k); p.n = num(p.n);
+    p.a = p.a ? 1 : 0; p.s = num(p.s); p.d = p.d ? 1 : 0; p.k = num(p.k); p.n = num(p.n); if (p.o) p.o = 1; else delete p.o;
     return p;
   }
   const hasCard = (c, i) => !!(progress(c.id).k & (1 << i));
@@ -299,6 +299,7 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on #layer>*,body.kh-on .w-root>:not(canva
     }
     if (!p.a) {
       ui.head(kick, 'Сход на площади', -1, N);
+      if (!p.o) { p.o = 1; persist(); }   // глашатая услышали: пилюля «Сход на площади» больше не зовёт (если ответить «Потом»)
       await ui.say(c.offer);
       const v = await ui.sheet({ kick: 'Дело ' + c.n + ' из 10', title: '«' + c.title + '»', text: [c.question, 'Шагов: ' + N + '. Выйти можно в любой момент — прогресс сохранится.'], buttons: [{ t: 'Потом', v: 0, soft: true }, { t: 'Взять дело', v: 1 }] });
       if (!v) return { later: true };
@@ -381,6 +382,18 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on #layer>*,body.kh-on .w-root>:not(canva
     });
     const at = ctx.at || { x: 0, z: 0, ry: 0 };
     const n = ctx.place('herald_rooster', at.x, at.z, at.ry, { make, scale: 1.2, headY: 1.1, talkR: 2.6, name: 'Петух-глашатай' });
+    // свиток над головой, пока есть незакрытое дело: глашатая видно издалека (текстура и материал — в общем списке села: уйдут с ним)
+    try {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+      x.fillStyle = '#FFFDF9'; x.strokeStyle = '#B5520E'; x.lineWidth = 7; x.beginPath(); x.arc(64, 58, 50, 0, Math.PI * 2); x.fill(); x.stroke();
+      x.beginPath(); x.moveTo(48, 100); x.lineTo(64, 124); x.lineTo(80, 100); x.closePath(); x.fillStyle = '#B5520E'; x.fill();
+      x.font = '64px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#6B3517'; x.fillText('📜', 64, 62);
+      const tx = K.keep(new T.CanvasTexture(cv)), sm = K.keep(new T.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false }));
+      sm.userData.dn = 'none';
+      const sg = new T.Sprite(sm); sg.userData.dn = 'none'; sg.scale.set(0.62, 0.62, 1); sg.position.set(0, 1.95, 0); sg.renderOrder = 6; n.root.add(sg);
+      const ex0 = n.extra; let tt = 0;
+      n.extra = (t, dt) => { if (ex0) ex0(t, dt); tt += dt || 0; const c = current(); sg.visible = !!(c && !progress(c.id).d); sg.position.y = 1.95 + Math.sin(t * 2.4) * 0.05; };
+    } catch (e) { /* без таблички */ }
     n.lines = []; n.history = true;   // без «Поговорить»: у глашатая одно действие — место «Сход!» (иначе две кнопки спорят)
     const spot = {
       // место — в полутора метрах перед глашатаем и чуть сбоку; героиня с карты встаёт сюда вполоборота: он в кадре рядом, а не за её спиной
@@ -396,13 +409,16 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on #layer>*,body.kh-on .w-root>:not(canva
   function actionLabel() {
     const c = current(); if (!c) return 'Сход!';
     const p = progress(c.id);
-    return p.d ? 'Хроника: дело закрыто' : p.a && p.s > 0 ? 'Продолжить дело' : p.a ? 'К делу' : 'Сход! Что случилось?';
+    if (p.d && p.s >= c.steps.length) return 'Хроника: дело закрыто';
+    return p.d ? 'Продолжить дело' : p.a && p.s > 0 ? 'Продолжить дело' : p.a ? 'К делу' : 'Сход! Что случилось?';   // закрытое дело с s < N — идёт повторный проход
   }
   // цель для пилюли HUD в селе: взятое и незакрытое дело ведёт к глашатаю
   function goal(h) {
     const c = current(); if (!c) return null;
-    const p = progress(c.id); if (!p.a || p.d) return null;
+    const p = progress(c.id); if (p.d || (!p.a && p.o)) return null;
     const sp = h && h.spots ? h.spots.find(s => s.id === 'history_call') : null; if (!sp) return null;
+    // дело ещё не предлагали: глашатай зовёт на площадь (один раз — до первого разговора с ним)
+    if (!p.a) return { icon: '📜', text: 'Сход на площади', title: 'Глашатай зовёт', full: 'Петух-глашатай кричит «Сход!» на базарной площади. Похоже, есть дело для следователя.', x: sp.x, z: sp.z };
     const st = c.steps[Math.min(p.s, c.steps.length - 1)];
     return { icon: '📜', text: '«' + c.title + '»', title: 'Дело ' + c.n + ' · шаг ' + Math.min(p.s + 1, c.steps.length) + ' из ' + c.steps.length, full: 'Дальше — «' + st.title + '». Продолжить можно у петуха-глашатая на площади.', x: sp.x, z: sp.z };
   }

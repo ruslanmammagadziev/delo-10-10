@@ -340,7 +340,7 @@
       finds: rs.reduce((m, r) => (m | nn(r.finds)) >>> 0, 0) };   // находки и секреты раннера (биты) — «или» по копиям: найденное на любом устройстве не теряется
   }
 
-  // «Хроника Кубачи» (state.kub: { <id дела>: { a, s, d, k, n } } — js/village/history.js): взято (a) и закрыто (d) — «или» по
+  // «Хроника Кубачи» (state.kub: { <id дела>: { a, s, d, k, n, o } } — js/village/history.js): взято (a) и закрыто (d) — «или» по
   // копиям, карточки (k, биты) — «или», сколько раз закрыто (n) — максимум; шаг текущего прохода (s) — из самой новой копии,
   // где дело есть (при «пройти заново» он честно начинается с нуля), но у незакрытого дела — не меньше, чем в любой копии
   function mergeKub(ord) {
@@ -350,7 +350,8 @@
     ks.forEach(k => Object.keys(k).forEach(id => {
       const p = k[id]; if (!isObj(p)) return;
       const o = out[id];
-      if (!o) { out[id] = { a: p.a ? 1 : 0, s: nn(p.s), d: p.d ? 1 : 0, k: nn(p.k), n: nn(p.n), _m: nn(p.s) }; return; }
+      if (!o) { out[id] = { a: p.a ? 1 : 0, s: nn(p.s), d: p.d ? 1 : 0, k: nn(p.k), n: nn(p.n), _m: nn(p.s) }; if (p.o) out[id].o = 1; return; }
+      if (p.o) o.o = 1;
       o.a = o.a || p.a ? 1 : 0; o.d = o.d || p.d ? 1 : 0; o.k = (o.k | nn(p.k)) >>> 0; o.n = Math.max(o.n, nn(p.n)); o._m = Math.max(o._m, nn(p.s));
     }));
     Object.keys(out).forEach(id => { const o = out[id]; if (!o.d) o.s = o._m; delete o._m; });
