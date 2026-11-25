@@ -39,6 +39,8 @@ STORY_ONLY=1 — промежуточная сборка без прогулки
                     window.__VOICE_INLINE (base64) перед js/voice.js; voice.js берёт их оттуда без сети — файл работает
                     и по file:// (двойной клик, отправка файлом). Папка voice/ рядом не копируется. Имя файла — с суффиксом
                     .all-in-one (например, dist/delo-10-10.preview.all-in-one.html). Файл большой (≈ +20 МБ).
+Заставки дел: папка intro/ (ролики 9:16 «Хроники Кубачи» — js/village/history_case*.js) копируется рядом с итоговым файлом,
+  как looks/ и audio/ (site/index.html -> site/intro/); не встраивается никогда.
 Звуки: папка audio/ (записи моторов — js/engine_sound.js, песня двора свадьбы — js/village/wedding_song.js) копируется рядом
   с итоговым файлом, как looks/ (site/index.html -> site/audio/); не встраивается никогда.
 Метка сборки (любая сборка, dev и --prod): первым встроенным скриптом идёт window.BUILD_INFO = { id, at }: id — первые 8 знаков
@@ -643,6 +645,46 @@ def copy_audio(out_file):
 # ===== /ЗВУКИ =======================================================================================================
 
 
+# ===== ЗАСТАВКИ ДЕЛ (INTRO) — вертикальные ролики 9:16 познавательного сезона («Хроника Кубачи») =====================
+# Папка intro/ (mp4 с хэшем содержимого в имени: dozor.<sha1:8>.mp4 — js/village/history_case5.js) копируется рядом с
+# итоговым файлом, как looks/ и audio/: dist/delo-10-10.html + dist/intro/, --out site/index.html -> site/intro/. Ролики
+# не встраиваются никогда. Без папки или файла дело идёт без заставки (ролик не начался за 3 с — молча пропускается).
+# Лишние файлы в папке назначения удаляются.
+def copy_intro(out_file):
+    src = os.path.join(ROOT, 'intro')
+    if not os.path.isdir(src) or not any(f.endswith('.mp4') for f in os.listdir(src)):
+        print('заставки: папки intro/ нет — дела «Хроники» идут без ролика')
+        return
+    dst = os.path.join(os.path.dirname(os.path.abspath(out_file)), 'intro')
+    if os.path.abspath(dst) == os.path.abspath(src):
+        return
+    os.makedirs(dst, exist_ok=True)
+    names = {f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f)) and not f.startswith('.')}
+    n = size = 0
+    for fn in names:
+        a, b = os.path.join(src, fn), os.path.join(dst, fn)
+        size += os.path.getsize(a)
+        if not os.path.exists(b) or os.path.getsize(b) != os.path.getsize(a):
+            shutil.copy2(a, b)
+            n += 1
+    for fn in os.listdir(dst):
+        if fn not in names and os.path.isfile(os.path.join(dst, fn)):
+            os.remove(os.path.join(dst, fn))
+    # пути в данных дел должны совпасть с файлами в папке, а хэш в имени — с содержимым (иначе кэш отдаст старый ролик)
+    vdir = os.path.join(ROOT, 'js', 'village')
+    for js in sorted(f for f in os.listdir(vdir) if re.match(r'history_case\d+\.js$', f)):
+        for path in re.findall(r"'(intro/[^']+\.mp4)'", open(os.path.join(vdir, js), encoding='utf-8').read()):
+            fp = os.path.join(dst, os.path.basename(path))
+            if not os.path.isfile(fp):
+                print(f'WARN: заставки: в js/village/{js} путь {path}, а в intro/ такого файла нет')
+                continue
+            m = re.search(r'\.([0-9a-f]{8})\.mp4$', path)
+            if m and hashlib.sha1(open(fp, 'rb').read()).hexdigest()[:8] != m.group(1):
+                print(f'WARN: заставки: хэш в имени {path} не совпадает с содержимым файла')
+    print(f'заставки: {len(names)} файлов, {size / 1048576:.2f} МБ -> {dst} (обновлено {n}); выкладывать папку intro/ рядом с index.html')
+# ===== /ЗАСТАВКИ ====================================================================================================
+
+
 def main():
     ap = argparse.ArgumentParser(description='Сборка игры в один HTML')
     ap.add_argument('--prod', action='store_true', help='минифицированная сборка без отладки -> dist/delo-10-10.prod.html')
@@ -673,6 +715,7 @@ def main():
         # ОБРАЗЫ (LOOKS): ролики не встраиваются никогда, папка looks/ всегда рядом
         copy_looks(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))
         copy_audio(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ЗВУКИ (AUDIO): так же
+        copy_intro(getattr(args, '_out', None) or args.out or os.path.join(ROOT, 'dist', 'x.html'))   # ЗАСТАВКИ ДЕЛ (INTRO): так же
         return r
     html = build_html()
     os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
@@ -689,6 +732,7 @@ def main():
         copy_voice(out)   # ГОЛОСА (VOICE)
     copy_looks(out)   # ОБРАЗЫ (LOOKS)
     copy_audio(out)   # ЗВУКИ (AUDIO)
+    copy_intro(out)   # ЗАСТАВКИ ДЕЛ (INTRO)
 
 
 if __name__ == '__main__':
