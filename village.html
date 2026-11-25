@@ -134,6 +134,10 @@
   <script src="js/village/zipline.js" onerror="void 0"></script>
   <script src="js/interact.js" onerror="void 0"></script>
   <script src="js/daynight.js" onerror="void 0"></script>
+  <script src="js/village/history.js" onerror="void 0"></script>
+  <script src="js/village/history_games.js" onerror="void 0"></script>
+  <script src="js/village/history_tympan.js" onerror="void 0"></script>
+  <script src="js/village/history_case5.js" onerror="void 0"></script>
   <script src="js/vehicles/sedan.js" onerror="void 0"></script>
   <script>
   (function () {
@@ -539,6 +543,13 @@
       if (hero) { hero.root.position.set(S.px, S.py, S.pz); hero.root.rotation.y = S.ang; hero.root.updateMatrixWorld(true); if (hero.rig) hero.rig.prev = null; }
     }
     const pawOf = (n, paw) => ({ root: n.root, color: (paw && paw.color) || '#EDE4DA', height: (paw && paw.height) || 0.62, meetY: (paw && paw.meetY) || 1.0 });
+    // «Хроника Кубачи» (js/village/history.js): тот же рендерер и сцена, цикл стенда на паузе; o.chronicle — сразу блокнот
+    async function historyGo(o) {
+      if (!V.history || V.history.active() || S.busy) return null;
+      S.lastHistory = await V.history.open({ THREE: T, renderer, scene, handle: S.region, hero, dn, named,
+        pause: () => { S.paused = true; }, resume: () => { S.paused = false; if (hero && hero.rig) hero.rig.prev = null; last = performance.now(); } }, o);
+      return S.lastHistory;
+    }
     async function useSpot(sp) {
       const A = ACT(), a = A[sp.id] || {}, h = S.region;
       const d = sp.use ? sp.use({ named, flags: S.flags }) : null;
@@ -549,6 +560,7 @@
       if (d && d.look && h.camera.looks && h.camera.looks[d.look]) { startLook(d.look); if (d.npc) later(1400, () => { if (!npcSayEvent(d.npc, d.event || 'climbTop', 3400)) { const e = npcBy(d.npc); if (e) talk(e); } }); return; }
       if (d && d.interact === 'drinkSpring' && d.spring && IA) return drinkSpring(d);
       // W4A: каз у мышки-вышивальщицы; свадьба — угоститься (руки), танец «в такт», поздравить молодых
+      if (d && d.kind === 'history') return historyGo();   // «Хроника Кубачи»: дело идёт сеансом поверх села (стенд на паузе)
       if (d && d.kind === 'kaz') return kazSpot(d);
       if (d && d.kind === 'treat') return weddingTreat(d);
       if (d && d.kind === 'dance') return startDance(d);

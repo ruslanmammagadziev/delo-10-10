@@ -489,6 +489,9 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         }
         // бег-раннер поверх поездки (WORLD.runner из js/world/main.js): метка — из модуля раннера; не пешком — тост
         if (WORLD.runner) H.menu.add({ id: 'r-runner', icon: '🏃', order: 30, tint: 'sun', label: () => WORLD.runner.label(), sub: () => WORLD.runner.sub(), when: () => S.active && !S.runner && WORLD.runner.can(), onTap: () => { if (S.active) runnerGo(); } });
+        // блокнот дел познавательного сезона — когда в нём что-то есть (карточки фактов со статусом и страницей)
+        H.menu.add({ id: 'r-hist', icon: '📜', order: 32, tint: 'sun', label: 'Хроника', sub: () => { const HS = HIST(), c = HS && HS.current(); return c ? 'карточек: ' + HS.cardsGot(c.id) + ' из ' + c.cards.length : ''; },
+          when: () => { const HS = HIST(), c = HS && HS.current(); return !!(S.active && c && HS.progress(c.id).a); }, onTap: () => { if (S.active) historyGo({ chronicle: true }); } });
         H.menu.add({ id: 'r-radar', icon: '🧭', order: 70, tint: 'sky', keepOpen: true, when: () => S.active && !!(radar && radar.collapse),
           label: () => (radar && radar.isCollapsed && radar.isCollapsed() ? 'Мини-карта: показать' : 'Мини-карта: спрятать'),
           onTap: () => { if (radar && radar.collapse) radar.collapse(!(radar.isCollapsed && radar.isCollapsed())); } });
@@ -500,7 +503,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       const H = HUD_(); document.body.classList.remove('wr-hud-sport', 'wr-hud-zip');
       if (!H) return;
       if (H.bar) H.bar({});
-      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-look', 'r-radar', 'r-runner'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
+      try { if (H.menu) ['r-map', 'r-dn', 'r-kaz', 'r-look', 'r-radar', 'r-runner', 'r-hist'].forEach(id => H.menu.remove(id)); } catch (e) { /* ok */ }
       try { H.status(hudSaved ? hudSaved.status : null); } catch (e) { /* ok */ }
       try { if (H.objective) H.objective.set(hudSaved && hudSaved.obj ? Object.assign({}, hudSaved.obj, { bounce: false }) : null); } catch (e) { /* ok */ }
       hudSaved = null;
@@ -544,6 +547,11 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
         const name = id === 'toCity' ? 'Город' : (titleOf() || ex.label || '');
         return { icon: id === 'toCity' ? '🏙' : '⛰️', text: name, title: down ? 'Дорога вниз' : 'Дорога наверх', d,
           full: (down ? 'Вниз по серпантину — в город.' : 'Вверх по серпантину, за облака. Отель — ещё выше: от школы серпантином на гору.') + (touchUi() ? ' Руль — кнопки ‹‹ ›› слева, газ и тормоз — справа.' : '') };
+      }
+      // «Хроника Кубачи»: взятое и незакрытое дело ведёт к глашатаю на площади
+      if (HIST() && S.mode === 'walk') {
+        let g = null; try { g = HIST().goal(h); } catch (e) { g = null; }
+        if (g) return { icon: g.icon, text: g.text, title: g.title, full: g.full, d: Math.hypot(g.x - S.px, g.z - S.pz) };
       }
       if (S.rid === 'kubachi' && S.flags.jug && !S.flags.granny) {
         const n = npcBy('granny_hedgehog');
@@ -1322,6 +1330,31 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (res === false) S.runner = false;
       return res;
     }
+    // «Хроника Кубачи» (js/village/history.js): дела познавательного сезона. Как раннер — сеанс поверх поездки: свой цикл и ввод
+    // стоят, сеанс рисует тем же рендерером (свою сцену или сцену села — ночной дозор). o.chronicle — сразу блокнот дел
+    const HIST = () => (S.rid === 'kubachi' && V_() && V_().history && V_().history.open ? V_().history : null);
+    async function historyGo(o) {
+      const HS = HIST(); if (!HS || S.hist || HS.active()) return null;
+      if (!runnerFree()) { haptic('light'); toast('Чуть позже: сначала закончим тут 🙂', 2600, { keep: true }); return null; }
+      S.hist = true; S.moveTo = null; bubbles.forEach(b => { b.until = 0; });
+      let res = null;
+      try {
+        res = await HS.open({ THREE: T, renderer, scene, handle: S.h, hero, dn, named, haptic,
+          pause: () => { cancelAnimationFrame(raf); raf = 0; bindInput(false); songPause(false); },
+          resume: () => {
+            if (!S.active) return;
+            try { resize(); } catch (e) { /* ok */ }
+            if (hero && hero.rig) hero.rig.prev = null;
+            S.night = -1; S.camInit = false;
+            last = performance.now(); if (!raf) raf = requestAnimationFrame(tick);
+            bindInput(true);
+          } }, o);
+      } catch (e) { console.warn('region history', e); }
+      S.hist = false; S.lastHistory = res;
+      if (S.active) { S.hudObj = null; hudObjective(true); updAct(); }
+      emit('region:history', { result: res });
+      return res;
+    }
     // где героиня на экране (искры смены образа, координаты #app); из-за руля героини не видно — искры посередине
     function heroAt() {
       const g = G_();
@@ -1880,6 +1913,7 @@ body.wr-hud-sport #hudMenu,body.wr-hud-sport #hudObj,body.wr-hud-sport #hud .hud
       if (d.climb && h.climb && h.climb.at) return startClimb(d.from === 'top' ? 'top' : 'bottom');
       if (d.look && h.camera && h.camera.looks && h.camera.looks[d.look]) { startLook(d.look); if (d.npc) later(1400, () => { if (!npcSayEvent(d.npc, d.event || 'climbTop', 3400)) { const e = npcBy(d.npc); if (e) greet(e); } }); return; }
       if (d.interact === 'drinkSpring' && d.spring && IA) return drinkSpring(d, a);
+      if (d.kind === 'history') return historyGo();   // «Хроника Кубачи»: дело познавательного сезона — сеансом поверх села
       if (d.kind === 'kaz') return kazSpot(d);
       if (d.kind === 'treat') return weddingTreat(d);
       if (d.kind === 'dance') return startDance(d);

@@ -140,6 +140,11 @@
       bitList(s.world.g).forEach(i => out.add('wg:' + i));
       if (isObj(s.world.pet) && s.world.pet.met) out.add('w:pet');
     }
+    if (isObj(s.kub)) Object.keys(s.kub).forEach(id => {
+      const p = s.kub[id]; if (!isObj(p)) return;
+      if (p.d) out.add('kub:' + id + ':d');
+      const k = num(p.k) >>> 0; for (let i = 0; i < 31; i++) if (k & (1 << i)) out.add('kub:' + id + ':' + i);
+    });
     return out;
   }
   // что есть в b и нет в a
@@ -319,7 +324,7 @@
   const FLAGS = ['waved', 'introDone', 'walkedOnce', 'walked3d', 'catSweater', 'metBee'];
   const CHOICE = ['catHelper', 'drink', 'syrnik', 'bouquet'];
   const HANDLED = new Set(['v', '_s', 'updated', 'eps', 'stickers', 'finds', 'versions', 'ratings', 'riddles', 'team', 'invite', 'hudSeen',
-    'engHint', 'soundSet', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner'].concat(PREFS, FLAGS, CHOICE));
+    'engHint', 'soundSet', 'name', 'look', 'bow', 'coat', 'hair', 'world', 'town', 'runner', 'kub'].concat(PREFS, FLAGS, CHOICE));
   // раннер «Бег» (state.runner { best, bestDist, coins, runs, tut, last, bestLevel, lv, finds }): рекорды и счётчики — максимум по копиям (сыграли
   // позже на втором устройстве — рекорд первого не пропадает), подсказки пройдены — если хоть где-то, last — из самой новой
   // копии. Ключ «знакомый» — и в сжатую облачную копию попадает (≈ 80 символов)
@@ -333,6 +338,23 @@
     const V2 = [1, 1, 2, 3, 4, 6, 7, 8, 10, 11], lvOf = r => { const n = Math.max(1, nn(r.bestLevel)); return nn(r.lv) >= 3 ? n : n <= 9 ? V2[n] : n + 2; };
     return { best: mx('best'), bestDist: mx('bestDist'), coins: mx('coins'), runs: mx('runs'), tut: rs.some(r => r.tut === true), last: nn(rs[0].last), bestLevel: Math.max(1, ...rs.map(lvOf)), lv: 3,
       finds: rs.reduce((m, r) => (m | nn(r.finds)) >>> 0, 0) };   // находки и секреты раннера (биты) — «или» по копиям: найденное на любом устройстве не теряется
+  }
+
+  // «Хроника Кубачи» (state.kub: { <id дела>: { a, s, d, k, n } } — js/village/history.js): взято (a) и закрыто (d) — «или» по
+  // копиям, карточки (k, биты) — «или», сколько раз закрыто (n) — максимум; шаг текущего прохода (s) — из самой новой копии,
+  // где дело есть (при «пройти заново» он честно начинается с нуля), но у незакрытого дела — не меньше, чем в любой копии
+  function mergeKub(ord) {
+    const ks = ord.map(c => c.kub).filter(isObj);
+    if (!ks.length) return undefined;
+    const nn = v => (typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0), out = {};
+    ks.forEach(k => Object.keys(k).forEach(id => {
+      const p = k[id]; if (!isObj(p)) return;
+      const o = out[id];
+      if (!o) { out[id] = { a: p.a ? 1 : 0, s: nn(p.s), d: p.d ? 1 : 0, k: nn(p.k), n: nn(p.n), _m: nn(p.s) }; return; }
+      o.a = o.a || p.a ? 1 : 0; o.d = o.d || p.d ? 1 : 0; o.k = (o.k | nn(p.k)) >>> 0; o.n = Math.max(o.n, nn(p.n)); o._m = Math.max(o._m, nn(p.s));
+    }));
+    Object.keys(out).forEach(id => { const o = out[id]; if (!o.d) o.s = o._m; delete o._m; });
+    return out;
   }
 
   /* merge(copies, opts) — copies[0] — своя (живое состояние этого устройства), дальше — чужие копии.
@@ -401,6 +423,8 @@
     if (t !== undefined) out.town = t;
     const rn = mergeRunner(ord);
     if (rn !== undefined) out.runner = rn;
+    const kb = mergeKub(ord);
+    if (kb !== undefined) out.kub = kb;
     // выборы с метками: побеждает самая поздняя метка с годным значением (при равных — порядок выше: новее / своё)
     const paths = [];
     ord.forEach(c => Object.keys(stampsOf(c)).forEach(p => { if (!paths.includes(p)) paths.push(p); }));

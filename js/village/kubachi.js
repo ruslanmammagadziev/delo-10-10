@@ -184,6 +184,7 @@
   const TOWER = { x: -11.18, z: -15.44, y0: 5.0, rB: 3.7, rT: 3.4, shaft: 11.6, top: 13.1, floor: 16.9, merlons: 20,
     windows: [[-55, 9.9], [-22, 7.0], [18, 10.5], [62, 8.3], [150, 9.4], [-140, 7.4]] };   // polish 14.10: 20 крупных зубцов (просветы читаются со смотровой), окна вразбежку — по ≈ 3 с каждой стороны   // Ø 7,4 → 6,8: на p1/p4 над домами видно 1,1–1,35 диаметра
   const SQUARE = { x: 12.3, z: -6.3, w: 16, d: 11, ry: -0.12 };
+  const HERALD_AT = { x: 18.6, z: -2.2, ry: 1.35 };   // глашатай «Хроники» на площади: свободное место у годекана, лицом к въезду (до лавок и скамеек ≥ 5 м)
   const MUSEUM = { x: 15.35, z: -12.92, ry: -0.14, w: 10, d: 5, h: 5.2 };
   const BAKERY = { x: -1.60, z: -9.30, ry: 1.5808, w: 5.5, d: 5, h: 4.8 };   // волна 10: было (−1,03; −6,99) — южная стена на 2,3 м севернее (гребневая улица)
   const ARCH = { r: 91.2, ph: 0.06, span: 2.6, thick: 3.0 };            // r 92,2 → 91,2: под аркой проходит героиня (1,9 м)
@@ -4592,6 +4593,8 @@
         { const bb = (W6.benches || []).find(q => q.id === 'b3'); if (bb) place('pupil_kitten', bb.seat[0], bb.seat[2], bb.ry, { y: bb.seat[1] - 0.02, headY: 0.85, talkR: 2.4 }); }
       }
       { const [x, z] = P(91.2 + 1.2, 0.06 + 1.6 / 91); place('pigeon', x, z, 2.6, { uid: 'pigeon_arch', y: 0.8, headY: 0.55, silent: true }); }
+      // «Хроника Кубачи» (js/village/history.js): петух-глашатай на площади и место «Сход!» — дела познавательного сезона
+      if (!FAR && named && V.history && V.history.resident) { try { const q = HERALD_AT; V.history.resident({ place, K, T, named, spots: spotsList, at: { x: q.x, z: q.z, ry: q.ry } }); } catch (e) { console.warn('kubachi: history', e); } }
       // мышке — скамья у сокровищницы
       { const [bx, bz] = [2.18, 28.5], bF = new K.Frame(bx, G(bx, bz), bz, face2(bx, bz, 0.5, 33)); pb.box(bF, 0, 0.23, -0.05, 1.4, 0.46, 0.42, { col: mul(C('ochre2'), 0.95) }); colliders.push({ type: 'box', x: bx, z: bz, w: 1.4, d: 0.45, ry: bF.ry, y0: G(bx, bz) - 1, y1: G(bx, bz) + 0.5, id: 'bench' }); }
     }
