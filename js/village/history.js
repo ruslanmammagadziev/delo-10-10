@@ -383,8 +383,10 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on .w-root>:not(canvas),body.kh-on #ui,bo
     const n = ctx.place('herald_rooster', at.x, at.z, at.ry, { make, scale: 1.2, headY: 1.1, talkR: 2.6, name: 'Петух-глашатай' });
     n.lines = []; n.history = true;   // без «Поговорить»: у глашатая одно действие — место «Сход!» (иначе две кнопки спорят)
     const spot = {
-      id: 'history_call', x: at.x + Math.sin(at.ry) * 0.9, y: n.y, z: at.z + Math.cos(at.ry) * 0.9, r: 2.6, icon: '📜', label: 'Сход на площади', play: true, npc: 'herald_rooster',
+      id: 'history_call', x: at.x + Math.sin(at.ry) * 1.3, y: n.y, z: at.z + Math.cos(at.ry) * 1.3, r: 2.6, ry: at.ry + Math.PI, icon: '📜', label: 'Сход на площади', play: true, npc: 'herald_rooster',
       get action() { return actionLabel(); },
+      // пока есть незакрытое дело, точка карты «Базарная площадь» («Поехать сюда») ставит героиню прямо перед глашатаем
+      get poi() { const c = current(); return c && !progress(c.id).d ? 'square' : undefined; },
       use: () => { if (n.hop) n.hop(); n.faceHero = 3; return { id: 'history_call', kind: 'history', npc: 'herald_rooster' }; },
     };
     ctx.spots.push(spot);

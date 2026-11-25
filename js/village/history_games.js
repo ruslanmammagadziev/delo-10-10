@@ -450,11 +450,11 @@
     ses.debug = { kind: 'watch', state: () => ({ phase: S.phase, t: +S.t.toFixed(1), yaw: +S.yaw.toFixed(2), az, talk: S.talk }), fire: () => { const p = screenOf(FP), rc = gl.r.domElement.getBoundingClientRect(); return p ? { x: p.x + rc.left, y: p.y + rc.top } : null; } };
     let horses = null;
     function showHorses() {
-      horses = ui.el('div', 'kh-horses'); const cv = document.createElement('canvas'); const W = 720, Hh = 150; cv.width = W; cv.height = Hh; horses.appendChild(cv);
+      horses = ui.el('div', 'kh-horses'); const cv = document.createElement('canvas'); const W = 720, Hh = 176; cv.width = W; cv.height = Hh; horses.appendChild(cv);
       const cap = ui.el('div', '', ui.esc(b.horses)); horses.appendChild(cap); ui.root.appendChild(horses);
       const x = cv.getContext('2d');
       const g = x.createRadialGradient(W * 0.5, Hh * 1.05, 10, W * 0.5, Hh * 1.05, W * 0.6); g.addColorStop(0, 'rgba(255,170,70,.5)'); g.addColorStop(1, 'rgba(255,150,50,0)'); x.fillStyle = g; x.fillRect(0, 0, W, Hh);
-      for (let i = 0; i < 7; i++) horseSil(x, 52 + i * 98, Hh - 14, 0.78 + (i % 3) * 0.035, i % 2 ? 1 : -1);
+      for (let i = 0; i < 7; i++) horseSil(x, 58 + i * 101, Hh - 12, 0.98 + (i % 3) * 0.04, i % 3 === 1 ? -1 : 1);
       ui.onCleanup(() => { if (horses) horses.remove(); });
     }
     const anim = hero && hero.rig && hero.rig.anim ? hero.rig.anim : null;
@@ -472,7 +472,7 @@
         const k = sst(0, 1.3, S.t - S.litT), f2 = 0.85 + 0.15 * Math.sin(now * 17) * Math.sin(now * 9.7 + 2);
         flame.material.opacity = k; flame.scale.set(0.75 * f2, 1.25 * (0.9 + f2 * 0.2), 1); flame.position.y = TP.y + 2.35 + f2 * 0.05;
         flame2.material.opacity = k * 0.8; flame2.scale.set(0.42, 0.72 * f2, 1); flame2.position.y = TP.y + 2.2;
-        glow.material.opacity = k * 0.5 * f2; glow.scale.setScalar(7.5);
+        glow.material.opacity = k * 0.26 * f2; glow.scale.setScalar(3.6);
         // камера сама поворачивается к факелу и героине
         const e = 1 - Math.exp(-dt * 1.6); S.yaw += (0.2 - S.yaw) * e; S.pitch += (0.0 - S.pitch) * e;
         if (S.phase === 'lit' && S.t - S.litT > 2.6) { S.phase = 'end'; showHorses(); setTimeout(() => done({ found: +S.found.toFixed(1) }), 2600); }
@@ -550,15 +550,18 @@
     // бока и спина — одной сеткой, без текстуры рельефа
     const p2 = [], n2 = [];
     const P = (i, j, z) => [(i / NX - 0.5) * SW, (0.5 - j / NY) * SH, z];
-    const quad = (a, b, c2, d, n) => { [a, b, c2, a, c2, d].forEach(q => { p2.push(q[0], q[1], q[2]); n2.push(n[0], n[1], n[2]); }); };
+    // нормаль бока — по градиенту размытого силуэта: арка гладкая, хотя сетка ступенчатая
+    const aB = (px, py) => { let t = 0; for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) t += aAt(px + i * 5, py + j * 5); return t / 25; };
+    const sideN = q => { const px = (q[0] / SW + 0.5) * W, py = (0.5 - q[1] / SH) * Hh, gx = aB(px + 6, py) - aB(px - 6, py), gy = aB(px, py + 6) - aB(px, py - 6), l = Math.hypot(gx, gy); return l > 4 ? [-gx / l, gy / l, 0] : null; };
+    const quad = (a, b, c2, d, n, side) => { [a, b, c2, a, c2, d].forEach(q => { const m = (side && sideN(q)) || n; p2.push(q[0], q[1], q[2]); n2.push(m[0], m[1], m[2]); }); };
     for (let k = 0; k < cells.length; k += 2) {
       const i = cells[k], j = cells[k + 1];
       quad(P(i, j, -TH), P(i + 1, j, -TH), P(i + 1, j + 1, -TH), P(i, j + 1, -TH), [0, 0, -1]);
       const zf = (ii, jj) => hS(Math.min(ii * step, W - 1), Math.min(jj * step, Hh - 1)) * DEP;
-      if (!cell(i, j - 1)) quad(P(i, j, zf(i, j)), P(i + 1, j, zf(i + 1, j)), P(i + 1, j, -TH), P(i, j, -TH), [0, 1, 0]);
-      if (!cell(i, j + 1)) quad(P(i + 1, j + 1, zf(i + 1, j + 1)), P(i, j + 1, zf(i, j + 1)), P(i, j + 1, -TH), P(i + 1, j + 1, -TH), [0, -1, 0]);
-      if (!cell(i - 1, j)) quad(P(i, j + 1, zf(i, j + 1)), P(i, j, zf(i, j)), P(i, j, -TH), P(i, j + 1, -TH), [-1, 0, 0]);
-      if (!cell(i + 1, j)) quad(P(i + 1, j, zf(i + 1, j)), P(i + 1, j + 1, zf(i + 1, j + 1)), P(i + 1, j + 1, -TH), P(i + 1, j, -TH), [1, 0, 0]);
+      if (!cell(i, j - 1)) quad(P(i, j, zf(i, j)), P(i + 1, j, zf(i + 1, j)), P(i + 1, j, -TH), P(i, j, -TH), [0, 1, 0], true);
+      if (!cell(i, j + 1)) quad(P(i + 1, j + 1, zf(i + 1, j + 1)), P(i, j + 1, zf(i, j + 1)), P(i, j + 1, -TH), P(i + 1, j + 1, -TH), [0, -1, 0], true);
+      if (!cell(i - 1, j)) quad(P(i, j + 1, zf(i, j + 1)), P(i, j, zf(i, j)), P(i, j, -TH), P(i, j + 1, -TH), [-1, 0, 0], true);
+      if (!cell(i + 1, j)) quad(P(i + 1, j, zf(i + 1, j)), P(i + 1, j + 1, zf(i + 1, j + 1)), P(i + 1, j + 1, -TH), P(i + 1, j, -TH), [1, 0, 0], true);
     }
     const back = new T.BufferGeometry(); back.setAttribute('position', new T.Float32BufferAttribute(p2, 3)); back.setAttribute('normal', new T.Float32BufferAttribute(n2, 3));
     // карта нормалей (в полном разрешении) и цвет камня с затемнением в бороздах
@@ -569,13 +572,13 @@
       const q = (py * W + px) * 4, dx = (hAt(px + 1, py) - hAt(px - 1, py)) * K, dy = (hAt(px, py + 1) - hAt(px, py - 1)) * K, l = 1 / Math.hypot(dx, dy, 1);
       ND.data[q] = (-dx * l * 0.5 + 0.5) * 255; ND.data[q + 1] = (dy * l * 0.5 + 0.5) * 255; ND.data[q + 2] = (l * 0.5 + 0.5) * 255; ND.data[q + 3] = 255;
       const hh = hAt(px, py), sh = 0.7 + hh * 0.36 + (rnd() - 0.5) * 0.07;
-      CD.data[q] = clamp(206 * sh, 0, 255); CD.data[q + 1] = clamp(176 * sh, 0, 255); CD.data[q + 2] = clamp(128 * sh, 0, 255); CD.data[q + 3] = 255;
+      CD.data[q] = clamp(205 * sh, 0, 255); CD.data[q + 1] = clamp(186 * sh, 0, 255); CD.data[q + 2] = clamp(152 * sh, 0, 255); CD.data[q + 3] = 255;
     }
     nx.putImageData(ND, 0, 0); cx.putImageData(CD, 0, 0);
-    const tex = cv => { const t = new T.CanvasTexture(cv); t.generateMipmaps = false; t.minFilter = T.LinearFilter; t.magFilter = T.LinearFilter; t.wrapS = t.wrapT = T.ClampToEdgeWrapping; if (T.sRGBEncoding !== undefined && cv === cc) t.encoding = T.LinearEncoding; return t; };
+    const tex = cv => { const t = new T.CanvasTexture(cv); t.generateMipmaps = false; t.minFilter = T.LinearFilter; t.magFilter = T.LinearFilter; t.wrapS = t.wrapT = T.ClampToEdgeWrapping; return t; };
     const map = tex(cc), nmap = tex(nc);
-    const matF = new T.MeshPhongMaterial({ map, normalMap: nmap, normalScale: new T.Vector2(1.15, 1.15), shininess: 8, specular: new T.Color(0x2a2218) });
-    const matB = new T.MeshPhongMaterial({ color: 0xA98C62, shininess: 4, specular: new T.Color(0x1a140e) });
+    const matF = new T.MeshPhongMaterial({ map, normalMap: nmap, normalScale: new T.Vector2(0.9, 0.9), shininess: 6, specular: new T.Color(0x1c1814) });
+    const matB = new T.MeshPhongMaterial({ color: 0xB9A888, shininess: 4, specular: new T.Color(0x1a140e) });
     const g = new T.Group(), mf = new T.Mesh(front, matF), mb = new T.Mesh(back, matB); g.add(mf); g.add(mb);
     c.width = c.height = 0;
     return { group: g, front: mf, tris: idx.length / 3 + p2.length / 9, size: [SW, SH], dispose() { front.dispose(); back.dispose(); matF.dispose(); matB.dispose(); map.dispose(); nmap.dispose(); nc.width = nc.height = 0; cc.width = cc.height = 0; } };
@@ -590,16 +593,16 @@
     ui.mode('clear');
     const vig = ui.el('div', 'kh-vig'); ui.root.insertBefore(vig, ui.root.firstChild); ui.onCleanup(() => vig.remove());
     const scene = new T.Scene(); scene.background = new T.Color(0x2A1B12);
-    const ty = buildTympan(T, im, { width: 1.05, thick: 0.13, depth: 0.03, step: 4, bump: 3.4 });
+    const ty = buildTympan(T, im, { width: 1.05, thick: 0.13, depth: 0.02, step: 4, bump: 2.6 });   // 105 × 66 × 13 см, как в книге
     const pivot = new T.Group(); pivot.add(ty.group); scene.add(pivot);
     // тёплый боковой свет (скользящий: рельеф читается), слабый холодный встречный и общий
-    const key = new T.DirectionalLight(0xFFD9A0, 1.25); key.position.set(-1.6, 0.9, 0.75); scene.add(key);
-    const rim = new T.DirectionalLight(0x8FA6D8, 0.28); rim.position.set(1.4, -0.3, 0.6); scene.add(rim);
-    scene.add(new T.AmbientLight(0xFFE9CC, 0.34));
+    const key = new T.DirectionalLight(0xFFE0B0, 0.92); key.position.set(-1.6, 0.9, 0.7); scene.add(key);
+    const rim = new T.DirectionalLight(0x9FB2DC, 0.22); rim.position.set(1.4, -0.3, 0.6); scene.add(rim);
+    scene.add(new T.AmbientLight(0xFFEEDC, 0.3));
     const sz = gl.size(), asp = sz.w / sz.h;
     const cam = new T.PerspectiveCamera(32, asp, 0.05, 20);
-    const dist = Math.max((1.05 / 0.88) / (2 * Math.tan(cam.fov * PI / 360) * asp), (0.66 / 0.5) / (2 * Math.tan(cam.fov * PI / 360)));
-    cam.position.set(0, 0, dist); pivot.position.y = Math.tan(cam.fov * PI / 360) * dist * 0.2;
+    const dist = Math.max((1.05 / 0.93) / (2 * Math.tan(cam.fov * PI / 360) * asp), (0.66 / 0.5) / (2 * Math.tan(cam.fov * PI / 360)));
+    cam.position.set(0, 0, dist); pivot.position.y = Math.tan(cam.fov * PI / 360) * dist * 0.12;
     const S = { yaw: -0.5, pitch: 0.08, vy: 0, touched: false, t: 0, found: false, foundT: 0 };
     const ray = new T.Raycaster(), nd = new T.Vector2();
     let done = null; const fin = new Promise(r => { done = r; });
