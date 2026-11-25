@@ -351,7 +351,12 @@
       size() { const c = r.domElement; return { w: c.clientWidth || c.width || 390, h: c.clientHeight || c.height || 844 }; },
       loop(f) { fn = f; last = performance.now(); if (!raf) raf = requestAnimationFrame(tick); },
       stop() { fn = null; if (raf) cancelAnimationFrame(raf); raf = 0; },
-      render(scene, cam) { if (r.info && r.info.autoReset === false) r.info.reset(); r.render(scene, cam); },
+      // кадр: холст могли повернуть или растянуть (хозяин сам меняет размер рендерера) — камера шага подстраивается
+      render(scene, cam) {
+        const c = r.domElement, w = c.clientWidth || c.width, h = c.clientHeight || c.height, a = w / Math.max(1, h);
+        if (cam.isPerspectiveCamera && Math.abs(cam.aspect - a) > 0.002) { cam.aspect = a; cam.updateProjectionMatrix(); }
+        if (r.info && r.info.autoReset === false) r.info.reset(); r.render(scene, cam);
+      },
       dispose() { gl.stop(); },
     };
     return gl;
@@ -425,7 +430,7 @@
     };
     const hint = t => ui.hint(t, 'calc(30px + env(safe-area-inset-bottom,0px))');
     let done = null; const fin = new Promise(r => { done = r; });
-    const screenOf = p => { tmp.copy(p).project(cam); return tmp.z > 1 ? null : { x: (tmp.x + 1) / 2 * sz.w, y: (1 - tmp.y) / 2 * sz.h }; };
+    const screenOf = p => { const q = gl.size(); tmp.copy(p).project(cam); return tmp.z > 1 ? null : { x: (tmp.x + 1) / 2 * q.w, y: (1 - tmp.y) / 2 * q.h }; };
     dragLayer(ses, (dx, dy) => {
       if (S.phase === 'end') return;
       S.yaw = clamp(S.yaw + dx * 0.0052, -YAW, YAW); S.pitch = clamp(S.pitch + dy * 0.004, P0, P1);   // картинка едет за пальцем (восток — слева, когда смотришь на юг)

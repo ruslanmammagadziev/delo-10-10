@@ -12,7 +12,7 @@
        kub[<id дела>] = { a: взято, s: пройдено шагов, d: закрыто, k: биты карточек, n: сколько раз закрыто }.
        Выйти можно в любой миг (✕): пройденные шаги и карточки уже записаны, вернуться — у глашатая на площади.
      • Тексты — только в данных дела; у каждой карточки статус и страница источника (правила подачи SEASON.md).
-     • В режиме без названия (VILLAGE.named === false) дел нет: они целиком про историю названного села.
+     • В режиме без названия (VILLAGE.named === false / CONFIG.VILLAGE_NAMED = false) дел нет: они целиком про историю названного села.
 
    API
      register(def)            — добавить дело (см. history_case5.js)
@@ -40,7 +40,7 @@
   };
   const CASES = [];
   const SPEAK = {
-    herald: { name: 'Петух-глашатай', icon: '🐓' },
+    herald_rooster: { name: 'Петух-глашатай', icon: '🐓' },   // id говорящего — как в VILLAGE.SPEAKERS (озвучка: tools/voice_lines.js найдёт реплики сам)
     hero: { name: '', icon: '' },
   };
   if (V.SPEAKERS && !V.SPEAKERS.herald_rooster) V.SPEAKERS.herald_rooster = { name: 'Петух-глашатай', icon: '🐓', voice: 'звонкий, торжественный, чуть важный' };
@@ -70,7 +70,7 @@
   const cardsGot = id => { const c = caseBy(id); return c ? c.cards.filter((_, i) => hasCard(c, i)).length : 0; };
   const caseBy = id => CASES.find(c => c.id === id) || null;
   function register(def) { if (def && def.id && !caseBy(def.id)) { CASES.push(def); CASES.sort((a, b) => a.n - b.n); } }
-  const namedOk = () => V.named !== false;
+  const namedOk = () => V.named !== false && !(window.CONFIG && window.CONFIG.VILLAGE_NAMED === false);
   // дело, которое сейчас предлагает глашатай: первое незакрытое, иначе — последнее закрытое (перечитать)
   function current() { if (!namedOk() || !CASES.length) return null; return CASES.find(c => !progress(c.id).d) || CASES[CASES.length - 1]; }
 
@@ -80,7 +80,7 @@
     if (cssEl) return;
     cssEl = document.createElement('style'); cssEl.setAttribute('data-kh', '1');
     cssEl.textContent = `
-body.kh-on #hud,body.kh-on #fx,body.kh-on .w-root>:not(canvas),body.kh-on #ui,body.kh-on #dbg,body.kh-on .dnbtn{visibility:hidden!important}
+body.kh-on #hud,body.kh-on #fx,body.kh-on #layer>*,body.kh-on .w-root>:not(canvas),body.kh-on #ui,body.kh-on #dbg,body.kh-on .dnbtn{visibility:hidden!important}
 .kh{--kc:#B5520E;--kcd:#6B3517;--ki:#3B2A20;--ki2:#735E4E;--kcr:#FFF3E2;--kp:#F9CF9C;--kp2:#FCE7CC;--ka:#F39A2B;position:fixed;inset:0;z-index:90;overflow:hidden;color:var(--ki);
   font-family:var(--font,'Nunito',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif);font-weight:700;-webkit-user-select:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent;
   background:radial-gradient(120% 80% at 50% 0%,#FFF7EA 0%,#FBE3C2 55%,#F3C78E 100%)}
@@ -221,10 +221,10 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on .w-root>:not(canvas),body.kh-on #ui,bo
           const show = () => {
             if (box) box.remove();
             if (i >= lines.length) { res(); return; }
-            const l = lines[i], sp = SPEAK[l.who] || SPEAK.herald, hero = l.who === 'hero';
+            const l = lines[i], sp = SPEAK[l.who] || SPEAK.herald_rooster, hero = l.who === 'hero';
             box = el('div', 'kh-dlg' + (hero ? ' hero' : ''), `<div class="who">${hero ? 'Следователь' : esc(sp.icon + ' ' + sp.name)}</div><div class="txt">${esc(l.text)}</div><div class="more">${i < lines.length - 1 ? 'дальше ▸' : 'понятно ▸'}</div>`);
             box.setAttribute('role', 'button'); box.setAttribute('data-kh', 'say'); root.appendChild(box); at = performance.now();
-            const g = G_(); if (g && g.voiceLine && !hero) { try { g.voiceLine('herald_rooster', l.text); } catch (e) { /* без голоса */ } }
+            const g = G_(); if (g && g.voiceLine && !hero) { try { g.voiceLine(l.who, l.text); } catch (e) { /* без голоса */ } }
             box.addEventListener('click', () => { if (performance.now() - at < 180) return; haptic('light'); sfx('tap'); i++; show(); });
           };
           ui.onCleanup(() => { if (box) box.remove(); });
@@ -383,7 +383,8 @@ body.kh-on #hud,body.kh-on #fx,body.kh-on .w-root>:not(canvas),body.kh-on #ui,bo
     const n = ctx.place('herald_rooster', at.x, at.z, at.ry, { make, scale: 1.2, headY: 1.1, talkR: 2.6, name: 'Петух-глашатай' });
     n.lines = []; n.history = true;   // без «Поговорить»: у глашатая одно действие — место «Сход!» (иначе две кнопки спорят)
     const spot = {
-      id: 'history_call', x: at.x + Math.sin(at.ry) * 1.3, y: n.y, z: at.z + Math.cos(at.ry) * 1.3, r: 2.6, ry: at.ry + Math.PI, icon: '📜', label: 'Сход на площади', play: true, npc: 'herald_rooster',
+      // место — в полутора метрах перед глашатаем и чуть сбоку; героиня с карты встаёт сюда вполоборота: он в кадре рядом, а не за её спиной
+      id: 'history_call', x: at.x + Math.sin(at.ry + 0.45) * 1.6, y: n.y, z: at.z + Math.cos(at.ry + 0.45) * 1.6, r: 2.7, ry: at.ry + Math.PI + 0.45 - 0.62, icon: '📜', label: 'Сход на площади', play: true, npc: 'herald_rooster',
       get action() { return actionLabel(); },
       // пока есть незакрытое дело, точка карты «Базарная площадь» («Поехать сюда») ставит героиню прямо перед глашатаем
       get poi() { const c = current(); return c && !progress(c.id).d ? 'square' : undefined; },

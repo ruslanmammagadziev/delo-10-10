@@ -19,7 +19,8 @@ OPTIONAL = {'js/hero3d.js', 'js/hero_anim.js', 'js/world/kit.js', 'js/world/acto
             'js/village/serpentine.js', 'js/village/drive.js', 'js/village/bazaar.js', 'js/village/kaz.js',
             'js/village/wedding.js', 'js/village/wedding_song.js', 'js/village/hotel.js', 'js/village/zipline.js', 'js/village/summit.js',
             'js/interact.js', 'js/daynight.js', 'js/vehicles/sedan.js',
-            'js/village/kombinat_sign.js', 'js/village/kombinat_in.js', 'js/village/kombinat.js'}   # волна «комбинат»: вывеска, начинка, корпус
+            'js/village/kombinat_sign.js', 'js/village/kombinat_in.js', 'js/village/kombinat.js',
+            'js/village/history.js', 'js/village/history_games.js', 'js/village/history_tympan.js', 'js/village/history_case5.js'}   # волна «комбинат»: вывеска, начинка, корпус
 
 
 def layout_block():
